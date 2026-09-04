@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词PK - MD3 实时联机对战</title>
+    <title>单词PK</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -551,7 +551,7 @@
                         <p style="margin: 6px 0 14px;">输入好友分享的 6 位房间码加入对决。</p>
                         <div style="display: flex; gap: 10px;">
                             <input type="text" id="join-room-code" class="input-field" placeholder="输入 6 位房间码..." maxlength="6" style="text-transform: uppercase;">
-                            <button class="btn btn-tonal btn-touch-large" onclick="joinOnlineRoom()">加入房间</button>
+                            <button class="btn btn-tonal btn-touch-large" id="btn-join-room" onclick="joinOnlineRoom()">加入房间</button>
                         </div>
                     </div>
                 </div>
@@ -559,7 +559,7 @@
                 <div id="online-in-room" style="display: none;">
                     <div style="text-align: center; margin-bottom: 24px;">
                         <span class="badge badge-online" style="font-size: 0.95rem; padding: 6px 16px;">房间已就绪</span>
-                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code">------</div>
+                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code" title="点击复制">------</div>
                         <p>点击房间号可复制邀请码，或让好友直接输入</p>
                     </div>
 
@@ -580,7 +580,7 @@
                     </div>
 
                     <div style="display: flex; gap: 12px;">
-                        <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby()">退出房间</button>
+                        <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">退出房间</button>
                         <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>等待对手加入...</button>
                     </div>
                 </div>
@@ -689,13 +689,11 @@
 
     <script>
         /* ==========================================================================
-           1. INITIALIZATION & SUPABASE CONFIG
+           1. INITIALIZATION & SUPABASE CLIENT
            ========================================================================== */
         const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
 
-        // 命名为 sbClient 避免和全局 window.supabase 变量冲突
-        // 设置 persistSession: false 避免触发浏览器的第三方 CDN Storage 拦截
         const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: {
                 persistSession: false,
@@ -757,10 +755,12 @@
         let gameTimer = null;
         let gameResult = null;
 
+        // 房间与联机状态
         let realtimeChannel = null;
         let roomCode = null;
         let isHost = false;
-        let remotePlayerName = '';
+        let hostName = '';
+        let guestName = '';
 
         const canvas = document.getElementById('snakeCanvas');
         const ctx = canvas.getContext('2d');
@@ -867,25 +867,77 @@
         }
 
         /* ==========================================================================
-           2. SUPABASE REALTIME MULTIPLAYER (sbClient)
+           2. SUPABASE REALTIME 房间全生命周期管理
            ========================================================================== */
+        
+        // 房主创建房间
         async function createOnlineRoom() {
             roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             isHost = true;
-            setupRoomUI(roomCode);
-            connectSupabaseRoom(roomCode);
+            hostName = currentUser;
+            guestName = '';
+
+            setupRoomLobbyUI(roomCode);
+            connectSupabaseChannel(roomCode);
         }
 
-        function joinOnlineRoom() {
+        // P2 加入房间（带严格匹配与在线检测）
+        async function joinOnlineRoom() {
+            const btnJoin = document.getElementById('btn-join-room');
             const codeInput = document.getElementById('join-room-code').value.trim().toUpperCase();
-            if (codeInput.length !== 6) return alert('请输入规范的 6 位房间号');
-            roomCode = codeInput;
-            isHost = false;
-            setupRoomUI(roomCode);
-            connectSupabaseRoom(roomCode);
+            if (codeInput.length !== 6) return alert('请输入 6 位规范房间码！');
+
+            btnJoin.disabled = true;
+            btnJoin.innerText = '正在验证房间...';
+
+            // 建立探测临时监听，检查是否有房主应答
+            const testChannel = sbClient.channel(`duel_${codeInput}`, {
+                config: { presence: { key: currentUser } }
+            });
+
+            let verified = false;
+            const timeoutTimer = setTimeout(() => {
+                if (!verified) {
+                    testChannel.unsubscribe();
+                    btnJoin.disabled = false;
+                    btnJoin.innerText = '加入房间';
+                    alert(`房间【${codeInput}】不存在或已解散，请核对房间号！`);
+                }
+            }, 2200);
+
+            testChannel
+                .on('broadcast', { event: 'room_ack' }, ({ payload }) => {
+                    if (payload && payload.isHost) {
+                        verified = true;
+                        clearTimeout(timeoutTimer);
+                        testChannel.unsubscribe();
+
+                        // 验证通过，正式以 P2 身份进入
+                        isHost = false;
+                        roomCode = codeInput;
+                        hostName = payload.hostName;
+                        guestName = currentUser;
+
+                        btnJoin.disabled = false;
+                        btnJoin.innerText = '加入房间';
+
+                        setupRoomLobbyUI(roomCode);
+                        connectSupabaseChannel(roomCode);
+                    }
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        // 发出握手探测请求
+                        testChannel.send({
+                            type: 'broadcast',
+                            event: 'room_ping',
+                            payload: { from: currentUser }
+                        });
+                    }
+                });
         }
 
-        function setupRoomUI(code) {
+        function setupRoomLobbyUI(code) {
             document.getElementById('online-pre-join').style.display = 'none';
             document.getElementById('online-in-room').style.display = 'block';
             document.getElementById('display-room-code').innerText = code;
@@ -893,43 +945,96 @@
                 navigator.clipboard.writeText(code);
                 showToast(`已复制房间码: ${code}`);
             };
-            if (isHost) {
-                document.getElementById('room-p1-name').innerText = currentUser;
-                document.getElementById('room-p2-name').innerText = '等待玩家加入...';
-                document.getElementById('online-start-btn').disabled = true;
-                document.getElementById('online-start-btn').innerText = '等待对手加入...';
+
+            refreshRoomPlayerCards();
+        }
+
+        function refreshRoomPlayerCards() {
+            // P1 信息
+            document.getElementById('room-p1-name').innerText = hostName || '等待房主...';
+
+            // P2 信息
+            if (guestName) {
+                document.getElementById('room-p2-name').innerText = guestName;
             } else {
-                document.getElementById('room-p2-name').innerText = currentUser;
+                document.getElementById('room-p2-name').innerText = '等待对手加入...';
+            }
+
+            // 房主按钮状态
+            const startBtn = document.getElementById('online-start-btn');
+            if (isHost) {
+                if (guestName) {
+                    startBtn.disabled = false;
+                    startBtn.innerText = '双方已就绪！立即开战';
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.innerText = '等待对手加入...';
+                }
+            } else {
+                startBtn.disabled = true;
+                startBtn.innerText = guestName ? '已在房间内，等待房主开局...' : '正在连接...';
             }
         }
 
-        async function connectSupabaseRoom(code) {
-            showToast('正在接入实时联机信道...');
+        // 统一信道监听
+        function connectSupabaseChannel(code) {
+            if (realtimeChannel) {
+                realtimeChannel.unsubscribe();
+            }
+
             realtimeChannel = sbClient.channel(`duel_${code}`, {
                 config: { presence: { key: currentUser } }
             });
 
             realtimeChannel
-                .on('presence', { event: 'sync' }, () => {
-                    const presenceState = realtimeChannel.presenceState();
-                    const players = Object.keys(presenceState);
+                // 收到 Ping 探测：房主立即响应 Ack
+                .on('broadcast', { event: 'room_ping' }, () => {
                     if (isHost) {
-                        const guest = players.find(p => p !== currentUser);
-                        if (guest) {
-                            remotePlayerName = guest;
-                            document.getElementById('room-p2-name').innerText = guest;
-                            document.getElementById('online-start-btn').disabled = false;
-                            document.getElementById('online-start-btn').innerText = '双方就绪！立即开战';
-                            showToast(`玩家【${guest}】已加入房间！`);
-                        }
-                    } else {
-                        const host = players.find(p => p !== currentUser);
-                        if (host) {
-                            remotePlayerName = host;
-                            document.getElementById('room-p1-name').innerText = host;
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'room_ack',
+                            payload: { isHost: true, hostName: currentUser }
+                        });
+                    }
+                })
+                // P2 进入后，如果 P1 已在线，进行全员身份握手与 UI 更新
+                .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
+                    if (payload.role === 'guest') {
+                        guestName = payload.name;
+                        showToast(`挑战者【${guestName}】已进入房间！`);
+                        refreshRoomPlayerCards();
+                        // 房主向 P2 反向发送确认
+                        if (isHost) {
+                            realtimeChannel.send({
+                                type: 'broadcast',
+                                event: 'room_sync',
+                                payload: { hostName: currentUser, guestName: guestName }
+                            });
                         }
                     }
                 })
+                // P2 接收房主的主动同步
+                .on('broadcast', { event: 'room_sync' }, ({ payload }) => {
+                    hostName = payload.hostName;
+                    guestName = payload.guestName;
+                    refreshRoomPlayerCards();
+                })
+                // P2 退出：P1 立即更新，恢复等待
+                .on('broadcast', { event: 'player_left' }, ({ payload }) => {
+                    if (payload.role === 'guest') {
+                        showToast(`玩家【${guestName}】已退出房间`);
+                        guestName = '';
+                        refreshRoomPlayerCards();
+                    }
+                })
+                // P1 退出：房主解散房间，通知 P2
+                .on('broadcast', { event: 'room_closed' }, () => {
+                    if (!isHost) {
+                        alert('房主已解散或退出了对决房间。');
+                        cleanUpAndBackToHub();
+                    }
+                })
+                // 游戏流程信令
                 .on('broadcast', { event: 'game_start' }, ({ payload }) => {
                     handleRemoteGameStart(payload);
                 })
@@ -939,29 +1044,93 @@
                 .on('broadcast', { event: 'game_over' }, ({ payload }) => {
                     endGame(payload.msg, false);
                 })
+                // 兜底：实时监听用户掉线或关闭网页
+                .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+                    leftPresences.forEach(p => {
+                        if (isHost && p.key === guestName) {
+                            showToast(`对手【${guestName}】已断开连接`);
+                            guestName = '';
+                            refreshRoomPlayerCards();
+                        } else if (!isHost && p.key === hostName) {
+                            alert('房主网络连接已断开，房间自动解散。');
+                            cleanUpAndBackToHub();
+                        }
+                    });
+                })
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
-                        await realtimeChannel.track({ online_at: new Date().toISOString() });
+                        await realtimeChannel.track({ name: currentUser, isHost });
+                        // 如果是挑战者，告知房主自己进来了
+                        if (!isHost) {
+                            realtimeChannel.send({
+                                type: 'broadcast',
+                                event: 'player_joined',
+                                payload: { name: currentUser, role: 'guest' }
+                            });
+                        }
                     }
                 });
         }
 
+        // 玩家点击“退出房间”
+        function leaveOnlineLobby(confirmNeeded = false) {
+            if (confirmNeeded && !confirm('确认退出当前房间吗？')) return;
+
+            if (realtimeChannel) {
+                if (isHost) {
+                    // P1 退出：广播房间已解散
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'room_closed',
+                        payload: {}
+                    });
+                } else {
+                    // P2 退出：通知 P1 更新
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'player_left',
+                        payload: { name: currentUser, role: 'guest' }
+                    });
+                }
+            }
+
+            cleanUpAndBackToHub();
+        }
+
+        function cleanUpAndBackToHub() {
+            if (realtimeChannel) {
+                realtimeChannel.unsubscribe();
+                realtimeChannel = null;
+            }
+            roomCode = null;
+            isHost = false;
+            hostName = '';
+            guestName = '';
+
+            document.getElementById('online-pre-join').style.display = 'flex';
+            document.getElementById('online-in-room').style.display = 'none';
+            document.getElementById('btn-join-room').disabled = false;
+            document.getElementById('btn-join-room').innerText = '加入房间';
+            switchView('view-hub');
+        }
+
         function startOnlineGame() {
-            if (!isHost) return;
+            if (!isHost || !guestName) return;
             const sharedPool = generateShuffledPool(80);
             realtimeChannel.send({
                 type: 'broadcast',
                 event: 'game_start',
-                payload: { pool: sharedPool, hostName: currentUser }
+                payload: { pool: sharedPool, hostName: currentUser, guestName: guestName }
             });
-            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser });
+            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName });
         }
 
         function handleRemoteGameStart(payload) {
             gameMode = 'online';
             document.getElementById('game-mode-title').innerText = '🌐 实时联机对决';
             document.getElementById('p1-name-tag').innerHTML = `🔴 ${currentUser} (我方)`;
-            document.getElementById('remote-oppo-name').innerText = `🔵 ${remotePlayerName || '在线对手'}`;
+            const oppoName = isHost ? payload.guestName : payload.hostName;
+            document.getElementById('remote-oppo-name').innerText = `🔵 ${oppoName || '对手'}`;
             
             document.getElementById('game-layout').className = 'single-grid';
             document.getElementById('panel-center').style.display = 'flex';
@@ -995,18 +1164,8 @@
             checkOnlineWinCondition();
         }
 
-        function leaveOnlineLobby() {
-            if (realtimeChannel) {
-                realtimeChannel.unsubscribe();
-                realtimeChannel = null;
-            }
-            document.getElementById('online-pre-join').style.display = 'flex';
-            document.getElementById('online-in-room').style.display = 'none';
-            switchView('view-hub');
-        }
-
         /* ==========================================================================
-           3. LOCAL & SINGLE PLAYER
+           3. 本地单机与同屏模式
            ========================================================================== */
         function resetPlayerState(state, pool) {
             if (state.timerId) clearInterval(state.timerId);
@@ -1066,7 +1225,7 @@
         }
 
         /* ==========================================================================
-           4. QUESTION HANDLING & GAMEPLAY
+           4. 判题逻辑与答题处理
            ========================================================================== */
         function renderQuestion(state, prefix) {
             const isP2 = (prefix === 'p2' && gameMode === 'local');
@@ -1374,6 +1533,7 @@
                     </div>
                 `;
             } else {
+                const oppoTitle = gameMode === 'online' ? (isHost ? guestName : hostName) : 'P2 蓝方';
                 details.innerHTML = `
                     <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:20px; border-radius:var(--md-shape-l);">
                         <div>
@@ -1382,7 +1542,7 @@
                         </div>
                         <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
                         <div>
-                            <div style="font-weight:700; color:var(--p2-sys-color);">${gameMode === 'online' ? (remotePlayerName || '对手') : 'P2 蓝方'}</div>
+                            <div style="font-weight:700; color:var(--p2-sys-color);">${oppoTitle || '对手'}</div>
                             <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
                         </div>
                     </div>
@@ -1391,14 +1551,15 @@
         }
 
         function confirmExitGame() {
-            if (confirm('确定退出当前对局吗？')) {
+            if (confirm('确定退出当前对局吗？退出后将视作放弃。')) {
                 clearInterval(gameTimer);
                 if (p1State.timerId) clearInterval(p1State.timerId);
                 if (p2State.timerId) clearInterval(p2State.timerId);
-                if (gameMode === 'online' && realtimeChannel) {
-                    realtimeChannel.unsubscribe();
+                if (gameMode === 'online') {
+                    leaveOnlineLobby(false);
+                } else {
+                    switchView('view-hub');
                 }
-                switchView('view-hub');
             }
         }
 
