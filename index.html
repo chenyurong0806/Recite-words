@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>单词PK</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +15,7 @@
 
     <style>
         :root {
+            /* Google Material Design 3 Baseline Color Tokens */
             --md-sys-color-primary: #0061A4;
             --md-sys-color-on-primary: #FFFFFF;
             --md-sys-color-primary-container: #D1E4FF;
@@ -30,7 +31,7 @@
             --md-sys-color-error-container: #FFDAD6;
             --md-sys-color-on-error-container: #410002;
 
-            --md-sys-color-success: #198754;
+            --md-sys-color-success: #146C2E;
             --md-sys-color-success-container: #C8E6C9;
             --md-sys-color-on-success-container: #003314;
 
@@ -56,6 +57,7 @@
             --p2-sys-container: #9EEFFD;
             --p2-sys-on-container: #001F24;
 
+            --md-shape-xs: 4px;
             --md-shape-s: 8px;
             --md-shape-m: 12px;
             --md-shape-l: 16px;
@@ -66,8 +68,8 @@
             --md-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
             --md-elevation-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.08), 0px 1px 3px 0px rgba(0, 0, 0, 0.12);
 
-            --md-motion-standard: 0.25s cubic-bezier(0.2, 0, 0, 1);
-            --md-motion-expressive: 0.35s cubic-bezier(0.3, 0, 0, 1);
+            --md-motion-standard: 0.22s cubic-bezier(0.2, 0, 0, 1);
+            --md-motion-expressive: 0.32s cubic-bezier(0.3, 0, 0, 1);
         }
 
         * {
@@ -87,13 +89,13 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            padding: 16px 16px 40px;
+            padding: 12px 16px 36px;
             overflow-x: hidden;
         }
 
         .container {
             width: 100%;
-            max-width: 1100px;
+            max-width: 960px;
             position: relative;
         }
 
@@ -114,7 +116,7 @@
             background: var(--md-sys-color-surface-container-lowest);
             border-radius: var(--md-shape-xl);
             padding: 24px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             border: 1px solid var(--md-sys-color-outline-variant);
             box-shadow: var(--md-elevation-1);
         }
@@ -130,14 +132,14 @@
             letter-spacing: -0.01em;
         }
 
-        h1 { font-size: 2.1rem; margin-bottom: 8px; }
-        h2 { font-size: 1.5rem; }
-        h3 { font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
-        p { color: var(--md-sys-color-on-surface-variant); font-size: 0.95rem; line-height: 1.5; }
+        h1 { font-size: 2rem; margin-bottom: 8px; }
+        h2 { font-size: 1.4rem; }
+        h3 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+        p { color: var(--md-sys-color-on-surface-variant); font-size: 0.92rem; line-height: 1.5; }
 
         .input-field {
             width: 100%;
-            height: 54px;
+            height: 52px;
             padding: 0 16px;
             font-size: 1rem;
             font-family: inherit;
@@ -159,8 +161,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0 24px;
-            min-height: 48px;
+            padding: 0 20px;
+            min-height: 44px;
             font-size: 0.95rem;
             font-weight: 600;
             font-family: inherit;
@@ -168,13 +170,13 @@
             border: none;
             cursor: pointer;
             transition: all var(--md-motion-standard);
-            gap: 8px;
+            gap: 6px;
             white-space: nowrap;
             touch-action: manipulation;
         }
 
         .btn:active { transform: scale(0.96); }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .btn:disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
 
         .btn-filled { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: var(--md-elevation-1); }
         .btn-filled:hover { filter: brightness(1.06); box-shadow: var(--md-elevation-2); }
@@ -188,25 +190,25 @@
         .btn-danger { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
         .btn-danger:hover { filter: brightness(0.95); }
 
-        .btn-touch-large { min-height: 54px; font-size: 1.05rem; padding: 0 32px; }
+        .btn-touch-large { min-height: 52px; font-size: 1.02rem; padding: 0 28px; }
 
         .app-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding: 8px 4px;
+            margin-bottom: 16px;
+            padding: 6px 2px;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
 
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
+            gap: 5px;
+            padding: 3px 10px;
             border-radius: var(--md-shape-full);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 700;
         }
         .badge-p1 { background: var(--p1-sys-container); color: var(--p1-sys-on-container); }
@@ -215,33 +217,33 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
             margin: 16px 0;
         }
 
         .stat-card {
             background: var(--md-sys-color-surface-container);
-            padding: 16px 20px;
+            padding: 14px 18px;
             border-radius: var(--md-shape-l);
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
-        .stat-label { font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
-        .stat-value { font-size: 2.1rem; font-weight: 700; color: var(--md-sys-color-primary); line-height: 1.1; }
+        .stat-label { font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+        .stat-value { font-size: 1.9rem; font-weight: 700; color: var(--md-sys-color-primary); line-height: 1.1; }
 
         .modes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            margin: 16px 0;
         }
 
         .mode-card {
             background: var(--md-sys-color-surface-container-low);
             border-radius: var(--md-shape-xl);
-            padding: 24px;
+            padding: 22px;
             cursor: pointer;
             border: 2px solid transparent;
             transition: all var(--md-motion-expressive);
@@ -257,70 +259,161 @@
         }
 
         .mode-icon {
-            font-size: 2.4rem;
-            margin-bottom: 12px;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
             display: inline-block;
         }
 
-        .single-grid {
+        /* MD3 Filter Chips / Segments */
+        .rule-group {
+            margin-bottom: 18px;
+        }
+        .rule-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-bottom: 8px;
+            display: block;
+        }
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .md3-chip {
+            padding: 7px 16px;
+            border-radius: var(--md-shape-s);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface);
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+        }
+        .md3-chip:hover {
+            background: var(--md-sys-color-surface-container);
+        }
+        .md3-chip.selected {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-color: var(--md-sys-color-primary);
+            font-weight: 700;
+        }
+        .md3-chip.disabled {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* ==========================================================================
+           全新 MD3 联机对决竞技场 UI (响应式手机/电脑端)
+           ========================================================================== */
+        .arena-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
             max-width: 680px;
             margin: 0 auto;
+            width: 100%;
         }
 
-        .multi-grid {
-            display: grid;
-            grid-template-columns: 1fr 280px 1fr;
-            gap: 16px;
-            align-items: stretch;
-        }
-
-        .quiz-panel {
+        .arena-head-card {
             background: var(--md-sys-color-surface-container-lowest);
-            border: 1px solid var(--md-sys-color-outline-variant);
             border-radius: var(--md-shape-xl);
-            padding: 24px;
+            padding: 16px 20px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .arena-player-box {
+            display: flex;
+            flex-direction: column;
+            min-width: 80px;
+        }
+        .arena-player-box.left { align-items: flex-start; text-align: left; }
+        .arena-player-box.right { align-items: flex-end; text-align: right; }
+
+        .arena-player-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .arena-player-score {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .arena-center-gauge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #snakeCanvas {
+            border-radius: 50%;
+            background: var(--md-sys-color-surface-container-lowest);
+            box-shadow: 0 0 0 1px var(--md-sys-color-outline-variant);
+        }
+
+        .arena-quiz-card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            padding: 24px 20px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-2);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 520px;
+            min-height: 480px;
             position: relative;
         }
 
         .word-display {
-            font-size: 2.6rem;
+            font-size: 2.5rem;
             font-weight: 700;
             color: var(--md-sys-color-on-surface);
             text-align: center;
             word-break: break-word;
-            margin-top: 12px;
+            margin-top: 4px;
         }
 
         .phone-display {
             font-family: 'Roboto Mono', monospace;
-            font-size: 1.05rem;
+            font-size: 1rem;
             color: var(--md-sys-color-on-surface-variant);
             text-align: center;
-            margin-bottom: 24px;
-            min-height: 24px;
+            margin-bottom: 20px;
+            min-height: 22px;
         }
 
         .options-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 10px;
             width: 100%;
         }
 
         .option-btn {
             width: 100%;
-            min-height: 58px;
+            min-height: 56px;
             padding: 12px 18px;
             background: var(--md-sys-color-surface-container-low);
             border: 1.5px solid var(--md-sys-color-outline-variant);
             border-radius: var(--md-shape-l);
             color: var(--md-sys-color-on-surface);
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.98rem;
             font-weight: 500;
             text-align: left;
             cursor: pointer;
@@ -351,22 +444,6 @@
             font-weight: 700;
         }
 
-        .snake-panel {
-            background: var(--md-sys-color-surface-container);
-            border-radius: var(--md-shape-xl);
-            padding: 20px 14px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-around;
-        }
-
-        #snakeCanvas {
-            border-radius: 50%;
-            background: var(--md-sys-color-surface-container-lowest);
-            box-shadow: var(--md-elevation-1);
-        }
-
         .cooldown-banner {
             display: none;
             margin-top: 14px;
@@ -374,26 +451,15 @@
             border-radius: var(--md-shape-m);
             text-align: center;
             font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .cooldown-banner.active { display: block; }
-        .cooldown-banner.multi-mode {
+            font-size: 0.92rem;
             background: var(--md-sys-color-error-container);
             color: var(--md-sys-color-on-error-container);
             border: 1px solid var(--md-sys-color-error);
         }
 
-        .remote-status-card {
-            background: var(--md-sys-color-surface-container);
-            border-radius: var(--md-shape-l);
-            padding: 16px;
-            margin-top: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+        .cooldown-banner.active { display: block; }
 
+        /* Toast / Snackbar */
         .snackbar {
             position: fixed;
             bottom: 24px;
@@ -427,10 +493,14 @@
             100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.3); }
         }
 
-        @media (max-width: 900px) {
-            .multi-grid { grid-template-columns: 1fr; }
-            .quiz-panel { min-height: auto; }
-            .snake-panel { order: -1; margin-bottom: 16px; }
+        @media (max-width: 600px) {
+            body { padding: 10px 10px 24px; }
+            .card { padding: 18px 14px; }
+            .word-display { font-size: 2.1rem; }
+            .arena-quiz-card { min-height: 440px; padding: 16px 14px; }
+            .option-btn { min-height: 52px; font-size: 0.92rem; padding: 10px 14px; }
+            .arena-head-card { padding: 12px 14px; }
+            .arena-player-score { font-size: 1.5rem; }
         }
     </style>
 </head>
@@ -438,9 +508,9 @@
 <body>
     <div class="container">
 
-        <!-- VIEW 1: AUTH & PROFILE -->
+        <!-- VIEW 1: 玩家昵称登录 -->
         <div id="view-auth" class="view active">
-            <div class="card" style="max-width: 480px; margin: 40px auto; text-align: center;">
+            <div class="card" style="max-width: 460px; margin: 40px auto; text-align: center;">
                 <div style="font-size: 3.5rem; margin-bottom: 12px;">⚡</div>
                 <h1>单词PK</h1>
                 <p style="margin-bottom: 24px;">Material Design 3 实时联机对决</p>
@@ -453,7 +523,7 @@
             </div>
         </div>
 
-        <!-- VIEW 2: MAIN HUB -->
+        <!-- VIEW 2: 学习对战大厅 -->
         <div id="view-hub" class="view">
             <div class="app-bar">
                 <div>
@@ -462,55 +532,46 @@
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
                     <span class="badge badge-p1" id="hub-profile-tag">👤 玩家</span>
-                    <button class="btn btn-outlined" style="min-height: 40px; padding: 0 16px;" onclick="switchView('view-auth')">换名</button>
+                    <button class="btn btn-outlined" style="min-height: 38px; padding: 0 14px;" onclick="switchView('view-auth')">换名</button>
                 </div>
             </div>
 
-            <!-- Book Configuration Card -->
+            <!-- 词库卡片 -->
             <div class="card">
                 <h3>📖 题库管理</h3>
-                <div style="display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; align-items: center;">
+                <div style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center;">
                     <button class="btn btn-tonal" onclick="useDefaultBook()">内置核心四级词库 (默认)</button>
                     <button class="btn btn-outlined" onclick="document.getElementById('custom-book-input').click()">📂 导入本地 JSON 词库</button>
                     <input type="file" id="custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
                 </div>
-                <div id="book-status" style="margin-top: 12px; font-weight: 600; font-size: 0.88rem; color: var(--md-sys-color-primary);"></div>
+                <div id="book-status" style="margin-top: 10px; font-weight: 600; font-size: 0.88rem; color: var(--md-sys-color-primary);"></div>
             </div>
 
-            <!-- Game Mode Cards -->
+            <!-- 模式卡片 -->
             <div class="modes-grid">
+                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);" onclick="switchView('view-online')">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="mode-icon">🌐</span>
+                            <span class="badge badge-online">Supabase 实时</span>
+                        </div>
+                        <h3>联机实时对决</h3>
+                        <p style="margin-top: 6px;">创建/加入房间，自由定制答题限时与领先胜出分差！</p>
+                    </div>
+                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start; background: #006874;">进入联机大厅</button>
+                </div>
+
                 <div class="mode-card" onclick="startSinglePlayer()">
                     <div>
                         <span class="mode-icon">🎯</span>
                         <h3>单人闯关模式</h3>
-                        <p style="margin-top: 6px;">不限时间，答错详细复盘，智能错题收录。</p>
+                        <p style="margin-top: 6px;">不限时间，智能匹配高拟真形近干扰项，收录错题。</p>
                     </div>
-                    <button class="btn btn-filled" style="margin-top: 20px; align-self: flex-start;">开始单人练习</button>
-                </div>
-
-                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);" onclick="switchView('view-online')">
-                    <div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span class="mode-icon">🌐</span>
-                            <span class="badge badge-online">Supabase 实时</span>
-                        </div>
-                        <h3>联机在线对决 (1v1)</h3>
-                        <p style="margin-top: 6px;">跨设备创建/输入房间号对战，能量环拔河实时推拉！</p>
-                    </div>
-                    <button class="btn btn-filled" style="margin-top: 20px; align-self: flex-start; background: #006874;">进入联机大厅</button>
-                </div>
-
-                <div class="mode-card" onclick="startLocalMultiplayer()">
-                    <div>
-                        <span class="mode-icon">👥</span>
-                        <h3>同屏双人对战</h3>
-                        <p style="margin-top: 6px;">一台设备双人同屏对打（支持触屏分屏或键盘快捷键）。</p>
-                    </div>
-                    <button class="btn btn-tonal" style="margin-top: 20px; align-self: flex-start;">开启同屏对战</button>
+                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start;">开始单人练习</button>
                 </div>
             </div>
 
-            <!-- Stats Center -->
+            <!-- 数据统计 -->
             <div class="card">
                 <h3>📊 战绩统计</h3>
                 <div class="stats-grid">
@@ -531,14 +592,14 @@
             </div>
         </div>
 
-        <!-- VIEW 3: ONLINE MULTIPLAYER LOBBY -->
+        <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
         <div id="view-online" class="view">
             <div class="app-bar">
-                <h2>🌐 实时联机对战大厅</h2>
+                <h2>🌐 实时联机大厅</h2>
                 <button class="btn btn-tonal" onclick="leaveOnlineLobby()">返回主页</button>
             </div>
 
-            <div class="card" style="max-width: 600px; margin: 0 auto;">
+            <div class="card" style="max-width: 580px; margin: 0 auto;">
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
                         <h3>创建对决房间</h3>
@@ -556,30 +617,66 @@
                     </div>
                 </div>
 
+                <!-- 房间内等待与规则选择区 -->
                 <div id="online-in-room" style="display: none;">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <span class="badge badge-online" style="font-size: 0.95rem; padding: 6px 16px;">房间已就绪</span>
-                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code" title="点击复制">------</div>
-                        <p>点击房间号可复制邀请码，或让好友直接输入</p>
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <span class="badge badge-online" style="font-size: 0.85rem; padding: 4px 14px;">房间已就绪</span>
+                        <div style="font-size: 2.3rem; font-weight: 700; letter-spacing: 4px; margin: 8px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code" title="点击复制">------</div>
+                        <p style="font-size: 0.85rem;">点击上方房间号可快速复制</p>
                     </div>
 
-                    <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 16px; margin-bottom: 20px;">
+                    <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 14px; margin-bottom: 16px;">
                         <div style="display: flex; justify-content: space-around; align-items: center;">
                             <div style="text-align: center;">
-                                <div style="font-size: 2rem;">🔴</div>
+                                <div style="font-size: 1.8rem;">🔴</div>
                                 <div style="font-weight: 700; color: var(--p1-sys-color);" id="room-p1-name">等待房主...</div>
-                                <span class="badge badge-p1" style="margin-top: 6px;">房主 (P1)</span>
+                                <span class="badge badge-p1" style="margin-top: 4px;">房主 (P1)</span>
                             </div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--md-sys-color-outline);">VS</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--md-sys-color-outline);">VS</div>
                             <div style="text-align: center;">
-                                <div style="font-size: 2rem;">🔵</div>
+                                <div style="font-size: 1.8rem;">🔵</div>
                                 <div style="font-weight: 700; color: var(--p2-sys-color);" id="room-p2-name">等待对手加入...</div>
-                                <span class="badge badge-p2" style="margin-top: 6px;">挑战者 (P2)</span>
+                                <span class="badge badge-p2" style="margin-top: 4px;">挑战者 (P2)</span>
                             </div>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 12px;">
+                    <!-- 规则设置区域（房主可点，P2只读同步） -->
+                    <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 16px; margin-bottom: 20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                            <h4 style="font-size: 0.95rem;">⚙️ 对决规则配置</h4>
+                            <span id="rule-sync-hint" style="font-size: 0.78rem; color: var(--md-sys-color-outline);">房主正在配置</span>
+                        </div>
+
+                        <!-- 选项一：局时选择 -->
+                        <div class="rule-group">
+                            <span class="rule-label">每局限时</span>
+                            <div class="chip-group" id="chips-time">
+                                <div class="md3-chip selected" data-time="60" onclick="changeRuleTime(60)">1 分钟</div>
+                                <div class="md3-chip" data-time="120" onclick="changeRuleTime(120)">2 分钟</div>
+                                <div class="md3-chip" data-time="180" onclick="changeRuleTime(180)">3 分钟</div>
+                                <div class="md3-chip" data-time="240" onclick="changeRuleTime(240)">4 分钟</div>
+                                <div class="md3-chip" data-time="300" onclick="changeRuleTime(300)">5 分钟</div>
+                            </div>
+                        </div>
+
+                        <!-- 选项二：获胜条件分差 -->
+                        <div class="rule-group" style="margin-bottom:0;">
+                            <span class="rule-label">获胜条件 (一方领先题数)</span>
+                            <div class="chip-group" id="chips-lead">
+                                <div class="md3-chip" data-lead="3" onclick="changeRuleLead(3)">领先 3 题</div>
+                                <div class="md3-chip" data-lead="4" onclick="changeRuleLead(4)">4 题</div>
+                                <div class="md3-chip" data-lead="5" onclick="changeRuleLead(5)">5 题</div>
+                                <div class="md3-chip selected" data-lead="6" onclick="changeRuleLead(6)">6 题 (默认)</div>
+                                <div class="md3-chip" data-lead="7" onclick="changeRuleLead(7)">7 题</div>
+                                <div class="md3-chip" data-lead="8" onclick="changeRuleLead(8)">8 题</div>
+                                <div class="md3-chip" data-lead="9" onclick="changeRuleLead(9)">9 题</div>
+                                <div class="md3-chip" data-lead="10" onclick="changeRuleLead(10)">10 题</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
                         <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">退出房间</button>
                         <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>等待对手加入...</button>
                     </div>
@@ -587,19 +684,35 @@
             </div>
         </div>
 
-        <!-- VIEW 4: GAME IN PROGRESS -->
+        <!-- VIEW 4: 竞技场联机对决进行中 (全新 UI 结构与手机适配) -->
         <div id="view-game" class="view">
-            <div class="app-bar">
-                <h2 id="game-mode-title">对决进行中</h2>
-                <button class="btn btn-danger" onclick="confirmExitGame()">退出本局</button>
-            </div>
+            <div class="arena-container">
+                <!-- 顶部对决拔河计分环面板 -->
+                <div class="arena-head-card">
+                    <div class="arena-player-box left">
+                        <span class="badge badge-p1" id="arena-my-badge">🔴 我方</span>
+                        <div class="arena-player-name" id="arena-my-name">玩家</div>
+                        <div class="arena-player-score" id="arena-my-score" style="color: var(--p1-sys-color);">0</div>
+                    </div>
 
-            <div id="game-layout" class="single-grid">
-                <div class="quiz-panel" id="panel-p1">
+                    <div class="arena-center-gauge">
+                        <canvas id="snakeCanvas" width="130" height="130"></canvas>
+                        <span id="arena-rule-summary" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6 题胜出</span>
+                    </div>
+
+                    <div class="arena-player-box right">
+                        <span class="badge badge-p2" id="arena-oppo-badge">🔵 对手</span>
+                        <div class="arena-player-name" id="arena-oppo-name">对手</div>
+                        <div class="arena-player-score" id="arena-oppo-score" style="color: var(--p2-sys-color);">0</div>
+                    </div>
+                </div>
+
+                <!-- 主题目卡片 -->
+                <div class="arena-quiz-card">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <span class="badge badge-p1" id="p1-name-tag">玩家1</span>
-                            <span id="game-self-stats" style="font-weight: 600; font-size: 0.9rem; color: var(--md-sys-color-outline);">得分: 0</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="arena-index-tag">第 1 题</span>
+                            <button class="btn btn-outlined" style="min-height: 32px; padding: 0 12px; font-size: 0.8rem;" onclick="confirmExitGame()">退出对决</button>
                         </div>
                         <div class="word-display" id="p1-word">Word</div>
                         <div class="phone-display" id="p1-phone">/phonetic/</div>
@@ -608,60 +721,20 @@
                     <div class="options-grid" id="p1-options"></div>
 
                     <div class="cooldown-banner" id="p1-cooldown">
-                        <span class="cooldown-text">⚠️ 答错冻结倒计时：<strong id="p1-timer">4</strong> 秒</span>
-                        <button class="btn btn-tonal manual-next-btn" style="display:none; width: 100%; margin-top:8px;" id="p1-next-btn">查看完毕，进入下一题 →</button>
+                        <span>⚠️ 答错冷却中，将在 <strong id="p1-timer">3</strong> 秒后解冻...</span>
                     </div>
                 </div>
-
-                <div class="snake-panel" id="panel-center" style="display:none;">
-                    <div style="width: 100%; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; padding: 0 4px;">
-                        <span style="color: var(--p1-sys-color);" id="ui-p1-score">P1: 0</span>
-                        <span style="color: var(--p2-sys-color);" id="ui-p2-score">0 :P2</span>
-                    </div>
-                    <canvas id="snakeCanvas" width="220" height="220"></canvas>
-                    <div style="font-size: 0.8rem; text-align: center; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">
-                        先将能量环推满对方者获胜！
-                    </div>
-                </div>
-
-                <div class="quiz-panel" id="panel-p2" style="display:none;">
-                    <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <span class="badge badge-p2" id="p2-name-tag">玩家2</span>
-                            <span id="p2-stats-tag" style="font-weight: 600; font-size: 0.9rem; color: var(--md-sys-color-outline);">得分: 0</span>
-                        </div>
-                        <div class="word-display" id="p2-word">Word</div>
-                        <div class="phone-display" id="p2-phone">/phonetic/</div>
-                    </div>
-
-                    <div class="options-grid" id="p2-options"></div>
-
-                    <div class="cooldown-banner" id="p2-cooldown">
-                        <span class="cooldown-text">⚠️ 答错冻结倒计时：<strong id="p2-timer">4</strong> 秒</span>
-                    </div>
-                </div>
-            </div>
-
-            <div id="online-opponent-hud" class="remote-status-card" style="display:none;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 1.8rem;">⚡</span>
-                    <div>
-                        <div style="font-weight: 700;" id="remote-oppo-name">对手</div>
-                        <div style="font-size: 0.85rem; color: var(--md-sys-color-outline);" id="remote-oppo-status">实时对决中...</div>
-                    </div>
-                </div>
-                <div style="font-size: 1.4rem; font-weight: 700; color: var(--p2-sys-color);" id="remote-oppo-score">0 题</div>
             </div>
         </div>
 
-        <!-- VIEW 5: MISTAKES NOTEBOOK -->
+        <!-- VIEW 5: 错题本 -->
         <div id="view-mistakes" class="view">
             <div class="app-bar">
                 <h2>📖 我的错题本</h2>
                 <button class="btn btn-tonal" onclick="switchView('view-hub')">返回主页</button>
             </div>
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <p>自动收录对战与练习中的错误单词：</p>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-filled" onclick="restudyMistakes()">专注重练错题</button>
@@ -672,24 +745,29 @@
             </div>
         </div>
 
-        <!-- VIEW 6: RESULT MODAL -->
+        <!-- VIEW 6: 对决结算对话框 (支持“再来一局”与“返回房间”) -->
         <div id="view-result" class="view">
-            <div class="card" style="max-width: 520px; margin: 40px auto; text-align: center;">
-                <div id="result-icon" style="font-size: 4rem; margin-bottom: 8px;">🏆</div>
+            <div class="card" style="max-width: 500px; margin: 30px auto; text-align: center;">
+                <div id="result-icon" style="font-size: 3.8rem; margin-bottom: 6px;">🏆</div>
                 <h1 id="result-message">对决结算</h1>
-                <div id="result-details" style="margin: 20px 0;"></div>
-                <button class="btn btn-filled btn-touch-large" style="width: 100%;" onclick="switchView('view-hub')">返回学习中心</button>
+                <div id="result-details" style="margin: 16px 0;"></div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-filled btn-touch-large" id="btn-play-again" onclick="handlePlayAgain()">再来一局</button>
+                    <button class="btn btn-tonal" id="btn-back-room" onclick="handleBackToRoom()">返回等待房间</button>
+                    <button class="btn btn-outlined" onclick="cleanUpAndBackToHub()">返回主页大厅</button>
+                </div>
             </div>
         </div>
 
     </div>
 
-    <!-- Notification Snackbar -->
+    <!-- Notification Toast -->
     <div id="snackbar" class="snackbar">提示消息</div>
 
     <script>
         /* ==========================================================================
-           1. INITIALIZATION & SUPABASE CLIENT
+           1. SUPABASE CLIENT & CORE VOCABULARY DATABASE
            ========================================================================== */
         const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
@@ -703,64 +781,85 @@
 
         const DEFAULT_WORDS = [
             { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
+            { word: "abundant", phone: "/əˈbʌndənt/", meanings: [{ pos: "adj.", meaning: "丰富的，充裕的" }] },
             { word: "ability", phone: "/əˈbɪləti/", meanings: [{ pos: "n.", meaning: "能力，本领" }] },
             { word: "abnormal", phone: "/æbˈnɔːrml/", meanings: [{ pos: "adj.", meaning: "反常的，异常的" }] },
             { word: "absolute", phone: "/ˈæbsəluːt/", meanings: [{ pos: "adj.", meaning: "绝对的，完全的" }] },
-            { word: "abundant", phone: "/əˈbʌndənt/", meanings: [{ pos: "adj.", meaning: "丰富的，充裕的" }] },
-            { word: "academic", phone: "/ˌækəˈdemɪk/", meanings: [{ pos: "adj.", meaning: "学术的；高等院校的" }] },
+            { word: "academic", phone: "/ˌækəˈdemɪk/", meanings: [{ pos: "adj.", meaning: "学术的；院校的" }] },
             { word: "accelerate", phone: "/əkˈseləreɪt/", meanings: [{ pos: "v.", meaning: "加速，促进" }] },
+            { word: "accumulate", phone: "/əˈkjuːmjəleɪt/", meanings: [{ pos: "v.", meaning: "积累，积聚" }] },
             { word: "accomplish", phone: "/əˈkɑːmplɪʃ/", meanings: [{ pos: "v.", meaning: "达到，完成" }] },
             { word: "accurate", phone: "/ˈækjərət/", meanings: [{ pos: "adj.", meaning: "准确的，精确的" }] },
-            { word: "achieve", phone: "/əˈtʃiːv/", meanings: [{ pos: "v.", meaning: "完成，实现" }] },
-            { word: "acknowledge", phone: "/əkˈnɑːlɪdʒ/", meanings: [{ pos: "v.", meaning: "承认；致谢" }] },
             { word: "acquire", phone: "/əˈkwaɪər/", meanings: [{ pos: "v.", meaning: "取得，获得" }] },
+            { word: "require", phone: "/rɪˈkwaɪər/", meanings: [{ pos: "v.", meaning: "要求，需要" }] },
+            { word: "inquire", phone: "/ɪnˈkwaɪər/", meanings: [{ pos: "v.", meaning: "询问，调查" }] },
             { word: "adapt", phone: "/əˈdæpt/", meanings: [{ pos: "v.", meaning: "使适应；改编" }] },
+            { word: "adopt", phone: "/əˈdɑːpt/", meanings: [{ pos: "v.", meaning: "收养；采纳" }] },
+            { word: "adept", phone: "/əˈdept/", meanings: [{ pos: "adj.", meaning: "熟练的，内行的" }] },
             { word: "adequate", phone: "/ˈædɪkwət/", meanings: [{ pos: "adj.", meaning: "充足的，适当的" }] },
             { word: "advocate", phone: "/ˈædvəkeɪt/", meanings: [{ pos: "v.", meaning: "提倡，主张" }] },
             { word: "aesthetic", phone: "/esˈθetɪk/", meanings: [{ pos: "adj.", meaning: "美学的，审美的" }] },
-            { word: "affection", phone: "/əˈfekʃn/", meanings: [{ pos: "n.", meaning: "喜爱，感情" }] },
-            { word: "aggressive", phone: "/əˈɡresɪv/", meanings: [{ pos: "adj.", meaning: "侵略的；好斗的；有进取心的" }] },
+            { word: "affection", phone: "/əˈfekʃn/", meanings: [{ pos: "n.", meaning: "喜爱，钟爱" }] },
+            { word: "affect", phone: "/əˈfekt/", meanings: [{ pos: "v.", meaning: "影响；感动" }] },
+            { word: "effect", phone: "/ɪˈfekt/", meanings: [{ pos: "n.", meaning: "效果，影响" }] },
+            { word: "aggressive", phone: "/əˈɡresɪv/", meanings: [{ pos: "adj.", meaning: "侵略的；有进取心的" }] },
             { word: "alleviate", phone: "/əˈliːvieɪt/", meanings: [{ pos: "v.", meaning: "减轻，缓和" }] },
+            { word: "elevate", phone: "/ˈelɪveɪt/", meanings: [{ pos: "v.", meaning: "提升；举起" }] },
             { word: "ambiguous", phone: "/æmˈbɪɡjuəs/", meanings: [{ pos: "adj.", meaning: "模棱两可的" }] },
+            { word: "ambitious", phone: "/æmˈbɪʃəs/", meanings: [{ pos: "adj.", meaning: "有抱负的，雄心勃勃的" }] },
             { word: "anticipate", phone: "/ænˈtɪsɪpeɪt/", meanings: [{ pos: "v.", meaning: "预料，预期" }] },
-            { word: "apparent", phone: "/əˈpærənt/", meanings: [{ pos: "adj.", meaning: "表面上的；明显的" }] },
+            { word: "apparent", phone: "/əˈpærənt/", meanings: [{ pos: "adj.", meaning: "明显的，显而易见的" }] },
             { word: "appreciate", phone: "/əˈpriːʃieɪt/", meanings: [{ pos: "v.", meaning: "欣赏；感激" }] },
             { word: "arbitrary", phone: "/ˈɑːrbətreri/", meanings: [{ pos: "adj.", meaning: "随意的，武断的" }] },
             { word: "brilliant", phone: "/ˈbrɪliənt/", meanings: [{ pos: "adj.", meaning: "光辉的；卓越的" }] },
-            { word: "campaign", phone: "/kæmˈpeɪn/", meanings: [{ pos: "n.", meaning: "战役；运动" }] },
-            { word: "candidate", phone: "/ˈkændɪdət/", meanings: [{ pos: "n.", meaning: "候选人" }] },
-            { word: "capacity", phone: "/kəˈpæsəti/", meanings: [{ pos: "n.", meaning: "容量；能力" }] },
+            { word: "campaign", phone: "/kæmˈpeɪn/", meanings: [{ pos: "n.", meaning: "战役；竞选运动" }] },
+            { word: "champion", phone: "/ˈtʃæmpiən/", meanings: [{ pos: "n.", meaning: "冠军；拥护者" }] },
+            { word: "candidate", phone: "/ˈkændɪdət/", meanings: [{ pos: "n.", meaning: "候选人，求职者" }] },
+            { word: "capacity", phone: "/kəˈpæsəti/", meanings: [{ pos: "n.", meaning: "容量；才能" }] },
+            { word: "capture", phone: "/ˈkæptʃər/", meanings: [{ pos: "v.", meaning: "捕获；夺取" }] },
             { word: "casual", phone: "/ˈkæʒuəl/", meanings: [{ pos: "adj.", meaning: "偶然的；随便的" }] },
+            { word: "causal", phone: "/ˈkɔːzl/", meanings: [{ pos: "adj.", meaning: "因果关系的" }] },
             { word: "challenge", phone: "/ˈtʃælɪndʒ/", meanings: [{ pos: "n./v.", meaning: "挑战；质疑" }] },
             { word: "characteristic", phone: "/ˌkærəktəˈrɪstɪk/", meanings: [{ pos: "adj./n.", meaning: "特有的；特征" }] },
             { word: "collaborate", phone: "/kəˈlæbəreɪt/", meanings: [{ pos: "v.", meaning: "合作，协作" }] },
+            { word: "elaborate", phone: "/ɪˈlæbərət/", meanings: [{ pos: "adj./v.", meaning: "详尽的；精心制作" }] },
             { word: "compromise", phone: "/ˈkɑːmprəmaɪz/", meanings: [{ pos: "n./v.", meaning: "妥协，和解" }] },
+            { word: "promise", phone: "/ˈprɑːmɪs/", meanings: [{ pos: "n./v.", meaning: "允许，诺言" }] },
             { word: "crucial", phone: "/ˈkruːʃl/", meanings: [{ pos: "adj.", meaning: "决定性的，至关重要的" }] },
             { word: "deficiency", phone: "/dɪˈfɪʃnsi/", meanings: [{ pos: "n.", meaning: "缺乏，不足" }] },
+            { word: "efficiency", phone: "/ɪˈfɪʃnsi/", meanings: [{ pos: "n.", meaning: "效率，功效" }] },
             { word: "demonstrate", phone: "/ˈdemənstreɪt/", meanings: [{ pos: "v.", meaning: "说明，演示" }] },
-            { word: "elaborate", phone: "/ɪˈlæbərət/", meanings: [{ pos: "adj./v.", meaning: "详尽的；精心制作" }] },
             { word: "eliminate", phone: "/ɪˈlɪmɪneɪt/", meanings: [{ pos: "v.", meaning: "消灭，消除" }] },
             { word: "fascinate", phone: "/ˈfæsɪneɪt/", meanings: [{ pos: "v.", meaning: "迷住，吸引" }] },
-            { word: "guarantee", phone: "/ˌɡærənˈtiː/", meanings: [{ pos: "n./v.", meaning: "保证，担保" }] }
+            { word: "guarantee", phone: "/ˌɡærənˈtiː/", meanings: [{ pos: "n./v.", meaning: "保证，担保" }] },
+            { word: "mechanism", phone: "/ˈmekənɪzəm/", meanings: [{ pos: "n.", meaning: "机械装置；机制，机理" }] },
+            { word: "organic", phone: "/ɔːrˈɡænɪk/", meanings: [{ pos: "adj.", meaning: "有机的；器官的" }] },
+            { word: "organism", phone: "/ˈɔːrɡənɪzəm/", meanings: [{ pos: "n.", meaning: "生物体，有机体" }] }
         ];
 
         let dictionary = [...DEFAULT_WORDS];
         let currentUser = localStorage.getItem('vocab_pk_user') || '';
         let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
 
+        // 联机状态与对决规则
         let gameMode = 'single';
-        let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
-        let p2State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
-        let timeLeft = 120;
-        let gameTimer = null;
-        let gameResult = null;
-
-        // 房间与联机状态
         let realtimeChannel = null;
         let roomCode = null;
         let isHost = false;
         let hostName = '';
         let guestName = '';
+
+        // 可配置的房间规则（默认 60s，领先 6 题获胜）
+        let roomConfig = {
+            duration: 60,
+            winLead: 6
+        };
+
+        let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
+        let p2State = { score: 0, total: 0 };
+        let timeLeft = 60;
+        let gameTimer = null;
+        let gameResult = null;
 
         const canvas = document.getElementById('snakeCanvas');
         const ctx = canvas.getContext('2d');
@@ -769,7 +868,7 @@
             const snackbar = document.getElementById('snackbar');
             snackbar.innerText = text;
             snackbar.classList.add('show');
-            setTimeout(() => snackbar.classList.remove('show'), 2800);
+            setTimeout(() => snackbar.classList.remove('show'), 2600);
         }
 
         function switchView(viewId) {
@@ -777,14 +876,9 @@
             setTimeout(() => {
                 const target = document.getElementById(viewId);
                 if (target) target.classList.add('active');
-            }, 30);
+            }, 25);
 
             if (viewId === 'view-hub') updateHub();
-            if (viewId === 'view-game') {
-                window.addEventListener('keydown', handleGlobalKeydown);
-            } else {
-                window.removeEventListener('keydown', handleGlobalKeydown);
-            }
         }
 
         function saveUserAndEnter() {
@@ -797,7 +891,7 @@
 
         function updateHub() {
             if (!currentUser) return switchView('view-auth');
-            document.getElementById('hub-welcome').innerText = `欢迎回来，准备好迎接全新词汇挑战了吗？`;
+            document.getElementById('hub-welcome').innerText = `已就绪，向词汇巅峰发起冲刺！`;
             document.getElementById('hub-profile-tag').innerText = `👤 ${currentUser}`;
             document.getElementById('stat-total').innerText = userStats.total;
             document.getElementById('stat-acc').innerText = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
@@ -807,8 +901,8 @@
 
         function useDefaultBook(silent = false) {
             dictionary = [...DEFAULT_WORDS];
-            document.getElementById('book-status').innerText = `✓ 当前使用: 内置精选核心词库 (共 ${dictionary.length} 词)`;
-            if (!silent) showToast('已切换至内置核心词库');
+            document.getElementById('book-status').innerText = `✓ 当前使用: 内置精选高辨析核心词库 (共 ${dictionary.length} 词)`;
+            if (!silent) showToast('已切回内置词库');
         }
 
         function loadCustomBook(e) {
@@ -828,30 +922,83 @@
                     }).filter(item => item.meanings.length > 0);
 
                     document.getElementById('book-status').innerText = `✓ 已加载外部词书: ${file.name} (共 ${dictionary.length} 词)`;
-                    showToast(`成功载入 ${dictionary.length} 个单词！`);
+                    showToast(`成功载入 ${dictionary.length} 词！`);
                 } catch(err) {
-                    alert('词库 JSON 解析失败，请确认为规范格式。');
+                    alert('词库 JSON 解析失败，请确认为标准词典格式。');
                 }
             };
             reader.readAsText(file);
         }
 
-        function generateOptions(targetWord, correctMeaning) {
-            let distractors = dictionary
-                .filter(d => d.word !== targetWord)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 3)
+        /* ==========================================================================
+           2. 智能易错项/形近词生成算法 (Levenshtein + 前缀相似度)
+           ========================================================================== */
+        function calcLevenshteinDist(s1, s2) {
+            const m = s1.length, n = s2.length;
+            const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+            for (let i = 0; i <= m; i++) dp[i][0] = i;
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+                }
+            }
+            return dp[m][n];
+        }
+
+        function getSimilarConfusingDistractors(targetWord, correctMeaning) {
+            const targetLower = targetWord.toLowerCase();
+
+            // 计算所有候选词与目标词的混淆权值 (相似距离越小 + 前缀重合越大 -> 权值越高)
+            const scoredCandidates = dictionary
+                .filter(d => d.word.toLowerCase() !== targetLower)
                 .map(d => {
-                    const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
-                    return { word: d.word, meaning: (randomM.pos ? randomM.pos + ' ' : '') + randomM.meaning };
+                    const candLower = d.word.toLowerCase();
+                    const dist = calcLevenshteinDist(targetLower, candLower);
+                    
+                    // 前两位或前三位相同加权
+                    let prefixBonus = 0;
+                    if (targetLower.slice(0, 3) === candLower.slice(0, 3)) prefixBonus = 3;
+                    else if (targetLower.slice(0, 2) === candLower.slice(0, 2)) prefixBonus = 1.5;
+
+                    // 长度相近加权
+                    const lenDiff = Math.abs(targetLower.length - candLower.length);
+                    const score = (10 - dist) + prefixBonus - (lenDiff * 0.5);
+
+                    return { item: d, score };
                 });
-            let correctOption = { word: targetWord, meaning: correctMeaning };
-            let options = [correctOption, ...distractors].sort(() => 0.5 - Math.random());
-            let correctIdx = options.findIndex(o => o.word === targetWord && o.meaning === correctMeaning);
+
+            // 按混淆权重降序排列
+            scoredCandidates.sort((a, b) => b.score - a.score);
+
+            // 优先挑出前 8 个最高混淆候选词并随机抽 3 个，避免每次完全一样
+            const topSlice = scoredCandidates.slice(0, 8).map(c => c.item);
+            const chosen = topSlice.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+            // 如果不足3个，拿随机词兜底
+            while (chosen.length < 3) {
+                const rand = dictionary[Math.floor(Math.random() * dictionary.length)];
+                if (rand.word !== targetWord && !chosen.some(c => c.word === rand.word)) {
+                    chosen.push(rand);
+                }
+            }
+
+            return chosen.map(d => {
+                const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
+                return { word: d.word, meaning: (randomM.pos ? randomM.pos + ' ' : '') + randomM.meaning };
+            });
+        }
+
+        function generateOptions(targetWord, correctMeaning) {
+            const distractors = getSimilarConfusingDistractors(targetWord, correctMeaning);
+            const correctOption = { word: targetWord, meaning: correctMeaning };
+            const options = [correctOption, ...distractors].sort(() => 0.5 - Math.random());
+            const correctIdx = options.findIndex(o => o.word === targetWord && o.meaning === correctMeaning);
             return { options, correctIdx };
         }
 
-        function generateShuffledPool(count = 60) {
+        function generateShuffledPool(count = 70) {
             return [...dictionary].sort(() => 0.5 - Math.random()).slice(0, count).map(w => {
                 const selected = w.meanings[Math.floor(Math.random() * w.meanings.length)] || { pos: '', meaning: '---' };
                 const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + selected.meaning;
@@ -867,21 +1014,66 @@
         }
 
         /* ==========================================================================
-           2. SUPABASE REALTIME 房间全生命周期管理
+           3. 房间规则设置与跨端实时同步
            ========================================================================== */
-        
-        // 房主创建房间
+        function changeRuleTime(seconds) {
+            if (!isHost) return;
+            roomConfig.duration = seconds;
+            renderRuleChips();
+            broadcastRuleChange();
+        }
+
+        function changeRuleLead(leads) {
+            if (!isHost) return;
+            roomConfig.winLead = leads;
+            renderRuleChips();
+            broadcastRuleChange();
+        }
+
+        function renderRuleChips() {
+            document.querySelectorAll('#chips-time .md3-chip').forEach(el => {
+                const val = parseInt(el.getAttribute('data-time'));
+                el.classList.toggle('selected', val === roomConfig.duration);
+                el.classList.toggle('disabled', !isHost);
+            });
+
+            document.querySelectorAll('#chips-lead .md3-chip').forEach(el => {
+                const val = parseInt(el.getAttribute('data-lead'));
+                el.classList.toggle('selected', val === roomConfig.winLead);
+                el.classList.toggle('disabled', !isHost);
+            });
+
+            const hint = document.getElementById('rule-sync-hint');
+            if (isHost) {
+                hint.innerText = "你是房主，可自由点击配置";
+            } else {
+                hint.innerText = "房主正在配置规则（已同步）";
+            }
+        }
+
+        function broadcastRuleChange() {
+            if (!isHost || !realtimeChannel) return;
+            realtimeChannel.send({
+                type: 'broadcast',
+                event: 'rule_update',
+                payload: { config: roomConfig }
+            });
+        }
+
+        /* ==========================================================================
+           4. SUPABASE REALTIME 房间通信与对决控制
+           ========================================================================== */
         async function createOnlineRoom() {
             roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             isHost = true;
             hostName = currentUser;
             guestName = '';
+            roomConfig = { duration: 60, winLead: 6 };
 
             setupRoomLobbyUI(roomCode);
             connectSupabaseChannel(roomCode);
         }
 
-        // P2 加入房间（带严格匹配与在线检测）
         async function joinOnlineRoom() {
             const btnJoin = document.getElementById('btn-join-room');
             const codeInput = document.getElementById('join-room-code').value.trim().toUpperCase();
@@ -890,7 +1082,6 @@
             btnJoin.disabled = true;
             btnJoin.innerText = '正在验证房间...';
 
-            // 建立探测临时监听，检查是否有房主应答
             const testChannel = sbClient.channel(`duel_${codeInput}`, {
                 config: { presence: { key: currentUser } }
             });
@@ -901,7 +1092,7 @@
                     testChannel.unsubscribe();
                     btnJoin.disabled = false;
                     btnJoin.innerText = '加入房间';
-                    alert(`房间【${codeInput}】不存在或已解散，请核对房间号！`);
+                    alert(`房间【${codeInput}】不存在或已解散，请核对房间码！`);
                 }
             }, 2200);
 
@@ -912,11 +1103,11 @@
                         clearTimeout(timeoutTimer);
                         testChannel.unsubscribe();
 
-                        // 验证通过，正式以 P2 身份进入
                         isHost = false;
                         roomCode = codeInput;
                         hostName = payload.hostName;
                         guestName = currentUser;
+                        if (payload.config) roomConfig = payload.config;
 
                         btnJoin.disabled = false;
                         btnJoin.innerText = '加入房间';
@@ -927,7 +1118,6 @@
                 })
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
-                        // 发出握手探测请求
                         testChannel.send({
                             type: 'broadcast',
                             event: 'room_ping',
@@ -946,21 +1136,14 @@
                 showToast(`已复制房间码: ${code}`);
             };
 
+            renderRuleChips();
             refreshRoomPlayerCards();
         }
 
         function refreshRoomPlayerCards() {
-            // P1 信息
             document.getElementById('room-p1-name').innerText = hostName || '等待房主...';
+            document.getElementById('room-p2-name').innerText = guestName || '等待对手加入...';
 
-            // P2 信息
-            if (guestName) {
-                document.getElementById('room-p2-name').innerText = guestName;
-            } else {
-                document.getElementById('room-p2-name').innerText = '等待对手加入...';
-            }
-
-            // 房主按钮状态
             const startBtn = document.getElementById('online-start-btn');
             if (isHost) {
                 if (guestName) {
@@ -976,50 +1159,51 @@
             }
         }
 
-        // 统一信道监听
         function connectSupabaseChannel(code) {
-            if (realtimeChannel) {
-                realtimeChannel.unsubscribe();
-            }
+            if (realtimeChannel) realtimeChannel.unsubscribe();
 
             realtimeChannel = sbClient.channel(`duel_${code}`, {
                 config: { presence: { key: currentUser } }
             });
 
             realtimeChannel
-                // 收到 Ping 探测：房主立即响应 Ack
                 .on('broadcast', { event: 'room_ping' }, () => {
                     if (isHost) {
                         realtimeChannel.send({
                             type: 'broadcast',
                             event: 'room_ack',
-                            payload: { isHost: true, hostName: currentUser }
+                            payload: { isHost: true, hostName: currentUser, config: roomConfig }
                         });
                     }
                 })
-                // P2 进入后，如果 P1 已在线，进行全员身份握手与 UI 更新
                 .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
                     if (payload.role === 'guest') {
                         guestName = payload.name;
-                        showToast(`挑战者【${guestName}】已进入房间！`);
+                        showToast(`挑战者【${guestName}】已就位！`);
                         refreshRoomPlayerCards();
-                        // 房主向 P2 反向发送确认
                         if (isHost) {
                             realtimeChannel.send({
                                 type: 'broadcast',
                                 event: 'room_sync',
-                                payload: { hostName: currentUser, guestName: guestName }
+                                payload: { hostName: currentUser, guestName: guestName, config: roomConfig }
                             });
                         }
                     }
                 })
-                // P2 接收房主的主动同步
                 .on('broadcast', { event: 'room_sync' }, ({ payload }) => {
                     hostName = payload.hostName;
                     guestName = payload.guestName;
+                    if (payload.config) roomConfig = payload.config;
+                    renderRuleChips();
                     refreshRoomPlayerCards();
                 })
-                // P2 退出：P1 立即更新，恢复等待
+                .on('broadcast', { event: 'rule_update' }, ({ payload }) => {
+                    if (!isHost && payload.config) {
+                        roomConfig = payload.config;
+                        renderRuleChips();
+                        showToast(`房主已更新对决规则：限时 ${roomConfig.duration / 60} 分钟，领先 ${roomConfig.winLead} 题胜出`);
+                    }
+                })
                 .on('broadcast', { event: 'player_left' }, ({ payload }) => {
                     if (payload.role === 'guest') {
                         showToast(`玩家【${guestName}】已退出房间`);
@@ -1027,14 +1211,12 @@
                         refreshRoomPlayerCards();
                     }
                 })
-                // P1 退出：房主解散房间，通知 P2
                 .on('broadcast', { event: 'room_closed' }, () => {
                     if (!isHost) {
                         alert('房主已解散或退出了对决房间。');
                         cleanUpAndBackToHub();
                     }
                 })
-                // 游戏流程信令
                 .on('broadcast', { event: 'game_start' }, ({ payload }) => {
                     handleRemoteGameStart(payload);
                 })
@@ -1044,15 +1226,14 @@
                 .on('broadcast', { event: 'game_over' }, ({ payload }) => {
                     endGame(payload.msg, false);
                 })
-                // 兜底：实时监听用户掉线或关闭网页
                 .on('presence', { event: 'leave' }, ({ leftPresences }) => {
                     leftPresences.forEach(p => {
                         if (isHost && p.key === guestName) {
-                            showToast(`对手【${guestName}】已断开连接`);
+                            showToast(`对手已断开连接`);
                             guestName = '';
                             refreshRoomPlayerCards();
                         } else if (!isHost && p.key === hostName) {
-                            alert('房主网络连接已断开，房间自动解散。');
+                            alert('房主网络连接中断，房间已解散。');
                             cleanUpAndBackToHub();
                         }
                     });
@@ -1060,7 +1241,6 @@
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
                         await realtimeChannel.track({ name: currentUser, isHost });
-                        // 如果是挑战者，告知房主自己进来了
                         if (!isHost) {
                             realtimeChannel.send({
                                 type: 'broadcast',
@@ -1072,28 +1252,16 @@
                 });
         }
 
-        // 玩家点击“退出房间”
         function leaveOnlineLobby(confirmNeeded = false) {
             if (confirmNeeded && !confirm('确认退出当前房间吗？')) return;
 
             if (realtimeChannel) {
                 if (isHost) {
-                    // P1 退出：广播房间已解散
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'room_closed',
-                        payload: {}
-                    });
+                    realtimeChannel.send({ type: 'broadcast', event: 'room_closed', payload: {} });
                 } else {
-                    // P2 退出：通知 P1 更新
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'player_left',
-                        payload: { name: currentUser, role: 'guest' }
-                    });
+                    realtimeChannel.send({ type: 'broadcast', event: 'player_left', payload: { name: currentUser, role: 'guest' } });
                 }
             }
-
             cleanUpAndBackToHub();
         }
 
@@ -1120,34 +1288,38 @@
             realtimeChannel.send({
                 type: 'broadcast',
                 event: 'game_start',
-                payload: { pool: sharedPool, hostName: currentUser, guestName: guestName }
+                payload: { pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig }
             });
-            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName });
+            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig });
         }
 
         function handleRemoteGameStart(payload) {
             gameMode = 'online';
-            document.getElementById('game-mode-title').innerText = '🌐 实时联机对决';
-            document.getElementById('p1-name-tag').innerHTML = `🔴 ${currentUser} (我方)`;
+            if (payload.config) roomConfig = payload.config;
+
             const oppoName = isHost ? payload.guestName : payload.hostName;
-            document.getElementById('remote-oppo-name').innerText = `🔵 ${oppoName || '对手'}`;
-            
-            document.getElementById('game-layout').className = 'single-grid';
-            document.getElementById('panel-center').style.display = 'flex';
-            document.getElementById('panel-p2').style.display = 'none';
-            document.getElementById('online-opponent-hud').style.display = 'flex';
+
+            document.getElementById('arena-my-badge').innerText = isHost ? '🔴 房主 (我方)' : '🔵 挑战者 (我方)';
+            document.getElementById('arena-my-name').innerText = currentUser;
+            document.getElementById('arena-my-score').innerText = '0';
+
+            document.getElementById('arena-oppo-badge').innerText = isHost ? '🔵 挑战者' : '🔴 房主';
+            document.getElementById('arena-oppo-name').innerText = oppoName || '对手';
+            document.getElementById('arena-oppo-score').innerText = '0';
+            document.getElementById('arena-rule-summary').innerText = `领先 ${roomConfig.winLead} 题胜出`;
 
             resetPlayerState(p1State, payload.pool);
-            resetPlayerState(p2State, payload.pool);
+            p2State.score = 0;
+            p2State.total = 0;
 
-            renderQuestion(p1State, 'p1');
+            renderQuestion(p1State);
 
-            timeLeft = 120;
-            renderSnake();
+            timeLeft = roomConfig.duration;
+            renderSnakeRing();
             clearInterval(gameTimer);
             gameTimer = setInterval(() => {
                 timeLeft--;
-                renderSnake();
+                renderSnakeRing();
                 if (timeLeft <= 0) {
                     endGame("时间到！以当前能量决出胜负", true);
                 }
@@ -1158,14 +1330,13 @@
 
         function handleRemoteScoreUpdate(payload) {
             p2State.score = payload.score;
-            document.getElementById('remote-oppo-score').innerText = `${payload.score} 题`;
-            document.getElementById('ui-p2-score').innerText = `${payload.score} :对手`;
-            renderSnake();
+            document.getElementById('arena-oppo-score').innerText = `${payload.score}`;
+            renderSnakeRing();
             checkOnlineWinCondition();
         }
 
         /* ==========================================================================
-           3. 本地单机与同屏模式
+           5. 游戏作答与判题核心
            ========================================================================== */
         function resetPlayerState(state, pool) {
             if (state.timerId) clearInterval(state.timerId);
@@ -1180,89 +1351,60 @@
 
         function startSinglePlayer(customPool) {
             gameMode = 'single';
-            document.getElementById('game-mode-title').innerText = '🎯 单人专练';
-            document.getElementById('p1-name-tag').innerText = currentUser;
-            document.getElementById('game-self-stats').innerText = '得分: 0';
-            document.getElementById('game-layout').className = 'single-grid';
-            document.getElementById('panel-center').style.display = 'none';
-            document.getElementById('panel-p2').style.display = 'none';
-            document.getElementById('online-opponent-hud').style.display = 'none';
+            roomConfig = { duration: 9999, winLead: 9999 };
+
+            document.getElementById('arena-my-badge').innerText = '🎯 练习者';
+            document.getElementById('arena-my-name').innerText = currentUser;
+            document.getElementById('arena-my-score').innerText = '0';
+
+            document.getElementById('arena-oppo-badge').innerText = '📖 题库';
+            document.getElementById('arena-oppo-name').innerText = '单人专练';
+            document.getElementById('arena-oppo-score').innerText = '0';
+            document.getElementById('arena-rule-summary').innerText = '自由刷题模式';
 
             const pool = customPool || generateShuffledPool(50);
             resetPlayerState(p1State, pool);
-            renderQuestion(p1State, 'p1');
+            renderQuestion(p1State);
+
+            timeLeft = 9999;
+            renderSnakeRing();
             switchView('view-game');
         }
 
-        function startLocalMultiplayer() {
-            gameMode = 'local';
-            document.getElementById('game-mode-title').innerText = '👥 本地同屏对决';
-            document.getElementById('p1-name-tag').innerHTML = `🔴 玩家1 (左)`;
-            document.getElementById('p2-name-tag').innerHTML = `玩家2 (右) 🔵`;
-            document.getElementById('game-layout').className = 'multi-grid';
-            document.getElementById('panel-center').style.display = 'flex';
-            document.getElementById('panel-p2').style.display = 'flex';
-            document.getElementById('online-opponent-hud').style.display = 'none';
-
-            const pool = generateShuffledPool(80);
-            resetPlayerState(p1State, pool);
-            resetPlayerState(p2State, pool);
-            p2State.currentIdx = pool.length - 1;
-
-            renderQuestion(p1State, 'p1');
-            renderQuestion(p2State, 'p2');
-
-            timeLeft = 120;
-            renderSnake();
-            clearInterval(gameTimer);
-            gameTimer = setInterval(() => {
-                timeLeft--;
-                renderSnake();
-                if (timeLeft <= 0) endGame("时间到！对局结束", false);
-            }, 1000);
-
-            switchView('view-game');
-        }
-
-        /* ==========================================================================
-           4. 判题逻辑与答题处理
-           ========================================================================== */
-        function renderQuestion(state, prefix) {
-            const isP2 = (prefix === 'p2' && gameMode === 'local');
-            const isOver = isP2 ? state.currentIdx < 0 : state.currentIdx >= state.pool.length;
-
-            if (isOver) {
-                document.getElementById(`${prefix}-word`).innerText = "练习完成 🏁";
-                document.getElementById(`${prefix}-phone`).innerText = "";
-                document.getElementById(`${prefix}-options`).innerHTML = "";
+        function renderQuestion(state) {
+            if (state.currentIdx >= state.pool.length) {
+                document.getElementById(`p1-word`).innerText = "练习完成 🏁";
+                document.getElementById(`p1-phone`).innerText = "";
+                document.getElementById(`p1-options`).innerHTML = "";
                 return;
             }
 
             const q = state.pool[state.currentIdx];
-            document.getElementById(`${prefix}-word`).innerText = q.word;
-            document.getElementById(`${prefix}-phone`).innerText = q.phone || '';
+            document.getElementById('arena-index-tag').innerText = `第 ${state.currentIdx + 1} 题`;
+            document.getElementById(`p1-word`).innerText = q.word;
+            document.getElementById(`p1-phone`).innerText = q.phone || '';
 
             let html = '';
             q.options.forEach((opt, idx) => {
                 html += `
-                    <button class="option-btn" id="${prefix}-opt-${idx}">
+                    <button class="option-btn" id="opt-btn-${idx}">
                         <span>${opt.meaning}</span>
                     </button>
                 `;
             });
-            document.getElementById(`${prefix}-options`).innerHTML = html;
+            document.getElementById(`p1-options`).innerHTML = html;
 
             q.options.forEach((_, idx) => {
-                const btn = document.getElementById(`${prefix}-opt-${idx}`);
+                const btn = document.getElementById(`opt-btn-${idx}`);
                 btn.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
-                    handleAnswer(prefix, idx, e.clientX, e.clientY);
+                    handleAnswer(idx, e.clientX, e.clientY);
                 });
             });
         }
 
-        function handleAnswer(prefix, idx, clickX, clickY) {
-            const state = (prefix === 'p1') ? p1State : p2State;
+        function handleAnswer(idx, clickX, clickY) {
+            const state = p1State;
             if (state.frozen || state.answeringLock) return;
 
             state.answeringLock = true;
@@ -1287,36 +1429,30 @@
             }
             localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
 
+            // 高亮选项
             for (let i = 0; i < 4; i++) {
-                const btn = document.getElementById(`${prefix}-opt-${i}`);
+                const btn = document.getElementById(`opt-btn-${i}`);
                 if (!btn) continue;
                 btn.disabled = true;
                 if (!isRight) {
-                    btn.innerHTML = `<span><b>${q.options[i].word}</b> <small>${q.options[i].meaning}</small></span>`;
+                    btn.innerHTML = `<span><b>${q.options[i].word}</b> <small style="opacity:0.85">${q.options[i].meaning}</small></span>`;
                 }
                 if (i === q.correctIdx) btn.classList.add('correct');
             }
 
             if (!isRight) {
-                const wrongBtn = document.getElementById(`${prefix}-opt-${idx}`);
+                const wrongBtn = document.getElementById(`opt-btn-${idx}`);
                 if (wrongBtn) wrongBtn.classList.add('wrong');
             }
 
             if (clickX && clickY) {
-                spawnParticles(clickX, clickY, isRight ? '#198754' : '#BA1A1A');
+                spawnParticles(clickX, clickY, isRight ? '#146C2E' : '#BA1A1A');
             }
 
-            if (gameMode === 'single') {
-                document.getElementById('game-self-stats').innerText = `得分: ${state.score}`;
-            } else if (gameMode === 'local') {
-                document.getElementById('ui-p1-score').innerText = `P1: ${p1State.score}`;
-                document.getElementById('ui-p2-score').innerText = `${p2State.score} :P2`;
-                renderSnake();
-                if (checkLocalWin()) return;
-            } else if (gameMode === 'online') {
-                document.getElementById('game-self-stats').innerText = `得分: ${p1State.score}`;
-                document.getElementById('ui-p1-score').innerText = `我方: ${p1State.score}`;
-                renderSnake();
+            document.getElementById('arena-my-score').innerText = `${state.score}`;
+
+            if (gameMode === 'online') {
+                renderSnakeRing();
                 if (realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
@@ -1330,98 +1466,58 @@
             if (isRight) {
                 setTimeout(() => {
                     state.answeringLock = false;
-                    if (prefix === 'p2' && gameMode === 'local') state.currentIdx--;
-                    else state.currentIdx++;
-                    renderQuestion(state, prefix);
-                }, 220);
+                    state.currentIdx++;
+                    renderQuestion(state);
+                }, 200);
             } else {
-                triggerPenalty(state, prefix);
+                triggerPenalty(state);
             }
         }
 
-        function triggerPenalty(state, prefix) {
+        function triggerPenalty(state) {
             state.frozen = true;
-            const banner = document.getElementById(`${prefix}-cooldown`);
-            const nextBtn = banner.querySelector('.manual-next-btn');
-            const textSpan = banner.querySelector('.cooldown-text');
+            const banner = document.getElementById('p1-cooldown');
             banner.classList.add('active');
 
-            if (gameMode !== 'single') {
-                banner.classList.add('multi-mode');
-                textSpan.style.display = 'inline';
-                if (nextBtn) nextBtn.style.display = 'none';
-
-                let sec = 4;
-                document.getElementById(`${prefix}-timer`).innerText = sec;
-                if (state.timerId) clearInterval(state.timerId);
-                state.timerId = setInterval(() => {
-                    sec--;
-                    document.getElementById(`${prefix}-timer`).innerText = sec;
-                    if (sec <= 0) {
-                        clearInterval(state.timerId);
-                        banner.classList.remove('active', 'multi-mode');
-                        state.frozen = false;
-                        state.answeringLock = false;
-                        if (prefix === 'p2' && gameMode === 'local') state.currentIdx--;
-                        else state.currentIdx++;
-                        renderQuestion(state, prefix);
-                    }
-                }, 1000);
-            } else {
-                banner.classList.remove('multi-mode');
-                textSpan.style.display = 'none';
-                if (nextBtn) {
-                    nextBtn.style.display = 'inline-flex';
-                    nextBtn.onclick = () => {
-                        banner.classList.remove('active');
-                        state.frozen = false;
-                        state.answeringLock = false;
-                        state.currentIdx++;
-                        renderQuestion(state, prefix);
-                    };
+            let sec = 3;
+            document.getElementById('p1-timer').innerText = sec;
+            if (state.timerId) clearInterval(state.timerId);
+            state.timerId = setInterval(() => {
+                sec--;
+                document.getElementById('p1-timer').innerText = sec;
+                if (sec <= 0) {
+                    clearInterval(state.timerId);
+                    banner.classList.remove('active');
+                    state.frozen = false;
+                    state.answeringLock = false;
+                    state.currentIdx++;
+                    renderQuestion(state);
                 }
-            }
-        }
-
-        function handleGlobalKeydown(e) {
-            if (gameMode !== 'local') return;
-            const key = e.key.toLowerCase();
-            if (!p1State.frozen && !p1State.answeringLock) {
-                if (key === 'a') handleAnswer('p1', 0);
-                if (key === 's') handleAnswer('p1', 1);
-                if (key === 'd') handleAnswer('p1', 2);
-                if (key === 'f') handleAnswer('p1', 3);
-            }
-            if (!p2State.frozen && !p2State.answeringLock) {
-                if (key === 'h') handleAnswer('p2', 0);
-                if (key === 'j') handleAnswer('p2', 1);
-                if (key === 'k') handleAnswer('p2', 2);
-                if (key === 'l') handleAnswer('p2', 3);
-            }
+            }, 1000);
         }
 
         function spawnParticles(x, y, color) {
-            const emojis = ['✨', '⭐', '⚡', '💥', '🔥'];
-            for (let i = 0; i < 6; i++) {
+            const emojis = ['✨', '⭐', '⚡', '💥'];
+            for (let i = 0; i < 5; i++) {
                 const p = document.createElement('span');
                 p.className = 'particle';
                 p.innerText = emojis[Math.floor(Math.random() * emojis.length)];
                 p.style.left = `${x}px`;
                 p.style.top = `${y}px`;
-                p.style.setProperty('--dx', `${(Math.random() - 0.5) * 140}px`);
-                p.style.setProperty('--dy', `${(Math.random() - 0.5) * 140 - 20}px`);
+                p.style.setProperty('--dx', `${(Math.random() - 0.5) * 120}px`);
+                p.style.setProperty('--dy', `${(Math.random() - 0.5) * 120 - 20}px`);
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 650);
             }
         }
 
-        function renderSnake() {
-            if (gameMode === 'single') return;
+        /* 紧凑对决拔河能量环渲染 */
+        function renderSnakeRing() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-            const radius = 76;
-            const strokeWidth = 18;
+            const radius = 48;
+            const strokeWidth = 11;
 
             ctx.beginPath();
             ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -1429,9 +1525,19 @@
             ctx.lineWidth = strokeWidth;
             ctx.stroke();
 
-            let diff = p1State.score - p2State.score;
-            let p1Units = Math.max(0, Math.min(20, 10 + diff));
-            let p1Ratio = p1Units / 20;
+            if (gameMode === 'single') {
+                ctx.fillStyle = '#191C20';
+                ctx.font = '700 16px "Roboto Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`Lv.${p1State.score}`, cx, cy);
+                return;
+            }
+
+            const winLead = roomConfig.winLead || 6;
+            const diff = p1State.score - p2State.score;
+            const p1Units = Math.max(0, Math.min(winLead * 2, winLead + diff));
+            const p1Ratio = p1Units / (winLead * 2);
 
             const startAngle = -Math.PI / 2;
             const p1EndAngle = startAngle + (Math.PI * 2 * p1Ratio);
@@ -1439,7 +1545,7 @@
             if (p1Ratio > 0) {
                 ctx.beginPath();
                 ctx.arc(cx, cy, radius, startAngle, p1EndAngle);
-                ctx.strokeStyle = '#B3261E';
+                ctx.strokeStyle = isHost ? '#B3261E' : '#006874';
                 ctx.lineWidth = strokeWidth;
                 ctx.lineCap = 'round';
                 ctx.stroke();
@@ -1448,48 +1554,37 @@
             if (p1Ratio < 1) {
                 ctx.beginPath();
                 ctx.arc(cx, cy, radius, p1EndAngle, startAngle + (Math.PI * 2));
-                ctx.strokeStyle = '#006874';
+                ctx.strokeStyle = isHost ? '#006874' : '#B3261E';
                 ctx.lineWidth = strokeWidth;
                 ctx.lineCap = 'round';
                 ctx.stroke();
             }
 
             ctx.fillStyle = '#191C20';
-            ctx.font = '700 24px "Google Sans", sans-serif';
+            ctx.font = '700 16px "Roboto Mono", monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
             ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, cx, cy);
         }
 
-        function checkLocalWin() {
-            let diff = p1State.score - p2State.score;
-            if (10 + diff >= 20) {
-                endGame("🎉 玩家1 (红方) 率先吞噬全部能量圈获胜！", false);
-                return true;
-            }
-            if (10 + diff <= 0) {
-                endGame("🎉 玩家2 (蓝方) 率先吞噬全部能量圈获胜！", false);
-                return true;
-            }
-            return false;
-        }
-
         function checkOnlineWinCondition() {
-            let diff = p1State.score - p2State.score;
-            if (10 + diff >= 20) {
-                const winMsg = `🎉 恭喜！您成功吞噬全部能量，赢得对决！`;
+            const winLead = roomConfig.winLead || 6;
+            const diff = p1State.score - p2State.score;
+
+            if (diff >= winLead) {
+                const winMsg = `🎉 实力碾压！您成功领先 ${winLead} 题，赢得对决！`;
                 if (realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'game_over',
-                        payload: { msg: `💔 对手率先吞噬全部能量圈，本局遗憾战败！` }
+                        payload: { msg: `💔 对手率先拉开 ${winLead} 题分差，本局遗憾战败！` }
                     });
                 }
                 endGame(winMsg, false);
                 return true;
-            } else if (10 + diff <= 0) {
-                const loseMsg = `💔 对手率先推满能量圈，本局遗憾落败！`;
+            } else if (diff <= -winLead) {
+                const loseMsg = `💔 对手拉开了 ${winLead} 题差距，本局战败！`;
                 endGame(loseMsg, false);
                 return true;
             }
@@ -1499,7 +1594,6 @@
         function endGame(msg, broadcastToPeer) {
             clearInterval(gameTimer);
             if (p1State.timerId) clearInterval(p1State.timerId);
-            if (p2State.timerId) clearInterval(p2State.timerId);
 
             if (broadcastToPeer && realtimeChannel) {
                 realtimeChannel.send({
@@ -1524,20 +1618,28 @@
             document.getElementById('result-message').innerText = gameResult.msg;
             const details = document.getElementById('result-details');
 
+            const btnPlayAgain = document.getElementById('btn-play-again');
+            const btnBackRoom = document.getElementById('btn-back-room');
+
             if (gameResult.mode === 'single') {
+                btnPlayAgain.style.display = 'inline-flex';
+                btnBackRoom.style.display = 'none';
                 const rate = p1State.total > 0 ? Math.round((p1State.score / p1State.total) * 100) : 0;
                 details.innerHTML = `
                     <div class="stats-grid">
-                        <div class="stat-card"><span class="stat-label">本次答题</span><span class="stat-value">${p1State.total}</span></div>
+                        <div class="stat-card"><span class="stat-label">本次作答</span><span class="stat-value">${p1State.total}</span></div>
                         <div class="stat-card"><span class="stat-label">正确率</span><span class="stat-value" style="color:var(--md-sys-color-success);">${rate}%</span></div>
                     </div>
                 `;
             } else {
-                const oppoTitle = gameMode === 'online' ? (isHost ? guestName : hostName) : 'P2 蓝方';
+                btnPlayAgain.style.display = isHost ? 'inline-flex' : 'none';
+                btnBackRoom.style.display = 'inline-flex';
+
+                const oppoTitle = isHost ? guestName : hostName;
                 details.innerHTML = `
-                    <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:20px; border-radius:var(--md-shape-l);">
+                    <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                         <div>
-                            <div style="font-weight:700; color:var(--p1-sys-color);">${gameMode === 'online' ? '我方' : 'P1 红方'}</div>
+                            <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser} (我方)</div>
                             <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                         </div>
                         <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
@@ -1550,11 +1652,30 @@
             }
         }
 
+        // “再来一局”
+        function handlePlayAgain() {
+            if (gameMode === 'single') {
+                startSinglePlayer();
+            } else if (gameMode === 'online') {
+                if (!isHost) return alert('请等待房主发起新对局');
+                startOnlineGame();
+            }
+        }
+
+        // “返回等待房间”
+        function handleBackToRoom() {
+            if (gameMode === 'online') {
+                setupRoomLobbyUI(roomCode);
+                switchView('view-online');
+            } else {
+                switchView('view-hub');
+            }
+        }
+
         function confirmExitGame() {
-            if (confirm('确定退出当前对局吗？退出后将视作放弃。')) {
+            if (confirm('确定退出当前对局吗？')) {
                 clearInterval(gameTimer);
                 if (p1State.timerId) clearInterval(p1State.timerId);
-                if (p2State.timerId) clearInterval(p2State.timerId);
                 if (gameMode === 'online') {
                     leaveOnlineLobby(false);
                 } else {
@@ -1563,6 +1684,9 @@
             }
         }
 
+        /* ==========================================================================
+           6. 错题本复习与清除
+           ========================================================================== */
         function openMistakesView() {
             const mistakes = userStats.mistakes || {};
             const container = document.getElementById('mistakes-container');
@@ -1570,15 +1694,15 @@
             const keys = Object.keys(mistakes);
 
             if (keys.length === 0) {
-                container.innerHTML = '<p style="text-align:center; padding: 40px 0;">🎉 太棒了，暂无任何错题！</p>';
+                container.innerHTML = '<p style="text-align:center; padding: 36px 0;">🎉 暂无错题记录，太棒了！</p>';
             } else {
                 keys.sort((a, b) => mistakes[b].count - mistakes[a].count).forEach((word, idx) => {
                     const item = mistakes[word];
                     const div = document.createElement('div');
-                    div.style.cssText = 'background:var(--md-sys-color-surface-container-low); padding:14px 18px; margin-bottom:10px; border-radius:var(--md-shape-l); display:flex; justify-content:space-between; align-items:center;';
+                    div.style.cssText = 'background:var(--md-sys-color-surface-container-low); padding:12px 16px; margin-bottom:8px; border-radius:var(--md-shape-l); display:flex; justify-content:space-between; align-items:center;';
                     div.innerHTML = `
                         <div>
-                            <div style="font-weight:700; font-size:1.1rem;">#${idx + 1} ${word}</div>
+                            <div style="font-weight:700; font-size:1.05rem;">#${idx + 1} ${word}</div>
                             <div style="font-size:0.85rem; color:var(--md-sys-color-on-surface-variant);">${item.meaning}</div>
                         </div>
                         <span class="badge" style="background:var(--md-sys-color-error-container); color:var(--md-sys-color-on-error-container);">错 ${item.count} 次</span>
@@ -1616,6 +1740,7 @@
             }
         }
 
+        // 初始化进入
         if (currentUser) {
             document.getElementById('username-input').value = currentUser;
             switchView('view-hub');
