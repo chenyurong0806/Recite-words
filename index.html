@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单词PK</title>
+    <title>单词PK - MD3 实时联机对战</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,6 @@
 
     <style>
         :root {
-            /* Google Material Design 3 Baseline Color Tokens (Indigo/Cyan Accent) */
             --md-sys-color-primary: #0061A4;
             --md-sys-color-on-primary: #FFFFFF;
             --md-sys-color-primary-container: #D1E4FF;
@@ -25,11 +24,6 @@
             --md-sys-color-on-secondary: #FFFFFF;
             --md-sys-color-secondary-container: #D7E3F7;
             --md-sys-color-on-secondary-container: #101C2B;
-            
-            --md-sys-color-tertiary: #6B5778;
-            --md-sys-color-on-tertiary: #FFFFFF;
-            --md-sys-color-tertiary-container: #F2DAFF;
-            --md-sys-color-on-tertiary-container: #251431;
 
             --md-sys-color-error: #BA1A1A;
             --md-sys-color-on-error: #FFFFFF;
@@ -43,22 +37,17 @@
             --md-sys-color-background: #F8F9FF;
             --md-sys-color-on-background: #191C20;
             
-            /* MD3 Surface Tiers */
             --md-sys-color-surface: #F8F9FF;
-            --md-sys-color-surface-dim: #D8DAE0;
-            --md-sys-color-surface-bright: #F8F9FF;
             --md-sys-color-surface-container-lowest: #FFFFFF;
             --md-sys-color-surface-container-low: #F2F3FA;
             --md-sys-color-surface-container: #ECEEF4;
             --md-sys-color-surface-container-high: #E7E8EE;
-            --md-sys-color-surface-container-highest: #E1E2E8;
             
             --md-sys-color-on-surface: #191C20;
             --md-sys-color-on-surface-variant: #43474E;
             --md-sys-color-outline: #74777F;
             --md-sys-color-outline-variant: #C4C7D0;
 
-            /* Player Duel Colors */
             --p1-sys-color: #B3261E;
             --p1-sys-container: #FFDAD6;
             --p1-sys-on-container: #410002;
@@ -67,20 +56,16 @@
             --p2-sys-container: #9EEFFD;
             --p2-sys-on-container: #001F24;
 
-            /* MD3 Shapes */
-            --md-shape-xs: 4px;
             --md-shape-s: 8px;
             --md-shape-m: 12px;
             --md-shape-l: 16px;
             --md-shape-xl: 28px;
             --md-shape-full: 9999px;
 
-            /* MD3 Elevation Shadows */
             --md-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
             --md-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
             --md-elevation-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.08), 0px 1px 3px 0px rgba(0, 0, 0, 0.12);
 
-            /* Timing */
             --md-motion-standard: 0.25s cubic-bezier(0.2, 0, 0, 1);
             --md-motion-expressive: 0.35s cubic-bezier(0.3, 0, 0, 1);
         }
@@ -112,7 +97,6 @@
             position: relative;
         }
 
-        /* View Switching Animations */
         .view {
             display: none;
             opacity: 0;
@@ -126,7 +110,6 @@
             transform: translateY(0) scale(1);
         }
 
-        /* MD3 Cards */
         .card {
             background: var(--md-sys-color-surface-container-lowest);
             border-radius: var(--md-shape-xl);
@@ -152,7 +135,6 @@
         h3 { font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
         p { color: var(--md-sys-color-on-surface-variant); font-size: 0.95rem; line-height: 1.5; }
 
-        /* MD3 Text Field */
         .input-field {
             width: 100%;
             height: 54px;
@@ -173,7 +155,6 @@
             box-shadow: 0 0 0 4px var(--md-sys-color-primary-container);
         }
 
-        /* MD3 Buttons */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -209,7 +190,6 @@
 
         .btn-touch-large { min-height: 54px; font-size: 1.05rem; padding: 0 32px; }
 
-        /* Top App Bar */
         .app-bar {
             display: flex;
             justify-content: space-between;
@@ -220,7 +200,6 @@
             gap: 12px;
         }
 
-        /* Badges & Chips */
         .badge {
             display: inline-flex;
             align-items: center;
@@ -229,13 +208,11 @@
             border-radius: var(--md-shape-full);
             font-size: 0.85rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
         }
         .badge-p1 { background: var(--p1-sys-container); color: var(--p1-sys-on-container); }
         .badge-p2 { background: var(--p2-sys-container); color: var(--p2-sys-on-container); }
         .badge-online { background: var(--md-sys-color-success-container); color: var(--md-sys-color-on-success-container); }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -254,7 +231,6 @@
         .stat-label { font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
         .stat-value { font-size: 2.1rem; font-weight: 700; color: var(--md-sys-color-primary); line-height: 1.1; }
 
-        /* Mode Selection Cards */
         .modes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -286,7 +262,6 @@
             display: inline-block;
         }
 
-        /* Quiz Layouts */
         .single-grid {
             max-width: 680px;
             margin: 0 auto;
@@ -376,7 +351,6 @@
             font-weight: 700;
         }
 
-        /* Center Ring Tug-of-war Arena */
         .snake-panel {
             background: var(--md-sys-color-surface-container);
             border-radius: var(--md-shape-xl);
@@ -410,7 +384,6 @@
             border: 1px solid var(--md-sys-color-error);
         }
 
-        /* Remote Opponent Live View (Online Mode) */
         .remote-status-card {
             background: var(--md-sys-color-surface-container);
             border-radius: var(--md-shape-l);
@@ -421,7 +394,6 @@
             justify-content: space-between;
         }
 
-        /* Snackbars */
         .snackbar {
             position: fixed;
             bottom: 24px;
@@ -444,7 +416,6 @@
             opacity: 1;
         }
 
-        /* Particles */
         .particle {
             position: fixed;
             pointer-events: none;
@@ -568,7 +539,6 @@
             </div>
 
             <div class="card" style="max-width: 600px; margin: 0 auto;">
-                <!-- Room Actions -->
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
                         <h3>创建对决房间</h3>
@@ -586,11 +556,10 @@
                     </div>
                 </div>
 
-                <!-- Room Waiting Area -->
                 <div id="online-in-room" style="display: none;">
                     <div style="text-align: center; margin-bottom: 24px;">
                         <span class="badge badge-online" style="font-size: 0.95rem; padding: 6px 16px;">房间已就绪</span>
-                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary);" id="display-room-code">------</div>
+                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code">------</div>
                         <p>点击房间号可复制邀请码，或让好友直接输入</p>
                     </div>
 
@@ -626,7 +595,6 @@
             </div>
 
             <div id="game-layout" class="single-grid">
-                <!-- P1 / Self Quiz Panel -->
                 <div class="quiz-panel" id="panel-p1">
                     <div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -645,7 +613,6 @@
                     </div>
                 </div>
 
-                <!-- Center Ring Tug-of-war (Multiplayer & Online) -->
                 <div class="snake-panel" id="panel-center" style="display:none;">
                     <div style="width: 100%; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; padding: 0 4px;">
                         <span style="color: var(--p1-sys-color);" id="ui-p1-score">P1: 0</span>
@@ -657,7 +624,6 @@
                     </div>
                 </div>
 
-                <!-- P2 Quiz Panel (Local 2P Only) -->
                 <div class="quiz-panel" id="panel-p2" style="display:none;">
                     <div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -676,7 +642,6 @@
                 </div>
             </div>
 
-            <!-- Remote Opponent HUD in Online Mode -->
             <div id="online-opponent-hud" class="remote-status-card" style="display:none;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 1.8rem;">⚡</span>
@@ -728,9 +693,16 @@
            ========================================================================== */
         const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Core Built-in Fallback Word Database
+        // 命名为 sbClient 避免和全局 window.supabase 变量冲突
+        // 设置 persistSession: false 避免触发浏览器的第三方 CDN Storage 拦截
+        const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false
+            }
+        });
+
         const DEFAULT_WORDS = [
             { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
             { word: "ability", phone: "/əˈbɪləti/", meanings: [{ pos: "n.", meaning: "能力，本领" }] },
@@ -778,15 +750,13 @@
         let currentUser = localStorage.getItem('vocab_pk_user') || '';
         let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
 
-        // Game State Variables
-        let gameMode = 'single'; // 'single' | 'local' | 'online'
+        let gameMode = 'single';
         let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
         let p2State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
         let timeLeft = 120;
         let gameTimer = null;
         let gameResult = null;
 
-        // Online Realtime Session
         let realtimeChannel = null;
         let roomCode = null;
         let isHost = false;
@@ -817,7 +787,6 @@
             }
         }
 
-        /* User Profile */
         function saveUserAndEnter() {
             const name = document.getElementById('username-input').value.trim();
             if (!name) return alert('请输入玩家昵称');
@@ -836,7 +805,6 @@
             useDefaultBook(true);
         }
 
-        /* Dictionary Loading */
         function useDefaultBook(silent = false) {
             dictionary = [...DEFAULT_WORDS];
             document.getElementById('book-status').innerText = `✓ 当前使用: 内置精选核心词库 (共 ${dictionary.length} 词)`;
@@ -899,7 +867,7 @@
         }
 
         /* ==========================================================================
-           2. SUPABASE REALTIME MULTIPLAYER
+           2. SUPABASE REALTIME MULTIPLAYER (sbClient)
            ========================================================================== */
         async function createOnlineRoom() {
             roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -937,7 +905,7 @@
 
         async function connectSupabaseRoom(code) {
             showToast('正在接入实时联机信道...');
-            realtimeChannel = supabase.channel(`duel_${code}`, {
+            realtimeChannel = sbClient.channel(`duel_${code}`, {
                 config: { presence: { key: currentUser } }
             });
 
@@ -1020,7 +988,6 @@
         }
 
         function handleRemoteScoreUpdate(payload) {
-            // Received opponent score update
             p2State.score = payload.score;
             document.getElementById('remote-oppo-score').innerText = `${payload.score} 题`;
             document.getElementById('ui-p2-score').innerText = `${payload.score} :对手`;
@@ -1039,7 +1006,7 @@
         }
 
         /* ==========================================================================
-           3. LOCAL & SINGLE PLAYER MODES
+           3. LOCAL & SINGLE PLAYER
            ========================================================================== */
         function resetPlayerState(state, pool) {
             if (state.timerId) clearInterval(state.timerId);
@@ -1099,7 +1066,7 @@
         }
 
         /* ==========================================================================
-           4. QUESTION RENDERING & ANSWERING
+           4. QUESTION HANDLING & GAMEPLAY
            ========================================================================== */
         function renderQuestion(state, prefix) {
             const isP2 = (prefix === 'p2' && gameMode === 'local');
@@ -1161,7 +1128,6 @@
             }
             localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
 
-            // Options highlight
             for (let i = 0; i < 4; i++) {
                 const btn = document.getElementById(`${prefix}-opt-${i}`);
                 if (!btn) continue;
@@ -1181,7 +1147,6 @@
                 spawnParticles(clickX, clickY, isRight ? '#198754' : '#BA1A1A');
             }
 
-            // Sync score UI
             if (gameMode === 'single') {
                 document.getElementById('game-self-stats').innerText = `得分: ${state.score}`;
             } else if (gameMode === 'local') {
@@ -1193,7 +1158,6 @@
                 document.getElementById('game-self-stats').innerText = `得分: ${p1State.score}`;
                 document.getElementById('ui-p1-score').innerText = `我方: ${p1State.score}`;
                 renderSnake();
-                // Send score update via Supabase Broadcast
                 if (realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
@@ -1277,7 +1241,6 @@
             }
         }
 
-        /* Particles */
         function spawnParticles(x, y, color) {
             const emojis = ['✨', '⭐', '⚡', '💥', '🔥'];
             for (let i = 0; i < 6; i++) {
@@ -1293,7 +1256,6 @@
             }
         }
 
-        /* Tug-of-war Ring Visual */
         function renderSnake() {
             if (gameMode === 'single') return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1440,7 +1402,6 @@
             }
         }
 
-        /* Mistakes Notebook */
         function openMistakesView() {
             const mistakes = userStats.mistakes || {};
             const container = document.getElementById('mistakes-container');
@@ -1494,7 +1455,6 @@
             }
         }
 
-        // Initialize Screen
         if (currentUser) {
             document.getElementById('username-input').value = currentUser;
             switchView('view-hub');
