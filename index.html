@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>单词PK</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
+    
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            /* Google Material Design 3 Baseline Color Tokens (Indigo/Cyan Accent) */
+            --md-sys-color-primary: #0061A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #D1E4FF;
+            --md-sys-color-on-primary-container: #001D36;
+            
+            --md-sys-color-secondary: #535F70;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #D7E3F7;
+            --md-sys-color-on-secondary-container: #101C2B;
+            
+            --md-sys-color-tertiary: #6B5778;
+            --md-sys-color-on-tertiary: #FFFFFF;
+            --md-sys-color-tertiary-container: #F2DAFF;
+            --md-sys-color-on-tertiary-container: #251431;
+
+            --md-sys-color-error: #BA1A1A;
+            --md-sys-color-on-error: #FFFFFF;
+            --md-sys-color-error-container: #FFDAD6;
+            --md-sys-color-on-error-container: #410002;
+
+            --md-sys-color-success: #198754;
+            --md-sys-color-success-container: #C8E6C9;
+            --md-sys-color-on-success-container: #003314;
+
+            --md-sys-color-background: #F8F9FF;
+            --md-sys-color-on-background: #191C20;
+            
+            /* MD3 Surface Tiers */
+            --md-sys-color-surface: #F8F9FF;
+            --md-sys-color-surface-dim: #D8DAE0;
+            --md-sys-color-surface-bright: #F8F9FF;
+            --md-sys-color-surface-container-lowest: #FFFFFF;
+            --md-sys-color-surface-container-low: #F2F3FA;
+            --md-sys-color-surface-container: #ECEEF4;
+            --md-sys-color-surface-container-high: #E7E8EE;
+            --md-sys-color-surface-container-highest: #E1E2E8;
+            
+            --md-sys-color-on-surface: #191C20;
+            --md-sys-color-on-surface-variant: #43474E;
+            --md-sys-color-outline: #74777F;
+            --md-sys-color-outline-variant: #C4C7D0;
+
+            /* Player Duel Colors */
+            --p1-sys-color: #B3261E;
+            --p1-sys-container: #FFDAD6;
+            --p1-sys-on-container: #410002;
+
+            --p2-sys-color: #006874;
+            --p2-sys-container: #9EEFFD;
+            --p2-sys-on-container: #001F24;
+
+            /* MD3 Shapes */
+            --md-shape-xs: 4px;
+            --md-shape-s: 8px;
+            --md-shape-m: 12px;
+            --md-shape-l: 16px;
+            --md-shape-xl: 28px;
+            --md-shape-full: 9999px;
+
+            /* MD3 Elevation Shadows */
+            --md-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
+            --md-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
+            --md-elevation-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.08), 0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+
+            /* Timing */
+            --md-motion-standard: 0.25s cubic-bezier(0.2, 0, 0, 1);
+            --md-motion-expressive: 0.35s cubic-bezier(0.3, 0, 0, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-surface);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px 16px 40px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            position: relative;
+        }
+
+        /* View Switching Animations */
+        .view {
+            display: none;
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            transition: opacity var(--md-motion-expressive), transform var(--md-motion-expressive);
+        }
+
+        .view.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* MD3 Cards */
+        .card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+        }
+
+        .card-filled {
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-surface-container-high);
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--md-sys-color-on-surface);
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        h1 { font-size: 2.1rem; margin-bottom: 8px; }
+        h2 { font-size: 1.5rem; }
+        h3 { font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+        p { color: var(--md-sys-color-on-surface-variant); font-size: 0.95rem; line-height: 1.5; }
+
+        /* MD3 Text Field */
+        .input-field {
+            width: 100%;
+            height: 54px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: var(--md-sys-color-on-surface);
+            background-color: var(--md-sys-color-surface-container-lowest);
+            border: 1.5px solid var(--md-sys-color-outline);
+            border-radius: var(--md-shape-s);
+            outline: none;
+            transition: all var(--md-motion-standard);
+        }
+
+        .input-field:focus {
+            border-color: var(--md-sys-color-primary);
+            border-width: 2px;
+            box-shadow: 0 0 0 4px var(--md-sys-color-primary-container);
+        }
+
+        /* MD3 Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 24px;
+            min-height: 48px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: inherit;
+            border-radius: var(--md-shape-full);
+            border: none;
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+            gap: 8px;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+        .btn-filled { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: var(--md-elevation-1); }
+        .btn-filled:hover { filter: brightness(1.06); box-shadow: var(--md-elevation-2); }
+
+        .btn-tonal { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+        .btn-tonal:hover { filter: brightness(0.96); }
+
+        .btn-outlined { background: transparent; color: var(--md-sys-color-primary); border: 1.5px solid var(--md-sys-color-outline); }
+        .btn-outlined:hover { background-color: rgba(0, 97, 164, 0.05); border-color: var(--md-sys-color-primary); }
+
+        .btn-danger { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+        .btn-danger:hover { filter: brightness(0.95); }
+
+        .btn-touch-large { min-height: 54px; font-size: 1.05rem; padding: 0 32px; }
+
+        /* Top App Bar */
+        .app-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 8px 4px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        /* Badges & Chips */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .badge-p1 { background: var(--p1-sys-container); color: var(--p1-sys-on-container); }
+        .badge-p2 { background: var(--p2-sys-container); color: var(--p2-sys-on-container); }
+        .badge-online { background: var(--md-sys-color-success-container); color: var(--md-sys-color-on-success-container); }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin: 16px 0;
+        }
+
+        .stat-card {
+            background: var(--md-sys-color-surface-container);
+            padding: 16px 20px;
+            border-radius: var(--md-shape-l);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .stat-label { font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+        .stat-value { font-size: 2.1rem; font-weight: 700; color: var(--md-sys-color-primary); line-height: 1.1; }
+
+        /* Mode Selection Cards */
+        .modes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .mode-card {
+            background: var(--md-sys-color-surface-container-low);
+            border-radius: var(--md-shape-xl);
+            padding: 24px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--md-motion-expressive);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .mode-card:hover {
+            background: var(--md-sys-color-surface-container);
+            border-color: var(--md-sys-color-outline-variant);
+            transform: translateY(-2px);
+        }
+
+        .mode-icon {
+            font-size: 2.4rem;
+            margin-bottom: 12px;
+            display: inline-block;
+        }
+
+        /* Quiz Layouts */
+        .single-grid {
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        .multi-grid {
+            display: grid;
+            grid-template-columns: 1fr 280px 1fr;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .quiz-panel {
+            background: var(--md-sys-color-surface-container-lowest);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-xl);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 520px;
+            position: relative;
+        }
+
+        .word-display {
+            font-size: 2.6rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            text-align: center;
+            word-break: break-word;
+            margin-top: 12px;
+        }
+
+        .phone-display {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1.05rem;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            margin-bottom: 24px;
+            min-height: 24px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .option-btn {
+            width: 100%;
+            min-height: 58px;
+            padding: 12px 18px;
+            background: var(--md-sys-color-surface-container-low);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
+            color: var(--md-sys-color-on-surface);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all var(--md-motion-standard);
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: var(--md-sys-color-surface-container-high);
+            border-color: var(--md-sys-color-outline);
+        }
+
+        .option-btn:active:not(:disabled) { transform: scale(0.98); }
+
+        .option-btn.correct {
+            background-color: var(--md-sys-color-success-container) !important;
+            border-color: var(--md-sys-color-success) !important;
+            color: var(--md-sys-color-on-success-container) !important;
+            font-weight: 700;
+        }
+
+        .option-btn.wrong {
+            background-color: var(--md-sys-color-error-container) !important;
+            border-color: var(--md-sys-color-error) !important;
+            color: var(--md-sys-color-on-error-container) !important;
+            font-weight: 700;
+        }
+
+        /* Center Ring Tug-of-war Arena */
+        .snake-panel {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--md-shape-xl);
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        #snakeCanvas {
+            border-radius: 50%;
+            background: var(--md-sys-color-surface-container-lowest);
+            box-shadow: var(--md-elevation-1);
+        }
+
+        .cooldown-banner {
+            display: none;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: var(--md-shape-m);
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .cooldown-banner.active { display: block; }
+        .cooldown-banner.multi-mode {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+            border: 1px solid var(--md-sys-color-error);
+        }
+
+        /* Remote Opponent Live View (Online Mode) */
+        .remote-status-card {
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--md-shape-l);
+            padding: 16px;
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Snackbars */
+        .snackbar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #313033;
+            color: #F4EFF4;
+            padding: 14px 24px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.92rem;
+            font-weight: 500;
+            box-shadow: var(--md-elevation-3);
+            z-index: 10000;
+            opacity: 0;
+            transition: all var(--md-motion-expressive);
+            pointer-events: none;
+        }
+        .snackbar.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Particles */
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            animation: fly 0.65s cubic-bezier(0, 0.7, 0.3, 1) forwards;
+        }
+        @keyframes fly {
+            0% { opacity: 1; transform: translate(0, 0) scale(0.6); }
+            100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.3); }
+        }
+
+        @media (max-width: 900px) {
+            .multi-grid { grid-template-columns: 1fr; }
+            .quiz-panel { min-height: auto; }
+            .snake-panel { order: -1; margin-bottom: 16px; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- VIEW 1: AUTH & PROFILE -->
+        <div id="view-auth" class="view active">
+            <div class="card" style="max-width: 480px; margin: 40px auto; text-align: center;">
+                <div style="font-size: 3.5rem; margin-bottom: 12px;">⚡</div>
+                <h1>单词PK</h1>
+                <p style="margin-bottom: 24px;">Material Design 3 实时联机对决</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);">玩家昵称</label>
+                    <input type="text" id="username-input" class="input-field" placeholder="输入玩家昵称..." maxlength="12">
+                    <button class="btn btn-filled btn-touch-large" style="width:100%; margin-top: 8px;" onclick="saveUserAndEnter()">进入大厅</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: MAIN HUB -->
+        <div id="view-hub" class="view">
+            <div class="app-bar">
+                <div>
+                    <h2>学习对战中心</h2>
+                    <p id="hub-welcome" style="font-size:0.85rem;"></p>
+                </div>
+                <div style="display:flex; gap: 10px; align-items:center;">
+                    <span class="badge badge-p1" id="hub-profile-tag">👤 玩家</span>
+                    <button class="btn btn-outlined" style="min-height: 40px; padding: 0 16px;" onclick="switchView('view-auth')">换名</button>
+                </div>
+            </div>
+
+            <!-- Book Configuration Card -->
+            <div class="card">
+                <h3>📖 题库管理</h3>
+                <div style="display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; align-items: center;">
+                    <button class="btn btn-tonal" onclick="useDefaultBook()">内置核心四级词库 (默认)</button>
+                    <button class="btn btn-outlined" onclick="document.getElementById('custom-book-input').click()">📂 导入本地 JSON 词库</button>
+                    <input type="file" id="custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
+                </div>
+                <div id="book-status" style="margin-top: 12px; font-weight: 600; font-size: 0.88rem; color: var(--md-sys-color-primary);"></div>
+            </div>
+
+            <!-- Game Mode Cards -->
+            <div class="modes-grid">
+                <div class="mode-card" onclick="startSinglePlayer()">
+                    <div>
+                        <span class="mode-icon">🎯</span>
+                        <h3>单人闯关模式</h3>
+                        <p style="margin-top: 6px;">不限时间，答错详细复盘，智能错题收录。</p>
+                    </div>
+                    <button class="btn btn-filled" style="margin-top: 20px; align-self: flex-start;">开始单人练习</button>
+                </div>
+
+                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);" onclick="switchView('view-online')">
+                    <div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span class="mode-icon">🌐</span>
+                            <span class="badge badge-online">Supabase 实时</span>
+                        </div>
+                        <h3>联机在线对决 (1v1)</h3>
+                        <p style="margin-top: 6px;">跨设备创建/输入房间号对战，能量环拔河实时推拉！</p>
+                    </div>
+                    <button class="btn btn-filled" style="margin-top: 20px; align-self: flex-start; background: #006874;">进入联机大厅</button>
+                </div>
+
+                <div class="mode-card" onclick="startLocalMultiplayer()">
+                    <div>
+                        <span class="mode-icon">👥</span>
+                        <h3>同屏双人对战</h3>
+                        <p style="margin-top: 6px;">一台设备双人同屏对打（支持触屏分屏或键盘快捷键）。</p>
+                    </div>
+                    <button class="btn btn-tonal" style="margin-top: 20px; align-self: flex-start;">开启同屏对战</button>
+                </div>
+            </div>
+
+            <!-- Stats Center -->
+            <div class="card">
+                <h3>📊 战绩统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">总作答词数</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">正确率</div>
+                        <div class="stat-value" id="stat-acc" style="color: var(--md-sys-color-success);">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">错词积累</div>
+                        <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
+                    </div>
+                </div>
+                <button class="btn btn-tonal" onclick="openMistakesView()">查看我的错题本</button>
+            </div>
+        </div>
+
+        <!-- VIEW 3: ONLINE MULTIPLAYER LOBBY -->
+        <div id="view-online" class="view">
+            <div class="app-bar">
+                <h2>🌐 实时联机对战大厅</h2>
+                <button class="btn btn-tonal" onclick="leaveOnlineLobby()">返回主页</button>
+            </div>
+
+            <div class="card" style="max-width: 600px; margin: 0 auto;">
+                <!-- Room Actions -->
+                <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
+                    <div>
+                        <h3>创建对决房间</h3>
+                        <p style="margin: 6px 0 14px;">作为房主创建房间，获取 6 位房间号邀请好友加入。</p>
+                        <button class="btn btn-filled btn-touch-large" style="width:100%;" onclick="createOnlineRoom()">立即创建新房间</button>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 20px;">
+                        <h3>加入已有房间</h3>
+                        <p style="margin: 6px 0 14px;">输入好友分享的 6 位房间码加入对决。</p>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="join-room-code" class="input-field" placeholder="输入 6 位房间码..." maxlength="6" style="text-transform: uppercase;">
+                            <button class="btn btn-tonal btn-touch-large" onclick="joinOnlineRoom()">加入房间</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Room Waiting Area -->
+                <div id="online-in-room" style="display: none;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <span class="badge badge-online" style="font-size: 0.95rem; padding: 6px 16px;">房间已就绪</span>
+                        <div style="font-size: 2.4rem; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--md-sys-color-primary);" id="display-room-code">------</div>
+                        <p>点击房间号可复制邀请码，或让好友直接输入</p>
+                    </div>
+
+                    <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-around; align-items: center;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem;">🔴</div>
+                                <div style="font-weight: 700; color: var(--p1-sys-color);" id="room-p1-name">等待房主...</div>
+                                <span class="badge badge-p1" style="margin-top: 6px;">房主 (P1)</span>
+                            </div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--md-sys-color-outline);">VS</div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem;">🔵</div>
+                                <div style="font-weight: 700; color: var(--p2-sys-color);" id="room-p2-name">等待对手加入...</div>
+                                <span class="badge badge-p2" style="margin-top: 6px;">挑战者 (P2)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby()">退出房间</button>
+                        <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>等待对手加入...</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: GAME IN PROGRESS -->
+        <div id="view-game" class="view">
+            <div class="app-bar">
+                <h2 id="game-mode-title">对决进行中</h2>
+                <button class="btn btn-danger" onclick="confirmExitGame()">退出本局</button>
+            </div>
+
+            <div id="game-layout" class="single-grid">
+                <!-- P1 / Self Quiz Panel -->
+                <div class="quiz-panel" id="panel-p1">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span class="badge badge-p1" id="p1-name-tag">玩家1</span>
+                            <span id="game-self-stats" style="font-weight: 600; font-size: 0.9rem; color: var(--md-sys-color-outline);">得分: 0</span>
+                        </div>
+                        <div class="word-display" id="p1-word">Word</div>
+                        <div class="phone-display" id="p1-phone">/phonetic/</div>
+                    </div>
+                    
+                    <div class="options-grid" id="p1-options"></div>
+
+                    <div class="cooldown-banner" id="p1-cooldown">
+                        <span class="cooldown-text">⚠️ 答错冻结倒计时：<strong id="p1-timer">4</strong> 秒</span>
+                        <button class="btn btn-tonal manual-next-btn" style="display:none; width: 100%; margin-top:8px;" id="p1-next-btn">查看完毕，进入下一题 →</button>
+                    </div>
+                </div>
+
+                <!-- Center Ring Tug-of-war (Multiplayer & Online) -->
+                <div class="snake-panel" id="panel-center" style="display:none;">
+                    <div style="width: 100%; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; padding: 0 4px;">
+                        <span style="color: var(--p1-sys-color);" id="ui-p1-score">P1: 0</span>
+                        <span style="color: var(--p2-sys-color);" id="ui-p2-score">0 :P2</span>
+                    </div>
+                    <canvas id="snakeCanvas" width="220" height="220"></canvas>
+                    <div style="font-size: 0.8rem; text-align: center; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">
+                        先将能量环推满对方者获胜！
+                    </div>
+                </div>
+
+                <!-- P2 Quiz Panel (Local 2P Only) -->
+                <div class="quiz-panel" id="panel-p2" style="display:none;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span class="badge badge-p2" id="p2-name-tag">玩家2</span>
+                            <span id="p2-stats-tag" style="font-weight: 600; font-size: 0.9rem; color: var(--md-sys-color-outline);">得分: 0</span>
+                        </div>
+                        <div class="word-display" id="p2-word">Word</div>
+                        <div class="phone-display" id="p2-phone">/phonetic/</div>
+                    </div>
+
+                    <div class="options-grid" id="p2-options"></div>
+
+                    <div class="cooldown-banner" id="p2-cooldown">
+                        <span class="cooldown-text">⚠️ 答错冻结倒计时：<strong id="p2-timer">4</strong> 秒</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remote Opponent HUD in Online Mode -->
+            <div id="online-opponent-hud" class="remote-status-card" style="display:none;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.8rem;">⚡</span>
+                    <div>
+                        <div style="font-weight: 700;" id="remote-oppo-name">对手</div>
+                        <div style="font-size: 0.85rem; color: var(--md-sys-color-outline);" id="remote-oppo-status">实时对决中...</div>
+                    </div>
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: var(--p2-sys-color);" id="remote-oppo-score">0 题</div>
+            </div>
+        </div>
+
+        <!-- VIEW 5: MISTAKES NOTEBOOK -->
+        <div id="view-mistakes" class="view">
+            <div class="app-bar">
+                <h2>📖 我的错题本</h2>
+                <button class="btn btn-tonal" onclick="switchView('view-hub')">返回主页</button>
+            </div>
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                    <p>自动收录对战与练习中的错误单词：</p>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-filled" onclick="restudyMistakes()">专注重练错题</button>
+                        <button class="btn btn-danger" onclick="clearMistakes()">清空错题</button>
+                    </div>
+                </div>
+                <div id="mistakes-container" style="max-height: 480px; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 6: RESULT MODAL -->
+        <div id="view-result" class="view">
+            <div class="card" style="max-width: 520px; margin: 40px auto; text-align: center;">
+                <div id="result-icon" style="font-size: 4rem; margin-bottom: 8px;">🏆</div>
+                <h1 id="result-message">对决结算</h1>
+                <div id="result-details" style="margin: 20px 0;"></div>
+                <button class="btn btn-filled btn-touch-large" style="width: 100%;" onclick="switchView('view-hub')">返回学习中心</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Notification Snackbar -->
+    <div id="snackbar" class="snackbar">提示消息</div>
+
+    <script>
+        /* ==========================================================================
+           1. INITIALIZATION & SUPABASE CONFIG
+           ========================================================================== */
+        const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Core Built-in Fallback Word Database
+        const DEFAULT_WORDS = [
+            { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
+            { word: "ability", phone: "/əˈbɪləti/", meanings: [{ pos: "n.", meaning: "能力，本领" }] },
+            { word: "abnormal", phone: "/æbˈnɔːrml/", meanings: [{ pos: "adj.", meaning: "反常的，异常的" }] },
+            { word: "absolute", phone: "/ˈæbsəluːt/", meanings: [{ pos: "adj.", meaning: "绝对的，完全的" }] },
+            { word: "abundant", phone: "/əˈbʌndənt/", meanings: [{ pos: "adj.", meaning: "丰富的，充裕的" }] },
+            { word: "academic", phone: "/ˌækəˈdemɪk/", meanings: [{ pos: "adj.", meaning: "学术的；高等院校的" }] },
+            { word: "accelerate", phone: "/əkˈseləreɪt/", meanings: [{ pos: "v.", meaning: "加速，促进" }] },
+            { word: "accomplish", phone: "/əˈkɑːmplɪʃ/", meanings: [{ pos: "v.", meaning: "达到，完成" }] },
+            { word: "accurate", phone: "/ˈækjərət/", meanings: [{ pos: "adj.", meaning: "准确的，精确的" }] },
+            { word: "achieve", phone: "/əˈtʃiːv/", meanings: [{ pos: "v.", meaning: "完成，实现" }] },
+            { word: "acknowledge", phone: "/əkˈnɑːlɪdʒ/", meanings: [{ pos: "v.", meaning: "承认；致谢" }] },
+            { word: "acquire", phone: "/əˈkwaɪər/", meanings: [{ pos: "v.", meaning: "取得，获得" }] },
+            { word: "adapt", phone: "/əˈdæpt/", meanings: [{ pos: "v.", meaning: "使适应；改编" }] },
+            { word: "adequate", phone: "/ˈædɪkwət/", meanings: [{ pos: "adj.", meaning: "充足的，适当的" }] },
+            { word: "advocate", phone: "/ˈædvəkeɪt/", meanings: [{ pos: "v.", meaning: "提倡，主张" }] },
+            { word: "aesthetic", phone: "/esˈθetɪk/", meanings: [{ pos: "adj.", meaning: "美学的，审美的" }] },
+            { word: "affection", phone: "/əˈfekʃn/", meanings: [{ pos: "n.", meaning: "喜爱，感情" }] },
+            { word: "aggressive", phone: "/əˈɡresɪv/", meanings: [{ pos: "adj.", meaning: "侵略的；好斗的；有进取心的" }] },
+            { word: "alleviate", phone: "/əˈliːvieɪt/", meanings: [{ pos: "v.", meaning: "减轻，缓和" }] },
+            { word: "ambiguous", phone: "/æmˈbɪɡjuəs/", meanings: [{ pos: "adj.", meaning: "模棱两可的" }] },
+            { word: "anticipate", phone: "/ænˈtɪsɪpeɪt/", meanings: [{ pos: "v.", meaning: "预料，预期" }] },
+            { word: "apparent", phone: "/əˈpærənt/", meanings: [{ pos: "adj.", meaning: "表面上的；明显的" }] },
+            { word: "appreciate", phone: "/əˈpriːʃieɪt/", meanings: [{ pos: "v.", meaning: "欣赏；感激" }] },
+            { word: "arbitrary", phone: "/ˈɑːrbətreri/", meanings: [{ pos: "adj.", meaning: "随意的，武断的" }] },
+            { word: "brilliant", phone: "/ˈbrɪliənt/", meanings: [{ pos: "adj.", meaning: "光辉的；卓越的" }] },
+            { word: "campaign", phone: "/kæmˈpeɪn/", meanings: [{ pos: "n.", meaning: "战役；运动" }] },
+            { word: "candidate", phone: "/ˈkændɪdət/", meanings: [{ pos: "n.", meaning: "候选人" }] },
+            { word: "capacity", phone: "/kəˈpæsəti/", meanings: [{ pos: "n.", meaning: "容量；能力" }] },
+            { word: "casual", phone: "/ˈkæʒuəl/", meanings: [{ pos: "adj.", meaning: "偶然的；随便的" }] },
+            { word: "challenge", phone: "/ˈtʃælɪndʒ/", meanings: [{ pos: "n./v.", meaning: "挑战；质疑" }] },
+            { word: "characteristic", phone: "/ˌkærəktəˈrɪstɪk/", meanings: [{ pos: "adj./n.", meaning: "特有的；特征" }] },
+            { word: "collaborate", phone: "/kəˈlæbəreɪt/", meanings: [{ pos: "v.", meaning: "合作，协作" }] },
+            { word: "compromise", phone: "/ˈkɑːmprəmaɪz/", meanings: [{ pos: "n./v.", meaning: "妥协，和解" }] },
+            { word: "crucial", phone: "/ˈkruːʃl/", meanings: [{ pos: "adj.", meaning: "决定性的，至关重要的" }] },
+            { word: "deficiency", phone: "/dɪˈfɪʃnsi/", meanings: [{ pos: "n.", meaning: "缺乏，不足" }] },
+            { word: "demonstrate", phone: "/ˈdemənstreɪt/", meanings: [{ pos: "v.", meaning: "说明，演示" }] },
+            { word: "elaborate", phone: "/ɪˈlæbərət/", meanings: [{ pos: "adj./v.", meaning: "详尽的；精心制作" }] },
+            { word: "eliminate", phone: "/ɪˈlɪmɪneɪt/", meanings: [{ pos: "v.", meaning: "消灭，消除" }] },
+            { word: "fascinate", phone: "/ˈfæsɪneɪt/", meanings: [{ pos: "v.", meaning: "迷住，吸引" }] },
+            { word: "guarantee", phone: "/ˌɡærənˈtiː/", meanings: [{ pos: "n./v.", meaning: "保证，担保" }] }
+        ];
+
+        let dictionary = [...DEFAULT_WORDS];
+        let currentUser = localStorage.getItem('vocab_pk_user') || '';
+        let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
+
+        // Game State Variables
+        let gameMode = 'single'; // 'single' | 'local' | 'online'
+        let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
+        let p2State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
+        let timeLeft = 120;
+        let gameTimer = null;
+        let gameResult = null;
+
+        // Online Realtime Session
+        let realtimeChannel = null;
+        let roomCode = null;
+        let isHost = false;
+        let remotePlayerName = '';
+
+        const canvas = document.getElementById('snakeCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function showToast(text) {
+            const snackbar = document.getElementById('snackbar');
+            snackbar.innerText = text;
+            snackbar.classList.add('show');
+            setTimeout(() => snackbar.classList.remove('show'), 2800);
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            setTimeout(() => {
+                const target = document.getElementById(viewId);
+                if (target) target.classList.add('active');
+            }, 30);
+
+            if (viewId === 'view-hub') updateHub();
+            if (viewId === 'view-game') {
+                window.addEventListener('keydown', handleGlobalKeydown);
+            } else {
+                window.removeEventListener('keydown', handleGlobalKeydown);
+            }
+        }
+
+        /* User Profile */
+        function saveUserAndEnter() {
+            const name = document.getElementById('username-input').value.trim();
+            if (!name) return alert('请输入玩家昵称');
+            currentUser = name;
+            localStorage.setItem('vocab_pk_user', currentUser);
+            switchView('view-hub');
+        }
+
+        function updateHub() {
+            if (!currentUser) return switchView('view-auth');
+            document.getElementById('hub-welcome').innerText = `欢迎回来，准备好迎接全新词汇挑战了吗？`;
+            document.getElementById('hub-profile-tag').innerText = `👤 ${currentUser}`;
+            document.getElementById('stat-total').innerText = userStats.total;
+            document.getElementById('stat-acc').innerText = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
+            document.getElementById('stat-mistakes').innerText = Object.keys(userStats.mistakes || {}).length;
+            useDefaultBook(true);
+        }
+
+        /* Dictionary Loading */
+        function useDefaultBook(silent = false) {
+            dictionary = [...DEFAULT_WORDS];
+            document.getElementById('book-status').innerText = `✓ 当前使用: 内置精选核心词库 (共 ${dictionary.length} 词)`;
+            if (!silent) showToast('已切换至内置核心词库');
+        }
+
+        function loadCustomBook(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const rawData = JSON.parse(evt.target.result);
+                    dictionary = rawData.filter(item => item && item.name && item.trans && item.trans.length > 0).map(item => {
+                        let phone = item.usphone ? `/${item.usphone}/` : '';
+                        let meanings = item.trans.map(t => {
+                            let match = t.match(/^([a-z]+\.)\s*(.+)/i);
+                            return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: t.trim() };
+                        }).filter(m => m.meaning);
+                        return { word: item.name, phone, meanings };
+                    }).filter(item => item.meanings.length > 0);
+
+                    document.getElementById('book-status').innerText = `✓ 已加载外部词书: ${file.name} (共 ${dictionary.length} 词)`;
+                    showToast(`成功载入 ${dictionary.length} 个单词！`);
+                } catch(err) {
+                    alert('词库 JSON 解析失败，请确认为规范格式。');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function generateOptions(targetWord, correctMeaning) {
+            let distractors = dictionary
+                .filter(d => d.word !== targetWord)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 3)
+                .map(d => {
+                    const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
+                    return { word: d.word, meaning: (randomM.pos ? randomM.pos + ' ' : '') + randomM.meaning };
+                });
+            let correctOption = { word: targetWord, meaning: correctMeaning };
+            let options = [correctOption, ...distractors].sort(() => 0.5 - Math.random());
+            let correctIdx = options.findIndex(o => o.word === targetWord && o.meaning === correctMeaning);
+            return { options, correctIdx };
+        }
+
+        function generateShuffledPool(count = 60) {
+            return [...dictionary].sort(() => 0.5 - Math.random()).slice(0, count).map(w => {
+                const selected = w.meanings[Math.floor(Math.random() * w.meanings.length)] || { pos: '', meaning: '---' };
+                const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + selected.meaning;
+                const optData = generateOptions(w.word, fullMeaning);
+                return {
+                    word: w.word,
+                    phone: w.phone,
+                    meaning: fullMeaning,
+                    options: optData.options,
+                    correctIdx: optData.correctIdx
+                };
+            });
+        }
+
+        /* ==========================================================================
+           2. SUPABASE REALTIME MULTIPLAYER
+           ========================================================================== */
+        async function createOnlineRoom() {
+            roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            isHost = true;
+            setupRoomUI(roomCode);
+            connectSupabaseRoom(roomCode);
+        }
+
+        function joinOnlineRoom() {
+            const codeInput = document.getElementById('join-room-code').value.trim().toUpperCase();
+            if (codeInput.length !== 6) return alert('请输入规范的 6 位房间号');
+            roomCode = codeInput;
+            isHost = false;
+            setupRoomUI(roomCode);
+            connectSupabaseRoom(roomCode);
+        }
+
+        function setupRoomUI(code) {
+            document.getElementById('online-pre-join').style.display = 'none';
+            document.getElementById('online-in-room').style.display = 'block';
+            document.getElementById('display-room-code').innerText = code;
+            document.getElementById('display-room-code').onclick = () => {
+                navigator.clipboard.writeText(code);
+                showToast(`已复制房间码: ${code}`);
+            };
+            if (isHost) {
+                document.getElementById('room-p1-name').innerText = currentUser;
+                document.getElementById('room-p2-name').innerText = '等待玩家加入...';
+                document.getElementById('online-start-btn').disabled = true;
+                document.getElementById('online-start-btn').innerText = '等待对手加入...';
+            } else {
+                document.getElementById('room-p2-name').innerText = currentUser;
+            }
+        }
+
+        async function connectSupabaseRoom(code) {
+            showToast('正在接入实时联机信道...');
+            realtimeChannel = supabase.channel(`duel_${code}`, {
+                config: { presence: { key: currentUser } }
+            });
+
+            realtimeChannel
+                .on('presence', { event: 'sync' }, () => {
+                    const presenceState = realtimeChannel.presenceState();
+                    const players = Object.keys(presenceState);
+                    if (isHost) {
+                        const guest = players.find(p => p !== currentUser);
+                        if (guest) {
+                            remotePlayerName = guest;
+                            document.getElementById('room-p2-name').innerText = guest;
+                            document.getElementById('online-start-btn').disabled = false;
+                            document.getElementById('online-start-btn').innerText = '双方就绪！立即开战';
+                            showToast(`玩家【${guest}】已加入房间！`);
+                        }
+                    } else {
+                        const host = players.find(p => p !== currentUser);
+                        if (host) {
+                            remotePlayerName = host;
+                            document.getElementById('room-p1-name').innerText = host;
+                        }
+                    }
+                })
+                .on('broadcast', { event: 'game_start' }, ({ payload }) => {
+                    handleRemoteGameStart(payload);
+                })
+                .on('broadcast', { event: 'score_update' }, ({ payload }) => {
+                    handleRemoteScoreUpdate(payload);
+                })
+                .on('broadcast', { event: 'game_over' }, ({ payload }) => {
+                    endGame(payload.msg, false);
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await realtimeChannel.track({ online_at: new Date().toISOString() });
+                    }
+                });
+        }
+
+        function startOnlineGame() {
+            if (!isHost) return;
+            const sharedPool = generateShuffledPool(80);
+            realtimeChannel.send({
+                type: 'broadcast',
+                event: 'game_start',
+                payload: { pool: sharedPool, hostName: currentUser }
+            });
+            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser });
+        }
+
+        function handleRemoteGameStart(payload) {
+            gameMode = 'online';
+            document.getElementById('game-mode-title').innerText = '🌐 实时联机对决';
+            document.getElementById('p1-name-tag').innerHTML = `🔴 ${currentUser} (我方)`;
+            document.getElementById('remote-oppo-name').innerText = `🔵 ${remotePlayerName || '在线对手'}`;
+            
+            document.getElementById('game-layout').className = 'single-grid';
+            document.getElementById('panel-center').style.display = 'flex';
+            document.getElementById('panel-p2').style.display = 'none';
+            document.getElementById('online-opponent-hud').style.display = 'flex';
+
+            resetPlayerState(p1State, payload.pool);
+            resetPlayerState(p2State, payload.pool);
+
+            renderQuestion(p1State, 'p1');
+
+            timeLeft = 120;
+            renderSnake();
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                renderSnake();
+                if (timeLeft <= 0) {
+                    endGame("时间到！以当前能量决出胜负", true);
+                }
+            }, 1000);
+
+            switchView('view-game');
+        }
+
+        function handleRemoteScoreUpdate(payload) {
+            // Received opponent score update
+            p2State.score = payload.score;
+            document.getElementById('remote-oppo-score').innerText = `${payload.score} 题`;
+            document.getElementById('ui-p2-score').innerText = `${payload.score} :对手`;
+            renderSnake();
+            checkOnlineWinCondition();
+        }
+
+        function leaveOnlineLobby() {
+            if (realtimeChannel) {
+                realtimeChannel.unsubscribe();
+                realtimeChannel = null;
+            }
+            document.getElementById('online-pre-join').style.display = 'flex';
+            document.getElementById('online-in-room').style.display = 'none';
+            switchView('view-hub');
+        }
+
+        /* ==========================================================================
+           3. LOCAL & SINGLE PLAYER MODES
+           ========================================================================== */
+        function resetPlayerState(state, pool) {
+            if (state.timerId) clearInterval(state.timerId);
+            state.score = 0;
+            state.total = 0;
+            state.currentIdx = 0;
+            state.frozen = false;
+            state.answeringLock = false;
+            state.pool = pool;
+            state.timerId = null;
+        }
+
+        function startSinglePlayer(customPool) {
+            gameMode = 'single';
+            document.getElementById('game-mode-title').innerText = '🎯 单人专练';
+            document.getElementById('p1-name-tag').innerText = currentUser;
+            document.getElementById('game-self-stats').innerText = '得分: 0';
+            document.getElementById('game-layout').className = 'single-grid';
+            document.getElementById('panel-center').style.display = 'none';
+            document.getElementById('panel-p2').style.display = 'none';
+            document.getElementById('online-opponent-hud').style.display = 'none';
+
+            const pool = customPool || generateShuffledPool(50);
+            resetPlayerState(p1State, pool);
+            renderQuestion(p1State, 'p1');
+            switchView('view-game');
+        }
+
+        function startLocalMultiplayer() {
+            gameMode = 'local';
+            document.getElementById('game-mode-title').innerText = '👥 本地同屏对决';
+            document.getElementById('p1-name-tag').innerHTML = `🔴 玩家1 (左)`;
+            document.getElementById('p2-name-tag').innerHTML = `玩家2 (右) 🔵`;
+            document.getElementById('game-layout').className = 'multi-grid';
+            document.getElementById('panel-center').style.display = 'flex';
+            document.getElementById('panel-p2').style.display = 'flex';
+            document.getElementById('online-opponent-hud').style.display = 'none';
+
+            const pool = generateShuffledPool(80);
+            resetPlayerState(p1State, pool);
+            resetPlayerState(p2State, pool);
+            p2State.currentIdx = pool.length - 1;
+
+            renderQuestion(p1State, 'p1');
+            renderQuestion(p2State, 'p2');
+
+            timeLeft = 120;
+            renderSnake();
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                renderSnake();
+                if (timeLeft <= 0) endGame("时间到！对局结束", false);
+            }, 1000);
+
+            switchView('view-game');
+        }
+
+        /* ==========================================================================
+           4. QUESTION RENDERING & ANSWERING
+           ========================================================================== */
+        function renderQuestion(state, prefix) {
+            const isP2 = (prefix === 'p2' && gameMode === 'local');
+            const isOver = isP2 ? state.currentIdx < 0 : state.currentIdx >= state.pool.length;
+
+            if (isOver) {
+                document.getElementById(`${prefix}-word`).innerText = "练习完成 🏁";
+                document.getElementById(`${prefix}-phone`).innerText = "";
+                document.getElementById(`${prefix}-options`).innerHTML = "";
+                return;
+            }
+
+            const q = state.pool[state.currentIdx];
+            document.getElementById(`${prefix}-word`).innerText = q.word;
+            document.getElementById(`${prefix}-phone`).innerText = q.phone || '';
+
+            let html = '';
+            q.options.forEach((opt, idx) => {
+                html += `
+                    <button class="option-btn" id="${prefix}-opt-${idx}">
+                        <span>${opt.meaning}</span>
+                    </button>
+                `;
+            });
+            document.getElementById(`${prefix}-options`).innerHTML = html;
+
+            q.options.forEach((_, idx) => {
+                const btn = document.getElementById(`${prefix}-opt-${idx}`);
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    handleAnswer(prefix, idx, e.clientX, e.clientY);
+                });
+            });
+        }
+
+        function handleAnswer(prefix, idx, clickX, clickY) {
+            const state = (prefix === 'p1') ? p1State : p2State;
+            if (state.frozen || state.answeringLock) return;
+
+            state.answeringLock = true;
+            const q = state.pool[state.currentIdx];
+            const isRight = (idx === q.correctIdx);
+
+            userStats.total++;
+            state.total++;
+
+            if (isRight) {
+                userStats.correct++;
+                state.score++;
+                if (userStats.mistakes && userStats.mistakes[q.word]) {
+                    delete userStats.mistakes[q.word];
+                }
+            } else {
+                if (!userStats.mistakes) userStats.mistakes = {};
+                if (!userStats.mistakes[q.word]) {
+                    userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
+                }
+                userStats.mistakes[q.word].count++;
+            }
+            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+            // Options highlight
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`${prefix}-opt-${i}`);
+                if (!btn) continue;
+                btn.disabled = true;
+                if (!isRight) {
+                    btn.innerHTML = `<span><b>${q.options[i].word}</b> <small>${q.options[i].meaning}</small></span>`;
+                }
+                if (i === q.correctIdx) btn.classList.add('correct');
+            }
+
+            if (!isRight) {
+                const wrongBtn = document.getElementById(`${prefix}-opt-${idx}`);
+                if (wrongBtn) wrongBtn.classList.add('wrong');
+            }
+
+            if (clickX && clickY) {
+                spawnParticles(clickX, clickY, isRight ? '#198754' : '#BA1A1A');
+            }
+
+            // Sync score UI
+            if (gameMode === 'single') {
+                document.getElementById('game-self-stats').innerText = `得分: ${state.score}`;
+            } else if (gameMode === 'local') {
+                document.getElementById('ui-p1-score').innerText = `P1: ${p1State.score}`;
+                document.getElementById('ui-p2-score').innerText = `${p2State.score} :P2`;
+                renderSnake();
+                if (checkLocalWin()) return;
+            } else if (gameMode === 'online') {
+                document.getElementById('game-self-stats').innerText = `得分: ${p1State.score}`;
+                document.getElementById('ui-p1-score').innerText = `我方: ${p1State.score}`;
+                renderSnake();
+                // Send score update via Supabase Broadcast
+                if (realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'score_update',
+                        payload: { score: p1State.score, user: currentUser }
+                    });
+                }
+                if (checkOnlineWinCondition()) return;
+            }
+
+            if (isRight) {
+                setTimeout(() => {
+                    state.answeringLock = false;
+                    if (prefix === 'p2' && gameMode === 'local') state.currentIdx--;
+                    else state.currentIdx++;
+                    renderQuestion(state, prefix);
+                }, 220);
+            } else {
+                triggerPenalty(state, prefix);
+            }
+        }
+
+        function triggerPenalty(state, prefix) {
+            state.frozen = true;
+            const banner = document.getElementById(`${prefix}-cooldown`);
+            const nextBtn = banner.querySelector('.manual-next-btn');
+            const textSpan = banner.querySelector('.cooldown-text');
+            banner.classList.add('active');
+
+            if (gameMode !== 'single') {
+                banner.classList.add('multi-mode');
+                textSpan.style.display = 'inline';
+                if (nextBtn) nextBtn.style.display = 'none';
+
+                let sec = 4;
+                document.getElementById(`${prefix}-timer`).innerText = sec;
+                if (state.timerId) clearInterval(state.timerId);
+                state.timerId = setInterval(() => {
+                    sec--;
+                    document.getElementById(`${prefix}-timer`).innerText = sec;
+                    if (sec <= 0) {
+                        clearInterval(state.timerId);
+                        banner.classList.remove('active', 'multi-mode');
+                        state.frozen = false;
+                        state.answeringLock = false;
+                        if (prefix === 'p2' && gameMode === 'local') state.currentIdx--;
+                        else state.currentIdx++;
+                        renderQuestion(state, prefix);
+                    }
+                }, 1000);
+            } else {
+                banner.classList.remove('multi-mode');
+                textSpan.style.display = 'none';
+                if (nextBtn) {
+                    nextBtn.style.display = 'inline-flex';
+                    nextBtn.onclick = () => {
+                        banner.classList.remove('active');
+                        state.frozen = false;
+                        state.answeringLock = false;
+                        state.currentIdx++;
+                        renderQuestion(state, prefix);
+                    };
+                }
+            }
+        }
+
+        function handleGlobalKeydown(e) {
+            if (gameMode !== 'local') return;
+            const key = e.key.toLowerCase();
+            if (!p1State.frozen && !p1State.answeringLock) {
+                if (key === 'a') handleAnswer('p1', 0);
+                if (key === 's') handleAnswer('p1', 1);
+                if (key === 'd') handleAnswer('p1', 2);
+                if (key === 'f') handleAnswer('p1', 3);
+            }
+            if (!p2State.frozen && !p2State.answeringLock) {
+                if (key === 'h') handleAnswer('p2', 0);
+                if (key === 'j') handleAnswer('p2', 1);
+                if (key === 'k') handleAnswer('p2', 2);
+                if (key === 'l') handleAnswer('p2', 3);
+            }
+        }
+
+        /* Particles */
+        function spawnParticles(x, y, color) {
+            const emojis = ['✨', '⭐', '⚡', '💥', '🔥'];
+            for (let i = 0; i < 6; i++) {
+                const p = document.createElement('span');
+                p.className = 'particle';
+                p.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                p.style.setProperty('--dx', `${(Math.random() - 0.5) * 140}px`);
+                p.style.setProperty('--dy', `${(Math.random() - 0.5) * 140 - 20}px`);
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 650);
+            }
+        }
+
+        /* Tug-of-war Ring Visual */
+        function renderSnake() {
+            if (gameMode === 'single') return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = 76;
+            const strokeWidth = 18;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#E1E2E8';
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            let diff = p1State.score - p2State.score;
+            let p1Units = Math.max(0, Math.min(20, 10 + diff));
+            let p1Ratio = p1Units / 20;
+
+            const startAngle = -Math.PI / 2;
+            const p1EndAngle = startAngle + (Math.PI * 2 * p1Ratio);
+
+            if (p1Ratio > 0) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, startAngle, p1EndAngle);
+                ctx.strokeStyle = '#B3261E';
+                ctx.lineWidth = strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            if (p1Ratio < 1) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, p1EndAngle, startAngle + (Math.PI * 2));
+                ctx.strokeStyle = '#006874';
+                ctx.lineWidth = strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#191C20';
+            ctx.font = '700 24px "Google Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+            ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, cx, cy);
+        }
+
+        function checkLocalWin() {
+            let diff = p1State.score - p2State.score;
+            if (10 + diff >= 20) {
+                endGame("🎉 玩家1 (红方) 率先吞噬全部能量圈获胜！", false);
+                return true;
+            }
+            if (10 + diff <= 0) {
+                endGame("🎉 玩家2 (蓝方) 率先吞噬全部能量圈获胜！", false);
+                return true;
+            }
+            return false;
+        }
+
+        function checkOnlineWinCondition() {
+            let diff = p1State.score - p2State.score;
+            if (10 + diff >= 20) {
+                const winMsg = `🎉 恭喜！您成功吞噬全部能量，赢得对决！`;
+                if (realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'game_over',
+                        payload: { msg: `💔 对手率先吞噬全部能量圈，本局遗憾战败！` }
+                    });
+                }
+                endGame(winMsg, false);
+                return true;
+            } else if (10 + diff <= 0) {
+                const loseMsg = `💔 对手率先推满能量圈，本局遗憾落败！`;
+                endGame(loseMsg, false);
+                return true;
+            }
+            return false;
+        }
+
+        function endGame(msg, broadcastToPeer) {
+            clearInterval(gameTimer);
+            if (p1State.timerId) clearInterval(p1State.timerId);
+            if (p2State.timerId) clearInterval(p2State.timerId);
+
+            if (broadcastToPeer && realtimeChannel) {
+                realtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'game_over',
+                    payload: { msg: "时间到！对局结束" }
+                });
+            }
+
+            gameResult = {
+                mode: gameMode,
+                msg: msg,
+                p1Score: p1State.score,
+                p2Score: p2State.score
+            };
+            renderResult();
+            switchView('view-result');
+        }
+
+        function renderResult() {
+            if (!gameResult) return;
+            document.getElementById('result-message').innerText = gameResult.msg;
+            const details = document.getElementById('result-details');
+
+            if (gameResult.mode === 'single') {
+                const rate = p1State.total > 0 ? Math.round((p1State.score / p1State.total) * 100) : 0;
+                details.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card"><span class="stat-label">本次答题</span><span class="stat-value">${p1State.total}</span></div>
+                        <div class="stat-card"><span class="stat-label">正确率</span><span class="stat-value" style="color:var(--md-sys-color-success);">${rate}%</span></div>
+                    </div>
+                `;
+            } else {
+                details.innerHTML = `
+                    <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:20px; border-radius:var(--md-shape-l);">
+                        <div>
+                            <div style="font-weight:700; color:var(--p1-sys-color);">${gameMode === 'online' ? '我方' : 'P1 红方'}</div>
+                            <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
+                        </div>
+                        <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
+                        <div>
+                            <div style="font-weight:700; color:var(--p2-sys-color);">${gameMode === 'online' ? (remotePlayerName || '对手') : 'P2 蓝方'}</div>
+                            <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function confirmExitGame() {
+            if (confirm('确定退出当前对局吗？')) {
+                clearInterval(gameTimer);
+                if (p1State.timerId) clearInterval(p1State.timerId);
+                if (p2State.timerId) clearInterval(p2State.timerId);
+                if (gameMode === 'online' && realtimeChannel) {
+                    realtimeChannel.unsubscribe();
+                }
+                switchView('view-hub');
+            }
+        }
+
+        /* Mistakes Notebook */
+        function openMistakesView() {
+            const mistakes = userStats.mistakes || {};
+            const container = document.getElementById('mistakes-container');
+            container.innerHTML = '';
+            const keys = Object.keys(mistakes);
+
+            if (keys.length === 0) {
+                container.innerHTML = '<p style="text-align:center; padding: 40px 0;">🎉 太棒了，暂无任何错题！</p>';
+            } else {
+                keys.sort((a, b) => mistakes[b].count - mistakes[a].count).forEach((word, idx) => {
+                    const item = mistakes[word];
+                    const div = document.createElement('div');
+                    div.style.cssText = 'background:var(--md-sys-color-surface-container-low); padding:14px 18px; margin-bottom:10px; border-radius:var(--md-shape-l); display:flex; justify-content:space-between; align-items:center;';
+                    div.innerHTML = `
+                        <div>
+                            <div style="font-weight:700; font-size:1.1rem;">#${idx + 1} ${word}</div>
+                            <div style="font-size:0.85rem; color:var(--md-sys-color-on-surface-variant);">${item.meaning}</div>
+                        </div>
+                        <span class="badge" style="background:var(--md-sys-color-error-container); color:var(--md-sys-color-on-error-container);">错 ${item.count} 次</span>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+            switchView('view-mistakes');
+        }
+
+        function restudyMistakes() {
+            const mistakes = userStats.mistakes || {};
+            const words = Object.keys(mistakes);
+            if (words.length === 0) return alert('当前没有待复习的错题！');
+
+            const pool = words.map(w => {
+                const item = dictionary.find(d => d.word === w) || { phone: '' };
+                const optData = generateOptions(w, mistakes[w].meaning);
+                return {
+                    word: w,
+                    phone: item.phone,
+                    meaning: mistakes[w].meaning,
+                    options: optData.options,
+                    correctIdx: optData.correctIdx
+                };
+            });
+            startSinglePlayer(pool);
+        }
+
+        function clearMistakes() {
+            if (confirm('确认清空全部错题记录？')) {
+                userStats.mistakes = {};
+                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                openMistakesView();
+            }
+        }
+
+        // Initialize Screen
+        if (currentUser) {
+            document.getElementById('username-input').value = currentUser;
+            switchView('view-hub');
+        }
+    </script>
+</body>
+
+</html>
