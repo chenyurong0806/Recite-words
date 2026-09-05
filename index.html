@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>单词PK</title>
+    <title>背单词</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1124,6 +1124,199 @@
             font-size: 0.82rem;
         }
 
+        /* 10秒看答案惩罚按钮 */
+        .btn-reveal-ten-sec {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+            border: 1.5px solid var(--md-sys-color-error);
+            border-radius: var(--md-shape-full);
+            padding: 6px 18px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all var(--md-motion-standard);
+            margin-top: 6px;
+        }
+        .btn-reveal-ten-sec:hover:not(:disabled) {
+            background: #FFDAD6;
+            transform: translateY(-1px);
+            box-shadow: var(--md-elevation-1);
+        }
+        .btn-reveal-ten-sec:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        /* 错题重问循环提示胶囊 */
+        .retest-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: #FFF3E0;
+            color: #B26A00;
+            border: 1px solid #FFE0B2;
+            border-radius: var(--md-shape-full);
+            font-size: 0.78rem;
+            font-weight: 600;
+            animation: popIn 0.3s ease;
+        }
+
+        /* Word Riddles 单词谜题 MD3 样式 */
+        .riddle-wrapper {
+            width: 100%;
+            max-width: 540px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .riddle-clue-card {
+            width: 100%;
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-xl);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            box-shadow: var(--md-elevation-1);
+        }
+
+        .riddle-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 10px 0 16px;
+            align-items: center;
+        }
+
+        .riddle-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .riddle-tile {
+            width: 52px;
+            height: 52px;
+            border: 2px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-m);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface);
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: transform 0.15s, border-color 0.15s, background-color 0.2s;
+        }
+
+        .riddle-tile.active {
+            border-color: var(--md-sys-color-primary);
+            transform: scale(1.06);
+        }
+
+        .riddle-tile.correct {
+            background-color: #146C2E !important;
+            border-color: #146C2E !important;
+            color: #FFFFFF !important;
+            animation: tileFlip 0.45s ease forwards;
+        }
+
+        .riddle-tile.present {
+            background-color: #B26A00 !important;
+            border-color: #B26A00 !important;
+            color: #FFFFFF !important;
+            animation: tileFlip 0.45s ease forwards;
+        }
+
+        .riddle-tile.absent {
+            background-color: #535F70 !important;
+            border-color: #535F70 !important;
+            color: #FFFFFF !important;
+            animation: tileFlip 0.45s ease forwards;
+        }
+
+        @keyframes tileFlip {
+            0% { transform: rotateX(0); }
+            50% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.88); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .riddle-keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            max-width: 500px;
+            margin: 12px auto 0;
+            user-select: none;
+        }
+
+        .riddle-key-row {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .riddle-key {
+            min-height: 46px;
+            flex: 1;
+            max-width: 44px;
+            border-radius: var(--md-shape-s);
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            transition: all var(--md-motion-standard);
+        }
+
+        .riddle-key:active {
+            transform: scale(0.92);
+        }
+
+        .riddle-key.wide {
+            flex: 1.6;
+            max-width: 66px;
+            font-size: 0.8rem;
+        }
+
+        .riddle-key.correct {
+            background: #146C2E !important;
+            color: #FFF !important;
+            border-color: #146C2E !important;
+        }
+
+        .riddle-key.present {
+            background: #B26A00 !important;
+            color: #FFF !important;
+            border-color: #B26A00 !important;
+        }
+
+        .riddle-key.absent {
+            background: #535F70 !important;
+            color: #FFF !important;
+            border-color: #535F70 !important;
+            opacity: 0.6;
+        }
+
         @media (max-width: 600px) {
             body { padding: 10px 10px 24px; }
             .card { padding: 18px 14px; }
@@ -1138,6 +1331,14 @@
             .single-opt-btn { min-height: 52px; font-size: 0.92rem; padding: 12px 14px; }
             .single-mode-title { font-size: 1.3rem; }
             .modal-card { padding: 18px 16px; }
+            .riddle-tile { width: 44px; height: 44px; font-size: 1.3rem; }
+            .riddle-key { min-height: 42px; font-size: 0.85rem; }
+            .riddle-key.wide { font-size: 0.75rem; }
+        }
+        @media (max-width: 400px) {
+            .riddle-tile { width: 38px; height: 38px; font-size: 1.15rem; }
+            .riddle-key { min-height: 38px; font-size: 0.78rem; }
+            .riddle-key.wide { min-height: 38px; font-size: 0.7rem; }
         }
     </style>
 </head>
@@ -1166,13 +1367,14 @@
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
-                    <span class="badge badge-p1" id="hub-profile-tag">👤 玩家</span>
+                    <span class="badge badge-p1" id="hub-profile-tag">玩家</span>
                     <button class="btn btn-outlined" style="min-height: 38px; padding: 0 14px;" onclick="switchView('view-auth')">切换账号</button>
                 </div>
             </div>
 
             <!-- 模式卡片 -->
             <div class="modes-grid">
+                <!-- 模式 1: 联机模式 -->
                 <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);" onclick="switchView('view-online')">
                     <div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1180,18 +1382,66 @@
                             <span class="badge badge-online">Supabase 实时</span>
                         </div>
                         <h3>联机模式</h3>
-                        <p style="margin-top: 6px;">请输入文本</p>
+                        <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
+                            双人拔河能量对决 · 词组拼装对抗
+                        </p>
                     </div>
                     <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start; background: #006874;">进入联机大厅</button>
                 </div>
 
-                <div class="mode-card" onclick="openSingleBookSelector()">
+                <!-- 模式 2: 单人模式 (学习新词 / 艾宾浩斯复习 / 设置) -->
+                <div class="mode-card" style="border-color: var(--md-sys-color-primary);">
                     <div>
-                        <span class="mode-icon">🎯</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="mode-icon">🎯</span>
+                            <span class="badge" id="hub-single-book-badge" style="background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-weight:600;">已选 1 本词书</span>
+                        </div>
                         <h3>单人模式</h3>
-                        <p style="margin-top: 6px;">请输入文本</p>
+                        <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
+                            艾宾浩斯记忆曲线 · 错词循环强化
+                        </p>
                     </div>
-                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start;">选择词书</button>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%;">
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-filled" style="flex: 1;" onclick="startSingleLearning()">
+                                学习新词
+                            </button>
+                            <button class="btn btn-tonal" id="btn-hub-review" style="flex: 1;" onclick="startSingleReview()">
+                                复习
+                                <span id="hub-review-due-count">0</span>
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-outlined" style="flex: 1;" onclick="openSingleBookSelector()">
+                                选择词书
+                            </button>
+                            <button class="btn btn-outlined" style="flex: 1;" onclick="openSingleSettings()">
+                                设置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模式 3: Word Riddles 单词谜题 -->
+                <div class="mode-card" style="border-color: #E8DEF8;" onclick="startWordRiddleGame()">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="mode-icon">🧩</span>
+                            <span class="badge" style="background: #E8DEF8; color: #49454F; font-weight: 600;">益智解谜</span>
+                        </div>
+                        <h3>Word Riddles</h3>
+                        <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
+                            线索推理解密 · 自定义词书与长度
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 16px; width: 100%;">
+                        <button class="btn btn-filled" style="flex: 2; background: #6750A4;" onclick="event.stopPropagation(); startWordRiddleGame();">
+                            开始解谜
+                        </button>
+                        <button class="btn btn-outlined" style="flex: 1;" onclick="event.stopPropagation(); openRiddleSettings();">
+                            设置
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1304,6 +1554,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
                                 <span class="rule-label" style="margin-bottom:0;">对决词库</span>
                                 <div style="display:flex; align-items:center; gap: 8px;">
+                                    <label class="btn btn-tonal" style="cursor: pointer; margin: 0; font-size: 0.78rem; padding: 4px 12px; border-radius: var(--md-shape-full); min-height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                                     <label class="btn btn-tonal" id="btn-room-import-book" style="cursor: pointer; margin: 0; font-size: 0.78rem; padding: 4px 12px; border-radius: var(--md-shape-full); min-height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                                         导入本地词书
                                         <input type="file" accept=".json" style="display: none;" onchange="loadCustomBook(event)">
@@ -1330,14 +1581,18 @@
             <div class="single-mode-wrapper">
                 <!-- 顶部导航栏 -->
                 <div class="single-top-bar">
-                    <h2 class="single-mode-title">单人模式</h2>
+                    <h2 class="single-mode-title" id="single-mode-title">单人模式</h2>
                     <button class="single-btn-exit" onclick="confirmExitSingle()">返回</button>
                 </div>
 
                 <!-- 居中白色答题卡片 -->
                 <div class="single-quiz-card">
-                    <div class="single-badge-row">
-                        <span class="single-book-badge" id="single-book-badge">测试2</span>
+                    <div class="single-badge-row" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="single-book-badge" id="single-book-badge">测试2</span>
+                            <span id="single-retest-tag" style="display:none;" class="retest-banner">🔁 错词巩固复问</span>
+                        </div>
+                        <span id="single-progress-text" style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">1 / 10</span>
                     </div>
 
                     <div class="single-word-display" id="single-word">junk mail</div>
@@ -1432,6 +1687,56 @@
             </div>
         </div>
 
+        <!-- VIEW 8: Word Riddles 单词解谜 -->
+        <div id="view-riddle" class="view">
+            <div class="riddle-wrapper">
+                <!-- 顶部导航栏 -->
+                <div class="single-top-bar" style="width: 100%;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h2 class="single-mode-title" style="margin:0;">Word Riddles</h2>
+                        <span class="badge" id="riddle-book-tag" style="background: #E8DEF8; color: #49454F; font-weight:600;">四级词库</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outlined btn-sm" onclick="openRiddleSettings()">设置</button>
+                        <button class="single-btn-exit" onclick="confirmExitRiddle()">返回</button>
+                    </div>
+                </div>
+
+                <!-- 释义线索卡片 -->
+                <div class="riddle-clue-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-size:0.8rem; color:var(--md-sys-color-outline); font-weight:600;" id="riddle-attempt-indicator">
+                            尝试次数: 1 / 6
+                        </span>
+                        <span style="font-size:0.8rem; color:var(--md-sys-color-primary); font-weight:600;" id="riddle-length-tip">
+                            单词长度: 5 字母
+                        </span>
+                    </div>
+                    <div style="font-size:1.3rem; font-weight:700; color:var(--md-sys-color-on-surface); margin:6px 0;" id="riddle-clue-meaning">
+                        释义加载中...
+                    </div>
+                    <div style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:monospace;" id="riddle-clue-phone">
+                        /phonetic/
+                    </div>
+                </div>
+
+                <!-- 字母瓷砖网格 -->
+                <div class="riddle-grid" id="riddle-grid">
+                    <!-- 动态生成行与瓷砖 -->
+                </div>
+
+                <!-- 虚拟键盘 -->
+                <div class="riddle-keyboard" id="riddle-keyboard">
+                    <!-- 动态生成 3 行按键 -->
+                </div>
+
+                <div style="margin-top:16px; display:flex; gap:10px;">
+                    <button class="btn btn-tonal btn-sm" onclick="startWordRiddleGame()">换一题</button>
+                    <button class="btn btn-outlined btn-sm" onclick="giveUpRiddle()">揭晓答案</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- 单人模式多选词书选择弹窗 -->
@@ -1468,6 +1773,94 @@
             <div class="modal-footer">
                 <div style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-primary);" id="single-selected-summary">已选 1 本词书</div>
                 <button class="btn btn-filled btn-touch-large" id="btn-start-single-quiz" onclick="startSinglePlayerFromSelectedBooks()">开始练习</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 单人模式学习/复习节奏设置弹窗 -->
+    <div id="modal-single-settings" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700;">单人学习设置</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">设置学习与艾宾浩斯复习节奏</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeSingleSettings()">✕</button>
+            </div>
+
+            <div style="margin: 14px 0;">
+                <div class="rule-group">
+                    <span class="rule-label">学习节奏（每组学习数量）</span>
+                    <div class="chip-group" id="chips-learn-batch">
+                        <div class="md3-chip" data-val="5" onclick="selectLearnBatch(5)">5 词一组</div>
+                        <div class="md3-chip selected" data-val="10" onclick="selectLearnBatch(10)">10 词一组</div>
+                        <div class="md3-chip" data-val="15" onclick="selectLearnBatch(15)">15 词一组</div>
+                        <div class="md3-chip" data-val="20" onclick="selectLearnBatch(20)">20 词一组</div>
+                    </div>
+                </div>
+
+                <div class="rule-group" style="margin-bottom:0;">
+                    <span class="rule-label">复习节奏（每组复习数量）</span>
+                    <div class="chip-group" id="chips-review-batch">
+                        <div class="md3-chip" data-val="10" onclick="selectReviewBatch(10)">10 词一组</div>
+                        <div class="md3-chip" data-val="15" onclick="selectReviewBatch(15)">15 词一组</div>
+                        <div class="md3-chip selected" data-val="20" onclick="selectReviewBatch(20)">20 词一组</div>
+                        <div class="md3-chip" data-val="40" onclick="selectReviewBatch(40)">40 词一组</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeSingleSettings()">取消</button>
+                <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveSingleSettings()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Word Riddles 谜题参数设置弹窗 -->
+    <div id="modal-riddle-settings" class="modal-overlay">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700;">Word Riddles 猜词设置</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">自定义抽词范围、单词长度与尝试次数</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeRiddleSettings()">✕</button>
+            </div>
+
+            <div style="margin: 14px 0;">
+                <div class="rule-group">
+                    <span class="rule-label">选择词书</span>
+                    <div class="chip-group" id="chips-riddle-books">
+                        <!-- 动态渲染词书 chips -->
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">单词长度</span>
+                    <div class="chip-group" id="chips-riddle-len">
+                        <div class="md3-chip" data-len="4" onclick="selectRiddleLength(4)">4 字母</div>
+                        <div class="md3-chip selected" data-len="5" onclick="selectRiddleLength(5)">5 字母</div>
+                        <div class="md3-chip" data-len="6" onclick="selectRiddleLength(6)">6 字母</div>
+                        <div class="md3-chip" data-len="7" onclick="selectRiddleLength(7)">7 字母</div>
+                        <div class="md3-chip" data-len="0" onclick="selectRiddleLength(0)">任意长度</div>
+                    </div>
+                </div>
+
+                <div class="rule-group" style="margin-bottom:0;">
+                    <span class="rule-label">尝试次数</span>
+                    <div class="chip-group" id="chips-riddle-attempts">
+                        <div class="md3-chip" data-att="4" onclick="selectRiddleAttempts(4)">4 次</div>
+                        <div class="md3-chip" data-att="5" onclick="selectRiddleAttempts(5)">5 次</div>
+                        <div class="md3-chip selected" data-att="6" onclick="selectRiddleAttempts(6)">6 次</div>
+                        <div class="md3-chip" data-att="8" onclick="selectRiddleAttempts(8)">8 次</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeRiddleSettings()">取消</button>
+                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#6750A4;" onclick="saveAndStartRiddle()">保存并开始</button>
             </div>
         </div>
     </div>
@@ -1818,10 +2211,17 @@
 
         function updateHub() {
             if (!currentUser) return switchView('view-auth');
-            document.getElementById('hub-profile-tag').innerText = `👤 ${currentUser}`;
+            document.getElementById('hub-profile-tag').innerText = `${currentUser}`;
             document.getElementById('stat-total').innerText = userStats.total;
             document.getElementById('stat-acc').innerText = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
             document.getElementById('stat-mistakes').innerText = Object.keys(userStats.mistakes || {}).length;
+
+            const badge = document.getElementById('hub-single-book-badge');
+            if (badge) badge.innerText = `已选 ${singleSelectedBookIds.length} 本词书`;
+
+            if (window.EbbinghausEngine) {
+                EbbinghausEngine.updateDueBadge();
+            }
         }
 
         function loadCustomBook(e) {
@@ -1951,6 +2351,227 @@
             if (summary) {
                 summary.innerText = `已勾选 ${singleSelectedBookIds.length} 本词书`;
             }
+            const hubBadge = document.getElementById('hub-single-book-badge');
+            if (hubBadge) {
+                hubBadge.innerText = `已选 ${singleSelectedBookIds.length} 本词书`;
+            }
+        }
+
+        /* --------------------------------------------------------------------------
+           单人模式设置配置与艾宾浩斯遗忘曲线引擎
+           -------------------------------------------------------------------------- */
+        let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20}');
+
+        function openSingleSettings() {
+            const modal = document.getElementById('modal-single-settings');
+            if (!modal) return;
+            updateSingleSettingsChips();
+            modal.classList.add('active');
+        }
+
+        function closeSingleSettings() {
+            const modal = document.getElementById('modal-single-settings');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function updateSingleSettingsChips() {
+            document.querySelectorAll('#chips-learn-batch .md3-chip').forEach(c => {
+                const val = parseInt(c.getAttribute('data-val'));
+                c.classList.toggle('selected', val === singleConfig.learnBatch);
+            });
+            document.querySelectorAll('#chips-review-batch .md3-chip').forEach(c => {
+                const val = parseInt(c.getAttribute('data-val'));
+                c.classList.toggle('selected', val === singleConfig.reviewBatch);
+            });
+        }
+
+        function selectLearnBatch(val) {
+            singleConfig.learnBatch = val;
+            updateSingleSettingsChips();
+        }
+
+        function selectReviewBatch(val) {
+            singleConfig.reviewBatch = val;
+            updateSingleSettingsChips();
+        }
+
+        function saveSingleSettings() {
+            localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+            closeSingleSettings();
+            showToast(`设置已保存：新词 ${singleConfig.learnBatch} 词/组，复习 ${singleConfig.reviewBatch} 词/组`);
+        }
+
+        // 艾宾浩斯复习时间间隔标准 (毫秒)
+        const EBBINGHAUS_INTERVALS = [
+            5 * 60 * 1000,          // Stage 1: 5分钟
+            30 * 60 * 1000,         // Stage 2: 30分钟
+            12 * 60 * 60 * 1000,     // Stage 3: 12小时
+            24 * 60 * 60 * 1000,     // Stage 4: 1天
+            2 * 24 * 60 * 60 * 1000, // Stage 5: 2天
+            4 * 24 * 60 * 60 * 1000, // Stage 6: 4天
+            7 * 24 * 60 * 60 * 1000, // Stage 7: 7天
+            15 * 24 * 60 * 60 * 1000 // Stage 8: 15天
+        ];
+
+        const EbbinghausEngine = {
+            getRecords() {
+                try {
+                    return JSON.parse(localStorage.getItem('vocab_ebbinghaus_db') || '{}');
+                } catch (e) {
+                    return {};
+                }
+            },
+            saveRecords(records) {
+                localStorage.setItem('vocab_ebbinghaus_db', JSON.stringify(records));
+            },
+            getDueWords() {
+                const records = this.getRecords();
+                const now = Date.now();
+                return Object.values(records).filter(r => r && r.nextReview && now >= r.nextReview);
+            },
+            getAllLearnedWords() {
+                const records = this.getRecords();
+                return Object.values(records);
+            },
+            recordWord(word, meaning, phone, isSuccess) {
+                if (!word) return;
+                const key = word.trim().toLowerCase();
+                const records = this.getRecords();
+                const now = Date.now();
+                const record = records[key] || {
+                    word: word.trim(),
+                    meaning: meaning || '',
+                    phone: phone || '',
+                    stage: 0,
+                    historyCount: 0
+                };
+
+                record.historyCount = (record.historyCount || 0) + 1;
+                record.lastStudied = now;
+                if (meaning) record.meaning = meaning;
+                if (phone) record.phone = phone;
+
+                if (isSuccess) {
+                    const nextStage = Math.min(8, Math.max(1, (record.stage || 0) + 1));
+                    record.stage = nextStage;
+                    record.nextReview = now + EBBINGHAUS_INTERVALS[nextStage - 1];
+                } else {
+                    record.stage = 1; // 答错回退至第一阶段
+                    record.nextReview = now + EBBINGHAUS_INTERVALS[0]; // 5分钟后复习
+                }
+
+                records[key] = record;
+                this.saveRecords(records);
+                this.updateDueBadge();
+            },
+            updateDueBadge() {
+                const badgeEl = document.getElementById('hub-review-due-count');
+                if (badgeEl) {
+                    const dueCount = this.getDueWords().length;
+                    badgeEl.innerText = dueCount;
+                }
+            }
+        };
+
+        // 错词循环巩固机制：过3题后重问 + 本组末尾再重问一遍
+        function scheduleRetestForCurrentQuestion() {
+            if (gameMode !== 'single') return;
+            const q = singleState.pool[singleState.currentIdx];
+            if (!q || q._retestScheduled) return;
+            q._retestScheduled = true;
+
+            const retestQ1 = { ...q, _isRetest: true, _retestScheduled: false };
+            const retestQ2 = { ...q, _isRetest: true, _retestScheduled: false };
+
+            // 1. 过3个词后再问一遍:
+            const insertPos = singleState.currentIdx + 4;
+            if (insertPos < singleState.pool.length) {
+                singleState.pool.splice(insertPos, 0, retestQ1);
+            } else {
+                singleState.pool.push(retestQ1);
+            }
+
+            // 2. 本组末尾再问一遍:
+            singleState.pool.push(retestQ2);
+
+            // showToast('已加入巩固队列：过3题后重问，组末再重问');
+        }
+
+        // 学习新词入口
+        async function startSingleLearning() {
+            try {
+                if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
+                    singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+                }
+                const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+                if (!words || words.length === 0) {
+                    showToast('未获取到词书词汇，请检查网络或词书选择！');
+                    return;
+                }
+                dictionary = words;
+
+                const learnedMap = EbbinghausEngine.getRecords();
+                const unlearnedWords = words.filter(w => !learnedMap[(w.word || '').trim().toLowerCase()]);
+
+                let candidateWords = unlearnedWords;
+                if (candidateWords.length === 0) {
+                    showToast('选定词书的所有词汇均已学完，将进行强化巩固！');
+                    candidateWords = words;
+                }
+
+                const batchSize = singleConfig.learnBatch || 10;
+                const shuffled = [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
+                const pool = generateShuffledPoolFromWords(shuffled, shuffled.length);
+
+                startSinglePlayerWithPool(pool, '新词学习');
+            } catch (err) {
+                alert('启动学习失败: ' + err.message);
+            }
+        }
+
+        // 艾宾浩斯复习入口
+        async function startSingleReview() {
+            try {
+                const dueRecords = EbbinghausEngine.getDueWords();
+                let reviewTargets = [];
+
+                if (dueRecords.length === 0) {
+                    const allLearned = EbbinghausEngine.getAllLearnedWords();
+                    if (allLearned.length === 0) {
+                        showToast('暂无待复习词汇，请先学习新词！');
+                        return;
+                    }
+                    if (!confirm(`当前没有到达艾宾浩斯复习周期的词汇（共 ${allLearned.length} 词已学）。\n是否提前强化复习已学单词？`)) {
+                        return;
+                    }
+                    reviewTargets = [...allLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+                } else {
+                    reviewTargets = [...dueRecords].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+                }
+
+                const batchSize = singleConfig.reviewBatch || 20;
+                const selectedBatch = reviewTargets.slice(0, batchSize);
+
+                const allDb = getAllDatabaseWords();
+                const wordMap = new Map();
+                allDb.forEach(w => wordMap.set((w.word || '').trim().toLowerCase(), w));
+
+                const wordsList = selectedBatch.map(r => {
+                    const existing = wordMap.get(r.word.toLowerCase());
+                    if (existing) return existing;
+                    return {
+                        word: r.word,
+                        phone: r.phone || '',
+                        bookName: '艾宾浩斯复习',
+                        meanings: [{ pos: '', meaning: r.meaning || '---' }]
+                    };
+                });
+
+                const pool = generateShuffledPoolFromWords(wordsList, wordsList.length);
+                startSinglePlayerWithPool(pool, '艾宾浩斯复习');
+            } catch (err) {
+                alert('启动复习失败: ' + err.message);
+            }
         }
 
         async function startSinglePlayerFromSelectedBooks() {
@@ -1964,7 +2585,8 @@
                 const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
                 closeSingleBookSelector();
                 dictionary = words;
-                const pool = generateShuffledPoolFromWords(words, Math.min(60, words.length));
+                const batchSize = singleConfig.learnBatch || 10;
+                const pool = generateShuffledPoolFromWords(words, Math.min(batchSize * 2, words.length));
                 startSinglePlayerWithPool(pool, '单人专练');
             } catch (err) {
                 alert('加载词书失败：' + err.message);
@@ -1984,8 +2606,11 @@
                 answered: false,
                 selectedIdx: -1,
                 score: 0,
-                total: 0
+                total: 0,
+                sessionName: defaultBookName
             };
+            const titleEl = document.getElementById('single-mode-title');
+            if (titleEl) titleEl.innerText = defaultBookName;
             renderSingleQuestion();
             switchView('view-single');
         }
@@ -2342,7 +2967,17 @@
 
             // 词书小标签 (严格对齐设计图左上角标签，如“测试2”)
             const badge = document.getElementById('single-book-badge');
-            if (badge) badge.innerText = q.bookName || '测试2';
+            if (badge) badge.innerText = q.bookName || (singleState.sessionName || '单人专练');
+
+            // 进度与巩固复问标识
+            const progEl = document.getElementById('single-progress-text');
+            if (progEl) {
+                progEl.innerText = `${singleState.currentIdx + 1} / ${singleState.pool.length}`;
+            }
+            const retestTag = document.getElementById('single-retest-tag');
+            if (retestTag) {
+                retestTag.style.display = q._isRetest ? 'inline-flex' : 'none';
+            }
 
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
@@ -2416,6 +3051,7 @@
                     <div id="single-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
                     <div class="phrase-bank-card">
                         <div class="phrase-bank-header">
+                            <span>词框：</span>
                             <span>备选词框：</span>
                             <button type="button" class="btn-clear-phrase" id="btn-clear-single-phrase" onclick="clearSinglePhraseSlots()">
                                 清空已选
@@ -2523,6 +3159,7 @@
                     delete userStats.mistakes[q.word];
                 }
                 localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, true);
 
                 singlePhraseState.placed.forEach((_, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
@@ -2560,9 +3197,12 @@
                 }
                 userStats.mistakes[q.word].count++;
                 localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                scheduleRetestForCurrentQuestion();
+                EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, false);
 
                 singlePhraseState.targetWords.forEach((tw, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
+                    if (slotEl) slotEl.classList.add('wrong');
                     const chipId = singlePhraseState.placed[i];
                     const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
                     const userWord = chip ? chip.text : '';
@@ -2578,6 +3218,12 @@
                     }
                 });
 
+                setTimeout(() => {
+                    singlePhraseState.placed.forEach((_, i) => {
+                        const slotEl = document.getElementById(`single-slot-${i}`);
+                        if (slotEl) slotEl.classList.remove('wrong');
+                    });
+                }, 600);
                 const comp = document.getElementById('single-phrase-compare');
                 if (comp) {
                     comp.className = 'phrase-comparison-card wrong-state';
@@ -2585,7 +3231,7 @@
                     comp.innerHTML = `
                         <div class="phrase-compare-row">
                             <span class="phrase-compare-badge wrong">✕ 搭配有误</span>
-                            <span style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">可点击槽位或清空按钮重新调整，或点击下方【看答案】</span>
+                            <span style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">请重新调整，或点击下方【看答案】</span>
                         </div>
                     `;
                 }
@@ -2605,6 +3251,8 @@
             }
             userStats.mistakes[q.word].count++;
             localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+            scheduleRetestForCurrentQuestion();
+            EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, false);
 
             const isPhrase = q.word && q.word.trim().includes(' ');
             if (isPhrase) {
@@ -2617,6 +3265,9 @@
                     const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
 
                     if (slotEl) {
+                        slotEl.classList.remove('empty', 'wrong');
+                        slotEl.classList.add('filled', 'correct');
+                        slotEl.innerText = tw;
                         slotEl.classList.remove('empty');
                         if (isSlotRight) {
                             slotEl.classList.remove('wrong');
@@ -2647,6 +3298,7 @@
                 // 禁用备选词块与清空按钮
                 singlePhraseState.chips.forEach(c => {
                     const chipEl = document.getElementById(`single-chip-${c.id}`);
+                    if (chipEl) chipEl.classList.add('used');
                     if (chipEl) {
                         chipEl.classList.add('used');
                         chipEl.disabled = true;
@@ -2657,6 +3309,15 @@
 
                 const wordEl = document.getElementById('single-word');
                 const phoneEl = document.getElementById('single-phone');
+                if (wordEl) {
+                    wordEl.style.display = 'block';
+                    wordEl.innerText = q.word;
+                    wordEl.style.color = '#111827';
+                }
+                if (phoneEl) {
+                    phoneEl.style.display = 'block';
+                    phoneEl.innerText = q.phone || '';
+                }
                 if (wordEl) wordEl.style.display = 'none';
                 if (phoneEl) phoneEl.style.display = 'none';
             } else {
@@ -2696,12 +3357,15 @@
                 if (userStats.mistakes && userStats.mistakes[q.word]) {
                     delete userStats.mistakes[q.word];
                 }
+                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, true);
             } else {
                 if (!userStats.mistakes) userStats.mistakes = {};
                 if (!userStats.mistakes[q.word]) {
                     userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
                 }
                 userStats.mistakes[q.word].count++;
+                scheduleRetestForCurrentQuestion();
+                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false);
             }
             localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
 
@@ -2747,6 +3411,9 @@
         }
 
         function endSingleGame() {
+            if (window.EbbinghausEngine) {
+                EbbinghausEngine.updateDueBadge();
+            }
             gameResult = {
                 mode: 'single',
                 msg: `🎉 单人练习完成！完成 ${singleState.total} 词练习`,
@@ -2757,8 +3424,26 @@
             switchView('view-result');
         }
 
-        // 键盘快捷键监听：单人模式下按 1~4 选答案，回车/空格进入下一题或看答案
+        // 键盘快捷键监听：单人模式与 Word Riddles 键盘打字/控制
         window.addEventListener('keydown', (e) => {
+            const riddleView = document.getElementById('view-riddle');
+            if (riddleView && riddleView.classList.contains('active')) {
+                if (e.ctrlKey || e.altKey || e.metaKey) return;
+                if (e.key === 'Backspace') {
+                    e.preventDefault();
+                    handleRiddleBackspace();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitRiddleRow();
+                } else if (/^[a-zA-Z]$/.test(e.key)) {
+                    e.preventDefault();
+                    handleRiddleKey(e.key.toUpperCase());
+                } else if (e.key === 'Escape') {
+                    confirmExitRiddle();
+                }
+                return;
+            }
+
             const singleView = document.getElementById('view-single');
             if (!singleView || !singleView.classList.contains('active')) return;
 
@@ -3120,6 +3805,7 @@
                         if (payload.customBooksMeta) applyReceivedCustomBooks(payload.customBooksMeta);
                         roomConfig = payload.config;
                         renderRuleChips();
+                        showToast(`房主已更新对决规则：限时 ${roomConfig.duration / 60} 分钟，领先 ${roomConfig.winLead} 题胜出`);
                         const bookNames = (roomConfig.selectedBooks || [])
                             .map(id => (BookManager.availableBooks.find(b => b.id === id) || BookManager.fallbackBooks.find(b => b.id === id))?.name || id)
                             .join('、');
@@ -3260,6 +3946,7 @@
                 timeLeft--;
                 renderSnakeRing();
                 if (timeLeft <= 0) {
+                    endGame("时间到！以当前能量决出胜负", true);
                     clearInterval(gameTimer);
                     const diff = p1State.score - p2State.score;
                     let myMsg = "🤝 势均力敌，握手言和！";
@@ -3393,6 +4080,7 @@
                     <div id="arena-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
                     <div class="phrase-bank-card">
                         <div class="phrase-bank-header">
+                            <span>词框</span>
                             <span>备选词框：</span>
                             <button type="button" class="btn-clear-phrase" id="btn-clear-arena-phrase" onclick="clearArenaPhraseSlots()">
                                 清空已选
@@ -3566,17 +4254,20 @@
                     }
                 });
 
-                // 将正确词组放在错误答案下方
+                // 将错误提示与“看答案，惩罚 10 秒”放在错误答案下方
                 const comp = document.getElementById('arena-phrase-compare');
                 if (comp) {
                     comp.className = 'phrase-comparison-card wrong-state';
                     comp.style.display = 'block';
                     comp.innerHTML = `
-                        <div class="phrase-compare-row">
-                            <span class="phrase-compare-badge wrong">✕ 错误搭配</span>
-                            <span class="phrase-compare-badge correct">✓ 正确词组</span>
-                            <span class="phrase-compare-text correct">${q.word}</span>
-                            ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <div class="phrase-compare-row">
+                                <span class="phrase-compare-badge wrong">❌ 搭配有误</span>
+                                <span id="arena-penalty-tip" style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">冷却 3 秒后可修改槽位重试</span>
+                            </div>
+                            <button type="button" class="btn-reveal-ten-sec" id="btn-arena-reveal-10s" onclick="revealArenaPhraseAnswerWithPenalty()">
+                                👁️ 看答案，惩罚 10 秒
+                            </button>
                         </div>
                     `;
                 }
@@ -3584,8 +4275,112 @@
                 const clearBtn = document.getElementById('btn-clear-arena-phrase');
                 if (clearBtn) clearBtn.disabled = true;
 
-                triggerPenalty(state);
+                triggerArenaPhrase3sPenalty(state);
             }
+        }
+
+        function triggerArenaPhrase3sPenalty(state) {
+            state.frozen = true;
+            state.answeringLock = true;
+            const banner = document.getElementById('p1-cooldown');
+            if (banner) {
+                banner.classList.add('active');
+                banner.innerHTML = `<span>搭配错误，惩罚冷却 <strong id="p1-timer">3</strong> 秒...</span>`;
+            }
+
+            let sec = 3;
+            if (state.timerId) clearInterval(state.timerId);
+            state.timerId = setInterval(() => {
+                sec--;
+                const timerEl = document.getElementById('p1-timer');
+                if (timerEl) timerEl.innerText = sec;
+                if (sec <= 0) {
+                    clearInterval(state.timerId);
+                    state.timerId = null;
+                    if (banner) banner.classList.remove('active');
+                    // 3 秒惩罚到期：解锁！允许修改重试
+                    state.frozen = false;
+                    state.answeringLock = false;
+
+                    const clearBtn = document.getElementById('btn-clear-arena-phrase');
+                    if (clearBtn) clearBtn.disabled = false;
+
+                    const tipEl = document.getElementById('arena-penalty-tip');
+                    if (tipEl) {
+                        tipEl.style.color = 'var(--md-sys-color-primary)';
+                        tipEl.innerText = '请重新调整，或点击下方【看答案】';
+                    }
+                }
+            }, 1000);
+        }
+
+        function revealArenaPhraseAnswerWithPenalty() {
+            const state = p1State;
+            if (state.timerId) clearInterval(state.timerId);
+
+            state.frozen = true;
+            state.answeringLock = true;
+            const q = arenaPhraseState.q;
+
+            // 槽位显示正确词
+            arenaPhraseState.targetWords.forEach((tw, i) => {
+                const slotEl = document.getElementById(`arena-slot-${i}`);
+                if (slotEl) {
+                    slotEl.classList.remove('empty', 'wrong');
+                    slotEl.classList.add('filled', 'correct');
+                    slotEl.innerText = tw;
+                }
+            });
+
+            // 展示标准答案与提示
+            const comp = document.getElementById('arena-phrase-compare');
+            if (comp) {
+                comp.className = 'phrase-comparison-card';
+                comp.style.display = 'block';
+                comp.innerHTML = `
+                    <div class="phrase-compare-row">
+                        <span class="phrase-compare-badge correct">✅ 正确词组</span>
+                        <span class="phrase-compare-text correct">${q.word}</span>
+                        ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
+                    </div>
+                    <div style="font-size:0.8rem; color:var(--md-sys-color-error); text-align:center; margin-top:6px; font-weight:600;">
+                        已查看答案，惩罚冷却 10 秒，倒计时结束后进入下一题
+                    </div>
+                `;
+            }
+
+            // 禁用词块与清空按钮
+            arenaPhraseState.chips.forEach(c => {
+                const chipEl = document.getElementById(`arena-chip-${c.id}`);
+                if (chipEl) {
+                    chipEl.classList.add('used');
+                    chipEl.disabled = true;
+                }
+            });
+            const clearBtn = document.getElementById('btn-clear-arena-phrase');
+            if (clearBtn) clearBtn.disabled = true;
+
+            const banner = document.getElementById('p1-cooldown');
+            if (banner) {
+                banner.classList.add('active');
+                banner.innerHTML = `<span>查看答案惩罚：冷却中 <strong id="p1-timer">10</strong> 秒...</span>`;
+            }
+
+            let sec = 10;
+            state.timerId = setInterval(() => {
+                sec--;
+                const timerEl = document.getElementById('p1-timer');
+                if (timerEl) timerEl.innerText = sec;
+                if (sec <= 0) {
+                    clearInterval(state.timerId);
+                    state.timerId = null;
+                    if (banner) banner.classList.remove('active');
+                    state.frozen = false;
+                    state.answeringLock = false;
+                    state.currentIdx++;
+                    renderQuestion(state);
+                }
+            }, 1000);
         }
 
         function handleAnswer(idx, clickX, clickY) {
@@ -3968,6 +4763,365 @@
                 localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
                 openMistakesView();
             }
+        }
+
+        /* ==========================================================================
+           8. WORD RIDDLES 单词解谜小游戏 (完全 Google MD3 风格)
+           含：自定义词书、单词长度、尝试次数、双遍扫描算法、3D字母瓷砖矩阵与虚拟键盘
+           ========================================================================== */
+        let riddleConfig = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{"bookId":"all","wordLength":5,"maxAttempts":6}');
+        let riddleState = {
+            targetWord: '',
+            clueMeaning: '',
+            cluePhone: '',
+            bookName: '',
+            targetLength: 5,
+            maxAttempts: 6,
+            attempts: [],
+            currentInput: '',
+            gameOver: false,
+            isWon: false,
+            letterStatus: {}
+        };
+
+        function openRiddleSettings() {
+            const modal = document.getElementById('modal-riddle-settings');
+            if (!modal) return;
+            renderRiddleBookChips();
+            updateRiddleSettingsChips();
+            modal.classList.add('active');
+        }
+
+        function closeRiddleSettings() {
+            const modal = document.getElementById('modal-riddle-settings');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function renderRiddleBookChips() {
+            const container = document.getElementById('chips-riddle-books');
+            if (!container) return;
+            const books = [{ id: 'all', name: '全部词库' }, ...BookManager.availableBooks];
+            container.innerHTML = books.map(b => `
+                <div class="md3-chip ${riddleConfig.bookId === b.id ? 'selected' : ''}" 
+                     data-id="${b.id}" 
+                     onclick="selectRiddleBook('${b.id}')">
+                    ${b.name}
+                </div>
+            `).join('');
+        }
+
+        function updateRiddleSettingsChips() {
+            document.querySelectorAll('#chips-riddle-len .md3-chip').forEach(c => {
+                const len = parseInt(c.getAttribute('data-len'));
+                c.classList.toggle('selected', len === riddleConfig.wordLength);
+            });
+            document.querySelectorAll('#chips-riddle-attempts .md3-chip').forEach(c => {
+                const att = parseInt(c.getAttribute('data-att'));
+                c.classList.toggle('selected', att === riddleConfig.maxAttempts);
+            });
+        }
+
+        function selectRiddleBook(bookId) {
+            riddleConfig.bookId = bookId;
+            renderRiddleBookChips();
+        }
+
+        function selectRiddleLength(len) {
+            riddleConfig.wordLength = len;
+            updateRiddleSettingsChips();
+        }
+
+        function selectRiddleAttempts(att) {
+            riddleConfig.maxAttempts = att;
+            updateRiddleSettingsChips();
+        }
+
+        async function saveAndStartRiddle() {
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            closeRiddleSettings();
+            await startWordRiddleGame();
+        }
+
+        async function startWordRiddleGame() {
+            let candidatePool = [];
+            if (riddleConfig.bookId && riddleConfig.bookId !== 'all') {
+                candidatePool = await BookManager.loadBookData(riddleConfig.bookId);
+            } else {
+                const bookIds = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
+                    ? BookManager.availableBooks.map(b => b.id)
+                    : ['test2', 'cet4'];
+                candidatePool = await BookManager.loadMultipleBooks(bookIds);
+            }
+
+            if (!candidatePool || candidatePool.length === 0) {
+                candidatePool = (dictionary && dictionary.length > 0) ? dictionary : DEFAULT_WORDS;
+            }
+
+            const requiredLen = riddleConfig.wordLength || 0;
+            const validWords = candidatePool.filter(w => {
+                const wordStr = (w && w.word ? w.word : '').trim();
+                if (!/^[a-zA-Z]+$/.test(wordStr)) return false;
+                if (requiredLen > 0 && wordStr.length !== requiredLen) return false;
+                if (requiredLen === 0 && (wordStr.length < 4 || wordStr.length > 8)) return false;
+                return true;
+            });
+
+            if (validWords.length === 0) {
+                showToast(`未找到长度为 ${requiredLen} 的单词，已切换为任意长度！`);
+                riddleConfig.wordLength = 0;
+                localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+                return startWordRiddleGame();
+            }
+
+            const chosen = validWords[Math.floor(Math.random() * validWords.length)];
+            const targetWord = chosen.word.trim().toUpperCase();
+
+            let meaningText = '---';
+            if (chosen.meanings && chosen.meanings.length > 0) {
+                meaningText = chosen.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；');
+            } else if (chosen.meaning) {
+                meaningText = chosen.meaning;
+            }
+
+            riddleState = {
+                targetWord: targetWord,
+                clueMeaning: meaningText,
+                cluePhone: chosen.phone || '',
+                bookName: chosen.bookName || (riddleConfig.bookId === 'all' ? '精选题库' : riddleConfig.bookId),
+                targetLength: targetWord.length,
+                maxAttempts: riddleConfig.maxAttempts || 6,
+                attempts: [],
+                currentInput: '',
+                gameOver: false,
+                isWon: false,
+                letterStatus: {}
+            };
+
+            const bookTag = document.getElementById('riddle-book-tag');
+            if (bookTag) bookTag.innerText = riddleState.bookName;
+
+            const clueMeaning = document.getElementById('riddle-clue-meaning');
+            if (clueMeaning) {
+                clueMeaning.style.color = 'var(--md-sys-color-on-surface)';
+                clueMeaning.innerText = riddleState.clueMeaning;
+            }
+
+            const cluePhone = document.getElementById('riddle-clue-phone');
+            if (cluePhone) cluePhone.innerText = riddleState.cluePhone || '';
+
+            const lenTip = document.getElementById('riddle-length-tip');
+            if (lenTip) lenTip.innerText = `单词长度: ${riddleState.targetLength}`;
+
+            renderRiddleBoard();
+            renderRiddleKeyboard();
+            switchView('view-riddle');
+        }
+
+        function renderRiddleBoard() {
+            const grid = document.getElementById('riddle-grid');
+            if (!grid) return;
+
+            const attemptInd = document.getElementById('riddle-attempt-indicator');
+            if (attemptInd) {
+                const currentAtt = Math.min(riddleState.attempts.length + (riddleState.gameOver ? 0 : 1), riddleState.maxAttempts);
+                attemptInd.innerText = `尝试次数: ${currentAtt} / ${riddleState.maxAttempts}`;
+            }
+
+            let html = '';
+            for (let r = 0; r < riddleState.maxAttempts; r++) {
+                html += '<div class="riddle-row">';
+                if (r < riddleState.attempts.length) {
+                    const att = riddleState.attempts[r];
+                    for (let c = 0; c < riddleState.targetLength; c++) {
+                        const letter = att.guess[c] || '';
+                        const evalClass = att.evaluation[c] || '';
+                        html += `<div class="riddle-tile ${evalClass}">${letter}</div>`;
+                    }
+                } else if (r === riddleState.attempts.length && !riddleState.gameOver) {
+                    for (let c = 0; c < riddleState.targetLength; c++) {
+                        const letter = riddleState.currentInput[c] || '';
+                        const isCurrentActive = (c === riddleState.currentInput.length);
+                        html += `<div class="riddle-tile ${isCurrentActive ? 'active' : ''}">${letter}</div>`;
+                    }
+                } else {
+                    for (let c = 0; c < riddleState.targetLength; c++) {
+                        html += '<div class="riddle-tile"></div>';
+                    }
+                }
+                html += '</div>';
+            }
+            grid.innerHTML = html;
+        }
+
+        function renderRiddleKeyboard() {
+            const kb = document.getElementById('riddle-keyboard');
+            if (!kb) return;
+
+            const rows = [
+                ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+                ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+                ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
+            ];
+
+            let html = '';
+            rows.forEach(rowKeys => {
+                html += '<div class="riddle-key-row">';
+                rowKeys.forEach(k => {
+                    let extraClass = '';
+                    let label = k;
+                    if (k === 'ENTER') {
+                        extraClass = 'wide';
+                        label = '提交';
+                    } else if (k === 'BACKSPACE') {
+                        extraClass = 'wide';
+                        label = '⌫';
+                    } else {
+                        const status = riddleState.letterStatus[k];
+                        if (status) extraClass = status;
+                    }
+
+                    html += `
+                        <button type="button" class="riddle-key ${extraClass}" onclick="handleRiddleVirtualKey('${k}')">
+                            ${label}
+                        </button>
+                    `;
+                });
+                html += '</div>';
+            });
+            kb.innerHTML = html;
+        }
+
+        function handleRiddleVirtualKey(key) {
+            if (key === 'ENTER') {
+                submitRiddleRow();
+            } else if (key === 'BACKSPACE') {
+                handleRiddleBackspace();
+            } else {
+                handleRiddleKey(key);
+            }
+        }
+
+        function handleRiddleKey(char) {
+            if (riddleState.gameOver) return;
+            if (riddleState.currentInput.length < riddleState.targetLength) {
+                riddleState.currentInput += char.toUpperCase();
+                renderRiddleBoard();
+            }
+        }
+
+        function handleRiddleBackspace() {
+            if (riddleState.gameOver) return;
+            if (riddleState.currentInput.length > 0) {
+                riddleState.currentInput = riddleState.currentInput.slice(0, -1);
+                renderRiddleBoard();
+            }
+        }
+
+        function submitRiddleRow() {
+            if (riddleState.gameOver) return;
+            if (riddleState.currentInput.length < riddleState.targetLength) {
+                showToast(`还缺少 ${riddleState.targetLength - riddleState.currentInput.length} 个字母！`);
+                return;
+            }
+
+            const guess = riddleState.currentInput.toUpperCase();
+            const target = riddleState.targetWord.toUpperCase();
+            const len = riddleState.targetLength;
+
+            // 严格双遍扫描算法（准确处理重复字符）
+            const evaluation = new Array(len).fill('absent');
+            const targetCounts = {};
+
+            for (let i = 0; i < len; i++) {
+                if (guess[i] === target[i]) {
+                    evaluation[i] = 'correct';
+                } else {
+                    targetCounts[target[i]] = (targetCounts[target[i]] || 0) + 1;
+                }
+            }
+
+            for (let i = 0; i < len; i++) {
+                if (evaluation[i] !== 'correct') {
+                    const gChar = guess[i];
+                    if (targetCounts[gChar] && targetCounts[gChar] > 0) {
+                        evaluation[i] = 'present';
+                        targetCounts[gChar]--;
+                    } else {
+                        evaluation[i] = 'absent';
+                    }
+                }
+            }
+
+            // 更新键盘字母状态 (优先级 correct > present > absent)
+            for (let i = 0; i < len; i++) {
+                const gChar = guess[i];
+                const res = evaluation[i];
+                const curr = riddleState.letterStatus[gChar];
+                if (res === 'correct') {
+                    riddleState.letterStatus[gChar] = 'correct';
+                } else if (res === 'present' && curr !== 'correct') {
+                    riddleState.letterStatus[gChar] = 'present';
+                } else if (res === 'absent' && !curr) {
+                    riddleState.letterStatus[gChar] = 'absent';
+                }
+            }
+
+            riddleState.attempts.push({ guess, evaluation });
+            riddleState.currentInput = '';
+
+            const isWin = (guess === target);
+            if (isWin) {
+                riddleState.gameOver = true;
+                riddleState.isWon = true;
+                renderRiddleBoard();
+                renderRiddleKeyboard();
+                spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#146C2E');
+
+                const clueMeaning = document.getElementById('riddle-clue-meaning');
+                if (clueMeaning) {
+                    clueMeaning.innerHTML = `🎉 恭喜猜中！【${riddleState.targetWord}】<br><span style="font-size:0.95rem; font-weight:500; color:var(--md-sys-color-primary);">${riddleState.clueMeaning}</span>`;
+                }
+                showToast(`🎉 恭喜获胜！尝试 ${riddleState.attempts.length} 次猜中【${riddleState.targetWord}】`);
+                return;
+            }
+
+            if (riddleState.attempts.length >= riddleState.maxAttempts) {
+                riddleState.gameOver = true;
+                riddleState.isWon = false;
+                renderRiddleBoard();
+                renderRiddleKeyboard();
+
+                const clueMeaning = document.getElementById('riddle-clue-meaning');
+                if (clueMeaning) {
+                    clueMeaning.innerHTML = `💔 次数用尽！答案是【${riddleState.targetWord}】<br><span style="font-size:0.95rem; font-weight:500; color:var(--md-sys-color-error);">${riddleState.clueMeaning}</span>`;
+                }
+                showToast(`💔 挑战结束，正确单词是：${riddleState.targetWord}`);
+                return;
+            }
+
+            renderRiddleBoard();
+            renderRiddleKeyboard();
+        }
+
+        function giveUpRiddle() {
+            if (riddleState.gameOver) return;
+            if (confirm(`确认揭晓答案吗？\n当前谜底为：${riddleState.targetWord}`)) {
+                riddleState.gameOver = true;
+                renderRiddleBoard();
+                renderRiddleKeyboard();
+                const clueMeaning = document.getElementById('riddle-clue-meaning');
+                if (clueMeaning) {
+                    clueMeaning.innerHTML = `📖 答案已揭晓：【${riddleState.targetWord}】<br><span style="font-size:0.95rem; font-weight:500; color:var(--md-sys-color-primary);">${riddleState.clueMeaning}</span>`;
+                }
+                showToast(`已揭晓答案：${riddleState.targetWord}`);
+            }
+        }
+
+        function confirmExitRiddle() {
+            if (!riddleState.gameOver && riddleState.attempts.length > 0) {
+                if (!confirm('当前谜题尚未完成，确定退出吗？')) return;
+            }
+            switchView('view-hub');
         }
 
         // 初始化进入
