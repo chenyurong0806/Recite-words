@@ -493,6 +493,637 @@
             100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.3); }
         }
 
+        /* ==========================================================================
+           全新单人专练模式样式 (严格对齐设计图)
+           ========================================================================== */
+        .single-mode-wrapper {
+            width: 100%;
+            max-width: 680px;
+            margin: 0 auto;
+            padding-top: 6px;
+        }
+
+        .single-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            width: 100%;
+        }
+
+        .single-mode-title {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: #1e293b;
+            letter-spacing: -0.01em;
+            margin: 0;
+        }
+
+        .single-btn-exit {
+            background-color: #feeceb;
+            color: #d93829;
+            border: none;
+            border-radius: var(--md-shape-full);
+            padding: 8px 22px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+            font-family: inherit;
+        }
+
+        .single-btn-exit:hover {
+            background-color: #fddcd8;
+            transform: translateY(-1px);
+        }
+
+        .single-btn-exit:active {
+            transform: scale(0.96);
+        }
+
+        .single-quiz-card {
+            background: #ffffff;
+            border-radius: 28px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            padding: 32px 34px 34px;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .single-badge-row {
+            margin-bottom: 6px;
+            text-align: left;
+        }
+
+        .single-book-badge {
+            display: inline-block;
+            background-color: #ffeedb;
+            color: #c45716;
+            padding: 4px 14px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .single-word-display {
+            font-size: 2.85rem;
+            font-weight: 800;
+            color: #111827;
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            word-break: break-word;
+        }
+
+        .single-phone-display {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1.1rem;
+            color: #64748b;
+            text-align: center;
+            margin-bottom: 28px;
+            min-height: 26px;
+        }
+
+        .single-options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .single-opt-btn {
+            width: 100%;
+            min-height: 58px;
+            padding: 14px 20px;
+            border-radius: 14px;
+            background: #f1f4f9;
+            border: 1.5px solid #dce2eb;
+            color: #1e293b;
+            font-size: 0.96rem;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            transition: all 0.16s ease;
+            font-family: inherit;
+        }
+
+        .single-opt-btn:hover:not(:disabled) {
+            background: #e7ecf4;
+            border-color: #cbd5e1;
+        }
+
+        .single-opt-btn:active:not(:disabled) {
+            transform: scale(0.99);
+        }
+
+        .single-opt-btn .opt-word {
+            font-weight: 700;
+            font-size: 1rem;
+            color: inherit;
+            display: inline-block;
+            margin-right: 2px;
+        }
+
+        .single-opt-btn .opt-trans {
+            font-size: 0.94rem;
+            color: inherit;
+            opacity: 0.95;
+        }
+
+        /* 答错选项样式 (红色) */
+        .single-opt-btn.wrong {
+            background-color: #feeceb !important;
+            border-color: #f87171 !important;
+            color: #b91c1c !important;
+            box-shadow: 0 0 0 1px #f87171;
+        }
+
+        /* 正确选项样式 (绿色) */
+        .single-opt-btn.correct {
+            background-color: #def7ec !important;
+            border-color: #4ade80 !important;
+            color: #046c4e !important;
+            box-shadow: 0 0 0 1px #4ade80;
+        }
+
+        .single-next-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--md-shape-full);
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+
+        .single-next-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--md-shape-full);
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+
+        .single-next-btn:hover {
+            background: #bfdbfe;
+            transform: translateY(-1px);
+        }
+
+        .single-next-btn:active {
+            transform: scale(0.98);
+        }
+
+        .single-next-btn.show-answer-mode {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-primary);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+        }
+        .single-next-btn.show-answer-mode:hover {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-color: var(--md-sys-color-primary);
+        }
+
+        /* ==========================================================================
+           Google MD3 词组拼装题型 (Phrase Assembly Question)
+           ========================================================================== */
+        .phrase-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 16px;
+            margin: 6px 0 16px;
+        }
+
+        .phrase-trans-card {
+            text-align: center;
+            padding: 14px 18px;
+            border-radius: var(--md-shape-m);
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .phrase-trans-title {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 4px;
+        }
+
+        .phrase-trans-hint {
+            font-size: 0.84rem;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface-variant);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* 下划线槽位区域 (Underline Slots) */
+        .phrase-slots-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            min-height: 60px;
+            padding: 12px;
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-l);
+            border: 1px dashed var(--md-sys-color-outline-variant);
+        }
+
+        .phrase-slot {
+            min-width: 96px;
+            height: 48px;
+            padding: 0 14px;
+            border-bottom: 3.5px solid var(--md-sys-color-primary);
+            background: var(--md-sys-color-surface-container-low);
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.18rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            cursor: pointer;
+            position: relative;
+            transition: all var(--md-motion-standard);
+            user-select: none;
+        }
+
+        .phrase-slot.empty {
+            border-bottom-color: var(--md-sys-color-outline-variant);
+            color: transparent;
+            cursor: default;
+        }
+
+        .phrase-slot.empty::after {
+            content: '______';
+            color: var(--md-sys-color-outline);
+            font-weight: 400;
+            letter-spacing: 2px;
+            opacity: 0.6;
+        }
+
+        .phrase-slot.filled:hover {
+            background: var(--md-sys-color-error-container);
+            border-bottom-color: var(--md-sys-color-error);
+            color: var(--md-sys-color-on-error-container);
+        }
+
+        .phrase-slot.correct {
+            border-bottom-color: var(--md-sys-color-success) !important;
+            background: var(--md-sys-color-success-container) !important;
+            color: var(--md-sys-color-on-success-container) !important;
+        }
+
+        .phrase-slot.wrong {
+            border-bottom-color: var(--md-sys-color-error) !important;
+            background: var(--md-sys-color-error-container) !important;
+            color: var(--md-sys-color-on-error-container) !important;
+            animation: shake 0.35s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* 词框 (Word Bank) */
+        .phrase-bank-card {
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
+            padding: 16px;
+        }
+
+        .phrase-bank-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-bottom: 12px;
+        }
+
+        .phrase-chips-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .phrase-word-chip {
+            padding: 9px 18px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            font-size: 1.02rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .phrase-word-chip:hover:not(.used):not(:disabled) {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-color: var(--md-sys-color-primary);
+            transform: translateY(-2px);
+            box-shadow: var(--md-elevation-2);
+        }
+
+        .phrase-word-chip:active:not(.used):not(:disabled) {
+            transform: scale(0.96);
+        }
+
+        .phrase-word-chip.used {
+            opacity: 0.3;
+            cursor: not-allowed;
+            background: var(--md-sys-color-surface-container-high);
+            border-style: dashed;
+            pointer-events: none;
+        }
+
+        /* 词组答案对照卡片 (Phrase Comparison Card) */
+        .phrase-comparison-card {
+            margin: 0 0 12px;
+            padding: 10px 16px;
+            border-radius: var(--md-shape-m);
+            background: var(--md-sys-color-surface-container-lowest);
+            border: 1.5px solid var(--md-sys-color-primary);
+            box-shadow: var(--md-elevation-1);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .phrase-comparison-card.wrong-state {
+            border-color: var(--md-sys-color-error);
+            background: #FFF8F7;
+        }
+
+        .phrase-compare-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .phrase-compare-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: var(--md-shape-full);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .phrase-compare-badge.correct {
+            background: #E8F5E9;
+            color: #146C2E;
+        }
+
+        .phrase-compare-badge.wrong {
+            background: #FFEBEE;
+            color: #B3261E;
+        }
+
+        .phrase-compare-text {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .phrase-compare-text.correct {
+            color: var(--md-sys-color-primary);
+        }
+
+        .phrase-compare-phone {
+            font-size: 0.85rem;
+            color: #6B7280;
+            font-family: monospace;
+        }
+
+        /* 清空词块按钮 (Clear Selected Chips Button) */
+        .btn-clear-phrase {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface-variant);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-full);
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all var(--md-motion-standard);
+        }
+
+        .btn-clear-phrase:hover:not(:disabled) {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+            border-color: var(--md-sys-color-error);
+        }
+
+        /* 词书选择弹窗与卡片样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--md-motion-expressive);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            border-radius: 24px;
+            max-width: 540px;
+            width: 100%;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            box-shadow: var(--md-elevation-3);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            transform: scale(0.95);
+            transition: transform var(--md-motion-expressive);
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .modal-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            color: var(--md-sys-color-outline);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--md-shape-full);
+            transition: background 0.15s;
+        }
+        .modal-close-btn:hover {
+            background: var(--md-sys-color-surface-container);
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .modal-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .book-selection-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 380px;
+            padding-right: 4px;
+            margin-bottom: 18px;
+        }
+
+        .book-item-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 14px;
+            background: var(--md-sys-color-surface-container-low);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+        }
+
+        .book-item-card:hover {
+            background: var(--md-sys-color-surface-container);
+            border-color: var(--md-sys-color-outline);
+        }
+
+        .book-item-card.selected {
+            background: var(--md-sys-color-primary-container);
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .book-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .book-item-title {
+            font-weight: 600;
+            font-size: 0.96rem;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .book-item-meta {
+            font-size: 0.8rem;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .book-item-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid var(--md-sys-color-outline);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all 0.15s;
+        }
+
+        .book-item-card.selected .book-item-checkbox {
+            background: var(--md-sys-color-primary);
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .btn-sm {
+            min-height: 32px;
+            padding: 0 12px;
+            font-size: 0.82rem;
+        }
+
         @media (max-width: 600px) {
             body { padding: 10px 10px 24px; }
             .card { padding: 18px 14px; }
@@ -501,6 +1132,12 @@
             .option-btn { min-height: 52px; font-size: 0.92rem; padding: 10px 14px; }
             .arena-head-card { padding: 12px 14px; }
             .arena-player-score { font-size: 1.5rem; }
+
+            .single-quiz-card { padding: 24px 18px 24px; min-height: 420px; border-radius: 22px; }
+            .single-word-display { font-size: 2.2rem; }
+            .single-opt-btn { min-height: 52px; font-size: 0.92rem; padding: 12px 14px; }
+            .single-mode-title { font-size: 1.3rem; }
+            .modal-card { padding: 18px 16px; }
         }
     </style>
 </head>
@@ -512,9 +1149,7 @@
         <div id="view-auth" class="view active">
             <div class="card" style="max-width: 460px; margin: 40px auto; text-align: center;">
                 <div style="font-size: 3.5rem; margin-bottom: 12px;">⚡</div>
-                <h1>单词PK</h1>
-                <p style="margin-bottom: 24px;">Material Design 3 实时联机对决</p>
-                
+                <h1>单词PK</h1>                
                 <div style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);">玩家昵称</label>
                     <input type="text" id="username-input" class="input-field" placeholder="输入玩家昵称..." maxlength="12">
@@ -527,24 +1162,13 @@
         <div id="view-hub" class="view">
             <div class="app-bar">
                 <div>
-                    <h2>学习对战中心</h2>
+                    <h2>学习中心</h2>
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
                     <span class="badge badge-p1" id="hub-profile-tag">👤 玩家</span>
-                    <button class="btn btn-outlined" style="min-height: 38px; padding: 0 14px;" onclick="switchView('view-auth')">换名</button>
+                    <button class="btn btn-outlined" style="min-height: 38px; padding: 0 14px;" onclick="switchView('view-auth')">切换账号</button>
                 </div>
-            </div>
-
-            <!-- 词库卡片 -->
-            <div class="card">
-                <h3>📖 题库管理</h3>
-                <div style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center;">
-                    <button class="btn btn-tonal" onclick="useDefaultBook()">内置核心四级词库 (默认)</button>
-                    <button class="btn btn-outlined" onclick="document.getElementById('custom-book-input').click()">📂 导入本地 JSON 词库</button>
-                    <input type="file" id="custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
-                </div>
-                <div id="book-status" style="margin-top: 10px; font-weight: 600; font-size: 0.88rem; color: var(--md-sys-color-primary);"></div>
             </div>
 
             <!-- 模式卡片 -->
@@ -555,25 +1179,25 @@
                             <span class="mode-icon">🌐</span>
                             <span class="badge badge-online">Supabase 实时</span>
                         </div>
-                        <h3>联机实时对决</h3>
-                        <p style="margin-top: 6px;">创建/加入房间，自由定制答题限时与领先胜出分差！</p>
+                        <h3>联机模式</h3>
+                        <p style="margin-top: 6px;">请输入文本</p>
                     </div>
                     <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start; background: #006874;">进入联机大厅</button>
                 </div>
 
-                <div class="mode-card" onclick="startSinglePlayer()">
+                <div class="mode-card" onclick="openSingleBookSelector()">
                     <div>
                         <span class="mode-icon">🎯</span>
-                        <h3>单人闯关模式</h3>
-                        <p style="margin-top: 6px;">不限时间，智能匹配高拟真形近干扰项，收录错题。</p>
+                        <h3>单人模式</h3>
+                        <p style="margin-top: 6px;">请输入文本</p>
                     </div>
-                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start;">开始单人练习</button>
+                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start;">选择词书</button>
                 </div>
             </div>
 
             <!-- 数据统计 -->
             <div class="card">
-                <h3>📊 战绩统计</h3>
+                <h3>数据中心</h3>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-label">总作答词数</div>
@@ -584,33 +1208,33 @@
                         <div class="stat-value" id="stat-acc" style="color: var(--md-sys-color-success);">0%</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">错词积累</div>
+                        <div class="stat-label">错词数量</div>
                         <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
                     </div>
                 </div>
-                <button class="btn btn-tonal" onclick="openMistakesView()">查看我的错题本</button>
+                <button class="btn btn-tonal" onclick="openMistakesView()">我的错题本</button>
             </div>
         </div>
 
         <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
         <div id="view-online" class="view">
             <div class="app-bar">
-                <h2>🌐 实时联机大厅</h2>
+                <h2>联机大厅</h2>
                 <button class="btn btn-tonal" onclick="leaveOnlineLobby()">返回主页</button>
             </div>
 
             <div class="card" style="max-width: 580px; margin: 0 auto;">
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
-                        <h3>创建对决房间</h3>
-                        <p style="margin: 6px 0 14px;">作为房主创建房间，获取 6 位房间号邀请好友加入。</p>
-                        <button class="btn btn-filled btn-touch-large" style="width:100%;" onclick="createOnlineRoom()">立即创建新房间</button>
+                        <h3>创建房间</h3>
+                        <p style="margin: 6px 0 14px;">获取 6 位房间号邀请好友加入。</p>
+                        <button class="btn btn-filled btn-touch-large" style="margin: 6px 0 14px; width:100%;" onclick="createOnlineRoom()">立即创建新房间</button>
                     </div>
 
                     <div style="border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 20px;">
                         <h3>加入已有房间</h3>
-                        <p style="margin: 6px 0 14px;">输入好友分享的 6 位房间码加入对决。</p>
-                        <div style="display: flex; gap: 10px;">
+                        <p style="margin: 6px 0 14px;"></p>
+                        <div style="display: flex; gap: 10px;margin: 6px 0 14px;">
                             <input type="text" id="join-room-code" class="input-field" placeholder="输入 6 位房间码..." maxlength="6" style="text-transform: uppercase;">
                             <button class="btn btn-tonal btn-touch-large" id="btn-join-room" onclick="joinOnlineRoom()">加入房间</button>
                         </div>
@@ -622,7 +1246,7 @@
                     <div style="text-align: center; margin-bottom: 20px;">
                         <span class="badge badge-online" style="font-size: 0.85rem; padding: 4px 14px;">房间已就绪</span>
                         <div style="font-size: 2.3rem; font-weight: 700; letter-spacing: 4px; margin: 8px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code" title="点击复制">------</div>
-                        <p style="font-size: 0.85rem;">点击上方房间号可快速复制</p>
+                        <p style="font-size: 0.85rem;">点击房间号复制到剪贴板</p>
                     </div>
 
                     <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 14px; margin-bottom: 16px;">
@@ -630,13 +1254,13 @@
                             <div style="text-align: center;">
                                 <div style="font-size: 1.8rem;">🔴</div>
                                 <div style="font-weight: 700; color: var(--p1-sys-color);" id="room-p1-name">等待房主...</div>
-                                <span class="badge badge-p1" style="margin-top: 4px;">房主 (P1)</span>
+                                <span class="badge badge-p1" style="margin-top: 4px;"> P1 </span>
                             </div>
                             <div style="font-size: 1.3rem; font-weight: 700; color: var(--md-sys-color-outline);">VS</div>
                             <div style="text-align: center;">
                                 <div style="font-size: 1.8rem;">🔵</div>
                                 <div style="font-weight: 700; color: var(--p2-sys-color);" id="room-p2-name">等待对手加入...</div>
-                                <span class="badge badge-p2" style="margin-top: 4px;">挑战者 (P2)</span>
+                                <span class="badge badge-p2" style="margin-top: 4px;"> P2 </span>
                             </div>
                         </div>
                     </div>
@@ -644,8 +1268,8 @@
                     <!-- 规则设置区域（房主可点，P2只读同步） -->
                     <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 16px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-                            <h4 style="font-size: 0.95rem;">⚙️ 对决规则配置</h4>
-                            <span id="rule-sync-hint" style="font-size: 0.78rem; color: var(--md-sys-color-outline);">房主正在配置</span>
+                            <h4 style="font-size: 0.95rem; margin:0;">设置规则：</h4>
+                            <span id="rule-sync-hint" style="font-size: 0.8rem; color: var(--md-sys-color-secondary); font-weight: 500;">配置规则与词库</span>
                         </div>
 
                         <!-- 选项一：局时选择 -->
@@ -661,17 +1285,34 @@
                         </div>
 
                         <!-- 选项二：获胜条件分差 -->
-                        <div class="rule-group" style="margin-bottom:0;">
-                            <span class="rule-label">获胜条件 (一方领先题数)</span>
+                        <div class="rule-group">
+                            <span class="rule-label">获胜条件</span>
                             <div class="chip-group" id="chips-lead">
                                 <div class="md3-chip" data-lead="3" onclick="changeRuleLead(3)">领先 3 题</div>
                                 <div class="md3-chip" data-lead="4" onclick="changeRuleLead(4)">4 题</div>
                                 <div class="md3-chip" data-lead="5" onclick="changeRuleLead(5)">5 题</div>
-                                <div class="md3-chip selected" data-lead="6" onclick="changeRuleLead(6)">6 题 (默认)</div>
+                                <div class="md3-chip selected" data-lead="6" onclick="changeRuleLead(6)">6 题</div>
                                 <div class="md3-chip" data-lead="7" onclick="changeRuleLead(7)">7 题</div>
                                 <div class="md3-chip" data-lead="8" onclick="changeRuleLead(8)">8 题</div>
                                 <div class="md3-chip" data-lead="9" onclick="changeRuleLead(9)">9 题</div>
                                 <div class="md3-chip" data-lead="10" onclick="changeRuleLead(10)">10 题</div>
+                            </div>
+                        </div>
+
+                        <!-- 选项三：对决词库 (多选，Supabase 实时同步) -->
+                        <div class="rule-group" style="margin-bottom:0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                                <span class="rule-label" style="margin-bottom:0;">对决词库</span>
+                                <div style="display:flex; align-items:center; gap: 8px;">
+                                    <label class="btn btn-tonal" id="btn-room-import-book" style="cursor: pointer; margin: 0; font-size: 0.78rem; padding: 4px 12px; border-radius: var(--md-shape-full); min-height: 28px; display: inline-flex; align-items: center; gap: 4px;">
+                                        导入本地词书
+                                        <input type="file" accept=".json" style="display: none;" onchange="loadCustomBook(event)">
+                                    </label>
+                                    <span id="room-book-count-tip" style="font-size: 0.78rem; color: var(--md-sys-color-primary); font-weight: 600;">已选 1 本词书</span>
+                                </div>
+                            </div>
+                            <div class="chip-group" id="chips-books">
+                                <!-- 动态渲染词书 Chips -->
                             </div>
                         </div>
                     </div>
@@ -680,6 +1321,35 @@
                         <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">退出房间</button>
                         <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>等待对手加入...</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 7: 全新单人专练模式 (1:1 还原设计图) -->
+        <div id="view-single" class="view">
+            <div class="single-mode-wrapper">
+                <!-- 顶部导航栏 -->
+                <div class="single-top-bar">
+                    <h2 class="single-mode-title">单人模式</h2>
+                    <button class="single-btn-exit" onclick="confirmExitSingle()">返回</button>
+                </div>
+
+                <!-- 居中白色答题卡片 -->
+                <div class="single-quiz-card">
+                    <div class="single-badge-row">
+                        <span class="single-book-badge" id="single-book-badge">测试2</span>
+                    </div>
+
+                    <div class="single-word-display" id="single-word">junk mail</div>
+                    <div class="single-phone-display" id="single-phone">/dʒʌŋk meɪl/</div>
+
+                    <div class="single-options-list" id="single-options">
+                        <!-- 4 选项容器 或 词组拼装容器 -->
+                    </div>
+
+                    <button class="single-next-btn show-answer-mode" id="single-next-btn" onclick="nextSingleQuestion()" style="display: flex;">
+                        看答案
+                    </button>
                 </div>
             </div>
         </div>
@@ -710,8 +1380,11 @@
                 <!-- 主题目卡片 -->
                 <div class="arena-quiz-card">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="arena-index-tag">第 1 题</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="arena-index-tag">第 1 题</span>
+                                <span class="badge" id="arena-book-badge" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
+                            </div>
                             <button class="btn btn-outlined" style="min-height: 32px; padding: 0 12px; font-size: 0.8rem;" onclick="confirmExitGame()">退出对决</button>
                         </div>
                         <div class="word-display" id="p1-word">Word</div>
@@ -721,7 +1394,7 @@
                     <div class="options-grid" id="p1-options"></div>
 
                     <div class="cooldown-banner" id="p1-cooldown">
-                        <span>⚠️ 答错冷却中，将在 <strong id="p1-timer">3</strong> 秒后解冻...</span>
+                        <span>回答错误，请等待 <strong id="p1-timer">5</strong> 秒...</span>
                     </div>
                 </div>
             </div>
@@ -730,12 +1403,12 @@
         <!-- VIEW 5: 错题本 -->
         <div id="view-mistakes" class="view">
             <div class="app-bar">
-                <h2>📖 我的错题本</h2>
+                <h2>我的错题本</h2>
                 <button class="btn btn-tonal" onclick="switchView('view-hub')">返回主页</button>
             </div>
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                    <p>自动收录对战与练习中的错误单词：</p>
+                    <p></p>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-filled" onclick="restudyMistakes()">专注重练错题</button>
                         <button class="btn btn-danger" onclick="clearMistakes()">清空错题</button>
@@ -745,7 +1418,7 @@
             </div>
         </div>
 
-        <!-- VIEW 6: 对决结算对话框 (支持“再来一局”与“返回房间”) -->
+        <!-- VIEW 6: 对决结算对话框 -->
         <div id="view-result" class="view">
             <div class="card" style="max-width: 500px; margin: 30px auto; text-align: center;">
                 <div id="result-icon" style="font-size: 3.8rem; margin-bottom: 6px;">🏆</div>
@@ -753,13 +1426,50 @@
                 <div id="result-details" style="margin: 16px 0;"></div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-filled btn-touch-large" id="btn-play-again" onclick="handlePlayAgain()">再来一局</button>
-                    <button class="btn btn-tonal" id="btn-back-room" onclick="handleBackToRoom()">返回等待房间</button>
-                    <button class="btn btn-outlined" onclick="cleanUpAndBackToHub()">返回主页大厅</button>
+                    <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">返回等待房间</button>
+                    <button class="btn btn-outlined" id="btn-result-hub" onclick="handleResultBackToHub()">返回主页大厅</button>
                 </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- 单人模式多选词书选择弹窗 -->
+    <div id="modal-single-books" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700;">选择词书</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">支持多选词书</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeSingleBookSelector()">✕</button>
+            </div>
+
+            <div class="modal-toolbar">
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(true)">全选</button>
+                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(false)">清空</button>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-tonal btn-sm" onclick="refreshBooksFromWorker(true)">刷新</button>
+                    <button class="btn btn-outlined btn-sm" onclick="document.getElementById('custom-book-input').click()">导入词书</button>
+                    <input type="file" id="custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
+                </div>
+            </div>
+
+            <div id="worker-status-banner" style="display:none; margin-bottom:12px; padding:10px 14px; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--md-shape-m); font-size:0.82rem; color:#b78103; line-height:1.4;">
+                💡 <strong>提示</strong>：Worker API 暂未返回词书列表（若控制台报 1101，请在 Cloudflare Dashboard 为 Worker 绑定 KV 命名空间 <code>VOCAB_BOOKS</code>）。当前已启用备用精选题库。
+            </div>
+
+            <div class="book-selection-list" id="single-book-list">
+                <!-- 动态渲染词书卡片 -->
+            </div>
+
+            <div class="modal-footer">
+                <div style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-primary);" id="single-selected-summary">已选 1 本词书</div>
+                <button class="btn btn-filled btn-touch-large" id="btn-start-single-quiz" onclick="startSinglePlayerFromSelectedBooks()">开始练习</button>
+            </div>
+        </div>
     </div>
 
     <!-- Notification Toast -->
@@ -837,7 +1547,212 @@
             { word: "organism", phone: "/ˈɔːrɡənɪzəm/", meanings: [{ pos: "n.", meaning: "生物体，有机体" }] }
         ];
 
-        let dictionary = [...DEFAULT_WORDS];
+        // 包含设计图效果示范的高拟真测试词库
+        const TEST2_WORDS = [
+            { word: "junk mail", phone: "/dʒʌŋk meɪl/", meanings: [{ pos: "", meaning: "塞到邮箱的广告宣传品" }] },
+            { word: "public", phone: "/ˈpʌblɪk/", meanings: [{ pos: "a.", meaning: "公共,公众的" }, { pos: "n.", meaning: "公众" }] },
+            { word: "human", phone: "/ˈhjuːmən/", meanings: [{ pos: "a.", meaning: "人的，人类的" }] },
+            { word: "breathe", phone: "/briːð/", meanings: [{ pos: "vi.", meaning: "呼吸" }] },
+            { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
+            { word: "abundant", phone: "/əˈbʌndənt/", meanings: [{ pos: "adj.", meaning: "丰富的，充裕的" }] },
+            { word: "brilliant", phone: "/ˈbrɪliənt/", meanings: [{ pos: "adj.", meaning: "光辉的；卓越的" }] },
+            { word: "candidate", phone: "/ˈkændɪdət/", meanings: [{ pos: "n.", meaning: "候选人，求职者" }] },
+            { word: "capacity", phone: "/kəˈpæsəti/", meanings: [{ pos: "n.", meaning: "容量；才能" }] },
+            { word: "deficiency", phone: "/dɪˈfɪʃnsi/", meanings: [{ pos: "n.", meaning: "缺乏，不足" }] },
+            { word: "eliminate", phone: "/ɪˈlɪmɪneɪt/", meanings: [{ pos: "v.", meaning: "消灭，消除" }] },
+            { word: "fascinate", phone: "/ˈfæsɪneɪt/", meanings: [{ pos: "v.", meaning: "迷住，吸引" }] }
+        ];
+
+        /* ==========================================================================
+           2. CLOUDFLARE WORKER 词书管理器 (对接 /api/books 与 /api/book?id=...)
+           ========================================================================== */
+        function safeJsonParse(str) {
+            if (typeof str !== 'string') return str;
+            const trimmed = str.trim();
+            try {
+                return JSON.parse(trimmed);
+            } catch (e1) {
+                // 自动容错处理 JSON 尾部多余逗号 (如 `[..., 2991 },\n]`)
+                const cleaned = trimmed.replace(/,\s*([\]}])/g, '$1');
+                try {
+                    return JSON.parse(cleaned);
+                } catch (e2) {
+                    try {
+                        return (new Function('return (' + trimmed + ');'))();
+                    } catch (e3) {
+                        throw e1;
+                    }
+                }
+            }
+        }
+
+        const BookManager = {
+            API_BASE: 'https://vocab-api.chenyurong.qzz.io',
+            availableBooks: [],
+            bookCache: {},
+            fallbackBooks: [
+                { id: 'test2', name: '测试2 (精选)', count: TEST2_WORDS.length, words: TEST2_WORDS },
+                { id: 'cet4', name: '四级核心精选词库', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS }
+            ],
+
+            async init() {
+                await this.fetchBookList();
+                this.preloadAllWorkerBooks();
+            },
+
+            async preloadAllWorkerBooks() {
+                // 静默在后台预加载所有可用的 Worker 词书至缓存，使全数据库词汇可用于形近词检索与即时对战
+                if (!Array.isArray(this.availableBooks)) return;
+                for (const book of this.availableBooks) {
+                    if (!this.bookCache[book.id]) {
+                        try {
+                            await this.loadBookData(book.id);
+                        } catch (e) {
+                            console.warn('[BookManager] Background preload skipped for', book.id, e);
+                        }
+                    }
+                }
+                if (typeof _allDbWordsCache !== 'undefined') {
+                    _allDbWordsCache = null;
+                }
+            },
+
+            async fetchBookList() {
+                const banner = document.getElementById('worker-status-banner');
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 6000);
+                    const res = await fetch(`${this.API_BASE}/api/books`, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const text = await res.text();
+                    const data = safeJsonParse(text);
+                    if (Array.isArray(data) && data.length > 0) {
+                        this.availableBooks = data.map(item => ({
+                            id: String(item.id || item.code || item.name),
+                            name: item.name || item.title || item.id,
+                            count: item.count || (item.words ? item.words.length : null) || '多词'
+                        }));
+                        this.mergeCustomBooks();
+                        if (banner) banner.style.display = 'none';
+                        return { success: true, books: this.availableBooks };
+                    }
+                    throw new Error('Empty book list');
+                } catch (err) {
+                    console.warn('[BookManager] Worker fetch failed, using fallback:', err);
+                    this.availableBooks = [...this.fallbackBooks];
+                    this.mergeCustomBooks();
+                    if (banner) banner.style.display = 'block';
+                    return { success: false, error: err.message, books: this.availableBooks };
+                }
+            },
+
+            mergeCustomBooks() {
+                if (window.customBooks && window.customBooks.length > 0) {
+                    window.customBooks.forEach(cb => {
+                        if (!this.availableBooks.some(b => b.id === cb.id)) {
+                            this.availableBooks.push(cb);
+                        }
+                    });
+                }
+            },
+
+            async loadBookData(bookId) {
+                if (this.bookCache[bookId]) return this.bookCache[bookId];
+
+                const fallback = this.fallbackBooks.find(b => b.id === bookId);
+                if (fallback && fallback.words) {
+                    this.bookCache[bookId] = this.normalizeWords(fallback.words, fallback.name, fallback.id);
+                    return this.bookCache[bookId];
+                }
+
+                if (window.customBooks) {
+                    const custom = window.customBooks.find(b => b.id === bookId);
+                    if (custom && custom.words) {
+                        this.bookCache[bookId] = this.normalizeWords(custom.words, custom.name, custom.id);
+                        return this.bookCache[bookId];
+                    }
+                }
+
+                try {
+                    const res = await fetch(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const rawText = await res.text();
+                    const rawData = safeJsonParse(rawText);
+                    const bookMeta = this.availableBooks.find(b => b.id === bookId) || { name: bookId, id: bookId };
+                    const normalized = this.normalizeWords(rawData, bookMeta.name, bookId);
+                    if (normalized.length > 0) {
+                        this.bookCache[bookId] = normalized;
+                        return normalized;
+                    }
+                    throw new Error('No valid words in book');
+                } catch (err) {
+                    console.error(`[BookManager] Error loading book ${bookId}:`, err);
+                    const defMeta = this.fallbackBooks[0];
+                    return this.normalizeWords(defMeta.words, defMeta.name, defMeta.id);
+                }
+            },
+
+            normalizeWords(rawData, bookName = '', bookId = '') {
+                if (!Array.isArray(rawData)) return [];
+                return rawData.map(item => {
+                    if (!item) return null;
+                    const word = (item.word || item.name || '').trim();
+                    if (!word) return null;
+
+                    let phone = item.phone || '';
+                    if (!phone && item.usphone) phone = `/${item.usphone}/`;
+                    else if (!phone && item.ukphone) phone = `/${item.ukphone}/`;
+
+                    let meanings = [];
+                    if (Array.isArray(item.meanings) && item.meanings.length > 0) {
+                        meanings = item.meanings.map(m => {
+                            if (typeof m === 'string') {
+                                const match = m.match(/^([a-z]+\.)\s*(.+)/i);
+                                return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: m.trim() };
+                            }
+                            return { pos: m.pos || '', meaning: m.meaning || '' };
+                        });
+                    } else if (Array.isArray(item.trans) && item.trans.length > 0) {
+                        meanings = item.trans.map(t => {
+                            if (typeof t !== 'string') return null;
+                            const match = t.match(/^([a-z]+\.)\s*(.+)/i);
+                            return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: t.trim() };
+                        }).filter(Boolean);
+                    } else if (typeof item.trans === 'string') {
+                        meanings = [{ pos: '', meaning: item.trans }];
+                    }
+
+                    if (meanings.length === 0) return null;
+                    return {
+                        word,
+                        phone,
+                        meanings,
+                        bookName: bookName || '专练词书',
+                        bookId: bookId || 'default'
+                    };
+                }).filter(Boolean);
+            },
+
+            async loadMultipleBooks(bookIds = []) {
+                if (!bookIds || bookIds.length === 0) {
+                    bookIds = [this.availableBooks[0]?.id || 'test2'];
+                }
+                const loadPromises = bookIds.map(id => this.loadBookData(id));
+                const results = await Promise.all(loadPromises);
+                const combined = [];
+                const seenWords = new Set();
+                results.flat().forEach(item => {
+                    if (item && !seenWords.has(item.word.toLowerCase())) {
+                        seenWords.add(item.word.toLowerCase());
+                        combined.push(item);
+                    }
+                });
+                return combined.length > 0 ? combined : this.normalizeWords(DEFAULT_WORDS, '默认题库', 'default');
+            }
+        };
+
+        let dictionary = [...TEST2_WORDS, ...DEFAULT_WORDS];
         let currentUser = localStorage.getItem('vocab_pk_user') || '';
         let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
 
@@ -849,10 +1764,11 @@
         let hostName = '';
         let guestName = '';
 
-        // 可配置的房间规则（默认 60s，领先 6 题获胜）
+        // 房间配置（包含多选词书列表）
         let roomConfig = {
             duration: 60,
-            winLead: 6
+            winLead: 6,
+            selectedBooks: ['test2', 'cet4']
         };
 
         let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
@@ -860,6 +1776,17 @@
         let timeLeft = 60;
         let gameTimer = null;
         let gameResult = null;
+
+        // 单人专练模式状态与多选词书
+        let singleSelectedBookIds = JSON.parse(localStorage.getItem('single_vocab_books') || '["test2", "cet4"]');
+        let singleState = {
+            pool: [],
+            currentIdx: 0,
+            answered: false,
+            selectedIdx: -1,
+            score: 0,
+            total: 0
+        };
 
         const canvas = document.getElementById('snakeCanvas');
         const ctx = canvas.getContext('2d');
@@ -891,18 +1818,10 @@
 
         function updateHub() {
             if (!currentUser) return switchView('view-auth');
-            document.getElementById('hub-welcome').innerText = `已就绪，向词汇巅峰发起冲刺！`;
             document.getElementById('hub-profile-tag').innerText = `👤 ${currentUser}`;
             document.getElementById('stat-total').innerText = userStats.total;
             document.getElementById('stat-acc').innerText = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
             document.getElementById('stat-mistakes').innerText = Object.keys(userStats.mistakes || {}).length;
-            useDefaultBook(true);
-        }
-
-        function useDefaultBook(silent = false) {
-            dictionary = [...DEFAULT_WORDS];
-            document.getElementById('book-status').innerText = `✓ 当前使用: 内置精选高辨析核心词库 (共 ${dictionary.length} 词)`;
-            if (!silent) showToast('已切回内置词库');
         }
 
         function loadCustomBook(e) {
@@ -912,27 +1831,171 @@
             reader.onload = function(evt) {
                 try {
                     const rawData = JSON.parse(evt.target.result);
-                    dictionary = rawData.filter(item => item && item.name && item.trans && item.trans.length > 0).map(item => {
-                        let phone = item.usphone ? `/${item.usphone}/` : '';
-                        let meanings = item.trans.map(t => {
-                            let match = t.match(/^([a-z]+\.)\s*(.+)/i);
-                            return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: t.trim() };
-                        }).filter(m => m.meaning);
-                        return { word: item.name, phone, meanings };
-                    }).filter(item => item.meanings.length > 0);
+                    const bookName = file.name.replace(/\.json$/i, '');
+                    const bookId = 'custom_' + Date.now();
+                    const normalized = BookManager.normalizeWords(rawData, bookName, bookId);
+                    if (normalized.length === 0) throw new Error('未解析到有效词条');
 
-                    document.getElementById('book-status').innerText = `✓ 已加载外部词书: ${file.name} (共 ${dictionary.length} 词)`;
-                    showToast(`成功载入 ${dictionary.length} 词！`);
+                    if (!window.customBooks) window.customBooks = [];
+                    window.customBooks.push({
+                        id: bookId,
+                        name: `📂 ${bookName}`,
+                        count: normalized.length,
+                        words: normalized
+                    });
+                    BookManager.bookCache[bookId] = normalized;
+                    BookManager.mergeCustomBooks();
+
+                    if (!singleSelectedBookIds.includes(bookId)) {
+                        singleSelectedBookIds.push(bookId);
+                    }
+                    if (isHost && roomConfig) {
+                        if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
+                        if (!roomConfig.selectedBooks.includes(bookId)) {
+                            roomConfig.selectedBooks.push(bookId);
+                        }
+                        broadcastRuleChange();
+                    }
+                    renderSingleBookList();
+                    renderRoomBookChips();
+                    showToast(`成功导入词书【${bookName}】(共 ${normalized.length} 词)！`);
                 } catch(err) {
-                    alert('词库 JSON 解析失败，请确认为标准词典格式。');
+                    alert('词库解析失败，请确认为标准词典JSON格式。');
                 }
             };
             reader.readAsText(file);
         }
 
         /* ==========================================================================
-           2. 智能易错项/形近词生成算法 (Levenshtein + 前缀相似度)
+           3. 单人专练模式核心控制与全新 UI 逻辑 (完全复刻设计图)
            ========================================================================== */
+        function openSingleBookSelector() {
+            const modal = document.getElementById('modal-single-books');
+            if (modal) {
+                modal.classList.add('active');
+                renderSingleBookList();
+            }
+        }
+
+        function closeSingleBookSelector() {
+            const modal = document.getElementById('modal-single-books');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function renderSingleBookList() {
+            const listEl = document.getElementById('single-book-list');
+            if (!listEl) return;
+
+            if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
+                singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+            }
+
+            listEl.innerHTML = BookManager.availableBooks.map(b => {
+                const isSel = singleSelectedBookIds.includes(b.id);
+                return `
+                    <div class="book-item-card ${isSel ? 'selected' : ''}" onclick="toggleSingleBook('${b.id}')">
+                        <div class="book-item-info">
+                            <span class="book-item-title">${b.name}</span>
+                            <span class="book-item-meta">词库容量: ${b.count || '多词'}</span>
+                        </div>
+                        <div class="book-item-checkbox">
+                            ${isSel ? '✓' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateSingleSelectedSummary();
+        }
+
+        function toggleSingleBook(bookId) {
+            if (singleSelectedBookIds.includes(bookId)) {
+                if (singleSelectedBookIds.length <= 1) {
+                    showToast('请至少保留一本词书！');
+                    return;
+                }
+                singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== bookId);
+            } else {
+                singleSelectedBookIds.push(bookId);
+            }
+            localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+            renderSingleBookList();
+        }
+
+        function selectAllSingleBooks(selectAll) {
+            if (selectAll) {
+                singleSelectedBookIds = BookManager.availableBooks.map(b => b.id);
+            } else {
+                singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+            }
+            localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+            renderSingleBookList();
+        }
+
+        async function refreshBooksFromWorker(notify = false) {
+            if (notify) showToast('正在从 Cloudflare Worker 获取最新词书...');
+            const res = await BookManager.fetchBookList();
+            renderSingleBookList();
+            renderRoomBookChips();
+            if (notify) {
+                if (res.success) {
+                    showToast(`成功同步 ${res.books.length} 本云端词书！`);
+                } else {
+                    showToast('未连接到 Worker 词书，已启用内置精选题库');
+                }
+            }
+        }
+
+        function updateSingleSelectedSummary() {
+            const summary = document.getElementById('single-selected-summary');
+            if (summary) {
+                summary.innerText = `已勾选 ${singleSelectedBookIds.length} 本词书`;
+            }
+        }
+
+        async function startSinglePlayerFromSelectedBooks() {
+            const btn = document.getElementById('btn-start-single-quiz');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '正在加载题库...';
+            }
+
+            try {
+                const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+                closeSingleBookSelector();
+                dictionary = words;
+                const pool = generateShuffledPoolFromWords(words, Math.min(60, words.length));
+                startSinglePlayerWithPool(pool, '单人专练');
+            } catch (err) {
+                alert('加载词书失败：' + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '开始专练 →';
+                }
+            }
+        }
+
+        function startSinglePlayerWithPool(pool, defaultBookName = '单人专练') {
+            gameMode = 'single';
+            singleState = {
+                pool: pool,
+                currentIdx: 0,
+                answered: false,
+                selectedIdx: -1,
+                score: 0,
+                total: 0
+            };
+            renderSingleQuestion();
+            switchView('view-single');
+        }
+
+        /* ==========================================================================
+           词组拼装题辅助逻辑 (Phrase Assembly Helpers)
+           含：全数据库词库挖掘、定向介词错配映射、难词/实词形近项搜索算法
+           ========================================================================== */
+
+        // 字符串 Levenshtein 编辑距离计算
         function calcLevenshteinDist(s1, s2) {
             const m = s1.length, n = s2.length;
             const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -947,38 +2010,805 @@
             return dp[m][n];
         }
 
-        function getSimilarConfusingDistractors(targetWord, correctMeaning) {
+        // 数据库全词书纯单词提取器（聚合 Worker 所有词库、fallbackBooks、customBooks、dictionary 等）
+        let _allDbWordsCache = null;
+        let _allDbWordsCacheTime = 0;
+
+        function getAllDatabaseWords() {
+            const now = Date.now();
+            if (_allDbWordsCache && (now - _allDbWordsCacheTime < 10000)) {
+                return _allDbWordsCache;
+            }
+
+            const wordSet = new Set();
+            const addWord = (w) => {
+                if (!w || typeof w !== 'string') return;
+                const clean = w.trim().toLowerCase();
+                // 仅收集纯单词，过滤词组与异常字符
+                if (clean.length >= 2 && clean.length <= 18 && !clean.includes(' ') && /^[a-z'-]+$/.test(clean)) {
+                    wordSet.add(clean);
+                }
+            };
+
+            // 1. 已加载的书籍缓存 (BookManager.bookCache)
+            if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+                Object.values(BookManager.bookCache).forEach(bookWords => {
+                    if (Array.isArray(bookWords)) {
+                        bookWords.forEach(item => {
+                            if (item && item.word) addWord(item.word);
+                        });
+                    }
+                });
+            }
+
+            // 2. 兜底词书 (fallbackBooks)
+            if (typeof BookManager !== 'undefined' && Array.isArray(BookManager.fallbackBooks)) {
+                BookManager.fallbackBooks.forEach(b => {
+                    if (Array.isArray(b.words)) {
+                        b.words.forEach(item => {
+                            if (item && (item.word || item.name)) addWord(item.word || item.name);
+                        });
+                    }
+                });
+            }
+
+            // 3. 用户导入的自定义词书
+            if (Array.isArray(window.customBooks)) {
+                window.customBooks.forEach(b => {
+                    if (Array.isArray(b.words)) {
+                        b.words.forEach(item => {
+                            if (item && (item.word || item.name)) addWord(item.word || item.name);
+                        });
+                    }
+                });
+            }
+
+            // 4. 全局 dictionary 及默认常量
+            if (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) {
+                dictionary.forEach(item => {
+                    if (item && item.word) addWord(item.word);
+                });
+            }
+            if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+                DEFAULT_WORDS.forEach(item => {
+                    if (item && item.word) addWord(item.word);
+                });
+            }
+            if (typeof TEST2_WORDS !== 'undefined' && Array.isArray(TEST2_WORDS)) {
+                TEST2_WORDS.forEach(item => {
+                    if (item && item.word) addWord(item.word);
+                });
+            }
+
+            _allDbWordsCache = Array.from(wordSet);
+            _allDbWordsCacheTime = now;
+            return _allDbWordsCache;
+        }
+
+        // 定向介词搭配混淆字典 (如词组中有 to 提供 for, with, of 等；如有 on 提供 in, at 等)
+        const PREPOSITION_COLLOCATION_MAP = {
+            'to': ['for', 'with', 'of', 'at', 'in', 'towards', 'into', 'by'],
+            'on': ['in', 'at', 'upon', 'over', 'off', 'under', 'to', 'with'],
+            'in': ['on', 'at', 'into', 'within', 'by', 'to', 'for', 'with'],
+            'at': ['in', 'on', 'by', 'to', 'for', 'near', 'with'],
+            'for': ['to', 'of', 'with', 'about', 'from', 'in', 'at'],
+            'of': ['for', 'to', 'with', 'about', 'off', 'from', 'in'],
+            'with': ['to', 'for', 'by', 'without', 'against', 'in', 'of'],
+            'by': ['with', 'for', 'through', 'in', 'at', 'from', 'on'],
+            'from': ['of', 'to', 'away', 'out', 'off', 'since', 'for'],
+            'up': ['down', 'out', 'off', 'over', 'away', 'in', 'on'],
+            'down': ['up', 'off', 'away', 'out', 'under', 'in'],
+            'out': ['in', 'up', 'off', 'away', 'of', 'down', 'over'],
+            'off': ['on', 'of', 'out', 'away', 'up', 'down', 'in'],
+            'about': ['for', 'of', 'around', 'on', 'to', 'with'],
+            'over': ['under', 'above', 'on', 'through', 'across', 'off'],
+            'into': ['onto', 'in', 'to', 'through', 'inside', 'toward'],
+            'away': ['back', 'out', 'off', 'up', 'from', 'down'],
+            'after': ['before', 'for', 'at', 'behind', 'with'],
+            'before': ['after', 'ago', 'until', 'since'],
+            'through': ['across', 'over', 'throughout', 'by', 'in'],
+            'against': ['for', 'with', 'towards', 'to'],
+            'under': ['over', 'below', 'beneath', 'down', 'in'],
+            'around': ['about', 'round', 'near', 'over', 'across'],
+            'behind': ['before', 'after', 'beyond', 'back'],
+            'between': ['among', 'amid', 'with'],
+            'among': ['between', 'amid', 'in']
+        };
+
+        // 精选易错/高频形近词库 (Phrase Lookalike Dictionary)
+        const PHRASE_LOOKALIKE_MAP = {
+            'mail': ['male', 'nail', 'sail', 'rail', 'post'],
+            'junk': ['trunk', 'pack', 'bunk', 'punk'],
+            'look': ['book', 'took', 'lock', 'hook', 'loop'],
+            'forward': ['foreword', 'toward', 'reward', 'backward'],
+            'rely': ['relay', 'reply', 'delay', 'rally'],
+            'break': ['brake', 'bread', 'bleak', 'brick'],
+            'take': ['make', 'lake', 'bake', 'bring'],
+            'give': ['live', 'dive', 'gift', 'gain'],
+            'make': ['take', 'wake', 'mark', 'mask'],
+            'turn': ['burn', 'tune', 'tour', 'torn'],
+            'hold': ['cold', 'gold', 'bold', 'hole'],
+            'stand': ['strand', 'spend', 'standard', 'start'],
+            'fall': ['fill', 'fell', 'ball', 'call'],
+            'come': ['comb', 'cone', 'calm', 'core'],
+            'put': ['pot', 'pit', 'pat', 'pull'],
+            'set': ['sit', 'seat', 'suit', 'sec'],
+            'get': ['got', 'gut', 'gate', 'net'],
+            'call': ['calm', 'cell', 'cool', 'coal'],
+            'hand': ['hard', 'head', 'band', 'land'],
+            'way': ['day', 'say', 'ray', 'may'],
+            'time': ['tame', 'tide', 'team', 'item'],
+            'care': ['cure', 'core', 'case', 'dare'],
+            'run': ['ran', 'rain', 'ruin', 'ring'],
+            'point': ['joint', 'paint', 'print', 'plant'],
+            'figure': ['finger', 'feature', 'future'],
+            'charge': ['change', 'chart', 'chance'],
+            'deal': ['dead', 'dial', 'deaf', 'dear'],
+            'order': ['odor', 'border', 'other'],
+            'matter': ['manner', 'master', 'mutter', 'match'],
+            'touch': ['tough', 'teach', 'torch'],
+            'sight': ['site', 'cite', 'slight', 'night'],
+            'public': ['publish', 'pubic', 'publicity'],
+            'human': ['humane', 'humor', 'humanity'],
+            'bear': ['bare', 'beer', 'beard', 'bean'],
+            'peace': ['piece', 'peach', 'pace', 'peak'],
+            'weather': ['whether', 'leather', 'feather'],
+            'principal': ['principle', 'practice', 'precious'],
+            'affect': ['effect', 'afford', 'defect'],
+            'accept': ['except', 'expect', 'aspect', 'access'],
+            'adapt': ['adopt', 'adept', 'adult'],
+            'loose': ['lose', 'loss', 'choose'],
+            'quiet': ['quite', 'quit', 'quick'],
+            'course': ['cause', 'coarse', 'curse', 'court'],
+            'custom': ['costume', 'customer', 'customary'],
+            'station': ['status', 'statue', 'stationery'],
+            'broad': ['board', 'abroad', 'bread'],
+            'desert': ['dessert', 'deserve', 'detect'],
+            'personal': ['personnel', 'personality'],
+            'attention': ['attraction', 'intention', 'retention'],
+            'advantage': ['advance', 'adventure', 'advent'],
+            'relief': ['belief', 'relieve', 'relight'],
+            'mask': ['task', 'mark', 'mass', 'ask'],
+            'pressure': ['pleasure', 'treasure', 'pursue'],
+            'injury': ['inquiry', 'injure', 'jury'],
+            'sustain': ['contain', 'obtain', 'retain', 'substance'],
+            'flare': ['glare', 'flame', 'flash', 'fare'],
+            'testament': ['treatment', 'tentament', 'settlement'],
+            'destructive': ['instructive', 'constructive', 'detective'],
+            'impact': ['compact', 'impart', 'import'],
+            'hearing': ['bearing', 'wearing', 'fearing', 'healing']
+        };
+
+        // 识别难词/实词时排除的基础虚词与功能词
+        const STOP_FUNCTION_WORDS = new Set([
+            'a', 'an', 'the', 'this', 'that', 'these', 'those', 'it', 'its',
+            'he', 'his', 'him', 'she', 'her', 'they', 'them', 'their', 'we', 'us', 'our', 'you', 'your',
+            'and', 'or', 'but', 'so', 'if', 'then', 'as', 'than', 'nor', 'yet',
+            'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+            'do', 'does', 'did', 'have', 'has', 'had', 'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must',
+            ...Object.keys(PREPOSITION_COLLOCATION_MAP)
+        ]);
+
+        // 从全数据库所有词书中动态检索形近词 (Lookalike Words)
+        function findLookalikesFromDatabase(targetWord, maxCount = 2) {
+            const allWords = getAllDatabaseWords();
+            const target = targetWord.toLowerCase().replace(/[^a-z]/g, '');
+            const tLen = target.length;
+            if (tLen < 2) return [];
+
+            const scored = [];
+            const maxAllowedLenDiff = tLen >= 7 ? 3 : 2;
+            const maxAllowedDist = tLen <= 4 ? 2 : (tLen <= 7 ? 3 : 4);
+
+            for (const cand of allWords) {
+                if (cand === target) continue;
+                const cLen = cand.length;
+                const lenDiff = Math.abs(cLen - tLen);
+                if (lenDiff > maxAllowedLenDiff) continue;
+
+                // 快速首尾字母筛选（避免对全词库大量不相干词进行矩阵计算）
+                const sameFirst = target[0] === cand[0];
+                const sameLast = target[tLen - 1] === cand[cLen - 1];
+                if (!sameFirst && !sameLast && lenDiff > 1) continue;
+
+                const dist = calcLevenshteinDist(target, cand);
+                if (dist > maxAllowedDist) continue;
+
+                let prefixBonus = 0;
+                if (tLen >= 3 && cand.slice(0, 3) === target.slice(0, 3)) prefixBonus = 4;
+                else if (cand.slice(0, 2) === target.slice(0, 2)) prefixBonus = 2.5;
+                else if (sameFirst) prefixBonus = 1;
+
+                let suffixBonus = 0;
+                if (tLen >= 3 && cand.slice(-3) === target.slice(-3)) suffixBonus = 3;
+                else if (cand.slice(-2) === target.slice(-2)) suffixBonus = 1.5;
+                else if (sameLast) suffixBonus = 0.5;
+
+                const score = (12 - dist * 2.5) + prefixBonus + suffixBonus - (lenDiff * 0.6);
+                scored.push({ word: cand, score });
+            }
+
+            scored.sort((a, b) => b.score - a.score);
+            return scored.slice(0, maxCount).map(s => s.word);
+        }
+
+        // 智能生成词组混淆干扰项（介词错误搭配 + 难词形近项 + 全数据库检索）
+        function generatePhraseDistractors(targetWords, currentPool = []) {
+            const rawTargetSet = new Set(targetWords.map(w => w.toLowerCase()));
+            const distractors = new Set();
+            const targetTotal = Math.min(8, Math.max(targetWords.length + 3, 5));
+
+            // 1. 介词定向错误搭配混淆（例如 to -> for, with, of 等；on -> in, at 等）
+            targetWords.forEach(w => {
+                const lower = w.toLowerCase().replace(/[^a-z]/g, '');
+                if (PREPOSITION_COLLOCATION_MAP[lower]) {
+                    const candidatePreps = PREPOSITION_COLLOCATION_MAP[lower];
+                    let addedForThisPrep = 0;
+                    for (const cp of candidatePreps) {
+                        if (addedForThisPrep >= 3) break;
+                        if (!rawTargetSet.has(cp) && !distractors.has(cp)) {
+                            distractors.add(cp);
+                            addedForThisPrep++;
+                        }
+                    }
+                }
+            });
+
+            // 2. 难词/实词形近项（识别实词/长词，参考数据库所有词书）
+            const contentWords = targetWords
+                .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
+                .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
+                .sort((a, b) => b.length - a.length);
+
+            const wordsToProcess = contentWords.length > 0
+                ? contentWords
+                : targetWords.map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
+
+            wordsToProcess.forEach(cw => {
+                if (distractors.size >= targetTotal) return;
+
+                // 2.1 先匹配精选形近词表
+                if (PHRASE_LOOKALIKE_MAP[cw]) {
+                    for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
+                        if (distractors.size >= targetTotal) break;
+                        if (!rawTargetSet.has(sw) && !distractors.has(sw)) {
+                            distractors.add(sw);
+                        }
+                    }
+                }
+
+                // 2.2 从全数据库所有词库中动态检索最接近的形近词
+                if (distractors.size < targetTotal) {
+                    const dbLookalikes = findLookalikesFromDatabase(cw, 3);
+                    for (const sim of dbLookalikes) {
+                        if (distractors.size >= targetTotal) break;
+                        if (!rawTargetSet.has(sim) && !distractors.has(sim)) {
+                            distractors.add(sim);
+                        }
+                    }
+                }
+            });
+
+            // 3. 若混淆项仍不足目标数量，从当前题库或全词库抽取干净单词
+            if (distractors.size + targetWords.length < targetTotal && Array.isArray(currentPool)) {
+                for (const item of currentPool) {
+                    if (distractors.size + targetWords.length >= targetTotal) break;
+                    const w = (item.word || '').trim().toLowerCase();
+                    if (w && !w.includes(' ') && !rawTargetSet.has(w) && !distractors.has(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
+                        distractors.add(w);
+                    }
+                }
+            }
+
+            // 4. 兜底高频词
+            const fallbackWords = ['in', 'on', 'at', 'to', 'for', 'with', 'by', 'off', 'out', 'up', 'make', 'take', 'get', 'post', 'back', 'well', 'all', 'set'];
+            for (const fw of fallbackWords) {
+                if (distractors.size + targetWords.length >= targetTotal) break;
+                if (!rawTargetSet.has(fw) && !distractors.has(fw)) {
+                    distractors.add(fw);
+                }
+            }
+
+            const chips = [
+                ...targetWords.map((w, idx) => ({ id: `tw_${idx}`, text: w })),
+                ...Array.from(distractors).map((w, idx) => ({ id: `dis_${idx}`, text: w }))
+            ];
+
+            // Fisher-Yates 随机打乱
+            for (let i = chips.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [chips[i], chips[j]] = [chips[j], chips[i]];
+            }
+
+            return chips;
+        }
+
+        let singlePhraseState = {
+            targetWords: [],
+            placed: [],
+            chips: [],
+            q: null
+        };
+
+        function renderSingleQuestion() {
+            if (singleState.currentIdx >= singleState.pool.length) {
+                endSingleGame();
+                return;
+            }
+
+            const q = singleState.pool[singleState.currentIdx];
+            singleState.answered = false;
+            singleState.selectedIdx = -1;
+
+            // 词书小标签 (严格对齐设计图左上角标签，如“测试2”)
+            const badge = document.getElementById('single-book-badge');
+            if (badge) badge.innerText = q.bookName || '测试2';
+
+            const wordEl = document.getElementById('single-word');
+            const phoneEl = document.getElementById('single-phone');
+
+            // 底部按钮初态显示为“看答案” (点击揭晓答案，再次点击进入下一题)
+            const nextBtn = document.getElementById('single-next-btn');
+            if (nextBtn) {
+                nextBtn.style.display = 'flex';
+                nextBtn.className = 'single-next-btn show-answer-mode';
+                nextBtn.innerText = '看答案';
+            }
+
+            const isPhrase = q.word && q.word.trim().includes(' ');
+            if (isPhrase) {
+                renderSinglePhraseQuestion(q);
+                return;
+            }
+
+            // 单个单词题目正常渲染
+            if (wordEl) {
+                wordEl.style.display = 'block';
+                wordEl.innerText = q.word;
+                wordEl.style.color = '#111827';
+            }
+            if (phoneEl) {
+                phoneEl.style.display = 'block';
+                phoneEl.innerText = q.phone || '';
+            }
+
+            const optionsContainer = document.getElementById('single-options');
+            if (!optionsContainer) return;
+
+            let html = '';
+            q.options.forEach((opt, idx) => {
+                html += `
+                    <button class="single-opt-btn" id="single-opt-${idx}" onclick="handleSingleAnswer(${idx})">
+                        <span class="opt-trans">${opt.meaning}</span>
+                    </button>
+                `;
+            });
+            optionsContainer.innerHTML = html;
+        }
+
+        function renderSinglePhraseQuestion(q) {
+            const targetWords = q.word.trim().split(/\s+/);
+            singlePhraseState = {
+                targetWords: targetWords,
+                placed: new Array(targetWords.length).fill(null),
+                chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, singleState.pool),
+                q: q
+            };
+
+            const wordEl = document.getElementById('single-word');
+            const phoneEl = document.getElementById('single-phone');
+            if (wordEl) wordEl.style.display = 'none';
+            if (phoneEl) phoneEl.style.display = 'none';
+
+            const optionsContainer = document.getElementById('single-options');
+            if (!optionsContainer) return;
+
+            const correctMeaning = q.options[q.correctIdx]?.meaning || '';
+
+            optionsContainer.innerHTML = `
+                <div class="phrase-container">
+                    <div class="phrase-trans-card">
+                        <div class="phrase-trans-title">${correctMeaning}</div>
+                    </div>
+                    <div class="phrase-slots-row" id="single-phrase-slots">
+                        ${targetWords.map((_, i) => `<div class="phrase-slot empty" id="single-slot-${i}" onclick="handleSinglePhraseSlotClick(${i})"></div>`).join('')}
+                    </div>
+                    <div id="single-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
+                    <div class="phrase-bank-card">
+                        <div class="phrase-bank-header">
+                            <span>备选词框：</span>
+                            <button type="button" class="btn-clear-phrase" id="btn-clear-single-phrase" onclick="clearSinglePhraseSlots()">
+                                清空已选
+                            </button>
+                        </div>
+                        <div class="phrase-chips-grid" id="single-phrase-bank">
+                            ${singlePhraseState.chips.map(c => `
+                                <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')">
+                                    ${c.text}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function clearSinglePhraseSlots() {
+            if (singleState.answered) return;
+            singlePhraseState.placed.forEach((chipId, idx) => {
+                if (chipId) {
+                    const slotEl = document.getElementById(`single-slot-${idx}`);
+                    if (slotEl) {
+                        slotEl.classList.remove('filled', 'correct', 'wrong');
+                        slotEl.classList.add('empty');
+                        slotEl.innerText = '';
+                    }
+                    const chipEl = document.getElementById(`single-chip-${chipId}`);
+                    if (chipEl) {
+                        chipEl.classList.remove('used');
+                        chipEl.disabled = false;
+                    }
+                }
+            });
+            singlePhraseState.placed = new Array(singlePhraseState.targetWords.length).fill(null);
+            const comp = document.getElementById('single-phrase-compare');
+            if (comp) comp.style.display = 'none';
+        }
+
+        function handleSinglePhraseChipClick(chipId) {
+            if (singleState.answered) return;
+            const emptyIdx = singlePhraseState.placed.findIndex(p => p === null);
+            if (emptyIdx === -1) return;
+
+            const chip = singlePhraseState.chips.find(c => c.id === chipId);
+            if (!chip) return;
+
+            singlePhraseState.placed[emptyIdx] = chipId;
+
+            const slotEl = document.getElementById(`single-slot-${emptyIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('empty');
+                slotEl.classList.add('filled');
+                slotEl.innerText = chip.text;
+            }
+
+            const chipEl = document.getElementById(`single-chip-${chipId}`);
+            if (chipEl) chipEl.classList.add('used');
+
+            const comp = document.getElementById('single-phrase-compare');
+            if (comp) comp.style.display = 'none';
+
+            if (!singlePhraseState.placed.includes(null)) {
+                checkSinglePhraseAnswer();
+            }
+        }
+
+        function handleSinglePhraseSlotClick(slotIdx) {
+            if (singleState.answered) return;
+            const chipId = singlePhraseState.placed[slotIdx];
+            if (!chipId) return;
+
+            singlePhraseState.placed[slotIdx] = null;
+
+            const slotEl = document.getElementById(`single-slot-${slotIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('filled', 'correct', 'wrong');
+                slotEl.classList.add('empty');
+                slotEl.innerText = '';
+            }
+
+            const chipEl = document.getElementById(`single-chip-${chipId}`);
+            if (chipEl) chipEl.classList.remove('used');
+
+            const comp = document.getElementById('single-phrase-compare');
+            if (comp) comp.style.display = 'none';
+        }
+
+        function checkSinglePhraseAnswer() {
+            const placedWords = singlePhraseState.placed.map(cid => {
+                const c = singlePhraseState.chips.find(item => item.id === cid);
+                return c ? c.text.toLowerCase() : '';
+            });
+            const targetWordsLower = singlePhraseState.targetWords.map(w => w.toLowerCase());
+            const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+
+            const q = singlePhraseState.q;
+            userStats.total++;
+            singleState.total++;
+
+            if (isRight) {
+                userStats.correct++;
+                singleState.score++;
+                if (userStats.mistakes && userStats.mistakes[q.word]) {
+                    delete userStats.mistakes[q.word];
+                }
+                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+                singlePhraseState.placed.forEach((_, i) => {
+                    const slotEl = document.getElementById(`single-slot-${i}`);
+                    if (slotEl) slotEl.classList.add('correct');
+                });
+
+                const wordEl = document.getElementById('single-word');
+                const phoneEl = document.getElementById('single-phone');
+                if (wordEl) {
+                    wordEl.style.display = 'block';
+                    wordEl.innerText = q.word;
+                    wordEl.style.color = 'var(--md-sys-color-success)';
+                }
+                if (phoneEl) {
+                    phoneEl.style.display = 'block';
+                    phoneEl.innerText = q.phone || '';
+                }
+
+                singleState.answered = true;
+
+                const nextBtn = document.getElementById('single-next-btn');
+                if (nextBtn) {
+                    nextBtn.className = 'single-next-btn';
+                    nextBtn.innerText = '下一题 →';
+                    nextBtn.style.display = 'flex';
+                }
+                const comp = document.getElementById('single-phrase-compare');
+                if (comp) comp.style.display = 'none';
+                const clearBtn = document.getElementById('btn-clear-single-phrase');
+                if (clearBtn) clearBtn.disabled = true;
+            } else {
+                if (!userStats.mistakes) userStats.mistakes = {};
+                if (!userStats.mistakes[q.word]) {
+                    userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
+                }
+                userStats.mistakes[q.word].count++;
+                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+                singlePhraseState.targetWords.forEach((tw, i) => {
+                    const slotEl = document.getElementById(`single-slot-${i}`);
+                    const chipId = singlePhraseState.placed[i];
+                    const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
+                    const userWord = chip ? chip.text : '';
+                    const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+                    if (slotEl) {
+                        if (isSlotRight) {
+                            slotEl.classList.remove('wrong');
+                            slotEl.classList.add('correct');
+                        } else {
+                            slotEl.classList.remove('correct');
+                            slotEl.classList.add('wrong');
+                        }
+                    }
+                });
+
+                const comp = document.getElementById('single-phrase-compare');
+                if (comp) {
+                    comp.className = 'phrase-comparison-card wrong-state';
+                    comp.style.display = 'block';
+                    comp.innerHTML = `
+                        <div class="phrase-compare-row">
+                            <span class="phrase-compare-badge wrong">✕ 搭配有误</span>
+                            <span style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">可点击槽位或清空按钮重新调整，或点击下方【看答案】</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function revealSingleAnswer() {
+            if (singleState.answered) return;
+            singleState.answered = true;
+            const q = singleState.pool[singleState.currentIdx];
+
+            userStats.total++;
+            singleState.total++;
+            if (!userStats.mistakes) userStats.mistakes = {};
+            if (!userStats.mistakes[q.word]) {
+                userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
+            }
+            userStats.mistakes[q.word].count++;
+            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+            const isPhrase = q.word && q.word.trim().includes(' ');
+            if (isPhrase) {
+                // 对照槽位中的用户作答与标准答案，标出错误点（正确标绿，错误/未填标红）
+                singlePhraseState.targetWords.forEach((tw, i) => {
+                    const slotEl = document.getElementById(`single-slot-${i}`);
+                    const chipId = singlePhraseState.placed[i];
+                    const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
+                    const userWord = chip ? chip.text : '';
+                    const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+
+                    if (slotEl) {
+                        slotEl.classList.remove('empty');
+                        if (isSlotRight) {
+                            slotEl.classList.remove('wrong');
+                            slotEl.classList.add('filled', 'correct');
+                            slotEl.innerText = userWord;
+                        } else {
+                            slotEl.classList.remove('correct');
+                            slotEl.classList.add('filled', 'wrong');
+                            slotEl.innerText = userWord || '(未填)';
+                        }
+                    }
+                });
+
+                // 将正确词组放在错误答案正下方，对照错误点
+                const comp = document.getElementById('single-phrase-compare');
+                if (comp) {
+                    comp.className = 'phrase-comparison-card';
+                    comp.style.display = 'block';
+                    comp.innerHTML = `
+                        <div class="phrase-compare-row">
+                            <span class="phrase-compare-badge correct">✓ 正确词组</span>
+                            <span class="phrase-compare-text correct">${q.word}</span>
+                            ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
+                        </div>
+                    `;
+                }
+
+                // 禁用备选词块与清空按钮
+                singlePhraseState.chips.forEach(c => {
+                    const chipEl = document.getElementById(`single-chip-${c.id}`);
+                    if (chipEl) {
+                        chipEl.classList.add('used');
+                        chipEl.disabled = true;
+                    }
+                });
+                const clearBtn = document.getElementById('btn-clear-single-phrase');
+                if (clearBtn) clearBtn.disabled = true;
+
+                const wordEl = document.getElementById('single-word');
+                const phoneEl = document.getElementById('single-phone');
+                if (wordEl) wordEl.style.display = 'none';
+                if (phoneEl) phoneEl.style.display = 'none';
+            } else {
+                q.options.forEach((opt, i) => {
+                    const btn = document.getElementById(`single-opt-${i}`);
+                    if (!btn) return;
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="opt-word">${opt.word}</span> <span class="opt-trans">${opt.meaning}</span>`;
+                    if (i === q.correctIdx) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+
+            const nextBtn = document.getElementById('single-next-btn');
+            if (nextBtn) {
+                nextBtn.className = 'single-next-btn';
+                nextBtn.innerText = '下一题 →';
+                nextBtn.style.display = 'flex';
+            }
+        }
+
+        function handleSingleAnswer(idx) {
+            if (singleState.answered) return;
+            singleState.answered = true;
+            singleState.selectedIdx = idx;
+
+            const q = singleState.pool[singleState.currentIdx];
+            const isRight = (idx === q.correctIdx);
+
+            userStats.total++;
+            singleState.total++;
+
+            if (isRight) {
+                userStats.correct++;
+                singleState.score++;
+                if (userStats.mistakes && userStats.mistakes[q.word]) {
+                    delete userStats.mistakes[q.word];
+                }
+            } else {
+                if (!userStats.mistakes) userStats.mistakes = {};
+                if (!userStats.mistakes[q.word]) {
+                    userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
+                }
+                userStats.mistakes[q.word].count++;
+            }
+            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+            // 揭晓所有选项的英文单词并呈现对错高亮 (完全对齐设计图视觉规范)
+            q.options.forEach((opt, i) => {
+                const btn = document.getElementById(`single-opt-${i}`);
+                if (!btn) return;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="opt-word">${opt.word}</span> <span class="opt-trans">${opt.meaning}</span>`;
+                if (i === q.correctIdx) {
+                    btn.classList.add('correct');
+                }
+            });
+
+            if (!isRight) {
+                const wrongBtn = document.getElementById(`single-opt-${idx}`);
+                if (wrongBtn) wrongBtn.classList.add('wrong');
+            }
+
+            // 显现底部的淡蓝色全宽胶囊按钮：“查看完毕，进入下一题 →”
+            const nextBtn = document.getElementById('single-next-btn');
+            if (nextBtn) {
+                nextBtn.className = 'single-next-btn';
+                nextBtn.innerText = '下一题 →';
+                nextBtn.style.display = 'flex';
+                nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function nextSingleQuestion() {
+            if (!singleState.answered) {
+                revealSingleAnswer();
+                return;
+            }
+            singleState.currentIdx++;
+            renderSingleQuestion();
+        }
+
+        function confirmExitSingle() {
+            if (confirm('确认退出单人练习吗？')) {
+                switchView('view-hub');
+            }
+        }
+
+        function endSingleGame() {
+            gameResult = {
+                mode: 'single',
+                msg: `🎉 单人练习完成！完成 ${singleState.total} 词练习`,
+                p1Score: singleState.score,
+                p2Score: 0
+            };
+            renderResult();
+            switchView('view-result');
+        }
+
+        // 键盘快捷键监听：单人模式下按 1~4 选答案，回车/空格进入下一题或看答案
+        window.addEventListener('keydown', (e) => {
+            const singleView = document.getElementById('view-single');
+            if (!singleView || !singleView.classList.contains('active')) return;
+
+            if (e.key === 'Escape') {
+                confirmExitSingle();
+                return;
+            }
+
+            if (!singleState.answered) {
+                if (e.key >= '1' && e.key <= '4') {
+                    const idx = parseInt(e.key) - 1;
+                    handleSingleAnswer(idx);
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    revealSingleAnswer();
+                }
+            } else {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    nextSingleQuestion();
+                }
+            }
+        });
+
+        /* ==========================================================================
+           4. 智能易错项/形近词生成算法 (Levenshtein + 前缀相似度)
+           ========================================================================== */
+        function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
+            const pool = (poolOverride && poolOverride.length > 0) ? poolOverride : dictionary;
             const targetLower = targetWord.toLowerCase();
 
-            // 计算所有候选词与目标词的混淆权值 (相似距离越小 + 前缀重合越大 -> 权值越高)
-            const scoredCandidates = dictionary
+            const scoredCandidates = pool
                 .filter(d => d.word.toLowerCase() !== targetLower)
                 .map(d => {
                     const candLower = d.word.toLowerCase();
                     const dist = calcLevenshteinDist(targetLower, candLower);
-                    
-                    // 前两位或前三位相同加权
                     let prefixBonus = 0;
                     if (targetLower.slice(0, 3) === candLower.slice(0, 3)) prefixBonus = 3;
                     else if (targetLower.slice(0, 2) === candLower.slice(0, 2)) prefixBonus = 1.5;
-
-                    // 长度相近加权
                     const lenDiff = Math.abs(targetLower.length - candLower.length);
                     const score = (10 - dist) + prefixBonus - (lenDiff * 0.5);
-
                     return { item: d, score };
                 });
 
-            // 按混淆权重降序排列
             scoredCandidates.sort((a, b) => b.score - a.score);
-
-            // 优先挑出前 8 个最高混淆候选词并随机抽 3 个，避免每次完全一样
-            const topSlice = scoredCandidates.slice(0, 8).map(c => c.item);
+            const topSlice = scoredCandidates.slice(0, 10).map(c => c.item);
             const chosen = topSlice.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-            // 如果不足3个，拿随机词兜底
-            while (chosen.length < 3) {
-                const rand = dictionary[Math.floor(Math.random() * dictionary.length)];
+            while (chosen.length < 3 && pool.length > 1) {
+                const rand = pool[Math.floor(Math.random() * pool.length)];
                 if (rand.word !== targetWord && !chosen.some(c => c.word === rand.word)) {
                     chosen.push(rand);
                 }
@@ -986,35 +2816,47 @@
 
             return chosen.map(d => {
                 const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
-                return { word: d.word, meaning: (randomM.pos ? randomM.pos + ' ' : '') + randomM.meaning };
+                const meaningStr = (randomM.pos ? randomM.pos + ' ' : '') + randomM.meaning;
+                return { word: d.word, meaning: meaningStr };
             });
         }
 
-        function generateOptions(targetWord, correctMeaning) {
-            const distractors = getSimilarConfusingDistractors(targetWord, correctMeaning);
+        function generateOptions(targetWord, correctMeaning, poolOverride) {
+            const distractors = getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride);
             const correctOption = { word: targetWord, meaning: correctMeaning };
             const options = [correctOption, ...distractors].sort(() => 0.5 - Math.random());
             const correctIdx = options.findIndex(o => o.word === targetWord && o.meaning === correctMeaning);
             return { options, correctIdx };
         }
 
-        function generateShuffledPool(count = 70) {
-            return [...dictionary].sort(() => 0.5 - Math.random()).slice(0, count).map(w => {
+        function generateShuffledPoolFromWords(wordsList, count = 70) {
+            const list = (wordsList && wordsList.length > 0) ? wordsList : dictionary;
+            const shuffled = [...list].sort(() => 0.5 - Math.random());
+            const sliceCount = Math.min(count, shuffled.length);
+            return shuffled.slice(0, sliceCount).map(w => {
                 const selected = w.meanings[Math.floor(Math.random() * w.meanings.length)] || { pos: '', meaning: '---' };
                 const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + selected.meaning;
-                const optData = generateOptions(w.word, fullMeaning);
+                const optData = generateOptions(w.word, fullMeaning, list);
+                const isPhrase = w.word && w.word.trim().includes(' ');
+                const phraseChips = isPhrase ? generatePhraseDistractors(w.word.trim().split(/\s+/), list) : null;
                 return {
                     word: w.word,
                     phone: w.phone,
+                    bookName: w.bookName || '测试2',
                     meaning: fullMeaning,
                     options: optData.options,
-                    correctIdx: optData.correctIdx
+                    correctIdx: optData.correctIdx,
+                    phraseChips: phraseChips
                 };
             });
         }
 
+        function generateShuffledPool(count = 70) {
+            return generateShuffledPoolFromWords(dictionary, count);
+        }
+
         /* ==========================================================================
-           3. 房间规则设置与跨端实时同步
+           5. 联机房间规则设置与 Supabase 实时多端同步 (含多选词书)
            ========================================================================== */
         function changeRuleTime(seconds) {
             if (!isHost) return;
@@ -1030,6 +2872,56 @@
             broadcastRuleChange();
         }
 
+        function toggleRoomBook(bookId) {
+            if (!isHost) return;
+            if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
+            if (roomConfig.selectedBooks.includes(bookId)) {
+                if (roomConfig.selectedBooks.length <= 1) {
+                    showToast('至少保留一本对决词书！');
+                    return;
+                }
+                roomConfig.selectedBooks = roomConfig.selectedBooks.filter(id => id !== bookId);
+            } else {
+                roomConfig.selectedBooks.push(bookId);
+            }
+            renderRoomBookChips();
+            broadcastRuleChange();
+        }
+
+        function renderRoomBookChips() {
+            const container = document.getElementById('chips-books');
+            if (!container) return;
+
+            const books = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
+                ? BookManager.availableBooks
+                : BookManager.fallbackBooks;
+
+            if (!roomConfig.selectedBooks || roomConfig.selectedBooks.length === 0) {
+                roomConfig.selectedBooks = [books[0]?.id || 'test2'];
+            }
+
+            container.innerHTML = books.map(b => {
+                const isSel = roomConfig.selectedBooks.includes(b.id);
+                return `
+                    <div class="md3-chip ${isSel ? 'selected' : ''} ${!isHost ? 'disabled' : ''}" onclick="toggleRoomBook('${b.id}')">
+                        ${isSel ? '✓ ' : ''}${b.name} <small style="opacity:0.75">(${b.count || '多词'})</small>
+                    </div>
+                `;
+            }).join('');
+
+            const tip = document.getElementById('room-book-count-tip');
+            if (tip) {
+                tip.innerText = isHost 
+                    ? `已选 ${roomConfig.selectedBooks.length} 本词书`
+                    : `当前已选 ${roomConfig.selectedBooks.length} 本词书`;
+            }
+
+            const importBtn = document.getElementById('btn-room-import-book');
+            if (importBtn) {
+                importBtn.style.display = isHost ? 'inline-flex' : 'none';
+            }
+        }
+
         function renderRuleChips() {
             document.querySelectorAll('#chips-time .md3-chip').forEach(el => {
                 const val = parseInt(el.getAttribute('data-time'));
@@ -1043,21 +2935,39 @@
                 el.classList.toggle('disabled', !isHost);
             });
 
+            renderRoomBookChips();
+
             const hint = document.getElementById('rule-sync-hint');
-            if (isHost) {
-                hint.innerText = "你是房主，可自由点击配置";
-            } else {
-                hint.innerText = "房主正在配置规则（已同步）";
+            if (hint) {
+                hint.innerText = isHost ? "配置规则与词库" : "当前规则 (房主设置)";
             }
         }
 
         function broadcastRuleChange() {
             if (!isHost || !realtimeChannel) return;
+            const customMetas = (window.customBooks || []).map(b => ({ id: b.id, name: b.name, count: b.count }));
             realtimeChannel.send({
                 type: 'broadcast',
                 event: 'rule_update',
-                payload: { config: roomConfig }
+                payload: { config: roomConfig, customBooksMeta: customMetas }
             });
+        }
+
+        function applyReceivedCustomBooks(customBooksMeta) {
+            if (Array.isArray(customBooksMeta)) {
+                let changed = false;
+                customBooksMeta.forEach(cb => {
+                    if (cb && cb.id && !BookManager.availableBooks.some(b => b.id === cb.id)) {
+                        BookManager.availableBooks.push({
+                            id: cb.id,
+                            name: cb.name,
+                            count: cb.count || '多词'
+                        });
+                        changed = true;
+                    }
+                });
+                if (changed) renderRoomBookChips();
+            }
         }
 
         /* ==========================================================================
@@ -1068,7 +2978,11 @@
             isHost = true;
             hostName = currentUser;
             guestName = '';
-            roomConfig = { duration: 60, winLead: 6 };
+            roomConfig = {
+                duration: 60,
+                winLead: 6,
+                selectedBooks: (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? [...singleSelectedBookIds] : ['test2', 'cet4']
+            };
 
             setupRoomLobbyUI(roomCode);
             connectSupabaseChannel(roomCode);
@@ -1092,7 +3006,7 @@
                     testChannel.unsubscribe();
                     btnJoin.disabled = false;
                     btnJoin.innerText = '加入房间';
-                    alert(`房间【${codeInput}】不存在或已解散，请核对房间码！`);
+                    alert(`房间 ${codeInput}不存在或已解散！`);
                 }
             }, 2200);
 
@@ -1108,6 +3022,7 @@
                         hostName = payload.hostName;
                         guestName = currentUser;
                         if (payload.config) roomConfig = payload.config;
+                        if (payload.customBooksMeta) applyReceivedCustomBooks(payload.customBooksMeta);
 
                         btnJoin.disabled = false;
                         btnJoin.innerText = '加入房间';
@@ -1148,14 +3063,14 @@
             if (isHost) {
                 if (guestName) {
                     startBtn.disabled = false;
-                    startBtn.innerText = '双方已就绪！立即开战';
+                    startBtn.innerText = '开始对局';
                 } else {
                     startBtn.disabled = true;
                     startBtn.innerText = '等待对手加入...';
                 }
             } else {
                 startBtn.disabled = true;
-                startBtn.innerText = guestName ? '已在房间内，等待房主开局...' : '正在连接...';
+                startBtn.innerText = guestName ? '已在房间内，等待对局开始...' : '正在连接...';
             }
         }
 
@@ -1169,23 +3084,25 @@
             realtimeChannel
                 .on('broadcast', { event: 'room_ping' }, () => {
                     if (isHost) {
+                        const customMetas = (window.customBooks || []).map(b => ({ id: b.id, name: b.name, count: b.count }));
                         realtimeChannel.send({
                             type: 'broadcast',
                             event: 'room_ack',
-                            payload: { isHost: true, hostName: currentUser, config: roomConfig }
+                            payload: { isHost: true, hostName: currentUser, config: roomConfig, customBooksMeta: customMetas }
                         });
                     }
                 })
                 .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
                     if (payload.role === 'guest') {
                         guestName = payload.name;
-                        showToast(`挑战者【${guestName}】已就位！`);
+                        showToast(`玩家【${guestName}】已就位！`);
                         refreshRoomPlayerCards();
                         if (isHost) {
+                            const customMetas = (window.customBooks || []).map(b => ({ id: b.id, name: b.name, count: b.count }));
                             realtimeChannel.send({
                                 type: 'broadcast',
                                 event: 'room_sync',
-                                payload: { hostName: currentUser, guestName: guestName, config: roomConfig }
+                                payload: { hostName: currentUser, guestName: guestName, config: roomConfig, customBooksMeta: customMetas }
                             });
                         }
                     }
@@ -1193,15 +3110,27 @@
                 .on('broadcast', { event: 'room_sync' }, ({ payload }) => {
                     hostName = payload.hostName;
                     guestName = payload.guestName;
+                    if (payload.customBooksMeta) applyReceivedCustomBooks(payload.customBooksMeta);
                     if (payload.config) roomConfig = payload.config;
                     renderRuleChips();
                     refreshRoomPlayerCards();
                 })
                 .on('broadcast', { event: 'rule_update' }, ({ payload }) => {
                     if (!isHost && payload.config) {
+                        if (payload.customBooksMeta) applyReceivedCustomBooks(payload.customBooksMeta);
                         roomConfig = payload.config;
                         renderRuleChips();
-                        showToast(`房主已更新对决规则：限时 ${roomConfig.duration / 60} 分钟，领先 ${roomConfig.winLead} 题胜出`);
+                        const bookNames = (roomConfig.selectedBooks || [])
+                            .map(id => (BookManager.availableBooks.find(b => b.id === id) || BookManager.fallbackBooks.find(b => b.id === id))?.name || id)
+                            .join('、');
+                        showToast(`房主已更新对决规则：限时 ${roomConfig.duration / 60} 分钟，领先 ${roomConfig.winLead} 题胜出，对决词库：【${bookNames || '默认词库'}】`);
+                    }
+                })
+                .on('broadcast', { event: 'sync_back_to_room' }, () => {
+                    if (!isHost) {
+                        setupRoomLobbyUI(roomCode);
+                        switchView('view-online');
+                        showToast('已返回房间');
                     }
                 })
                 .on('broadcast', { event: 'player_left' }, ({ payload }) => {
@@ -1213,7 +3142,7 @@
                 })
                 .on('broadcast', { event: 'room_closed' }, () => {
                     if (!isHost) {
-                        alert('房主已解散或退出了对决房间。');
+                        alert('房间已解散。');
                         cleanUpAndBackToHub();
                     }
                 })
@@ -1229,7 +3158,7 @@
                 .on('presence', { event: 'leave' }, ({ leftPresences }) => {
                     leftPresences.forEach(p => {
                         if (isHost && p.key === guestName) {
-                            showToast(`对手已断开连接`);
+                            showToast(`玩家【${guestName}】已断开连接`);
                             guestName = '';
                             refreshRoomPlayerCards();
                         } else if (!isHost && p.key === hostName) {
@@ -1282,15 +3211,25 @@
             switchView('view-hub');
         }
 
-        function startOnlineGame() {
+        async function startOnlineGame() {
             if (!isHost || !guestName) return;
-            const sharedPool = generateShuffledPool(80);
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'game_start',
-                payload: { pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig }
-            });
-            handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig });
+            const startBtn = document.getElementById('online-start-btn');
+            startBtn.disabled = true;
+            startBtn.innerText = '正在准备词库...';
+
+            try {
+                const words = await BookManager.loadMultipleBooks(roomConfig.selectedBooks);
+                const sharedPool = generateShuffledPoolFromWords(words, 80);
+                realtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'game_start',
+                    payload: { pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig }
+                });
+                handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig });
+            } catch (err) {
+                alert('准备词库失败：' + err.message);
+                refreshRoomPlayerCards();
+            }
         }
 
         function handleRemoteGameStart(payload) {
@@ -1321,7 +3260,25 @@
                 timeLeft--;
                 renderSnakeRing();
                 if (timeLeft <= 0) {
-                    endGame("时间到！以当前能量决出胜负", true);
+                    clearInterval(gameTimer);
+                    const diff = p1State.score - p2State.score;
+                    let myMsg = "🤝 势均力敌，握手言和！";
+                    let peerMsg = "🤝 势均力敌，握手言和！";
+                    if (diff > 0) {
+                        myMsg = "🎉 恭喜获胜！";
+                        peerMsg = "💔 遗憾战败！";
+                    } else if (diff < 0) {
+                        myMsg = "💔 遗憾战败！";
+                        peerMsg = "🎉 恭喜获胜！";
+                    }
+                    if (realtimeChannel) {
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'game_over',
+                            payload: { msg: peerMsg }
+                        });
+                    }
+                    endGame(myMsg, false);
                 }
             }, 1000);
 
@@ -1350,26 +3307,19 @@
         }
 
         function startSinglePlayer(customPool) {
-            gameMode = 'single';
-            roomConfig = { duration: 9999, winLead: 9999 };
-
-            document.getElementById('arena-my-badge').innerText = '🎯 练习者';
-            document.getElementById('arena-my-name').innerText = currentUser;
-            document.getElementById('arena-my-score').innerText = '0';
-
-            document.getElementById('arena-oppo-badge').innerText = '📖 题库';
-            document.getElementById('arena-oppo-name').innerText = '单人专练';
-            document.getElementById('arena-oppo-score').innerText = '0';
-            document.getElementById('arena-rule-summary').innerText = '自由刷题模式';
-
-            const pool = customPool || generateShuffledPool(50);
-            resetPlayerState(p1State, pool);
-            renderQuestion(p1State);
-
-            timeLeft = 9999;
-            renderSnakeRing();
-            switchView('view-game');
+            if (customPool) {
+                startSinglePlayerWithPool(customPool, '专项重练');
+            } else {
+                openSingleBookSelector();
+            }
         }
+
+        let arenaPhraseState = {
+            targetWords: [],
+            placed: [],
+            chips: [],
+            q: null
+        };
 
         function renderQuestion(state) {
             if (state.currentIdx >= state.pool.length) {
@@ -1380,7 +3330,21 @@
             }
 
             const q = state.pool[state.currentIdx];
-            document.getElementById('arena-index-tag').innerText = `第 ${state.currentIdx + 1} 题`;
+            const roundTag = document.getElementById('arena-index-tag');
+            if (roundTag) roundTag.innerText = `第 ${state.currentIdx + 1} 题`;
+
+            const arenaBookBadge = document.getElementById('arena-book-badge');
+            if (arenaBookBadge) {
+                arenaBookBadge.innerText = q.bookName || '对决词库';
+            }
+
+            const isPhrase = q.word && q.word.trim().includes(' ');
+            if (isPhrase) {
+                renderArenaPhraseQuestion(state, q);
+                return;
+            }
+
+            // 单个单词普通题目
             document.getElementById(`p1-word`).innerText = q.word;
             document.getElementById(`p1-phone`).innerText = q.phone || '';
 
@@ -1401,6 +3365,227 @@
                     handleAnswer(idx, e.clientX, e.clientY);
                 });
             });
+        }
+
+        function renderArenaPhraseQuestion(state, q) {
+            const targetWords = q.word.trim().split(/\s+/);
+            arenaPhraseState = {
+                targetWords: targetWords,
+                placed: new Array(targetWords.length).fill(null),
+                chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, state.pool),
+                q: q
+            };
+
+            const wordEl = document.getElementById('p1-word');
+            const phoneEl = document.getElementById('p1-phone');
+            const optionsContainer = document.getElementById('p1-options');
+
+            const correctMeaning = q.options[q.correctIdx]?.meaning || '';
+            if (wordEl) wordEl.innerText = correctMeaning;
+
+            if (!optionsContainer) return;
+
+            optionsContainer.innerHTML = `
+                <div class="phrase-container" style="margin:0 0 10px;">
+                    <div class="phrase-slots-row" id="arena-phrase-slots">
+                        ${targetWords.map((_, i) => `<div class="phrase-slot empty" id="arena-slot-${i}" onclick="handleArenaPhraseSlotClick(${i})"></div>`).join('')}
+                    </div>
+                    <div id="arena-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
+                    <div class="phrase-bank-card">
+                        <div class="phrase-bank-header">
+                            <span>备选词框：</span>
+                            <button type="button" class="btn-clear-phrase" id="btn-clear-arena-phrase" onclick="clearArenaPhraseSlots()">
+                                清空已选
+                            </button>
+                        </div>
+                        <div class="phrase-chips-grid" id="arena-phrase-bank">
+                            ${arenaPhraseState.chips.map(c => `
+                                <button class="phrase-word-chip" id="arena-chip-${c.id}" onclick="handleArenaPhraseChipClick('${c.id}')">
+                                    ${c.text}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function clearArenaPhraseSlots() {
+            const state = p1State;
+            if (state.frozen || state.answeringLock) return;
+            arenaPhraseState.placed.forEach((chipId, idx) => {
+                if (chipId) {
+                    const slotEl = document.getElementById(`arena-slot-${idx}`);
+                    if (slotEl) {
+                        slotEl.classList.remove('filled', 'correct', 'wrong');
+                        slotEl.classList.add('empty');
+                        slotEl.innerText = '';
+                    }
+                    const chipEl = document.getElementById(`arena-chip-${chipId}`);
+                    if (chipEl) {
+                        chipEl.classList.remove('used');
+                        chipEl.disabled = false;
+                    }
+                }
+            });
+            arenaPhraseState.placed = new Array(arenaPhraseState.targetWords.length).fill(null);
+            const comp = document.getElementById('arena-phrase-compare');
+            if (comp) comp.style.display = 'none';
+        }
+
+        function handleArenaPhraseChipClick(chipId) {
+            const state = p1State;
+            if (state.frozen || state.answeringLock) return;
+
+            const emptyIdx = arenaPhraseState.placed.findIndex(p => p === null);
+            if (emptyIdx === -1) return;
+
+            const chip = arenaPhraseState.chips.find(c => c.id === chipId);
+            if (!chip) return;
+
+            arenaPhraseState.placed[emptyIdx] = chipId;
+
+            const slotEl = document.getElementById(`arena-slot-${emptyIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('empty');
+                slotEl.classList.add('filled');
+                slotEl.innerText = chip.text;
+            }
+
+            const chipEl = document.getElementById(`arena-chip-${chipId}`);
+            if (chipEl) chipEl.classList.add('used');
+
+            const comp = document.getElementById('arena-phrase-compare');
+            if (comp) comp.style.display = 'none';
+
+            if (!arenaPhraseState.placed.includes(null)) {
+                checkArenaPhraseAnswer();
+            }
+        }
+
+        function handleArenaPhraseSlotClick(slotIdx) {
+            const state = p1State;
+            if (state.frozen || state.answeringLock) return;
+
+            const chipId = arenaPhraseState.placed[slotIdx];
+            if (!chipId) return;
+
+            arenaPhraseState.placed[slotIdx] = null;
+
+            const slotEl = document.getElementById(`arena-slot-${slotIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('filled', 'correct', 'wrong');
+                slotEl.classList.add('empty');
+                slotEl.innerText = '';
+            }
+
+            const chipEl = document.getElementById(`arena-chip-${chipId}`);
+            if (chipEl) chipEl.classList.remove('used');
+
+            const comp = document.getElementById('arena-phrase-compare');
+            if (comp) comp.style.display = 'none';
+        }
+
+        function checkArenaPhraseAnswer() {
+            const state = p1State;
+            if (state.frozen || state.answeringLock) return;
+
+            const placedWords = arenaPhraseState.placed.map(cid => {
+                const c = arenaPhraseState.chips.find(item => item.id === cid);
+                return c ? c.text.toLowerCase() : '';
+            });
+            const targetWordsLower = arenaPhraseState.targetWords.map(w => w.toLowerCase());
+            const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+
+            const q = arenaPhraseState.q;
+            userStats.total++;
+            state.total++;
+
+            if (isRight) {
+                userStats.correct++;
+                state.score++;
+                if (userStats.mistakes && userStats.mistakes[q.word]) {
+                    delete userStats.mistakes[q.word];
+                }
+                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+                arenaPhraseState.placed.forEach((_, i) => {
+                    const slotEl = document.getElementById(`arena-slot-${i}`);
+                    if (slotEl) slotEl.classList.add('correct');
+                });
+
+                const comp = document.getElementById('arena-phrase-compare');
+                if (comp) comp.style.display = 'none';
+                const clearBtn = document.getElementById('btn-clear-arena-phrase');
+                if (clearBtn) clearBtn.disabled = true;
+
+                document.getElementById('arena-my-score').innerText = `${state.score}`;
+                spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#146C2E');
+
+                if (gameMode === 'online') {
+                    renderSnakeRing();
+                    if (realtimeChannel) {
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'score_update',
+                            payload: { score: p1State.score, user: currentUser }
+                        });
+                    }
+                    if (checkOnlineWinCondition()) return;
+                }
+
+                state.answeringLock = true;
+                setTimeout(() => {
+                    state.answeringLock = false;
+                    state.currentIdx++;
+                    renderQuestion(state);
+                }, 300);
+            } else {
+                if (!userStats.mistakes) userStats.mistakes = {};
+                if (!userStats.mistakes[q.word]) {
+                    userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
+                }
+                userStats.mistakes[q.word].count++;
+                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+
+                // 槽位区分标记正确与错误点
+                arenaPhraseState.targetWords.forEach((tw, i) => {
+                    const slotEl = document.getElementById(`arena-slot-${i}`);
+                    const chipId = arenaPhraseState.placed[i];
+                    const chip = chipId ? arenaPhraseState.chips.find(c => c.id === chipId) : null;
+                    const userWord = chip ? chip.text : '';
+                    const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+                    if (slotEl) {
+                        if (isSlotRight) {
+                            slotEl.classList.remove('wrong');
+                            slotEl.classList.add('correct');
+                        } else {
+                            slotEl.classList.remove('correct');
+                            slotEl.classList.add('wrong');
+                        }
+                    }
+                });
+
+                // 将正确词组放在错误答案下方
+                const comp = document.getElementById('arena-phrase-compare');
+                if (comp) {
+                    comp.className = 'phrase-comparison-card wrong-state';
+                    comp.style.display = 'block';
+                    comp.innerHTML = `
+                        <div class="phrase-compare-row">
+                            <span class="phrase-compare-badge wrong">✕ 错误搭配</span>
+                            <span class="phrase-compare-badge correct">✓ 正确词组</span>
+                            <span class="phrase-compare-text correct">${q.word}</span>
+                            ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
+                        </div>
+                    `;
+                }
+
+                const clearBtn = document.getElementById('btn-clear-arena-phrase');
+                if (clearBtn) clearBtn.disabled = true;
+
+                triggerPenalty(state);
+            }
         }
 
         function handleAnswer(idx, clickX, clickY) {
@@ -1477,17 +3662,18 @@
         function triggerPenalty(state) {
             state.frozen = true;
             const banner = document.getElementById('p1-cooldown');
-            banner.classList.add('active');
+            if (banner) banner.classList.add('active');
 
-            let sec = 3;
-            document.getElementById('p1-timer').innerText = sec;
+            let sec = 5;
+            const timerEl = document.getElementById('p1-timer');
+            if (timerEl) timerEl.innerText = sec;
             if (state.timerId) clearInterval(state.timerId);
             state.timerId = setInterval(() => {
                 sec--;
-                document.getElementById('p1-timer').innerText = sec;
+                if (timerEl) timerEl.innerText = sec;
                 if (sec <= 0) {
                     clearInterval(state.timerId);
-                    banner.classList.remove('active');
+                    if (banner) banner.classList.remove('active');
                     state.frozen = false;
                     state.answeringLock = false;
                     state.currentIdx++;
@@ -1573,18 +3759,18 @@
             const diff = p1State.score - p2State.score;
 
             if (diff >= winLead) {
-                const winMsg = `🎉 实力碾压！您成功领先 ${winLead} 题，赢得对决！`;
+                const winMsg = `🎉 恭喜获胜！`;
                 if (realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'game_over',
-                        payload: { msg: `💔 对手率先拉开 ${winLead} 题分差，本局遗憾战败！` }
+                        payload: { msg: `💔 遗憾战败！` }
                     });
                 }
                 endGame(winMsg, false);
                 return true;
             } else if (diff <= -winLead) {
-                const loseMsg = `💔 对手拉开了 ${winLead} 题差距，本局战败！`;
+                const loseMsg = `💔 遗憾战败！`;
                 endGame(loseMsg, false);
                 return true;
             }
@@ -1596,10 +3782,21 @@
             if (p1State.timerId) clearInterval(p1State.timerId);
 
             if (broadcastToPeer && realtimeChannel) {
+                let peerMsg = msg;
+                if (msg === "🎉 恭喜获胜！") {
+                    peerMsg = "💔 遗憾战败！";
+                } else if (msg === "💔 遗憾战败！") {
+                    peerMsg = "🎉 恭喜获胜！";
+                } else {
+                    const diff = p1State.score - p2State.score;
+                    if (diff > 0) peerMsg = "💔 遗憾战败！";
+                    else if (diff < 0) peerMsg = "🎉 恭喜获胜！";
+                    else peerMsg = "🤝 势均力敌，握手言和！";
+                }
                 realtimeChannel.send({
                     type: 'broadcast',
                     event: 'game_over',
-                    payload: { msg: "时间到！对局结束" }
+                    payload: { msg: peerMsg }
                 });
             }
 
@@ -1617,13 +3814,16 @@
             if (!gameResult) return;
             document.getElementById('result-message').innerText = gameResult.msg;
             const details = document.getElementById('result-details');
-
-            const btnPlayAgain = document.getElementById('btn-play-again');
             const btnBackRoom = document.getElementById('btn-back-room');
+            const btnResultHub = document.getElementById('btn-result-hub');
 
             if (gameResult.mode === 'single') {
-                btnPlayAgain.style.display = 'inline-flex';
-                btnBackRoom.style.display = 'none';
+                btnBackRoom.style.display = 'inline-flex';
+                btnBackRoom.innerText = '重新练本组';
+                btnBackRoom.disabled = false;
+                btnBackRoom.onclick = () => startSinglePlayerFromSelectedBooks();
+                if (btnResultHub) btnResultHub.innerText = '返回主页大厅';
+
                 const rate = p1State.total > 0 ? Math.round((p1State.score / p1State.total) * 100) : 0;
                 details.innerHTML = `
                     <div class="stats-grid">
@@ -1632,8 +3832,18 @@
                     </div>
                 `;
             } else {
-                btnPlayAgain.style.display = isHost ? 'inline-flex' : 'none';
                 btnBackRoom.style.display = 'inline-flex';
+                if (isHost) {
+                    btnBackRoom.innerText = '返回房间';
+                    btnBackRoom.disabled = false;
+                    btnBackRoom.onclick = () => handleBackToRoom();
+                } else {
+                    btnBackRoom.innerText = '等待房主操作...';
+                    btnBackRoom.disabled = true;
+                }
+                if (btnResultHub) {
+                    btnResultHub.innerText = isHost ? '解散房间并返回主页' : '退出对局并返回主页';
+                }
 
                 const oppoTitle = isHost ? guestName : hostName;
                 details.innerHTML = `
@@ -1652,28 +3862,47 @@
             }
         }
 
-        // “再来一局”
-        function handlePlayAgain() {
-            if (gameMode === 'single') {
-                startSinglePlayer();
-            } else if (gameMode === 'online') {
-                if (!isHost) return alert('请等待房主发起新对局');
-                startOnlineGame();
-            }
-        }
-
         // “返回等待房间”
         function handleBackToRoom() {
             if (gameMode === 'online') {
-                setupRoomLobbyUI(roomCode);
-                switchView('view-online');
+                if (isHost) {
+                    if (realtimeChannel) {
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'sync_back_to_room',
+                            payload: {}
+                        });
+                    }
+                    setupRoomLobbyUI(roomCode);
+                    switchView('view-online');
+                }
             } else {
                 switchView('view-hub');
             }
         }
 
+        // 结算界面“返回主页大厅”
+        function handleResultBackToHub() {
+            if (gameMode === 'online') {
+                if (isHost && realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'room_closed',
+                        payload: { reason: 'host_left' }
+                    });
+                } else if (!isHost && realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'player_left',
+                        payload: { name: currentUser, role: 'guest' }
+                    });
+                }
+            }
+            cleanUpAndBackToHub();
+        }
+
         function confirmExitGame() {
-            if (confirm('确定退出当前对局吗？')) {
+            if (confirm('确认退出当前对局吗？')) {
                 clearInterval(gameTimer);
                 if (p1State.timerId) clearInterval(p1State.timerId);
                 if (gameMode === 'online') {
@@ -1720,20 +3949,21 @@
 
             const pool = words.map(w => {
                 const item = dictionary.find(d => d.word === w) || { phone: '' };
-                const optData = generateOptions(w, mistakes[w].meaning);
+                const optData = generateOptions(w, mistakes[w].meaning, dictionary);
                 return {
                     word: w,
                     phone: item.phone,
+                    bookName: '错题本',
                     meaning: mistakes[w].meaning,
                     options: optData.options,
                     correctIdx: optData.correctIdx
                 };
             });
-            startSinglePlayer(pool);
+            startSinglePlayerWithPool(pool, '错题重练');
         }
 
         function clearMistakes() {
-            if (confirm('确认清空全部错题记录？')) {
+            if (confirm('确认清空错题记录？')) {
                 userStats.mistakes = {};
                 localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
                 openMistakesView();
@@ -1741,6 +3971,7 @@
         }
 
         // 初始化进入
+        BookManager.init();
         if (currentUser) {
             document.getElementById('username-input').value = currentUser;
             switchView('view-hub');
