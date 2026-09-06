@@ -627,15 +627,18 @@
 
         .cooldown-banner {
             display: none;
-            margin-top: 14px;
-            padding: 12px;
-            border-radius: var(--md-shape-m);
+            width: 100%;
+            max-width: 520px;              /* 👈 关键：与上方 options-grid 宽度完全一致 */
+            margin: 14px auto 0;           /* 👈 水平居中 */
+            padding: 12px 18px;
+            border-radius: var(--md-shape-l); /* 👈 统一采用 16px 圆角，与备选框风格一致 */
             text-align: center;
             font-weight: 600;
-            font-size: 0.92rem;
+            font-size: 0.95rem;
             background: var(--md-sys-color-error-container);
             color: var(--md-sys-color-on-error-container);
-            border: 1px solid var(--md-sys-color-error);
+            border: 1.5px solid var(--md-sys-color-error);
+            box-sizing: border-box;
         }
 
         .cooldown-banner.active { display: block; }
@@ -1955,7 +1958,6 @@
         <!-- VIEW 1: 玩家昵称登录 -->
         <div id="view-auth" class="view active">
             <div class="card" style="max-width: 460px; margin: 40px auto; text-align: center;">
-                <div style="font-size: 3.5rem; margin-bottom: 12px;">⚡</div>
                 <h1>单词PK</h1>                
                 <div style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);">玩家昵称</label>
@@ -2802,9 +2804,9 @@
            1. SUPABASE CLIENT & CORE VOCABULARY DATABASE
            ========================================================================== */
         const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
+        const SUPABASE_KEY = 'sb._publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
 
-        const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        const sb.Client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: {
                 persistSession: false,
                 autoRefreshToken: false
@@ -3868,23 +3870,62 @@
         // 提取干净的英文词组单词列表（过滤掉省略号、点号、括号干扰）
         function extractPhraseTargetWords(rawWord) {
             if (!rawWord) return [];
-            const cleaned = rawWord.trim()
+            
+            // 1. 如果存在斜杠 / 或分号 ;（表示同义并列表达），优先取第一种主表达
+            let primary = rawWord.split(/[\/;]/)[0].trim();
+
+            // 2. 过滤括号内容，如 look forward to (doing) -> look forward to
+            primary = primary
                 .replace(/\(.*?\)/g, '')
                 .replace(/\[.*?\]/g, '')
-                .replace(/[.。,，!！?？…—_]+/g, ' ')
-                .trim()
+                .replace(/[.。,，!！?？…—_~]+/g, ' ')
+                .trim();
+
+            // 3. 提取有效英文单词
+            const cleaned = primary
                 .split(/\s+/)
                 .filter(w => /^[a-zA-Z'’-]+$/.test(w));
+
             return cleaned.length > 0 ? cleaned : rawWord.trim().split(/\s+/).filter(Boolean);
         }
 
         // 智能生成词组混淆干扰项（介词错误搭配 + 难词形近项 + 全数据库检索）
+        // 智能生成词组混淆干扰项（含反身代词/物主代词互斥机制，杜绝歧义）
         function generatePhraseDistractors(targetWords, currentPool = []) {
             const rawTargetSet = new Set(targetWords.map(w => w.toLowerCase()));
             const distractors = new Set();
             const targetTotal = Math.min(8, Math.max(targetWords.length + 3, 5));
 
-            // 1. 介词定向错误搭配混淆（例如 to -> for, with, of 等；on -> in, at 等）
+            // 1. 定义反身代词与物主代词互斥表
+            const REFLEXIVE_PRONOUNS = new Set([
+                'oneself', 'himself', 'herself', 'themselves', 'myself', 'yourself', 'yourselves', 'itself', 'ourselves'
+            ]);
+            const POSSESSIVE_PRONOUNS = new Set(['his', 'her', 'their', 'my', 'your', 'our', 'its']);
+
+            const hasOneself = rawTargetSet.has('oneself');
+            const hasOnesPossessive = rawTargetSet.has("one's") || rawTargetSet.has('ones');
+
+            // 2. 统一的安全添加函数（严格过滤可能导致“二者皆可填”的歧义代词）
+            const tryAddDistractor = (w) => {
+                if (!w || typeof w !== 'string') return false;
+                const clean = w.trim().toLowerCase();
+                if (clean.length < 1 || rawTargetSet.has(clean) || distractors.has(clean)) return false;
+
+                // 核心规则：若题目含有 oneself，坚决排除 himself, herself, myself 等所有反身代词
+                if (hasOneself && REFLEXIVE_PRONOUNS.has(clean)) {
+                    return false;
+                }
+
+                // 衍生规则：若题目含有 one's，坚决排除 his, her, their 等特定人称代词
+                if (hasOnesPossessive && POSSESSIVE_PRONOUNS.has(clean)) {
+                    return false;
+                }
+
+                distractors.add(clean);
+                return true;
+            };
+
+            // 3. 介词定向错误搭配混淆
             targetWords.forEach(w => {
                 const lower = w.toLowerCase().replace(/[^a-z]/g, '');
                 if (PREPOSITION_COLLOCATION_MAP[lower]) {
@@ -3892,15 +3933,14 @@
                     let addedForThisPrep = 0;
                     for (const cp of candidatePreps) {
                         if (addedForThisPrep >= 3) break;
-                        if (!rawTargetSet.has(cp) && !distractors.has(cp)) {
-                            distractors.add(cp);
+                        if (tryAddDistractor(cp)) {
                             addedForThisPrep++;
                         }
                     }
                 }
             });
 
-            // 2. 难词/实词形近项（识别实词/长词，参考数据库所有词书）
+            // 4. 难词/实词形近项检索
             const contentWords = targetWords
                 .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
                 .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
@@ -3913,46 +3953,40 @@
             wordsToProcess.forEach(cw => {
                 if (distractors.size >= targetTotal) return;
 
-                // 2.1 先匹配精选形近词表
+                // 4.1 先匹配精选形近词表
                 if (PHRASE_LOOKALIKE_MAP[cw]) {
                     for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
                         if (distractors.size >= targetTotal) break;
-                        if (!rawTargetSet.has(sw) && !distractors.has(sw)) {
-                            distractors.add(sw);
-                        }
+                        tryAddDistractor(sw);
                     }
                 }
 
-                // 2.2 从全数据库所有词库中动态检索最接近的形近词
+                // 4.2 从全数据库检索形近词（被拦截的代词会被 tryAddDistractor 自动过滤）
                 if (distractors.size < targetTotal) {
                     const dbLookalikes = findLookalikesFromDatabase(cw, 3);
                     for (const sim of dbLookalikes) {
                         if (distractors.size >= targetTotal) break;
-                        if (!rawTargetSet.has(sim) && !distractors.has(sim)) {
-                            distractors.add(sim);
-                        }
+                        tryAddDistractor(sim);
                     }
                 }
             });
 
-            // 3. 若混淆项仍不足目标数量，从当前题库或全词库抽取干净单词
+            // 5. 补充常规模拟词库
             if (distractors.size + targetWords.length < targetTotal && Array.isArray(currentPool)) {
                 for (const item of currentPool) {
                     if (distractors.size + targetWords.length >= targetTotal) break;
                     const w = (item.word || '').trim().toLowerCase();
-                    if (w && !w.includes(' ') && !rawTargetSet.has(w) && !distractors.has(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
-                        distractors.add(w);
+                    if (w && !w.includes(' ') && w.length <= 8 && /^[a-z]+$/.test(w)) {
+                        tryAddDistractor(w);
                     }
                 }
             }
 
-            // 4. 兜底高频词
-            const fallbackWords = ['in', 'on', 'at', 'to', 'for', 'with', 'by', 'off', 'out', 'up', 'make', 'take', 'get', 'post', 'back', 'well', 'all', 'set'];
-            for (const fw of fallbackWords) {
+            // 6. 兜底干扰词（避开任何代词）
+            const safeFallbackWords = ['make', 'take', 'get', 'well', 'all', 'set', 'out', 'up', 'back', 'just'];
+            for (const fw of safeFallbackWords) {
                 if (distractors.size + targetWords.length >= targetTotal) break;
-                if (!rawTargetSet.has(fw) && !distractors.has(fw)) {
-                    distractors.add(fw);
-                }
+                tryAddDistractor(fw);
             }
 
             const chips = [
@@ -3960,7 +3994,7 @@
                 ...Array.from(distractors).map((w, idx) => ({ id: `dis_${idx}`, text: w }))
             ];
 
-            // Fisher-Yates 随机打乱
+            // 打乱顺序
             for (let i = chips.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [chips[i], chips[j]] = [chips[j], chips[i]];
@@ -4745,7 +4779,7 @@
             btnJoin.disabled = true;
             btnJoin.innerText = '正在验证房间...';
 
-            const testChannel = sbClient.channel(`duel_${codeInput}`, {
+            const testChannel = sb.Client.channel(`duel_${codeInput}`, {
                 config: { presence: { key: currentUser } }
             });
 
@@ -4826,7 +4860,7 @@
         function connectSupabaseChannel(code) {
             if (realtimeChannel) realtimeChannel.unsubscribe();
 
-            realtimeChannel = sbClient.channel(`duel_${code}`, {
+            realtimeChannel = sb.Client.channel(`duel_${code}`, {
                 config: { presence: { key: currentUser } }
             });
 
@@ -6107,8 +6141,8 @@
             const hintBox = document.getElementById('riddle-hint-box');
             if (hintBox) hintBox.style.display = 'none';
 
-            const resBox = document.getElementById('riddle-result-box');
-            if (resBox) resBox.style.display = 'none';
+            const resb.ox = document.getElementById('riddle-result-box');
+            if (resb.ox) resb.ox.style.display = 'none';
 
             const hintCount = document.getElementById('riddle-hint-count');
             if (hintCount) hintCount.innerText = '0/4';
@@ -6463,9 +6497,9 @@
 
         // 结算/揭晓展示面板渲染
         function renderRiddleResult(title, titleColor) {
-            const resBox = document.getElementById('riddle-result-box');
-            if (!resBox) return;
-            resBox.style.display = 'block';
+            const resb.ox = document.getElementById('riddle-result-box');
+            if (!resb.ox) return;
+            resb.ox.style.display = 'block';
 
             const titleEl = document.getElementById('riddle-result-title');
             if (titleEl) {
