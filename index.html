@@ -2401,8 +2401,8 @@
                         <div class="rule-group">
                             <span class="rule-label">仪表盘样式</span>
                             <div class="chip-group" id="chips-gauge-style">
-                                <div class="md3-chip selected" data-gauge="snake" onclick="changeRuleGaugeStyle('snake')">盘龙（环形能量）</div>
-                                <div class="md3-chip" data-gauge="tug" onclick="changeRuleGaugeStyle('tug')">拔河（横向能量条）</div>
+                                <div class="md3-chip" data-gauge="tug" onclick="changeRuleGaugeStyle('tug')">拔河(推荐)</div>                                
+                                <div class="md3-chip selected" data-gauge="snake" onclick="changeRuleGaugeStyle('snake')">盘龙</div>
                             </div>
                         </div>
 
@@ -3623,7 +3623,7 @@
                 if (res.success) {
                     showToast(`成功同步 ${res.books.length} 本云端词书！`);
                 } else {
-                    showToast('未连接到 Worker 词书，已启用内置精选题库');
+                    showToast('词书获取失败！');
                 }
             }
         }
@@ -3632,7 +3632,7 @@
             const count = (singleSelectedBookIds || []).length;
             const summary = document.getElementById('single-selected-summary');
             if (summary) {
-                summary.innerText = count > 0 ? `已勾选 ${count} 本词书` : '未勾选任何词书（请至少选 1 本）';
+                summary.innerText = count > 0 ? `已勾选 ${count} 本词书` : '未勾选任何词书';
                 summary.style.color = count > 0 ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-error)';
             }
             const hubBadge = document.getElementById('hub-single-book-badge');
@@ -3820,7 +3820,7 @@
         async function startSingleLearning() {
             try {
                 if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
-                    showToast('请先选择至少一本词书！');
+                    showToast('请至少选择一本词书！');
                     openSingleBookSelector();
                     return;
                 }
@@ -3899,7 +3899,7 @@
 
         async function startSinglePlayerFromSelectedBooks() {
             if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
-                showToast('请先选择至少一本词书！');
+                showToast('请至少选择一本词书！');
                 return;
             }
             const btn = document.getElementById('btn-start-single-quiz');
@@ -4970,7 +4970,7 @@
             if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
             if (roomConfig.selectedBooks.includes(bookId)) {
                 if (roomConfig.selectedBooks.length <= 1) {
-                    showToast('至少保留一本对决词书！');
+                    showToast('至少保留一本词书！');
                     return;
                 }
                 roomConfig.selectedBooks = roomConfig.selectedBooks.filter(id => id !== bookId);
@@ -7010,7 +7010,7 @@
                     startBtn.disabled = true;
                     startBtn.innerHTML = `
                         <span class="material-symbols-rounded">block</span>
-                        <span class="btn-label-text">请至少选择一本词书</span>
+                        <span class="btn-label-text">请选择词书</span>
                     `;
                 } else {
                     startBtn.disabled = false;
