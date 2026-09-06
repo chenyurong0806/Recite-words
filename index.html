@@ -8,7 +8,7 @@
 
     <!-- PWA & Web App 配置 -->
     <link rel="icon" type="image/png" href="./icon-web.png" sizes="512x512">
-    <link rel="apple-touch-icon" href="./icon-apple.png" sizes="512x512">
+    <link rel="apple-touch-icon" href="./icon.jpg" sizes="512x512">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -153,7 +153,7 @@
         h2 { font-size: 1.4rem; }
         h3 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
         p { color: var(--md-sys-color-on-surface-variant); font-size: 0.92rem; line-height: 1.5; }
-
+        
         .input-field {
             width: 100%;
             height: 52px;
@@ -315,6 +315,50 @@
 
         .btn-danger { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
         .btn-danger:hover { filter: brightness(0.95); }
+
+        .account-item-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-radius: var(--md-shape-l);
+            background: var(--md-sys-color-surface-container-low);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+        }
+        .account-item-card:hover {
+            background: var(--md-sys-color-primary-container);
+            border-color: var(--md-sys-color-primary);
+        }
+        .account-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .account-del-btn {
+            opacity: 0.4;
+            padding: 4px;
+            border: none;
+            background: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            color: var(--md-sys-color-on-surface);
+        }
+        .account-del-btn:hover {
+            opacity: 1;
+            color: var(--md-sys-color-error);
+            background: var(--md-sys-color-error-container);
+        }
+
 
         .app-bar {
             display: flex;
@@ -1971,14 +2015,30 @@
 <body>
     <div class="container">
 
-        <!-- VIEW 1: 玩家昵称登录 -->
+        <!-- VIEW 1: 玩家账号中心 (MD3 风格) -->
         <div id="view-auth" class="view active">
-            <div class="card" style="max-width: 460px; margin: 40px auto; text-align: center;">
-                <h1>单词PK</h1>                
-                <div style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
-                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);">玩家昵称</label>
-                    <input type="text" id="username-input" class="input-field" placeholder="输入玩家昵称..." maxlength="12">
-                    <button class="btn btn-filled btn-touch-large" style="width:100%; margin-top: 8px;" onclick="saveUserAndEnter()">进入大厅</button>
+            <div class="card" style="max-width: 440px; margin: 36px auto; text-align: center;">
+                <div style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <span class="material-symbols-rounded filled" style="font-size: 32px;">account_circle</span>
+                </div>
+                <h1 style="font-size: 1.65rem; margin-bottom: 6px;">背单词</h1>
+                <p style="margin-bottom: 20px;">选择下列账号或创建新账号</p>
+
+                <!-- 历史已有账号列表 -->
+                <div id="auth-users-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 240px; overflow-y: auto;">
+                    <!-- 动态生成用户选择卡片 -->
+                </div>
+
+                <!-- 创建/输入新账号 -->
+                <div id="auth-create-box" style="display: flex; flex-direction: column; gap: 12px; text-align: left; border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 16px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);">新建账号</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="username-input" class="input-field" placeholder="请输入昵称..." maxlength="12" style="height: 46px;">
+                        <button class="btn btn-filled btn-sm" style="height: 46px; padding: 0 18px;" onclick="createUserAndEnter()">
+                            <span class="material-symbols-rounded">add</span>
+                            <span class="btn-label-text">创建</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1992,7 +2052,7 @@
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
                     <span class="badge badge-p1" id="hub-profile-tag">玩家</span>
-                    <button class="btn btn-outlined btn-sm" onclick="switchView('view-auth')">
+                    <button class="btn btn-outlined btn-sm" onclick="handleLogout()">
                         <span class="material-symbols-rounded">switch_account</span>
                         <span class="btn-label-text">切换账号</span>
                     </button>
@@ -2740,13 +2800,13 @@
         </div>
     </div>
 
-    <!-- 希沃同屏对决规则与词书设置弹窗 -->
+    <!-- 同屏对决规则与词书设置弹窗 -->
     <div id="modal-local-duel-settings" class="modal-overlay">
         <div class="modal-card" style="max-width: 500px;">
             <div class="modal-header">
                 <div>
-                    <h3 style="font-size:1.18rem; font-weight:700;">希沃同屏对决设置</h3>
-                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">两人同屏触控对抗，适配白板多触控</p>
+                    <h3 style="font-size:1.18rem; font-weight:700;">同屏对决设置</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">适配Seewo多触控</p>
                 </div>
                 <button class="modal-close-btn" onclick="closeLocalDuelSettings()">
                     <span class="material-symbols-rounded">close</span>
@@ -2793,8 +2853,8 @@
                 <div class="rule-group">
                     <span class="rule-label">仪表盘样式</span>
                     <div class="chip-group" id="chips-local-duel-gauge-style">
-                        <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">拔河（横向能量条）</div>
-                        <div class="md3-chip" data-gauge="snake" onclick="selectLocalDuelGaugeStyle('snake')">盘龙（环形能量）</div>
+                        <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">拔河（推荐）</div>
+                        <div class="md3-chip" data-gauge="snake" onclick="selectLocalDuelGaugeStyle('snake')">盘龙</div>
                     </div>
                 </div>
             </div>
@@ -2804,7 +2864,7 @@
                     <span class="material-symbols-rounded">close</span>
                     <span class="btn-label-text">取消</span>
                 </button>
-                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()">
+                <button class="btn btn-filled btn-touch-large" id="btn-start-local-duel" style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()">
                     <span class="material-symbols-rounded">play_arrow</span>
                     <span class="btn-label-text">开始同屏对决</span>
                 </button>
@@ -3076,8 +3136,10 @@
         };
 
         let dictionary = [...DEFAULT_WORDS];
+        let allUsersList = JSON.parse(localStorage.getItem('vocab_users_list') || '[]');
         let currentUser = localStorage.getItem('vocab_pk_user') || '';
-        let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
+        let userStats = { total: 0, correct: 0, mistakes: {} };
+
 
         // 联机状态与对决规则
         let gameMode = 'single';
@@ -3114,6 +3176,90 @@
         const canvas = document.getElementById('snakeCanvas');
         const ctx = canvas.getContext('2d');
 
+        function loadUserData(username) {
+            if (!username) return;
+            currentUser = username.trim();
+            localStorage.setItem('vocab_pk_user', currentUser);
+            if (!allUsersList.includes(currentUser)) {
+                allUsersList.push(currentUser);
+                localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+            }
+            // 读取当前账号独立的 Stats，提供安全默认值
+            try {
+                const rawStats = localStorage.getItem(`vocab_stats_${currentUser}`);
+                userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
+                if (!userStats.mistakes) userStats.mistakes = {};
+            } catch(e) {
+                userStats = { total: 0, correct: 0, mistakes: {} };
+            }
+
+            // 刷新艾宾浩斯状态
+            if (window.EbbinghausEngine) {
+                window.EbbinghausEngine.updateDueBadge();
+            }
+        }
+
+        function saveCurrentUserData() {
+            if (!currentUser) return;
+            localStorage.setItem(`vocab_stats_${currentUser}`, JSON.stringify(userStats));
+        }
+
+        function renderAuthUsersList() {
+            const listEl = document.getElementById('auth-users-list');
+            if (!listEl) return;
+            if (allUsersList.length === 0) {
+                listEl.innerHTML = `<p style="font-size:0.85rem; color:var(--md-sys-color-outline); padding:10px 0;">暂无本地账号</p>`;
+                return;
+            }
+            listEl.innerHTML = allUsersList.map(u => `
+                <div class="account-item-card" onclick="selectUserAndEnter('${u}')">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="account-avatar">${u.charAt(0).toUpperCase()}</div>
+                        <span style="font-weight:600; font-size:0.98rem; color:var(--md-sys-color-on-surface);">${u}</span>
+                    </div>
+                    <button class="account-del-btn" title="删除账号数据" onclick="event.stopPropagation(); deleteAccount('${u}')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function selectUserAndEnter(username) {
+            loadUserData(username);
+            switchView('view-hub');
+        }
+
+        function createUserAndEnter() {
+            const nameInput = document.getElementById('username-input');
+            const name = nameInput.value.trim();
+            if (!name) {
+                showToast('请输入账号昵称');
+                return;
+            }
+            nameInput.value = '';
+            loadUserData(name);
+            switchView('view-hub');
+        }
+
+        function handleLogout() {
+            currentUser = '';
+            localStorage.removeItem('vocab_pk_user');
+            switchView('view-auth');
+        }
+
+        function deleteAccount(username) {
+            if (!confirm(`确定要删除账号“${username}”吗？此操作无法撤销。`)) return;
+            allUsersList = allUsersList.filter(u => u !== username);
+            localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+            localStorage.removeItem(`vocab_stats_${username}`);
+            localStorage.removeItem(`vocab_ebbinghaus_db_${username}`);
+            if (currentUser === username) {
+                currentUser = '';
+                localStorage.removeItem('vocab_pk_user');
+            }
+            renderAuthUsersList();
+        }
+
         function showToast(text) {
             const snackbar = document.getElementById('snackbar');
             snackbar.innerText = text;
@@ -3128,15 +3274,11 @@
                 if (target) target.classList.add('active');
             }, 25);
 
-            if (viewId === 'view-hub') updateHub();
-        }
-
-        function saveUserAndEnter() {
-            const name = document.getElementById('username-input').value.trim();
-            if (!name) return alert('请输入玩家昵称');
-            currentUser = name;
-            localStorage.setItem('vocab_pk_user', currentUser);
-            switchView('view-hub');
+            if (viewId === 'view-hub') {
+                updateHub();
+            } else if (viewId === 'view-auth') {
+                renderAuthUsersList(); // 确保回到登录页时刷新账号卡片列表
+            }
         }
 
         let isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
@@ -3401,7 +3543,7 @@
         function saveSingleSettings() {
             localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
             closeSingleSettings();
-            showToast(`设置已保存：新词 ${singleConfig.learnBatch} 词/组，复习 ${singleConfig.reviewBatch} 词/组，即时复习${singleConfig.immediateRetest !== false ? '开启' : '关闭'}`);
+            showToast('设置已保存');
         }
 
         // 艾宾浩斯复习时间间隔标准 (毫秒)
@@ -3418,14 +3560,16 @@
 
         const EbbinghausEngine = {
             getRecords() {
+                if (!currentUser) return {};
                 try {
-                    return JSON.parse(localStorage.getItem('vocab_ebbinghaus_db') || '{}');
+                    return JSON.parse(localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`) || '{}');
                 } catch (e) {
                     return {};
                 }
             },
             saveRecords(records) {
-                localStorage.setItem('vocab_ebbinghaus_db', JSON.stringify(records));
+                if (!currentUser) return;
+                localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, JSON.stringify(records));
             },
             getDueWords() {
                 const records = this.getRecords();
@@ -4231,7 +4375,7 @@
                 if (userStats.mistakes && userStats.mistakes[q.word]) {
                     delete userStats.mistakes[q.word];
                 }
-                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                saveCurrentUserData();
                 EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, true);
 
                 singlePhraseState.placed.forEach((_, i) => {
@@ -4269,7 +4413,7 @@
                     userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
                 }
                 userStats.mistakes[q.word].count++;
-                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                saveCurrentUserData();
                 scheduleRetestForCurrentQuestion();
                 EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, false);
 
@@ -4323,7 +4467,7 @@
                 userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
             }
             userStats.mistakes[q.word].count++;
-            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+            saveCurrentUserData();
             scheduleRetestForCurrentQuestion();
             EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, false);
 
@@ -4433,7 +4577,7 @@
                 scheduleRetestForCurrentQuestion();
                 EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false);
             }
-            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+            saveCurrentUserData();
 
             // 揭晓所有选项的英文单词并呈现对错高亮 (完全对齐设计图视觉规范)
             q.options.forEach((opt, i) => {
@@ -5328,7 +5472,7 @@
                 if (userStats.mistakes && userStats.mistakes[q.word]) {
                     delete userStats.mistakes[q.word];
                 }
-                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                saveCurrentUserData();
 
                 arenaPhraseState.placed.forEach((_, i) => {
                     const slotEl = document.getElementById(`arena-slot-${i}`);
@@ -5367,7 +5511,7 @@
                     userStats.mistakes[q.word] = { count: 0, meaning: q.options[q.correctIdx].meaning };
                 }
                 userStats.mistakes[q.word].count++;
-                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                saveCurrentUserData();
 
                 // 槽位区分标记正确与错误点
                 arenaPhraseState.targetWords.forEach((tw, i) => {
@@ -5539,7 +5683,7 @@
                 }
                 userStats.mistakes[q.word].count++;
             }
-            localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+            saveCurrentUserData();
 
             // 高亮选项
             for (let i = 0; i < 4; i++) {
@@ -5894,7 +6038,7 @@
             const keys = Object.keys(mistakes);
 
             if (keys.length === 0) {
-                container.innerHTML = '<p style="text-align:center; padding: 36px 0;">🎉 暂无错题记录，太棒了！</p>';
+                container.innerHTML = '<p style="text-align:center; padding: 36px 0;">暂无错题记录</p>';
             } else {
                 keys.sort((a, b) => mistakes[b].count - mistakes[a].count).forEach((word, idx) => {
                     const item = mistakes[word];
@@ -5936,7 +6080,7 @@
         function clearMistakes() {
             if (confirm('确认清空错题记录？')) {
                 userStats.mistakes = {};
-                localStorage.setItem('vocab_pk_stats', JSON.stringify(userStats));
+                saveCurrentUserData();
                 openMistakesView();
             }
         }
@@ -6027,27 +6171,50 @@
             if (modal) modal.classList.remove('active');
         }
 
-        function renderRiddleBookChips() {
+        async function renderRiddleBookChips() {
             const container = document.getElementById('chips-riddle-books');
             if (!container) return;
-            const seen = new Set();
-            const books = [];
-            books.push({ id: 'all', name: '全部词库' });
-            seen.add('all');
+
             const allAvailable = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
-            allAvailable.forEach(b => {
-                if (b && b.id && !seen.has(b.id)) {
-                    seen.add(b.id);
-                    books.push(b);
-                }
-            });
-            container.innerHTML = books.map(b => `
-                <div class="md3-chip ${riddleConfig.bookId === b.id ? 'selected' : ''}" 
-                     data-id="${b.id}" 
-                     onclick="selectRiddleBook('${b.id}')">
-                    ${b.name}
+            
+            // 生成 chips
+            let html = `
+                <div class="md3-chip ${riddleConfig.bookId === 'all' ? 'selected' : ''}" 
+                    data-id="all" onclick="selectRiddleBook('all')">
+                    全部词库 (已过滤词组)
                 </div>
-            `).join('');
+            `;
+
+            for (const b of allAvailable) {
+                // 加载词书数据并预检是否有纯单词
+                const words = await BookManager.loadBookData(b.id);
+                const hasValidSingleWord = words.some(w => {
+                    const clean = (w.word || '').trim();
+                    return !clean.includes(' ') && /^[a-zA-Z]+$/.test(clean);
+                });
+
+                const isCurrent = riddleConfig.bookId === b.id;
+                if (!hasValidSingleWord) {
+                    // 全是词组，置灰禁用并标注
+                    html += `
+                        <div class="md3-chip disabled" style="opacity: 0.4; cursor: not-allowed;" title="该词书全是词组，不支持拼词解谜">
+                            ${b.name} <small>(仅含词组)</small>
+                        </div>
+                    `;
+                    // 若当前正好选到了不可用词书，自动回退到全词库
+                    if (isCurrent) {
+                        riddleConfig.bookId = 'all';
+                    }
+                } else {
+                    html += `
+                        <div class="md3-chip ${isCurrent ? 'selected' : ''}" 
+                            data-id="${b.id}" onclick="selectRiddleBook('${b.id}')">
+                            ${b.name}
+                        </div>
+                    `;
+                }
+            }
+            container.innerHTML = html;
         }
 
         function updateRiddleSettingsChips() {
@@ -6112,9 +6279,11 @@
             const requiredLen = riddleConfig.wordLength || 0;
             const validWords = candidatePool.filter(w => {
                 const wordStr = (w && w.word ? w.word : '').trim();
-                if (!/^[a-zA-Z]+$/.test(wordStr)) return false;
+                // 1. 必须是纯英文单单词，坚决剔除任何含空格或连字符的词组
+                if (wordStr.includes(' ') || !/^[a-zA-Z]+$/.test(wordStr)) return false;
+                // 2. 长度校验
                 if (requiredLen > 0 && wordStr.length !== requiredLen) return false;
-                if (requiredLen === 0 && (wordStr.length < 4 || wordStr.length > 8)) return false;
+                if (requiredLen === 0 && (wordStr.length < 3 || wordStr.length > 8)) return false;
                 return true;
             });
 
@@ -6560,17 +6729,18 @@
            - 零网络依赖，支持完全离线运行
            ========================================================================== */
         let localDuelConfig = {
-            bookId: 'GaoKao3500',
-            mode: 'lead', // 'lead' or 'timed'
+            selectedBooks: ['GaoKao3500'], // 改为数组存储多选 ID
+            mode: 'lead',
             leadThreshold: 6,
             duration: 60,
-            gaugeStyle: 'tug' // 'tug' (拔河) or 'snake' (盘龙)
+            gaugeStyle: 'tug'
         };
 
         try {
-            const savedLocalConfig = localStorage.getItem('vocab_local_duel_config');
-            if (savedLocalConfig) {
-                Object.assign(localDuelConfig, JSON.parse(savedLocalConfig));
+            const saved = JSON.parse(localStorage.getItem('vocab_local_duel_config') || '{}');
+            if (saved) {
+                if (saved.bookId && !saved.selectedBooks) saved.selectedBooks = [saved.bookId];
+                Object.assign(localDuelConfig, saved);
             }
         } catch (e) {}
 
@@ -6632,17 +6802,59 @@
                     books.push(b);
                 }
             });
-            if (!localDuelConfig.bookId || !books.some(b => b.id === localDuelConfig.bookId)) {
-                localDuelConfig.bookId = books[0] ? books[0].id : 'GaoKao3500';
+
+            if (!Array.isArray(localDuelConfig.selectedBooks)) {
+                localDuelConfig.selectedBooks = [books[0]?.id || 'GaoKao3500'];
             }
-            container.innerHTML = books.map(b => `
-                <div class="md3-chip ${localDuelConfig.bookId === b.id ? 'selected' : ''}" 
-                     data-id="${b.id}" 
-                     onclick="selectLocalDuelBook('${b.id}')">
-                    ${b.name}
-                </div>
-            `).join('');
+
+            container.innerHTML = books.map(b => {
+                const isSelected = localDuelConfig.selectedBooks.includes(b.id);
+                return `
+                    <div class="md3-chip ${isSelected ? 'selected' : ''}" 
+                        data-id="${b.id}" 
+                        onclick="toggleLocalDuelBook('${b.id}')">
+                        ${isSelected ? '✓ ' : ''}${b.name}
+                    </div>
+                `;
+            }).join('');
+
+            updateLocalDuelStartButtonState();
         }
+
+        function toggleLocalDuelBook(bookId) {
+            if (!Array.isArray(localDuelConfig.selectedBooks)) {
+                localDuelConfig.selectedBooks = [];
+            }
+            const idx = localDuelConfig.selectedBooks.indexOf(bookId);
+            if (idx >= 0) {
+                localDuelConfig.selectedBooks.splice(idx, 1);
+            } else {
+                localDuelConfig.selectedBooks.push(bookId);
+            }
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+            renderLocalDuelBookChips();
+        }
+
+        function updateLocalDuelStartButtonState() {
+            const startBtn = document.getElementById('btn-start-local-duel');
+            const selCount = (localDuelConfig.selectedBooks || []).length;
+            if (startBtn) {
+                if (selCount === 0) {
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = `
+                        <span class="material-symbols-rounded">block</span>
+                        <span class="btn-label-text">请至少选择一本词书</span>
+                    `;
+                } else {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = `
+                        <span class="material-symbols-rounded">play_arrow</span>
+                        <span class="btn-label-text">开始同屏对决 (${selCount}本)</span>
+                    `;
+                }
+            }
+        }
+
 
         function updateLocalDuelSettingsChips() {
             document.querySelectorAll('#chips-local-duel-rule .md3-chip').forEach(c => {
@@ -6708,8 +6920,8 @@
             if (localDuelState.p2 && localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
 
             let pool = [];
-            if (localDuelConfig.bookId) {
-                pool = await BookManager.loadBookData(localDuelConfig.bookId);
+            if (localDuelConfig.selectedBooks && localDuelConfig.selectedBooks.length > 0) {
+                pool = await BookManager.loadMultipleBooks(localDuelConfig.selectedBooks);
             }
             if (!pool || pool.length < 4) {
                 pool = BookManager.fallbackBooks[0].words;
@@ -6864,12 +7076,8 @@
 
             if (roundEl) roundEl.innerText = `第 ${pState.round || 1} 题`;
             if (bookEl) {
-                let bName = '对决词库';
-                if (localDuelConfig.bookId && window.BookManager && BookManager.books) {
-                    const b = BookManager.books.find(x => x.id === localDuelConfig.bookId);
-                    if (b) bName = b.name;
-                }
-                bookEl.innerText = bName;
+                const count = (localDuelConfig.selectedBooks || []).length;
+                bookEl.innerText = count > 1 ? `对决词库 (${count}本)` : (localDuelConfig.selectedBooks[0] || '对决词库');
             }
             if (scoreEl) scoreEl.innerText = pState.score;
 
@@ -7498,11 +7706,17 @@
             switchView('view-hub');
         }
 
-        // 初始化进入
+        // 初始化启动逻辑
         BookManager.init();
-        if (currentUser) {
-            document.getElementById('username-input').value = currentUser;
+        renderAuthUsersList(); // 👈 关键：启动时务必渲染已保存的账号列表
+
+        if (currentUser && allUsersList.includes(currentUser)) {
+            loadUserData(currentUser);
             switchView('view-hub');
+        } else {
+            currentUser = '';
+            localStorage.removeItem('vocab_pk_user');
+            switchView('view-auth');
         }
     </script>
 </body>
