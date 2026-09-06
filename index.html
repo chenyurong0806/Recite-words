@@ -374,10 +374,13 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 3px 10px;
+            padding: 4px 10px;
             border-radius: var(--md-shape-full);
             font-size: 0.8rem;
-            font-weight: 700;
+            font-weight: 600;
+            white-space: nowrap; /* 禁止折行 */
+            flex-shrink: 0;      /* 禁止被挤压 */
+            line-height: 1;
         }
         .badge-p1 { background: var(--p1-sys-container); color: var(--p1-sys-on-container); }
         .badge-p2 { background: var(--p2-sys-container); color: var(--p2-sys-on-container); }
@@ -402,10 +405,21 @@
             border-radius: var(--md-shape-l);
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            align-items: center;    /* 👈 水平居中 */
+            justify-content: center;/* 👈 垂直居中 */
+            text-align: center;     /* 👈 文本居中 */
+            gap: 6px;
         }
         .stat-label { font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
         .stat-value { font-size: 1.9rem; font-weight: 700; color: var(--md-sys-color-primary); line-height: 1.1; }
+
+        #result-details .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            max-width: 320px;
+            margin: 16px auto;
+        }
 
         .modes-grid {
             display: grid;
@@ -1238,19 +1252,22 @@
             pointer-events: auto;
         }
 
+        /* 确保弹窗卡片在屏幕内，且内部超出不溢出外圈 */
         .modal-card {
             background: #ffffff;
             border-radius: 24px;
-            max-width: 540px;
+            max-width: 500px;
             width: 100%;
-            max-height: 88vh;
+            max-height: 85vh; /* 严格限制在视口 85% 高度内 */
             display: flex;
             flex-direction: column;
-            padding: 24px;
+            padding: 20px 24px;
             box-shadow: var(--md-elevation-3);
             border: 1px solid var(--md-sys-color-outline-variant);
             transform: scale(0.95);
             transition: transform var(--md-motion-expressive);
+            overflow: hidden; /* 👈 关键点 1：杜绝溢出卡片圆角 */
+            box-sizing: border-box;
         }
 
         .modal-overlay.active .modal-card {
@@ -1261,7 +1278,45 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 14px;
+            margin-bottom: 6px;
+            flex-shrink: 0; /* 👈 头部固定，不被压缩 */
+        }
+
+        .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;   /* 必须设为 0，flex 容器才能正确计算滚动高 */
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 6px 4px 12px 0;
+            margin: 8px 0;
+            /* Firefox 窄滚动条 */
+            scrollbar-width: thin;
+            scrollbar-color: var(--md-sys-color-outline-variant) transparent;
+        }
+
+        /* WebKit 浏览器 (Chrome/Edge/Safari/微信) 精致小滚动条 */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .modal-body::-webkit-scrollbar-thumb {
+            background: var(--md-sys-color-outline-variant);
+            border-radius: 9999px;
+        }
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: var(--md-sys-color-outline);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+            flex-shrink: 0; /* 👈 关键点 3：底部按钮固定吸底，绝不被挤出屏幕 */
         }
 
         .modal-close-btn {
@@ -1358,15 +1413,6 @@
             border-color: var(--md-sys-color-primary);
         }
 
-        .modal-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            padding-top: 12px;
-            border-top: 1px solid var(--md-sys-color-outline-variant);
-        }
-
         .btn-sm {
             min-height: 36px;
             height: 36px;
@@ -1417,7 +1463,7 @@
             animation: popIn 0.3s ease;
         }
 
-        /* Word Riddles 单词谜题 MD3 样式 */
+        /* Wordle 单词谜题 MD3 样式 */
         .riddle-wrapper {
             width: 100%;
             max-width: 540px;
@@ -1427,7 +1473,110 @@
             align-items: center;
         }
 
-        /* Word Riddles 状态信息与颜色图例栏 */
+        /* MD3 Assist Chip 风格的词书标签 */
+        .riddle-chip-tag {
+            display: inline-flex;
+            align-items: center;
+            height: 26px;
+            padding: 0 10px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: #F3EDF7;
+            color: #4F378B;
+            border: 1px solid #E8DEF8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px; /* 限制最大宽度，防止挤占右侧设置 */
+            flex-shrink: 1;
+            line-height: 1;
+        }
+
+        /* 右侧设置按钮：严格防压缩，永远贴右 */
+        .riddle-top-actions {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0; /* 关键：坚决不允许被挤压 */
+        }
+
+        .riddle-top-actions .btn {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* 极小屏幕自适应 (如 360px 宽度手机) */
+        @media (max-width: 420px) {
+            .riddle-top-title {
+                font-size: 1.15rem;
+            }
+            .riddle-chip-tag {
+                max-width: 80px;
+                padding: 0 6px;
+                font-size: 0.72rem;
+            }
+        }
+
+        /* MD3 风格顶部标准导航栏 */
+        .riddle-top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0 16px;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+        .riddle-top-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .riddle-title-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0; /* 允许在窄屏下自适应收缩 */
+            margin: 0 4px;
+        }
+        .riddle-top-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        /* MD3 标准圆形图标按钮 (左侧返回键) */
+        .md3-icon-btn {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: var(--md-shape-full);
+            border: none;
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all var(--md-motion-standard);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .md3-icon-btn:hover {
+            background: var(--md-sys-color-surface-container-highest);
+        }
+        .md3-icon-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Wordle 状态信息与颜色图例栏 */
         .riddle-info-bar {
             width: 100%;
             display: flex;
@@ -2118,7 +2267,7 @@
                     </div>
                 </div>
 
-                <!-- 模式 3: Word Riddles 单词谜题 -->
+                <!-- 模式 3: Wordle 单词谜题 -->
                 <div class="mode-card" style="border-color: #E8DEF8;">
                     <div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -2433,29 +2582,34 @@
                     </button>
                     <button class="btn btn-outlined" id="btn-result-hub" onclick="handleResultBackToHub()">
                         <span class="material-symbols-rounded" style="font-size:20px;">home</span>
-                        <span class="btn-label-text">返回主页大厅</span>
+                        <span class="btn-label-text">返回主页</span>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- VIEW 8: Word Riddles 单词解谜 -->
+        <!-- VIEW 8: Wordle 单词解谜 -->
         <div id="view-riddle" class="view">
             <div class="riddle-wrapper">
-                <!-- 顶部导航栏 -->
-                <div class="single-top-bar" style="width: 100%;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <h2 class="single-mode-title" style="margin:0;">Word Riddles</h2>
-                        <span class="badge" id="riddle-book-tag" style="background: #E8DEF8; color: #49454F; font-weight:600;">四级词库</span>
+                
+                <!-- MD3 标准顶部导航栏 -->
+                <div class="riddle-top-bar">
+                    <!-- 1. 左侧：MD3 标准无折行纯图标返回键 -->
+                    <button class="md3-icon-btn" onclick="confirmExitRiddle()" title="返回主页">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+
+                    <!-- 2. 中间：标题 + 词书标签 (自适应不越界) -->
+                    <div class="riddle-title-group">
+                        <h2 class="riddle-top-title">Wordle</h2>
+                        <span class="riddle-chip-tag" id="riddle-book-tag" title="当前词库">高考3500词</span>
                     </div>
-                    <div style="display:flex; gap:8px; align-items:center;">
+
+                    <!-- 3. 右侧：固定宽度的设置按钮 (flex-shrink: 0 永不重叠) -->
+                    <div class="riddle-top-actions">
                         <button class="btn btn-outlined btn-sm" onclick="openRiddleSettings()">
                             <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
                             <span class="btn-label-text">设置</span>
-                        </button>
-                        <button class="single-btn-exit" onclick="confirmExitRiddle()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
-                            <span class="btn-label-text">返回</span>
                         </button>
                     </div>
                 </div>
@@ -2532,7 +2686,7 @@
                 <div class="local-duel-top-bar">
                     <button class="single-btn-exit" onclick="confirmExitLocalDuel()">
                         <span class="material-symbols-rounded">arrow_back</span>
-                        <span class="btn-label-text">返回大厅</span>
+                        <span class="btn-label-text">返回主页</span>
                     </button>
 
                     <!-- 拔河样式 (Horizontal Tug-of-war) -->
@@ -2571,7 +2725,7 @@
                         <div>
                             <div class="local-player-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span class="local-player-tag badge-p1">🔴 红方 (P1)</span>
+                                    <span class="local-player-tag badge-p1">🔴 红方</span>
                                     <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="local-round-p1">第 1 题</span>
                                     <span class="badge" id="local-book-badge-p1" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
                                 </div>
@@ -2598,7 +2752,7 @@
                         <div>
                             <div class="local-player-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span class="local-player-tag badge-p2">🔵 蓝方 (P2)</span>
+                                    <span class="local-player-tag badge-p2">🔵 蓝方</span>
                                     <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="local-round-p2">第 1 题</span>
                                     <span class="badge" id="local-book-badge-p2" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
                                 </div>
@@ -2663,7 +2817,7 @@
             </div>
 
             <div id="worker-status-banner" style="display:none; margin-bottom:12px; padding:10px 14px; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--md-shape-m); font-size:0.82rem; color:#b78103; line-height:1.4;">
-                <strong>提示</strong>：Worker API 暂未返回词书列表（若控制台报 1101，请在 Cloudflare Dashboard 为 Worker 绑定 KV 命名空间 <code>VOCAB_BOOKS</code>）。当前已启用备用精选题库。
+                <strong>提示</strong>：获取词书失败，请检查网络连接或刷新重试。
             </div>
 
             <div class="book-selection-list" id="single-book-list">
@@ -2682,7 +2836,7 @@
 
     <!-- 单人模式学习/复习节奏设置弹窗 -->
     <div id="modal-single-settings" class="modal-overlay">
-        <div class="modal-card" style="max-width: 480px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.18rem; font-weight:700;">单人学习设置</h3>
@@ -2693,24 +2847,25 @@
                 </button>
             </div>
 
-            <div style="margin: 14px 0;">
+            <!-- 👈 这里修改为 class="modal-body" -->
+            <div class="modal-body">
                 <div class="rule-group">
                     <span class="rule-label">学习节奏（每组学习数量）</span>
                     <div class="chip-group" id="chips-learn-batch">
-                        <div class="md3-chip" data-val="5" onclick="selectLearnBatch(5)">5 词一组</div>
-                        <div class="md3-chip selected" data-val="10" onclick="selectLearnBatch(10)">10 词一组</div>
-                        <div class="md3-chip" data-val="15" onclick="selectLearnBatch(15)">15 词一组</div>
-                        <div class="md3-chip" data-val="20" onclick="selectLearnBatch(20)">20 词一组</div>
+                        <div class="md3-chip" data-val="5" onclick="selectLearnBatch(5)">5 词</div>
+                        <div class="md3-chip selected" data-val="10" onclick="selectLearnBatch(10)">10 词</div>
+                        <div class="md3-chip" data-val="15" onclick="selectLearnBatch(15)">15 词</div>
+                        <div class="md3-chip" data-val="20" onclick="selectLearnBatch(20)">20 词</div>
                     </div>
                 </div>
 
                 <div class="rule-group">
                     <span class="rule-label">复习节奏（每组复习数量）</span>
                     <div class="chip-group" id="chips-review-batch">
-                        <div class="md3-chip" data-val="10" onclick="selectReviewBatch(10)">10 词一组</div>
-                        <div class="md3-chip" data-val="15" onclick="selectReviewBatch(15)">15 词一组</div>
-                        <div class="md3-chip selected" data-val="20" onclick="selectReviewBatch(20)">20 词一组</div>
-                        <div class="md3-chip" data-val="40" onclick="selectReviewBatch(40)">40 词一组</div>
+                        <div class="md3-chip" data-val="10" onclick="selectReviewBatch(10)">10 词</div>
+                        <div class="md3-chip" data-val="15" onclick="selectReviewBatch(15)">15 词</div>
+                        <div class="md3-chip selected" data-val="20" onclick="selectReviewBatch(20)">20 词</div>
+                        <div class="md3-chip" data-val="40" onclick="selectReviewBatch(40)">40 词</div>
                     </div>
                 </div>
 
@@ -2736,12 +2891,12 @@
         </div>
     </div>
 
-    <!-- Word Riddles 谜题参数设置弹窗 -->
+    <!-- Wordle 谜题参数设置弹窗 -->
     <div id="modal-riddle-settings" class="modal-overlay">
         <div class="modal-card" style="max-width: 500px;">
             <div class="modal-header">
                 <div>
-                    <h3 style="font-size:1.18rem; font-weight:700;">Word Riddles 猜词设置</h3>
+                    <h3 style="font-size:1.18rem; font-weight:700;">Wordle 猜词设置</h3>
                     <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">自定义抽词范围、单词长度与尝试次数</p>
                 </div>
                 <button class="modal-close-btn" onclick="closeRiddleSettings()">
@@ -2749,7 +2904,8 @@
                 </button>
             </div>
 
-            <div style="margin: 14px 0;">
+            <!-- 关键修改：增加 modal-body 支持内容滚动，防止超出底部边框 -->
+            <div class="modal-body">
                 <div class="rule-group">
                     <span class="rule-label">选择词书</span>
                     <div class="chip-group" id="chips-riddle-books">
@@ -2769,7 +2925,7 @@
                 </div>
 
                 <div class="rule-group">
-                    <span class="rule-label">尝试次数</span>
+                    <span class="rule-label">可尝试次数</span>
                     <div class="chip-group" id="chips-riddle-attempts">
                         <div class="md3-chip" data-att="4" onclick="selectRiddleAttempts(4)">4 次</div>
                         <div class="md3-chip" data-att="5" onclick="selectRiddleAttempts(5)">5 次</div>
@@ -2802,7 +2958,7 @@
 
     <!-- 同屏对决规则与词书设置弹窗 -->
     <div id="modal-local-duel-settings" class="modal-overlay">
-        <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-card">
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.18rem; font-weight:700;">同屏对决设置</h3>
@@ -2813,7 +2969,8 @@
                 </button>
             </div>
 
-            <div style="margin: 14px 0;">
+            <!-- 👈 这里修改为 class="modal-body" -->
+            <div class="modal-body">
                 <div class="rule-group">
                     <span class="rule-label">选择词书</span>
                     <div class="chip-group" id="chips-local-duel-books">
@@ -2853,7 +3010,7 @@
                 <div class="rule-group">
                     <span class="rule-label">仪表盘样式</span>
                     <div class="chip-group" id="chips-local-duel-gauge-style">
-                        <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">拔河（推荐）</div>
+                        <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">拔河(推荐)</div>
                         <div class="md3-chip" data-gauge="snake" onclick="selectLocalDuelGaugeStyle('snake')">盘龙</div>
                     </div>
                 </div>
@@ -2866,7 +3023,7 @@
                 </button>
                 <button class="btn btn-filled btn-touch-large" id="btn-start-local-duel" style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()">
                     <span class="material-symbols-rounded">play_arrow</span>
-                    <span class="btn-label-text">开始同屏对决</span>
+                    <span class="btn-label-text">开始对决</span>
                 </button>
             </div>
         </div>
@@ -3306,12 +3463,12 @@
             if (btnOnline) {
                 if (isNetworkOnline) {
                     btnOnline.disabled = false;
-                    btnOnline.title = '进入远程联机大厅';
+                    btnOnline.title = '进入联机大厅';
                     btnOnline.style.opacity = '1';
                     btnOnline.style.cursor = 'pointer';
                 } else {
                     btnOnline.disabled = true;
-                    btnOnline.title = '当前无网络连接，远程联机不可用';
+                    btnOnline.title = '当前无网络连接，联机不可用';
                     btnOnline.style.opacity = '0.45';
                     btnOnline.style.cursor = 'not-allowed';
                 }
@@ -3458,7 +3615,7 @@
         }
 
         async function refreshBooksFromWorker(notify = false) {
-            if (notify) showToast('正在从 Cloudflare Worker 获取最新词书...');
+            if (notify) showToast('正在获取词书...');
             const res = await BookManager.fetchBookList();
             renderSingleBookList();
             renderRoomBookChips();
@@ -3705,7 +3862,7 @@
                         showToast('暂无待复习词汇，请先学习新词！');
                         return;
                     }
-                    if (!confirm(`当前没有到达复习周期的词汇（共 ${allLearned.length} 词已学）。\n是否提前强化复习已学单词？`)) {
+                    if (!confirm(`暂无需要复习的词汇。\n是否强化复习已学单词？`)) {
                         return;
                     }
                     reviewTargets = [...allLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
@@ -4626,7 +4783,7 @@
             }
             gameResult = {
                 mode: 'single',
-                msg: `🎉 单人练习完成！完成 ${singleState.total} 词练习`,
+                msg: `已完成本组练习！`,
                 p1Score: singleState.score,
                 p2Score: 0
             };
@@ -4634,7 +4791,7 @@
             switchView('view-result');
         }
 
-        // 键盘快捷键监听：单人模式与 Word Riddles 键盘打字/控制
+        // 键盘快捷键监听：单人模式与 Wordle 键盘打字/控制
         window.addEventListener('keydown', (e) => {
             const riddleView = document.getElementById('view-riddle');
             if (riddleView && riddleView.classList.contains('active')) {
@@ -5280,7 +5437,7 @@
 
         function renderQuestion(state) {
             if (state.currentIdx >= state.pool.length) {
-                document.getElementById(`p1-word`).innerText = "练习完成 🏁";
+                document.getElementById(`p1-word`).innerText = "练习完成！";
                 document.getElementById(`p1-phone`).innerText = "";
                 document.getElementById(`p1-options`).innerHTML = "";
                 return;
@@ -5934,16 +6091,26 @@
 
             if (gameResult.mode === 'single') {
                 btnBackRoom.style.display = 'inline-flex';
-                btnBackRoom.innerText = '重新练本组';
+                btnBackRoom.innerText = '再练一组';
                 btnBackRoom.disabled = false;
                 btnBackRoom.onclick = () => startSinglePlayerFromSelectedBooks();
-                if (btnResultHub) btnResultHub.innerText = '返回主页大厅';
+                if (btnResultHub) btnResultHub.innerText = '返回主页';
 
-                const rate = p1State.total > 0 ? Math.round((p1State.score / p1State.total) * 100) : 0;
+                // 关键修复：从单人专练专属的 singleState 中获取实际作答数据
+                const totalCount = singleState.total || 0;
+                const correctCount = singleState.score || 0;
+                const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
                 details.innerHTML = `
                     <div class="stats-grid">
-                        <div class="stat-card"><span class="stat-label">本次作答</span><span class="stat-value">${p1State.total}</span></div>
-                        <div class="stat-card"><span class="stat-label">正确率</span><span class="stat-value" style="color:var(--md-sys-color-success);">${rate}%</span></div>
+                        <div class="stat-card">
+                            <span class="stat-label">本次作答</span>
+                            <span class="stat-value">${totalCount}</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">正确率</span>
+                            <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
+                        </div>
                     </div>
                 `;
             } else {
@@ -6086,7 +6253,7 @@
         }
 
         /* ==========================================================================
-           8. WORD RIDDLES 单词解谜小游戏 (完全 Google MD3 风格)
+           8. Wordle 单词解谜小游戏 (完全 Google MD3 风格)
            含：自定义词书、单词长度、尝试次数、双遍扫描算法、3D字母瓷砖矩阵与虚拟键盘
            ========================================================================== */
         let riddleConfig = {
@@ -6181,7 +6348,7 @@
             let html = `
                 <div class="md3-chip ${riddleConfig.bookId === 'all' ? 'selected' : ''}" 
                     data-id="all" onclick="selectRiddleBook('all')">
-                    全部词库 (已过滤词组)
+                    全部词库
                 </div>
             `;
 
@@ -6849,7 +7016,7 @@
                     startBtn.disabled = false;
                     startBtn.innerHTML = `
                         <span class="material-symbols-rounded">play_arrow</span>
-                        <span class="btn-label-text">开始同屏对决 (${selCount}本)</span>
+                        <span class="btn-label-text">开始对决</span>
                     `;
                 }
             }
@@ -7695,7 +7862,7 @@
 
         function confirmExitLocalDuel() {
             if (localDuelState.active && (localDuelState.p1.score > 0 || localDuelState.p2.score > 0)) {
-                if (!confirm('对决正在进行中，确认退出返回大厅吗？')) return;
+                if (!confirm('对局正在进行中，确认退出返回主页吗？')) return;
             }
             localDuelState.active = false;
             if (localDuelState.clockTimer) clearInterval(localDuelState.clockTimer);
