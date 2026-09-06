@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>背单词</title>
-    <!-- Google Fonts -->
+    <!-- Google Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -157,11 +158,39 @@
             box-shadow: 0 0 0 4px var(--md-sys-color-primary-container);
         }
 
+        /* Google Material Symbols Rounded 样式规范 */
+        .material-symbols-rounded {
+            font-family: 'Material Symbols Rounded', sans-serif;
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            font-feature-settings: 'liga';
+            user-select: none;
+            flex-shrink: 0;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+        .material-symbols-rounded.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0 18px;
+            padding: 0 20px;
             min-height: 44px;
             font-size: 0.95rem;
             font-weight: 600;
@@ -170,12 +199,50 @@
             border: none;
             cursor: pointer;
             transition: all var(--md-motion-standard);
-            gap: 4px;
+            gap: 8px;
             white-space: nowrap;
             touch-action: manipulation;
-            line-height: normal; /* 让弹性盒自动处理垂直居中 */
+            line-height: 1;
             vertical-align: middle;
             box-sizing: border-box;
+            text-align: center;
+        }
+
+        .btn .material-symbols-rounded {
+            font-size: 19px;
+            width: 19px;
+            height: 19px;
+        }
+
+        .btn-sm {
+            min-height: 36px;
+            height: 36px;
+            padding: 0 14px;
+            font-size: 0.88rem;
+            border-radius: var(--md-shape-full);
+            gap: 6px;
+            line-height: 1;
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        .btn-sm .material-symbols-rounded {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-touch-large {
+            min-height: 50px;
+            font-size: 1rem;
+            padding: 0 24px;
+            gap: 8px;
+        }
+
+        .btn-touch-large .material-symbols-rounded {
+            font-size: 21px;
+            width: 21px;
+            height: 21px;
         }
 
         .btn-label-text {
@@ -200,6 +267,7 @@
             line-height: 1;
             box-sizing: border-box;
             font-variant-numeric: tabular-nums;
+            margin-left: 2px;
         }
 
         .btn-hint-badge {
@@ -212,7 +280,13 @@
         }
 
         .btn:active { transform: scale(0.96); }
-        .btn:disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+        .btn:disabled {
+            opacity: 0.38;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none !important;
+            filter: grayscale(0.85);
+        }
 
         .btn-filled { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: var(--md-elevation-1); }
         .btn-filled:hover { filter: brightness(1.06); box-shadow: var(--md-elevation-2); }
@@ -225,8 +299,6 @@
 
         .btn-danger { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
         .btn-danger:hover { filter: brightness(0.95); }
-
-        .btn-touch-large { min-height: 52px; font-size: 1.02rem; padding: 0 28px; }
 
         .app-bar {
             display: flex;
@@ -253,9 +325,15 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
-            margin: 16px 0;
+            margin: 12px 0 0;
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .stat-card {
@@ -271,7 +349,7 @@
 
         .modes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 14px;
             margin: 16px 0;
         }
@@ -279,19 +357,67 @@
         .mode-card {
             background: var(--md-sys-color-surface-container-low);
             border-radius: var(--md-shape-xl);
-            padding: 22px;
+            padding: 20px;
             cursor: pointer;
             border: 2px solid transparent;
             transition: all var(--md-motion-expressive);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .mode-card:hover {
             background: var(--md-sys-color-surface-container);
             border-color: var(--md-sys-color-outline-variant);
             transform: translateY(-2px);
+        }
+
+        .mode-card-btn-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+        }
+
+        .mode-card .btn {
+            min-width: 0;
+            padding: 0 8px;
+            font-size: 0.86rem;
+            min-height: 40px;
+            height: 40px;
+            gap: 5px;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+
+        .mode-card .btn .material-symbols-rounded {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .mode-card .btn .btn-label-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .mode-card .btn .btn-count-badge {
+            flex-shrink: 0;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            font-size: 0.75rem;
+            margin-left: 2px;
+        }
+
+        @media (max-width: 320px) {
+            .mode-card-btn-row {
+                grid-template-columns: 1fr;
+            }
         }
 
         .mode-icon {
@@ -348,7 +474,7 @@
             display: flex;
             flex-direction: column;
             gap: 14px;
-            max-width: 680px;
+            max-width: 880px;
             margin: 0 auto;
             width: 100%;
         }
@@ -356,19 +482,22 @@
         .arena-head-card {
             background: var(--md-sys-color-surface-container-lowest);
             border-radius: var(--md-shape-xl);
-            padding: 16px 20px;
+            padding: 16px 24px;
             border: 1px solid var(--md-sys-color-outline-variant);
             box-shadow: var(--md-elevation-1);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .arena-player-box {
             display: flex;
             flex-direction: column;
-            min-width: 80px;
+            min-width: 85px;
+            flex-shrink: 0;
         }
         .arena-player-box.left { align-items: flex-start; text-align: left; }
         .arena-player-box.right { align-items: flex-end; text-align: right; }
@@ -376,7 +505,7 @@
         .arena-player-name {
             font-size: 0.95rem;
             font-weight: 700;
-            max-width: 110px;
+            max-width: 120px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -394,14 +523,19 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            flex: 1;
+            margin: 0 20px;
+            min-width: 0;
+            width: 100%;
         }
 
-        #snakeCanvas {
+        #snakeCanvas, #localSnakeCanvas {
             border-radius: 50%;
             background: var(--md-sys-color-surface-container-lowest);
             box-shadow: 0 0 0 1px var(--md-sys-color-outline-variant);
         }
 
+        /* 远程对战卡片同步优化 */
         .arena-quiz-card {
             background: var(--md-sys-color-surface-container-lowest);
             border-radius: var(--md-shape-xl);
@@ -410,8 +544,9 @@
             box-shadow: var(--md-elevation-2);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            min-height: 480px;
+            justify-content: flex-start; /* 👈 改为 flex-start */
+            gap: 14px;
+            min-height: auto;
             position: relative;
         }
 
@@ -438,6 +573,16 @@
             grid-template-columns: 1fr;
             gap: 10px;
             width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            .arena-quiz-card {
+                max-width: 640px;
+                margin: 0 auto;
+                width: 100%;
+            }
         }
 
         .option-btn {
@@ -534,7 +679,7 @@
            ========================================================================== */
         .single-mode-wrapper {
             width: 100%;
-            max-width: 680px;
+            max-width: 560px;
             margin: 0 auto;
             padding-top: 6px;
         }
@@ -556,21 +701,37 @@
         }
 
         .single-btn-exit {
-            background-color: #feeceb;
-            color: #d93829;
-            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background-color: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+            border: 1.5px solid transparent;
             border-radius: var(--md-shape-full);
-            padding: 8px 22px;
-            font-size: 0.92rem;
+            padding: 0 14px;
+            min-height: 36px;
+            height: 36px;
+            font-size: 0.88rem;
             font-weight: 600;
             cursor: pointer;
             transition: all var(--md-motion-standard);
             font-family: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        .single-btn-exit .material-symbols-rounded {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            overflow: hidden;
+            flex-shrink: 0;
         }
 
         .single-btn-exit:hover {
-            background-color: #fddcd8;
-            transform: translateY(-1px);
+            filter: brightness(0.96);
         }
 
         .single-btn-exit:active {
@@ -693,29 +854,11 @@
 
         .single-next-btn {
             width: 100%;
-            padding: 16px;
+            min-height: 50px;
+            padding: 14px 24px;
             border-radius: var(--md-shape-full);
-            background: #dbeafe;
-            color: #1d4ed8;
-            font-size: 1rem;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
-            margin-top: 8px;
-            transition: all 0.18s ease;
-            font-family: inherit;
-        }
-
-        .single-next-btn {
-            width: 100%;
-            padding: 16px;
-            border-radius: var(--md-shape-full);
-            background: #dbeafe;
-            color: #1d4ed8;
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
             font-size: 1rem;
             font-weight: 600;
             border: none;
@@ -723,15 +866,19 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 6px;
-            margin-top: 8px;
-            transition: all 0.18s ease;
+            gap: 8px;
+            margin-top: 10px;
+            transition: all var(--md-motion-standard);
             font-family: inherit;
+            line-height: 1;
+            box-sizing: border-box;
+            text-align: center;
+            box-shadow: var(--md-elevation-1);
         }
 
         .single-next-btn:hover {
-            background: #bfdbfe;
-            transform: translateY(-1px);
+            filter: brightness(1.06);
+            box-shadow: var(--md-elevation-2);
         }
 
         .single-next-btn:active {
@@ -742,6 +889,7 @@
             background: var(--md-sys-color-surface-container-high);
             color: var(--md-sys-color-primary);
             border: 1.5px solid var(--md-sys-color-outline-variant);
+            box-shadow: none;
         }
         .single-next-btn.show-answer-mode:hover {
             background: var(--md-sys-color-primary-container);
@@ -791,31 +939,33 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 12px;
-            min-height: 60px;
-            padding: 12px;
+            gap: 8px; /* 间距由 12px 缩至 8px */
+            min-height: 52px;
+            padding: 8px 12px;
             background: var(--md-sys-color-surface-container-lowest);
             border-radius: var(--md-shape-l);
             border: 1px dashed var(--md-sys-color-outline-variant);
+            margin: 4px 0;
         }
 
         .phrase-slot {
-            min-width: 96px;
-            height: 48px;
-            padding: 0 14px;
-            border-bottom: 3.5px solid var(--md-sys-color-primary);
+            min-width: 64px; /* 由 96px 降至 64px，短单词不会撑大 */
+            height: 42px;    /* 高度从 48px 降至 42px */
+            padding: 0 10px;
+            border-bottom: 3px solid var(--md-sys-color-primary);
             background: var(--md-sys-color-surface-container-low);
-            border-radius: 8px 8px 0 0;
-            display: flex;
+            border-radius: 6px 6px 0 0;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.18rem;
+            font-size: 1.05rem; /* 字号略微微调，兼顾希沃大屏与紧凑性 */
             font-weight: 700;
             color: var(--md-sys-color-on-surface);
             cursor: pointer;
             position: relative;
             transition: all var(--md-motion-standard);
             user-select: none;
+            white-space: nowrap;
         }
 
         .phrase-slot.empty {
@@ -825,11 +975,11 @@
         }
 
         .phrase-slot.empty::after {
-            content: '______';
+            content: '____'; /* 占位符变紧凑 */
             color: var(--md-sys-color-outline);
             font-weight: 400;
-            letter-spacing: 2px;
-            opacity: 0.6;
+            letter-spacing: 1px;
+            opacity: 0.5;
         }
 
         .phrase-slot.filled:hover {
@@ -921,13 +1071,13 @@
 
         /* 词组答案对照卡片 (Phrase Comparison Card) */
         .phrase-comparison-card {
-            margin: 0 0 12px;
-            padding: 10px 16px;
+            margin: 6px 0 8px;
+            padding: 8px 12px;
             border-radius: var(--md-shape-m);
             background: var(--md-sys-color-surface-container-lowest);
             border: 1.5px solid var(--md-sys-color-primary);
             box-shadow: var(--md-elevation-1);
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.2s ease;
         }
 
         .phrase-comparison-card.wrong-state {
@@ -1155,11 +1305,13 @@
         }
 
         .btn-sm {
-            min-height: 34px;
-            height: 34px;
+            min-height: 36px;
+            height: 36px;
             padding: 0 14px;
-            font-size: 0.84rem;
+            font-size: 0.88rem;
             line-height: 1;
+            box-sizing: border-box;
+            vertical-align: middle;
         }
 
         /* 10秒看答案惩罚按钮 */
@@ -1348,7 +1500,7 @@
             color: var(--md-sys-color-on-surface);
             font-size: 1.5rem;
             font-weight: 800;
-            text-transform: uppercase;
+            text-transform: none; /* 👈 改为 none 即可支持小写渲染 */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1462,10 +1614,15 @@
             body { padding: 10px 10px 24px; }
             .card { padding: 18px 14px; }
             .word-display { font-size: 2.1rem; }
-            .arena-quiz-card { min-height: 440px; padding: 16px 14px; }
+            .arena-quiz-card, .local-player-arena { min-height: 440px; padding: 16px 14px; }
             .option-btn { min-height: 52px; font-size: 0.92rem; padding: 10px 14px; }
-            .arena-head-card { padding: 12px 14px; }
-            .arena-player-score { font-size: 1.5rem; }
+            .arena-head-card { padding: 12px 10px; gap: 8px; }
+            .arena-center-gauge { margin: 0 8px; }
+            .arena-player-box { min-width: 68px; }
+            .arena-player-name { max-width: 78px; font-size: 0.85rem; }
+            .arena-player-score, .local-player-score { font-size: 1.5rem; }
+            #arena-tug-rule-summary { font-size: 0.72rem; white-space: nowrap; }
+            #arena-tug-timer { font-size: 0.82rem; }
 
             .single-quiz-card { padding: 24px 18px 24px; min-height: 420px; border-radius: 22px; }
             .single-word-display { font-size: 2.2rem; }
@@ -1480,6 +1637,314 @@
             .riddle-tile { width: 38px; height: 38px; font-size: 1.15rem; }
             .riddle-key { min-height: 38px; font-size: 0.78rem; }
             .riddle-key.wide { min-height: 38px; font-size: 0.7rem; }
+        }
+
+        /* 网络状态徽标 */
+        .network-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.78rem;
+            font-weight: 600;
+            transition: all var(--md-motion-standard);
+        }
+        .network-status-badge.online {
+            background: rgba(46, 125, 50, 0.12);
+            color: #2e7d32;
+        }
+        .network-status-badge.offline {
+            background: rgba(186, 26, 26, 0.12);
+            color: #ba1a1a;
+        }
+        .network-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .network-status-badge.online .network-dot {
+            background: #2e7d32;
+            box-shadow: 0 0 4px rgba(46, 125, 50, 0.5);
+        }
+        .network-status-badge.offline .network-dot {
+            background: #ba1a1a;
+            box-shadow: 0 0 4px rgba(186, 26, 26, 0.5);
+        }
+
+        /* 希沃同屏作战专用样式 (适配多触控一体机) */
+        .local-duel-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .local-duel-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding: 10px 18px;
+            background: var(--md-sys-color-surface-container-low);
+            border-radius: var(--md-shape-l);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            gap: 12px;
+        }
+
+        .local-duel-gauge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            margin: 0 16px;
+            min-width: 0;
+            width: 100%;
+        }
+
+        .local-duel-gauge-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .local-tug-track {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            height: 16px;
+            background: var(--md-sys-color-surface-container-highest);
+            border-radius: var(--md-shape-full);
+            overflow: hidden;
+            display: flex;
+            margin: 4px 0;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-sizing: border-box;
+        }
+
+        .local-tug-fill-p1 {
+            height: 100%;
+            background: var(--p1-sys-color);
+            transition: width 0.25s ease-out;
+        }
+
+        .local-tug-fill-p2 {
+            height: 100%;
+            background: var(--p2-sys-color);
+            transition: width 0.25s ease-out;
+        }
+
+        .local-tug-pin {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 4px;
+            background: #ffffff;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            transition: left 0.25s ease-out;
+        }
+
+        .local-duel-arena {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+            align-items: flex-start; /* 👈 关键：防止一侧撑大时强行拉长另一侧 */
+        }
+
+        @media (max-width: 768px) {
+            .local-duel-top-bar {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                align-items: center;
+                gap: 8px 12px;
+                padding: 10px 14px;
+            }
+            .local-duel-top-bar .single-btn-exit {
+                grid-column: 1;
+                grid-row: 1;
+                justify-self: start;
+            }
+            .local-duel-top-bar .local-top-actions {
+                grid-column: 2;
+                grid-row: 1;
+                justify-self: end;
+            }
+            .local-duel-gauge,
+            #local-duel-gauge-snake {
+                grid-column: 1 / -1;
+                grid-row: 2;
+                width: 100%;
+                margin: 4px 0 0 0 !important;
+            }
+            .local-duel-arena {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+        }
+
+        /* 双方答题框完全对齐联机模式 arena-quiz-card 样式规范 */
+        .local-player-arena {
+            position: relative;
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            padding: 20px 18px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-2);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* 👈 将 space-between 改为 flex-start，取消两端拉伸 */
+            gap: 12px;                  /* 👈 统一元素间距为紧凑的 12px */
+            min-height: auto;            /* 👈 去掉强制撑大的 480px/520px，随内容自适应 */
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .local-player-arena.p1 {
+            border-top: 4px solid var(--p1-sys-color);
+        }
+
+        .local-player-arena.p2 {
+            border-top: 4px solid var(--p2-sys-color);
+        }
+
+        .local-player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .local-player-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .local-player-score {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .local-player-arena .word-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            text-align: center;
+            word-break: break-word;
+            margin-top: 4px;
+            margin-bottom: 0;
+            line-height: 1.2;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .local-player-arena .phone-display {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1rem;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 22px;
+        }
+
+        .local-player-arena .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .local-player-arena .option-btn {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .local-player-arena .phrase-container {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            margin: 0 0 10px;
+        }
+
+        .local-player-arena .phrase-slot,
+        .local-player-arena .phrase-word-chip,
+        .local-player-arena .btn-clear-phrase {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .local-freeze-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.94);
+            border-radius: var(--md-shape-xl);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .local-freeze-icon {
+            font-size: 3rem;
+            color: var(--md-sys-color-error);
+        }
+
+        .local-freeze-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--md-sys-color-error);
+            margin: 6px 0 2px;
+        }
+
+        .local-freeze-countdown {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--md-sys-color-error);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .local-freeze-bar {
+            width: 160px;
+            height: 6px;
+            background: rgba(179, 38, 30, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .local-freeze-bar-inner {
+            height: 100%;
+            background: var(--md-sys-color-error);
+            width: 100%;
+            transition: width 0.1s linear;
         }
     </style>
 </head>
@@ -1509,83 +1974,102 @@
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
                     <span class="badge badge-p1" id="hub-profile-tag">玩家</span>
-                    <button class="btn btn-outlined" style="min-height: 38px; padding: 0 14px;" onclick="switchView('view-auth')">切换账号</button>
+                    <button class="btn btn-outlined btn-sm" onclick="switchView('view-auth')">
+                        <span class="material-symbols-rounded">switch_account</span>
+                        <span class="btn-label-text">切换账号</span>
+                    </button>
                 </div>
             </div>
 
             <!-- 模式卡片 -->
             <div class="modes-grid">
-                <!-- 模式 1: 联机模式 -->
-                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);" onclick="switchView('view-online')">
+                <!-- 模式 1: 联机模式 (远程对决 / 希沃同屏) -->
+                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="mode-icon">🌐</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="material-symbols-rounded filled" style="font-size:32px; width:32px; height:32px; color:var(--md-sys-color-primary);">public</span>
+                            <span id="hub-online-offline-badge" class="network-status-badge online">
+                                <span class="network-dot"></span>
+                                <span id="hub-online-offline-text">在线</span>
+                            </span>
                         </div>
-                        <h3>联机模式</h3>
-                        <!-- <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
-                            双人拔河能量对决 · 词组拼装对抗
-                        </p> -->
+                        <h3>联机对战</h3>
                     </div>
-                    <button class="btn btn-filled" style="margin-top: 18px; align-self: flex-start; background: #006874;">进入联机大厅</button>
+                    <div class="mode-card-btn-row" style="margin-top: 16px;">
+                        <button class="btn btn-filled" id="btn-enter-online" onclick="handleEnterOnlineClick()" style="background: #006874;">
+                            <span class="material-symbols-rounded">sports_esports</span>
+                            <span class="btn-label-text">远程联机</span>
+                        </button>
+                        <button class="btn btn-tonal" id="btn-enter-local-duel" onclick="openLocalDuelSettings()" style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
+                            <span class="material-symbols-rounded">touch_app</span>
+                            <span class="btn-label-text">同屏对决</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 模式 2: 单人模式 (学习新词 / 艾宾浩斯复习 / 设置) -->
                 <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="mode-icon">🎯</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="material-symbols-rounded filled" style="font-size:32px; width:32px; height:32px; color:#B3261E;">track_changes</span>
                         </div>
                         <h3>单人模式</h3>
-                        <!-- <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
-                            艾宾浩斯记忆曲线 · 错词循环强化
-                        </p> -->
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%;">
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-filled" style="flex: 1;" onclick="startSingleLearning()">
-                                学习新词
+                        <div class="mode-card-btn-row">
+                            <button class="btn btn-filled" id="btn-hub-learn" onclick="startSingleLearning()">
+                                <span class="material-symbols-rounded">menu_book</span>
+                                <span class="btn-label-text">学习新词</span>
                             </button>
-                            <button class="btn btn-tonal" id="btn-hub-review" style="flex: 1;" onclick="startSingleReview()">
+                            <button class="btn btn-tonal" id="btn-hub-review" onclick="startSingleReview()">
+                                <span class="material-symbols-rounded">replay</span>
                                 <span class="btn-label-text">复习</span>
                                 <span class="btn-count-badge" id="hub-review-due-count">0</span>
                             </button>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-outlined" style="flex: 1;" onclick="openSingleBookSelector()">
-                                选择词书
+                        <div class="mode-card-btn-row">
+                            <button class="btn btn-outlined" onclick="openSingleBookSelector()">
+                                <span class="material-symbols-rounded">auto_stories</span>
+                                <span class="btn-label-text">选择词书</span>
                             </button>
-                            <button class="btn btn-outlined" style="flex: 1;" onclick="openSingleSettings()">
-                                设置
+                            <button class="btn btn-outlined" onclick="openSingleSettings()">
+                                <span class="material-symbols-rounded">tune</span>
+                                <span class="btn-label-text">设置</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- 模式 3: Word Riddles 单词谜题 -->
-                <div class="mode-card" style="border-color: #E8DEF8;" onclick="startWordRiddleGame()">
+                <div class="mode-card" style="border-color: #E8DEF8;">
                     <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="mode-icon">🧩</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="material-symbols-rounded filled" style="font-size:32px; width:32px; height:32px; color:#6750A4;">grid_view</span>
                         </div>
                         <h3>Word Riddles</h3>
-                        <!-- <p style="margin-top: 6px; font-size: 0.85rem; color: var(--md-sys-color-outline);">
-                            线索推理解密 · 自定义词书与长度
-                        </p> -->
                     </div>
-                    <div style="display: flex; gap: 8px; margin-top: 16px; width: 100%;">
-                        <button class="btn btn-filled" style="flex: 2; background: #6750A4;" onclick="event.stopPropagation(); startWordRiddleGame();">
-                            开始解谜
+                    <div class="mode-card-btn-row" style="margin-top: 16px;">
+                        <button class="btn btn-filled" style="background: #6750A4;" onclick="startWordRiddleGame();">
+                            <span class="material-symbols-rounded">play_arrow</span>
+                            <span class="btn-label-text">开始解谜</span>
                         </button>
-                        <button class="btn btn-outlined" style="flex: 1;" onclick="event.stopPropagation(); openRiddleSettings();">
-                            设置
+                        <button class="btn btn-outlined" onclick="openRiddleSettings();">
+                            <span class="material-symbols-rounded">tune</span>
+                            <span class="btn-label-text">设置</span>
                         </button>
-                    </div>
+                    </div> <!-- 此处原代码缺失闭合标签 -->
                 </div>
-            </div>
+            </div> <!-- 正确闭合 modes-grid -->
 
-            <!-- 数据统计 -->
-            <div class="card">
-                <h3>数据中心</h3>
+            <!-- 数据中心（独立通栏卡片） -->
+            <div class="card" style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <h3 style="margin: 0;">数据中心</h3>
+                    <button class="btn btn-tonal btn-sm" onclick="openMistakesView()">
+                        <span class="material-symbols-rounded">bookmark</span>
+                        <span class="btn-label-text">我的错题本</span>
+                    </button>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-label">总作答词数</div>
@@ -1600,7 +2084,6 @@
                         <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
                     </div>
                 </div>
-                <button class="btn btn-tonal" onclick="openMistakesView()">我的错题本</button>
             </div>
         </div>
 
@@ -1687,14 +2170,23 @@
                             </div>
                         </div>
 
-                        <!-- 选项三：对决词库 (多选，Supabase 实时同步) -->
+                        <!-- 选项三：仪表盘样式 (盘龙 / 拔河) -->
+                        <div class="rule-group">
+                            <span class="rule-label">仪表盘样式</span>
+                            <div class="chip-group" id="chips-gauge-style">
+                                <div class="md3-chip selected" data-gauge="snake" onclick="changeRuleGaugeStyle('snake')">盘龙（环形能量）</div>
+                                <div class="md3-chip" data-gauge="tug" onclick="changeRuleGaugeStyle('tug')">拔河（横向能量条）</div>
+                            </div>
+                        </div>
+
+                        <!-- 选项四：对决词库 (多选，Supabase 实时同步) -->
                         <div class="rule-group" style="margin-bottom:0;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
                                 <span class="rule-label" style="margin-bottom:0;">对决词库</span>
                                 <div style="display:flex; align-items:center; gap: 8px;">
-                                    <label class="btn btn-tonal" style="cursor: pointer; margin: 0; font-size: 0.78rem; padding: 4px 12px; border-radius: var(--md-shape-full); min-height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                                     <label class="btn btn-tonal" id="btn-room-import-book" style="cursor: pointer; margin: 0; font-size: 0.78rem; padding: 4px 12px; border-radius: var(--md-shape-full); min-height: 28px; display: inline-flex; align-items: center; gap: 4px;">
-                                        导入本地词书
+                                        <span class="material-symbols-rounded" style="font-size:16px;">upload_file</span>
+                                        <span class="btn-label-text">导入本地词书</span>
                                         <input type="file" accept=".json" style="display: none;" onchange="loadCustomBook(event)">
                                     </label>
                                     <span id="room-book-count-tip" style="font-size: 0.78rem; color: var(--md-sys-color-primary); font-weight: 600;">已选 1 本词书</span>
@@ -1707,8 +2199,14 @@
                     </div>
 
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">退出房间</button>
-                        <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>等待对手加入...</button>
+                        <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">
+                            <span class="material-symbols-rounded" style="font-size:18px;">logout</span>
+                            <span class="btn-label-text">退出房间</span>
+                        </button>
+                        <button class="btn btn-filled" id="online-start-btn" style="flex:2;" onclick="startOnlineGame()" disabled>
+                            <span class="material-symbols-rounded" style="font-size:18px;">play_arrow</span>
+                            <span class="btn-label-text">等待对手加入...</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1720,7 +2218,10 @@
                 <!-- 顶部导航栏 -->
                 <div class="single-top-bar">
                     <h2 class="single-mode-title" id="single-mode-title">单人模式</h2>
-                    <button class="single-btn-exit" onclick="confirmExitSingle()">返回</button>
+                    <button class="single-btn-exit" onclick="confirmExitSingle()">
+                        <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
+                        <span class="btn-label-text">返回</span>
+                    </button>
                 </div>
 
                 <!-- 居中白色答题卡片 -->
@@ -1728,7 +2229,10 @@
                     <div class="single-badge-row" style="display:flex; justify-content:space-between; align-items:center;">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="single-book-badge" id="single-book-badge">测试2</span>
-                            <span id="single-retest-tag" style="display:none;" class="retest-banner">🔁 错词巩固复问</span>
+                            <span id="single-retest-tag" style="display:none;" class="retest-banner">
+                                <span class="material-symbols-rounded" style="font-size:16px;">autorenew</span>
+                                <span class="btn-label-text">错词巩固复问</span>
+                            </span>
                         </div>
                         <span id="single-progress-text" style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">1 / 10</span>
                     </div>
@@ -1741,7 +2245,8 @@
                     </div>
 
                     <button class="single-next-btn show-answer-mode" id="single-next-btn" onclick="nextSingleQuestion()" style="display: flex;">
-                        看答案
+                        <span class="material-symbols-rounded" style="font-size:20px;">visibility</span>
+                        <span class="btn-label-text">看答案</span>
                     </button>
                 </div>
             </div>
@@ -1754,18 +2259,31 @@
                 <div class="arena-head-card">
                     <div class="arena-player-box left">
                         <span class="badge badge-p1" id="arena-my-badge">🔴 我方</span>
-                        <div class="arena-player-name" id="arena-my-name">玩家</div>
                         <div class="arena-player-score" id="arena-my-score" style="color: var(--p1-sys-color);">0</div>
                     </div>
 
-                    <div class="arena-center-gauge">
-                        <canvas id="snakeCanvas" width="130" height="130"></canvas>
-                        <span id="arena-rule-summary" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6 题胜出</span>
+                    <div class="arena-center-gauge" id="arena-center-gauge">
+                        <!-- 盘龙样式 (Snake Canvas) -->
+                        <div id="arena-gauge-snake-wrap" style="display: flex; flex-direction: column; align-items: center;">
+                            <canvas id="snakeCanvas" width="130" height="130"></canvas>
+                            <span id="arena-rule-summary" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6 题胜出</span>
+                        </div>
+                        <!-- 拔河样式 (Horizontal Tug-of-war) -->
+                        <div id="arena-gauge-tug-wrap" class="local-duel-gauge" style="display: none; width: 100%; max-width: 100%; margin: 0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom: 8px;">
+                                <span style="color:var(--md-sys-color-outline); font-size:0.82rem; font-weight:600;" id="arena-tug-rule-summary">领先 6 题胜出</span>
+                                <span id="arena-tug-timer" style="font-family:'Roboto Mono',monospace; font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface-variant);">01:00</span>
+                            </div>
+                            <div class="local-tug-track" style="margin: 0; height: 16px; width: 100%; max-width: 100%;">
+                                <div class="local-tug-fill-p1" id="arena-tug-p1" style="width: 50%;"></div>
+                                <div class="local-tug-fill-p2" id="arena-tug-p2" style="width: 50%;"></div>
+                                <div class="local-tug-pin" id="arena-tug-pin" style="left: calc(50% - 2px);"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="arena-player-box right">
                         <span class="badge badge-p2" id="arena-oppo-badge">🔵 对手</span>
-                        <div class="arena-player-name" id="arena-oppo-name">对手</div>
                         <div class="arena-player-score" id="arena-oppo-score" style="color: var(--p2-sys-color);">0</div>
                     </div>
                 </div>
@@ -1778,10 +2296,13 @@
                                 <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="arena-index-tag">第 1 题</span>
                                 <span class="badge" id="arena-book-badge" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
                             </div>
-                            <button class="btn btn-outlined" style="min-height: 32px; padding: 0 12px; font-size: 0.8rem;" onclick="confirmExitGame()">退出对决</button>
+                            <button class="btn btn-outlined" style="min-height: 32px; padding: 0 12px; font-size: 0.8rem;" onclick="confirmExitGame()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">arrow_back</span>
+                                <span class="btn-label-text">退出对决</span>
+                            </button>
                         </div>
                         <div class="word-display" id="p1-word">Word</div>
-                        <div class="phone-display" id="p1-phone">/phonetic/</div>
+                        <div class="phone-display" id="p1-phone" style="display: none;"></div>
                     </div>
                     
                     <div class="options-grid" id="p1-options"></div>
@@ -1797,14 +2318,23 @@
         <div id="view-mistakes" class="view">
             <div class="app-bar">
                 <h2>我的错题本</h2>
-                <button class="btn btn-tonal" onclick="switchView('view-hub')">返回主页</button>
+                <button class="btn btn-tonal" onclick="switchView('view-hub')">
+                    <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
+                    <span class="btn-label-text">返回主页</span>
+                </button>
             </div>
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <p></p>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-filled" onclick="restudyMistakes()">重练错题</button>
-                        <button class="btn btn-danger" onclick="clearMistakes()">清空记录</button>
+                        <button class="btn btn-filled" onclick="restudyMistakes()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">replay</span>
+                            <span class="btn-label-text">重练错题</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="clearMistakes()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">delete_sweep</span>
+                            <span class="btn-label-text">清空记录</span>
+                        </button>
                     </div>
                 </div>
                 <div id="mistakes-container" style="max-height: 480px; overflow-y: auto;"></div>
@@ -1819,8 +2349,14 @@
                 <div id="result-details" style="margin: 16px 0;"></div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">返回等待房间</button>
-                    <button class="btn btn-outlined" id="btn-result-hub" onclick="handleResultBackToHub()">返回主页大厅</button>
+                    <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">
+                        <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
+                        <span class="btn-label-text">返回等待房间</span>
+                    </button>
+                    <button class="btn btn-outlined" id="btn-result-hub" onclick="handleResultBackToHub()">
+                        <span class="material-symbols-rounded" style="font-size:20px;">home</span>
+                        <span class="btn-label-text">返回主页大厅</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1834,9 +2370,15 @@
                         <h2 class="single-mode-title" style="margin:0;">Word Riddles</h2>
                         <span class="badge" id="riddle-book-tag" style="background: #E8DEF8; color: #49454F; font-weight:600;">四级词库</span>
                     </div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-outlined btn-sm" onclick="openRiddleSettings()">设置</button>
-                        <button class="single-btn-exit" onclick="confirmExitRiddle()">返回</button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn-outlined btn-sm" onclick="openRiddleSettings()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
+                            <span class="btn-label-text">设置</span>
+                        </button>
+                        <button class="single-btn-exit" onclick="confirmExitRiddle()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
+                            <span class="btn-label-text">返回</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1889,11 +2431,116 @@
 
                 <div style="margin-top:16px; display:flex; gap:10px; justify-content:center; width:100%; flex-wrap:wrap;">
                     <button class="btn btn-filled btn-sm" id="btn-riddle-hint" onclick="handleRiddleHint()" style="background: #6750A4;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">lightbulb</span>
                         <span class="btn-label-text">提示</span>
                         <span class="btn-hint-badge">(<span id="riddle-hint-count">0/4</span>)</span>
                     </button>
-                    <button class="btn btn-tonal btn-sm" onclick="startWordRiddleGame()">换一题</button>
-                    <button class="btn btn-outlined btn-sm" onclick="giveUpRiddle()">揭晓答案</button>
+                    <button class="btn btn-tonal btn-sm" onclick="startWordRiddleGame()">
+                        <span class="material-symbols-rounded" style="font-size:18px;">shuffle</span>
+                        <span class="btn-label-text">换一题</span>
+                    </button>
+                    <button class="btn btn-outlined btn-sm" onclick="giveUpRiddle()">
+                        <span class="material-symbols-rounded" style="font-size:18px;">visibility</span>
+                        <span class="btn-label-text">揭晓答案</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 9: 希沃同屏多触控对决 -->
+        <div id="view-local-duel" class="view">
+            <div class="local-duel-wrapper">
+                <!-- 顶部导航与对决仪表盘 -->
+                <div class="local-duel-top-bar">
+                    <button class="single-btn-exit" onclick="confirmExitLocalDuel()">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                        <span class="btn-label-text">返回大厅</span>
+                    </button>
+
+                    <!-- 拔河样式 (Horizontal Tug-of-war) -->
+                    <div class="local-duel-gauge" id="local-duel-gauge-tug">
+                        <div class="local-duel-gauge-header">
+                            <span style="color:var(--p1-sys-color);" id="local-duel-p1-lead-label">🔴 红方 0</span>
+                            <span style="font-size:0.85rem; color:var(--md-sys-color-outline);" id="local-duel-rule-badge">领先 6 题胜出</span>
+                            <span style="color:var(--p2-sys-color);" id="local-duel-p2-lead-label">蓝方 0 🔵</span>
+                        </div>
+                        <div class="local-tug-track">
+                            <div class="local-tug-fill-p1" id="local-tug-p1" style="width: 50%;"></div>
+                            <div class="local-tug-fill-p2" id="local-tug-p2" style="width: 50%;"></div>
+                            <div class="local-tug-pin" id="local-tug-pin" style="left: calc(50% - 2px);"></div>
+                        </div>
+                        <span id="local-duel-status-sub" style="font-size:0.75rem; color:var(--md-sys-color-outline);">双方势均力敌</span>
+                    </div>
+
+                    <!-- 盘龙样式 (Snake Canvas) -->
+                    <div id="local-duel-gauge-snake" style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin: 0 16px;">
+                        <canvas id="localSnakeCanvas" width="130" height="130"></canvas>
+                        <span id="local-snake-rule-summary" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6 题胜出</span>
+                    </div>
+
+                    <div class="local-top-actions">
+                        <button class="btn btn-outlined btn-sm" onclick="restartLocalDuel()">
+                            <span class="material-symbols-rounded">replay</span>
+                            <span class="btn-label-text">重开</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 希沃双人分屏战场 (左红右蓝) -->
+                <div class="local-duel-arena">
+                    <!-- 左侧：红方专区 (P1) -->
+                    <div class="local-player-arena p1" id="local-arena-p1">
+                        <div>
+                            <div class="local-player-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="local-player-tag badge-p1">🔴 红方 (P1)</span>
+                                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="local-round-p1">第 1 题</span>
+                                    <span class="badge" id="local-book-badge-p1" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
+                                </div>
+                                <span class="local-player-score" id="local-score-p1" style="color:var(--p1-sys-color);">0</span>
+                            </div>
+                            <div class="word-display" id="local-word-p1">---</div>
+                            <div class="phone-display" id="local-phone-p1" style="display: none;"></div>
+                        </div>
+                        <div class="options-grid" id="local-options-p1">
+                            <!-- 选项容器 / 词组拼装容器 -->
+                        </div>
+                        <!-- 独立惩罚冻结浮层 (仅覆盖红方自身，不影响蓝方) -->
+                        <div class="local-freeze-overlay" id="local-freeze-p1" style="display: none;">
+                            <div class="local-freeze-title">答错惩罚</div>
+                            <div class="local-freeze-countdown" id="local-freeze-num-p1">3</div>
+                            <div class="local-freeze-bar">
+                                <div class="local-freeze-bar-inner" id="local-freeze-bar-p1"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：蓝方专区 (P2) -->
+                    <div class="local-player-arena p2" id="local-arena-p2">
+                        <div>
+                            <div class="local-player-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="local-player-tag badge-p2">🔵 蓝方 (P2)</span>
+                                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-outline);" id="local-round-p2">第 1 题</span>
+                                    <span class="badge" id="local-book-badge-p2" style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
+                                </div>
+                                <span class="local-player-score" id="local-score-p2" style="color:var(--p2-sys-color);">0</span>
+                            </div>
+                            <div class="word-display" id="local-word-p2">---</div>
+                            <div class="phone-display" id="local-phone-p2" style="display: none;"></div>
+                        </div>
+                        <div class="options-grid" id="local-options-p2">
+                            <!-- 选项容器 / 词组拼装容器 -->
+                        </div>
+                        <!-- 独立惩罚冻结浮层 (仅覆盖蓝方自身，不影响红方) -->
+                        <div class="local-freeze-overlay" id="local-freeze-p2" style="display: none;">
+                            <div class="local-freeze-title">答错惩罚</div>
+                            <div class="local-freeze-countdown" id="local-freeze-num-p2">3</div>
+                            <div class="local-freeze-bar">
+                                <div class="local-freeze-bar-inner" id="local-freeze-bar-p2"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1908,17 +2555,31 @@
                     <h3 style="font-size:1.18rem; font-weight:700;">选择词书</h3>
                     <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">支持多选词书</p>
                 </div>
-                <button class="modal-close-btn" onclick="closeSingleBookSelector()">✕</button>
+                <button class="modal-close-btn" onclick="closeSingleBookSelector()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
             </div>
 
             <div class="modal-toolbar">
                 <div style="display:flex; gap:8px;">
-                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(true)">全选</button>
-                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(false)">清空</button>
+                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(true)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">done_all</span>
+                        <span class="btn-label-text">全选</span>
+                    </button>
+                    <button class="btn btn-outlined btn-sm" onclick="selectAllSingleBooks(false)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">clear_all</span>
+                        <span class="btn-label-text">清空</span>
+                    </button>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button class="btn btn-tonal btn-sm" onclick="refreshBooksFromWorker(true)">刷新</button>
-                    <button class="btn btn-outlined btn-sm" onclick="document.getElementById('custom-book-input').click()">导入词书</button>
+                    <button class="btn btn-tonal btn-sm" onclick="refreshBooksFromWorker(true)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">refresh</span>
+                        <span class="btn-label-text">刷新</span>
+                    </button>
+                    <button class="btn btn-outlined btn-sm" onclick="document.getElementById('custom-book-input').click()">
+                        <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
+                        <span class="btn-label-text">导入词书</span>
+                    </button>
                     <input type="file" id="custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
                 </div>
             </div>
@@ -1933,7 +2594,10 @@
 
             <div class="modal-footer">
                 <div style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-primary);" id="single-selected-summary">已选 1 本词书</div>
-                <button class="btn btn-filled btn-touch-large" id="btn-start-single-quiz" onclick="startSinglePlayerFromSelectedBooks()">开始练习</button>
+                <button class="btn btn-filled btn-touch-large" id="btn-start-single-quiz" onclick="startSinglePlayerFromSelectedBooks()">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span class="btn-label-text">开始练习</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1944,9 +2608,11 @@
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.18rem; font-weight:700;">单人学习设置</h3>
-                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">设置学习与复习节奏</p>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">设置学习节奏、即时复习功能</p>
                 </div>
-                <button class="modal-close-btn" onclick="closeSingleSettings()">✕</button>
+                <button class="modal-close-btn" onclick="closeSingleSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
             </div>
 
             <div style="margin: 14px 0;">
@@ -1960,7 +2626,7 @@
                     </div>
                 </div>
 
-                <div class="rule-group" style="margin-bottom:0;">
+                <div class="rule-group">
                     <span class="rule-label">复习节奏（每组复习数量）</span>
                     <div class="chip-group" id="chips-review-batch">
                         <div class="md3-chip" data-val="10" onclick="selectReviewBatch(10)">10 词一组</div>
@@ -1969,11 +2635,25 @@
                         <div class="md3-chip" data-val="40" onclick="selectReviewBatch(40)">40 词一组</div>
                     </div>
                 </div>
+
+                <div class="rule-group" style="margin-bottom:0;">
+                    <span class="rule-label">即时复习（答错后过 3 题重问 + 组末再问）</span>
+                    <div class="chip-group" id="chips-immediate-retest">
+                        <div class="md3-chip selected" data-val="true" onclick="selectImmediateRetest(true)">开启</div>
+                        <div class="md3-chip" data-val="false" onclick="selectImmediateRetest(false)">关闭</div>
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeSingleSettings()">取消</button>
-                <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveSingleSettings()">保存设置</button>
+                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeSingleSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveSingleSettings()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">保存设置</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1986,7 +2666,9 @@
                     <h3 style="font-size:1.18rem; font-weight:700;">Word Riddles 猜词设置</h3>
                     <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">自定义抽词范围、单词长度与尝试次数</p>
                 </div>
-                <button class="modal-close-btn" onclick="closeRiddleSettings()">✕</button>
+                <button class="modal-close-btn" onclick="closeRiddleSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
             </div>
 
             <div style="margin: 14px 0;">
@@ -2008,7 +2690,7 @@
                     </div>
                 </div>
 
-                <div class="rule-group" style="margin-bottom:0;">
+                <div class="rule-group">
                     <span class="rule-label">尝试次数</span>
                     <div class="chip-group" id="chips-riddle-attempts">
                         <div class="md3-chip" data-att="4" onclick="selectRiddleAttempts(4)">4 次</div>
@@ -2017,11 +2699,97 @@
                         <div class="md3-chip" data-att="8" onclick="selectRiddleAttempts(8)">8 次</div>
                     </div>
                 </div>
+
+                <div class="rule-group" style="margin-bottom:0;">
+                    <span class="rule-label">字母大小写</span>
+                    <div class="chip-group" id="chips-riddle-case">
+                        <div class="md3-chip selected" data-case="upper" onclick="selectRiddleCase('upper')">ABC</div>
+                        <div class="md3-chip" data-case="lower" onclick="selectRiddleCase('lower')">abc</div>
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeRiddleSettings()">取消</button>
-                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#6750A4;" onclick="saveAndStartRiddle()">保存并开始</button>
+                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="saveAndStartRiddle()">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span class="btn-label-text">保存并开始</span>
+                </button>
+                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#6750A4;" onclick="saveRiddleSettingsOnly()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">保存设置</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 希沃同屏对决规则与词书设置弹窗 -->
+    <div id="modal-local-duel-settings" class="modal-overlay">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700;">希沃同屏对决设置</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">两人同屏触控对抗，适配白板多触控</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeLocalDuelSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+
+            <div style="margin: 14px 0;">
+                <div class="rule-group">
+                    <span class="rule-label">选择词书</span>
+                    <div class="chip-group" id="chips-local-duel-books">
+                        <!-- 动态渲染词书 chips -->
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">选择规则</span>
+                    <div class="chip-group" id="chips-local-duel-rule">
+                        <div class="md3-chip" data-rule="timed" onclick="selectLocalDuelRule('timed')">限时</div>
+                        <div class="md3-chip selected" data-rule="lead" onclick="selectLocalDuelRule('lead')">不限时</div>
+                    </div>
+                </div>
+
+                <div class="rule-group" id="group-local-duel-lead">
+                    <span class="rule-label">获胜条件</span>
+                    <div class="chip-group" id="chips-local-duel-lead">
+                        <div class="md3-chip" data-lead="3" onclick="selectLocalDuelLead(3)">领先 3 题</div>
+                        <div class="md3-chip selected" data-lead="4" onclick="selectLocalDuelLead(4)">领先 4 题</div>
+                        <div class="md3-chip" data-lead="5" onclick="selectLocalDuelLead(5)">领先 5 题</div>
+                        <div class="md3-chip" data-lead="6" onclick="selectLocalDuelLead(6)">领先 6 题</div>
+                        <div class="md3-chip" data-lead="8" onclick="selectLocalDuelLead(8)">领先 8 题</div>
+                    </div>
+                </div>
+
+                <div class="rule-group" id="group-local-duel-timed" style="display: none;">
+                    <span class="rule-label">对决时长</span>
+                    <div class="chip-group" id="chips-local-duel-duration">
+                        <div class="md3-chip selected" data-time="60" onclick="selectLocalDuelDuration(60)">1 分钟</div>
+                        <div class="md3-chip" data-time="90" onclick="selectLocalDuelDuration(90)">1 分半</div>
+                        <div class="md3-chip" data-time="120" onclick="selectLocalDuelDuration(120)">2 分钟</div>
+                        <div class="md3-chip" data-time="180" onclick="selectLocalDuelDuration(180)">3 分钟</div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">仪表盘样式</span>
+                    <div class="chip-group" id="chips-local-duel-gauge-style">
+                        <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">拔河（横向能量条）</div>
+                        <div class="md3-chip" data-gauge="snake" onclick="selectLocalDuelGaugeStyle('snake')">盘龙（环形能量）</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeLocalDuelSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()">
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span class="btn-label-text">开始同屏对决</span>
+                </button>
             </div>
         </div>
     </div>
@@ -2101,22 +2869,6 @@
             { word: "organism", phone: "/ˈɔːrɡənɪzəm/", meanings: [{ pos: "n.", meaning: "生物体，有机体" }] }
         ];
 
-        // 包含设计图效果示范的高拟真测试词库
-        const TEST2_WORDS = [
-            { word: "junk mail", phone: "/dʒʌŋk meɪl/", meanings: [{ pos: "", meaning: "塞到邮箱的广告宣传品" }] },
-            { word: "public", phone: "/ˈpʌblɪk/", meanings: [{ pos: "a.", meaning: "公共,公众的" }, { pos: "n.", meaning: "公众" }] },
-            { word: "human", phone: "/ˈhjuːmən/", meanings: [{ pos: "a.", meaning: "人的，人类的" }] },
-            { word: "breathe", phone: "/briːð/", meanings: [{ pos: "vi.", meaning: "呼吸" }] },
-            { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
-            { word: "abundant", phone: "/əˈbʌndənt/", meanings: [{ pos: "adj.", meaning: "丰富的，充裕的" }] },
-            { word: "brilliant", phone: "/ˈbrɪliənt/", meanings: [{ pos: "adj.", meaning: "光辉的；卓越的" }] },
-            { word: "candidate", phone: "/ˈkændɪdət/", meanings: [{ pos: "n.", meaning: "候选人，求职者" }] },
-            { word: "capacity", phone: "/kəˈpæsəti/", meanings: [{ pos: "n.", meaning: "容量；才能" }] },
-            { word: "deficiency", phone: "/dɪˈfɪʃnsi/", meanings: [{ pos: "n.", meaning: "缺乏，不足" }] },
-            { word: "eliminate", phone: "/ɪˈlɪmɪneɪt/", meanings: [{ pos: "v.", meaning: "消灭，消除" }] },
-            { word: "fascinate", phone: "/ˈfæsɪneɪt/", meanings: [{ pos: "v.", meaning: "迷住，吸引" }] }
-        ];
-
         /* ==========================================================================
            2. CLOUDFLARE WORKER 词书管理器 (对接 /api/books 与 /api/book?id=...)
            ========================================================================== */
@@ -2145,8 +2897,7 @@
             availableBooks: [],
             bookCache: {},
             fallbackBooks: [
-                { id: 'test2', name: '测试2 (精选)', count: TEST2_WORDS.length, words: TEST2_WORDS },
-                { id: 'cet4', name: '四级核心精选词库', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS }
+                { id: 'GaoKao3500', name: '高考3500词', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS },
             ],
 
             async init() {
@@ -2306,7 +3057,7 @@
             }
         };
 
-        let dictionary = [...TEST2_WORDS, ...DEFAULT_WORDS];
+        let dictionary = [...DEFAULT_WORDS];
         let currentUser = localStorage.getItem('vocab_pk_user') || '';
         let userStats = JSON.parse(localStorage.getItem('vocab_pk_stats')) || { total: 0, correct: 0, mistakes: {} };
 
@@ -2322,7 +3073,7 @@
         let roomConfig = {
             duration: 60,
             winLead: 6,
-            selectedBooks: ['test2', 'cet4']
+            selectedBooks: ['GaoKao3500']
         };
 
         let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
@@ -2331,16 +3082,16 @@
         let gameTimer = null;
         let gameResult = null;
 
-        // 单人专练模式状态与多选词书
-        let singleSelectedBookIds = JSON.parse(localStorage.getItem('single_vocab_books') || '["test2", "cet4"]');
-        let singleState = {
-            pool: [],
-            currentIdx: 0,
-            answered: false,
-            selectedIdx: -1,
-            score: 0,
-            total: 0
-        };
+        // 单人专练模式状态与多选词书 (默认选择第一本词书，支持0本)
+        const savedSingleBooks = localStorage.getItem('single_vocab_books');
+        let singleSelectedBookIds = ['GaoKao3500'];
+        if (savedSingleBooks) {
+            try {
+                const parsed = JSON.parse(savedSingleBooks);
+                const filtered = parsed.filter(id => id !== 'test2' && id !== 'cet4');
+                if (filtered.length > 0) singleSelectedBookIds = filtered;
+            } catch (e) {}
+        }
 
         const canvas = document.getElementById('snakeCanvas');
         const ctx = canvas.getContext('2d');
@@ -2370,6 +3121,61 @@
             switchView('view-hub');
         }
 
+        let isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
+
+        function checkNetworkStatus(explicitState) {
+            if (typeof explicitState === 'boolean') {
+                isNetworkOnline = explicitState;
+            } else {
+                isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
+            }
+            const badge = document.getElementById('hub-online-offline-badge');
+            const badgeText = document.getElementById('hub-online-offline-text');
+            const btnOnline = document.getElementById('btn-enter-online');
+
+            if (badge && badgeText) {
+                if (isNetworkOnline) {
+                    badge.className = 'network-status-badge online';
+                    badgeText.innerText = '在线';
+                } else {
+                    badge.className = 'network-status-badge offline';
+                    badgeText.innerText = '离线';
+                }
+            }
+
+            if (btnOnline) {
+                if (isNetworkOnline) {
+                    btnOnline.disabled = false;
+                    btnOnline.title = '进入远程联机大厅';
+                    btnOnline.style.opacity = '1';
+                    btnOnline.style.cursor = 'pointer';
+                } else {
+                    btnOnline.disabled = true;
+                    btnOnline.title = '当前无网络连接，远程联机不可用';
+                    btnOnline.style.opacity = '0.45';
+                    btnOnline.style.cursor = 'not-allowed';
+                }
+            }
+        }
+
+        function handleEnterOnlineClick() {
+            if (!isNetworkOnline) {
+                showToast('当前处于无网络环境，远程联机已禁用；支持单人练习与希沃同屏作战！');
+                return;
+            }
+            switchView('view-online');
+        }
+
+        window.addEventListener('online', () => {
+            checkNetworkStatus(true);
+            showToast('已恢复网络连接，远程联机已就绪');
+        });
+
+        window.addEventListener('offline', () => {
+            checkNetworkStatus(false);
+            showToast('网络连接已断开，已禁用远程联机');
+        });
+
         function updateHub() {
             if (!currentUser) return switchView('view-auth');
             document.getElementById('hub-profile-tag').innerText = `${currentUser}`;
@@ -2380,8 +3186,10 @@
             const badge = document.getElementById('hub-single-book-badge');
             if (badge) badge.innerText = `已选 ${singleSelectedBookIds.length} 本词书`;
 
+            checkNetworkStatus();
+
             if (window.EbbinghausEngine) {
-                EbbinghausEngine.updateDueBadge();
+                window.EbbinghausEngine.updateDueBadge();
             }
         }
 
@@ -2447,8 +3255,8 @@
             const listEl = document.getElementById('single-book-list');
             if (!listEl) return;
 
-            if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
-                singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+            if (!Array.isArray(singleSelectedBookIds)) {
+                singleSelectedBookIds = ['test2'];
             }
 
             listEl.innerHTML = BookManager.availableBooks.map(b => {
@@ -2460,7 +3268,7 @@
                             <span class="book-item-meta">词库容量: ${b.count || '多词'}</span>
                         </div>
                         <div class="book-item-checkbox">
-                            ${isSel ? '✓' : ''}
+                            ${isSel ? '<span class="material-symbols-rounded" style="font-size:18px; color:white;">check</span>' : ''}
                         </div>
                     </div>
                 `;
@@ -2471,10 +3279,6 @@
 
         function toggleSingleBook(bookId) {
             if (singleSelectedBookIds.includes(bookId)) {
-                if (singleSelectedBookIds.length <= 1) {
-                    showToast('请至少保留一本词书！');
-                    return;
-                }
                 singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== bookId);
             } else {
                 singleSelectedBookIds.push(bookId);
@@ -2487,7 +3291,7 @@
             if (selectAll) {
                 singleSelectedBookIds = BookManager.availableBooks.map(b => b.id);
             } else {
-                singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+                singleSelectedBookIds = [];
             }
             localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
             renderSingleBookList();
@@ -2508,20 +3312,31 @@
         }
 
         function updateSingleSelectedSummary() {
+            const count = (singleSelectedBookIds || []).length;
             const summary = document.getElementById('single-selected-summary');
             if (summary) {
-                summary.innerText = `已勾选 ${singleSelectedBookIds.length} 本词书`;
+                summary.innerText = count > 0 ? `已勾选 ${count} 本词书` : '未勾选任何词书（请至少选 1 本）';
+                summary.style.color = count > 0 ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-error)';
             }
             const hubBadge = document.getElementById('hub-single-book-badge');
             if (hubBadge) {
-                hubBadge.innerText = `已选 ${singleSelectedBookIds.length} 本词书`;
+                hubBadge.innerText = count > 0 ? `已选 ${count} 本词书` : '未选词书';
+            }
+            const startBtn = document.getElementById('btn-start-single-quiz');
+            if (startBtn) {
+                startBtn.disabled = (count === 0);
+            }
+            const hubLearnBtn = document.getElementById('btn-hub-learn');
+            if (hubLearnBtn) {
+                hubLearnBtn.disabled = (count === 0);
             }
         }
 
         /* --------------------------------------------------------------------------
            单人模式设置配置与艾宾浩斯遗忘曲线引擎
            -------------------------------------------------------------------------- */
-        let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20}');
+        let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true}');
+        if (singleConfig.immediateRetest === undefined) singleConfig.immediateRetest = true;
 
         function openSingleSettings() {
             const modal = document.getElementById('modal-single-settings');
@@ -2544,6 +3359,10 @@
                 const val = parseInt(c.getAttribute('data-val'));
                 c.classList.toggle('selected', val === singleConfig.reviewBatch);
             });
+            document.querySelectorAll('#chips-immediate-retest .md3-chip').forEach(c => {
+                const val = c.getAttribute('data-val') === 'true';
+                c.classList.toggle('selected', val === (singleConfig.immediateRetest !== false));
+            });
         }
 
         function selectLearnBatch(val) {
@@ -2556,10 +3375,15 @@
             updateSingleSettingsChips();
         }
 
+        function selectImmediateRetest(val) {
+            singleConfig.immediateRetest = val;
+            updateSingleSettingsChips();
+        }
+
         function saveSingleSettings() {
             localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
             closeSingleSettings();
-            showToast(`设置已保存：新词 ${singleConfig.learnBatch} 词/组，复习 ${singleConfig.reviewBatch} 词/组`);
+            showToast(`设置已保存：新词 ${singleConfig.learnBatch} 词/组，复习 ${singleConfig.reviewBatch} 词/组，即时复习${singleConfig.immediateRetest !== false ? '开启' : '关闭'}`);
         }
 
         // 艾宾浩斯复习时间间隔标准 (毫秒)
@@ -2633,10 +3457,25 @@
                 }
             }
         };
+        window.EbbinghausEngine = EbbinghausEngine;
+        try { EbbinghausEngine.updateDueBadge(); } catch (e) {}
 
-        // 错词循环巩固机制：过3题后重问 + 本组末尾再重问一遍
+        setInterval(() => {
+            if (window.EbbinghausEngine) {
+                window.EbbinghausEngine.updateDueBadge();
+            }
+        }, 10000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && window.EbbinghausEngine) {
+                window.EbbinghausEngine.updateDueBadge();
+            }
+        });
+
+        // 错词循环巩固机制：过3题后重问 + 本组末尾再重问一遍 (受设置开关控制)
         function scheduleRetestForCurrentQuestion() {
             if (gameMode !== 'single') return;
+            if (singleConfig.immediateRetest === false) return;
             const q = singleState.pool[singleState.currentIdx];
             if (!q || q._retestScheduled) return;
             q._retestScheduled = true;
@@ -2662,7 +3501,9 @@
         async function startSingleLearning() {
             try {
                 if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
-                    singleSelectedBookIds = [BookManager.availableBooks[0]?.id || 'test2'];
+                    showToast('请先选择至少一本词书！');
+                    openSingleBookSelector();
+                    return;
                 }
                 const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
                 if (!words || words.length === 0) {
@@ -2738,10 +3579,14 @@
         }
 
         async function startSinglePlayerFromSelectedBooks() {
+            if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
+                showToast('请先选择至少一本词书！');
+                return;
+            }
             const btn = document.getElementById('btn-start-single-quiz');
             if (btn) {
                 btn.disabled = true;
-                btn.innerText = '正在加载题库...';
+                btn.innerHTML = '<span class="btn-label-text">正在加载题库...</span>';
             }
 
             try {
@@ -2755,8 +3600,8 @@
                 alert('加载词书失败：' + err.message);
             } finally {
                 if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = '开始专练 →';
+                    btn.disabled = (!singleSelectedBookIds || singleSelectedBookIds.length === 0);
+                    btn.innerHTML = '<span class="material-symbols-rounded">play_arrow</span><span class="btn-label-text">开始练习</span>';
                 }
             }
         }
@@ -3020,6 +3865,19 @@
             return scored.slice(0, maxCount).map(s => s.word);
         }
 
+        // 提取干净的英文词组单词列表（过滤掉省略号、点号、括号干扰）
+        function extractPhraseTargetWords(rawWord) {
+            if (!rawWord) return [];
+            const cleaned = rawWord.trim()
+                .replace(/\(.*?\)/g, '')
+                .replace(/\[.*?\]/g, '')
+                .replace(/[.。,，!！?？…—_]+/g, ' ')
+                .trim()
+                .split(/\s+/)
+                .filter(w => /^[a-zA-Z'’-]+$/.test(w));
+            return cleaned.length > 0 ? cleaned : rawWord.trim().split(/\s+/).filter(Boolean);
+        }
+
         // 智能生成词组混淆干扰项（介词错误搭配 + 难词形近项 + 全数据库检索）
         function generatePhraseDistractors(targetWords, currentPool = []) {
             const rawTargetSet = new Set(targetWords.map(w => w.toLowerCase()));
@@ -3150,7 +4008,7 @@
             if (nextBtn) {
                 nextBtn.style.display = 'flex';
                 nextBtn.className = 'single-next-btn show-answer-mode';
-                nextBtn.innerText = '看答案';
+                nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">visibility</span><span class="btn-label-text">看答案</span>';
             }
 
             const isPhrase = q.word && q.word.trim().includes(' ');
@@ -3185,7 +4043,7 @@
         }
 
         function renderSinglePhraseQuestion(q) {
-            const targetWords = q.word.trim().split(/\s+/);
+            const targetWords = extractPhraseTargetWords(q.word);
             singlePhraseState = {
                 targetWords: targetWords,
                 placed: new Array(targetWords.length).fill(null),
@@ -3196,7 +4054,10 @@
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
             if (wordEl) wordEl.style.display = 'none';
-            if (phoneEl) phoneEl.style.display = 'none';
+            if (phoneEl) {
+                phoneEl.innerText = '';
+                phoneEl.style.display = 'none';
+            }
 
             const optionsContainer = document.getElementById('single-options');
             if (!optionsContainer) return;
@@ -3345,7 +4206,7 @@
                 const nextBtn = document.getElementById('single-next-btn');
                 if (nextBtn) {
                     nextBtn.className = 'single-next-btn';
-                    nextBtn.innerText = '下一题 →';
+                    nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
                     nextBtn.style.display = 'flex';
                 }
                 const comp = document.getElementById('single-phrase-compare');
@@ -3452,7 +4313,6 @@
                         <div class="phrase-compare-row">
                             <span class="phrase-compare-badge correct">✓ 正确词组</span>
                             <span class="phrase-compare-text correct">${q.word}</span>
-                            ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
                         </div>
                     `;
                 }
@@ -3471,17 +4331,11 @@
 
                 const wordEl = document.getElementById('single-word');
                 const phoneEl = document.getElementById('single-phone');
-                if (wordEl) {
-                    wordEl.style.display = 'block';
-                    wordEl.innerText = q.word;
-                    wordEl.style.color = '#111827';
-                }
-                if (phoneEl) {
-                    phoneEl.style.display = 'block';
-                    phoneEl.innerText = q.phone || '';
-                }
                 if (wordEl) wordEl.style.display = 'none';
-                if (phoneEl) phoneEl.style.display = 'none';
+                if (phoneEl) {
+                    phoneEl.innerText = '';
+                    phoneEl.style.display = 'none';
+                }
             } else {
                 q.options.forEach((opt, i) => {
                     const btn = document.getElementById(`single-opt-${i}`);
@@ -3497,7 +4351,7 @@
             const nextBtn = document.getElementById('single-next-btn');
             if (nextBtn) {
                 nextBtn.className = 'single-next-btn';
-                nextBtn.innerText = '下一题 →';
+                nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
                 nextBtn.style.display = 'flex';
             }
         }
@@ -3551,7 +4405,7 @@
             const nextBtn = document.getElementById('single-next-btn');
             if (nextBtn) {
                 nextBtn.className = 'single-next-btn';
-                nextBtn.innerText = '下一题 →';
+                nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
                 nextBtn.style.display = 'flex';
                 nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
@@ -3637,16 +4491,30 @@
             // 如果传入的 poolOverride 词数较少（如复习模式只有几个词），兜底合并全局 dictionary 与 DEFAULT_WORDS，防止死循环
             let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...dictionary, ...DEFAULT_WORDS];
             const targetLower = targetWord.toLowerCase();
+            const isSingleWord = !targetWord.trim().includes(' ');
 
-            // 过滤去重
+            // 过滤去重 (考察单词时严禁抽取词组作为混淆项)
             const seen = new Set();
             const candidates = [];
             for (const d of pool) {
                 if (!d || !d.word) continue;
+                if (isSingleWord && d.word.trim().includes(' ')) continue;
                 const wl = d.word.toLowerCase();
                 if (wl !== targetLower && !seen.has(wl)) {
                     seen.add(wl);
                     candidates.push(d);
+                }
+            }
+
+            // 若候选单单词不足 4 个，从 DEFAULT_WORDS (全为纯单词) 中补足候选池
+            if (isSingleWord && candidates.length < 4) {
+                for (const d of DEFAULT_WORDS) {
+                    if (!d || !d.word || d.word.trim().includes(' ')) continue;
+                    const wl = d.word.toLowerCase();
+                    if (wl !== targetLower && !seen.has(wl)) {
+                        seen.add(wl);
+                        candidates.push(d);
+                    }
                 }
             }
 
@@ -3670,6 +4538,7 @@
             while (chosen.length < 3 && candidates.length > chosen.length && safeGuard < 20) {
                 safeGuard++;
                 const rand = candidates[Math.floor(Math.random() * candidates.length)];
+                if (isSingleWord && rand.word.trim().includes(' ')) continue;
                 if (!chosen.some(c => c.word.toLowerCase() === rand.word.toLowerCase())) {
                     chosen.push(rand);
                 }
@@ -3704,7 +4573,7 @@
                 const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + selected.meaning;
                 const optData = generateOptions(w.word, fullMeaning, list);
                 const isPhrase = w.word && w.word.trim().includes(' ');
-                const phraseChips = isPhrase ? generatePhraseDistractors(w.word.trim().split(/\s+/), list) : null;
+                const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list) : null;
                 return {
                     word: w.word,
                     phone: w.phone,
@@ -3734,6 +4603,13 @@
         function changeRuleLead(leads) {
             if (!isHost) return;
             roomConfig.winLead = leads;
+            renderRuleChips();
+            broadcastRuleChange();
+        }
+
+        function changeRuleGaugeStyle(style) {
+            if (!isHost) return;
+            roomConfig.gaugeStyle = style;
             renderRuleChips();
             broadcastRuleChange();
         }
@@ -3801,6 +4677,12 @@
                 el.classList.toggle('disabled', !isHost);
             });
 
+            document.querySelectorAll('#chips-gauge-style .md3-chip').forEach(el => {
+                const val = el.getAttribute('data-gauge');
+                el.classList.toggle('selected', val === (roomConfig.gaugeStyle || 'snake'));
+                el.classList.toggle('disabled', !isHost);
+            });
+
             renderRoomBookChips();
 
             const hint = document.getElementById('rule-sync-hint');
@@ -3847,6 +4729,7 @@
             roomConfig = {
                 duration: 60,
                 winLead: 6,
+                gaugeStyle: 'snake',
                 selectedBooks: (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? [...singleSelectedBookIds] : ['test2', 'cet4']
             };
 
@@ -4105,14 +4988,26 @@
 
             const oppoName = isHost ? payload.guestName : payload.hostName;
 
-            document.getElementById('arena-my-badge').innerText = isHost ? '🔴 房主 (我方)' : '🔵 挑战者 (我方)';
-            document.getElementById('arena-my-name').innerText = currentUser;
+            document.getElementById('arena-my-badge').innerText = isHost ? '🔴 ' + currentUser : oppoName || '对手';
             document.getElementById('arena-my-score').innerText = '0';
 
-            document.getElementById('arena-oppo-badge').innerText = isHost ? '🔵 挑战者' : '🔴 房主';
-            document.getElementById('arena-oppo-name').innerText = oppoName || '对手';
+            document.getElementById('arena-oppo-badge').innerText = isHost ? '🔵 挑战者' : '🔴 ' + payload.hostName;
             document.getElementById('arena-oppo-score').innerText = '0';
-            document.getElementById('arena-rule-summary').innerText = `领先 ${roomConfig.winLead} 题胜出`;
+
+            const gaugeStyle = roomConfig.gaugeStyle || 'snake';
+            const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
+            const tugWrap = document.getElementById('arena-gauge-tug-wrap');
+            if (gaugeStyle === 'tug') {
+                if (snakeWrap) snakeWrap.style.display = 'none';
+                if (tugWrap) tugWrap.style.display = 'flex';
+                const ruleSum = document.getElementById('arena-tug-rule-summary');
+                if (ruleSum) ruleSum.innerText = `领先 ${roomConfig.winLead} 题胜出`;
+            } else {
+                if (snakeWrap) snakeWrap.style.display = 'flex';
+                if (tugWrap) tugWrap.style.display = 'none';
+                const ruleSum = document.getElementById('arena-rule-summary');
+                if (ruleSum) ruleSum.innerText = `领先 ${roomConfig.winLead} 题胜出`;
+            }
 
             resetPlayerState(p1State, payload.pool);
             p2State.score = 0;
@@ -4213,8 +5108,12 @@
             }
 
             // 单个单词普通题目
+            const phoneEl = document.getElementById(`p1-phone`);
             document.getElementById(`p1-word`).innerText = q.word;
-            document.getElementById(`p1-phone`).innerText = q.phone || '';
+            if (phoneEl) {
+                phoneEl.innerText = q.phone || '';
+                phoneEl.style.display = q.phone ? 'block' : 'none';
+            }
 
             let html = '';
             q.options.forEach((opt, idx) => {
@@ -4236,7 +5135,7 @@
         }
 
         function renderArenaPhraseQuestion(state, q) {
-            const targetWords = q.word.trim().split(/\s+/);
+            const targetWords = extractPhraseTargetWords(q.word);
             arenaPhraseState = {
                 targetWords: targetWords,
                 placed: new Array(targetWords.length).fill(null),
@@ -4248,8 +5147,12 @@
             const phoneEl = document.getElementById('p1-phone');
             const optionsContainer = document.getElementById('p1-options');
 
-            const correctMeaning = q.options[q.correctIdx]?.meaning || '';
+            const correctMeaning = (q.options && q.correctIdx !== undefined && q.options[q.correctIdx]) ? q.options[q.correctIdx].meaning : (q.meaning || '');
             if (wordEl) wordEl.innerText = correctMeaning;
+            if (phoneEl) {
+                phoneEl.innerText = '';
+                phoneEl.style.display = 'none';
+            }
 
             if (!optionsContainer) return;
 
@@ -4442,7 +5345,7 @@
                     comp.innerHTML = `
                         <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
                             <div class="phrase-compare-row">
-                                <span class="phrase-compare-badge wrong">❌ 搭配有误</span>
+                                <span class="phrase-compare-badge wrong">✕ 搭配有误</span>
                                 <span id="arena-penalty-tip" style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">冷却 3 秒后可修改槽位重试</span>
                             </div>
                             <button type="button" class="btn-reveal-ten-sec" id="btn-arena-reveal-10s" onclick="revealArenaPhraseAnswerWithPenalty()">
@@ -4521,7 +5424,6 @@
                     <div class="phrase-compare-row">
                         <span class="phrase-compare-badge correct">✓ 正确词组</span>
                         <span class="phrase-compare-text correct">${q.word}</span>
-                        ${q.phone ? `<span class="phrase-compare-phone">${q.phone}</span>` : ''}
                     </div>
                     <div style="font-size:0.8rem; color:var(--md-sys-color-error); text-align:center; margin-top:6px; font-weight:600;">
                         已查看答案，惩罚 10 秒，倒计时结束后进入下一题
@@ -4672,61 +5574,105 @@
             }
         }
 
-        /* 紧凑对决拔河能量环渲染 */
-        function renderSnakeRing() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = 48;
+        /* 通用双人能量环渲染器 (Canvas 盘龙环) */
+        function drawDualEnergyRing(cvs, p1Score, p2Score, winLead, isP1Host, centerText) {
+            if (!cvs) return;
+            const cCtx = cvs.getContext('2d');
+            if (!cCtx) return;
+            cCtx.clearRect(0, 0, cvs.width, cvs.height);
+            const cx = cvs.width / 2;
+            const cy = cvs.height / 2;
+            const radius = (cvs.width / 2) - 16;
             const strokeWidth = 11;
 
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = '#E1E2E8';
-            ctx.lineWidth = strokeWidth;
-            ctx.stroke();
+            cCtx.beginPath();
+            cCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+            cCtx.strokeStyle = '#E1E2E8';
+            cCtx.lineWidth = strokeWidth;
+            cCtx.stroke();
 
-            if (gameMode === 'single') {
-                ctx.fillStyle = '#191C20';
-                ctx.font = '700 16px "Roboto Mono", monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(`Lv.${p1State.score}`, cx, cy);
-                return;
-            }
-
-            const winLead = roomConfig.winLead || 6;
-            const diff = p1State.score - p2State.score;
-            const p1Units = Math.max(0, Math.min(winLead * 2, winLead + diff));
-            const p1Ratio = p1Units / (winLead * 2);
+            const lead = winLead || 6;
+            const diff = p1Score - p2Score;
+            const p1Units = Math.max(0, Math.min(lead * 2, lead + diff));
+            const p1Ratio = p1Units / (lead * 2);
 
             const startAngle = -Math.PI / 2;
             const p1EndAngle = startAngle + (Math.PI * 2 * p1Ratio);
 
             if (p1Ratio > 0) {
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, startAngle, p1EndAngle);
-                ctx.strokeStyle = isHost ? '#B3261E' : '#006874';
-                ctx.lineWidth = strokeWidth;
-                ctx.lineCap = 'round';
-                ctx.stroke();
+                cCtx.beginPath();
+                cCtx.arc(cx, cy, radius, startAngle, p1EndAngle);
+                cCtx.strokeStyle = isP1Host ? '#B3261E' : '#006874';
+                cCtx.lineWidth = strokeWidth;
+                cCtx.lineCap = 'round';
+                cCtx.stroke();
             }
 
             if (p1Ratio < 1) {
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, p1EndAngle, startAngle + (Math.PI * 2));
-                ctx.strokeStyle = isHost ? '#006874' : '#B3261E';
-                ctx.lineWidth = strokeWidth;
-                ctx.lineCap = 'round';
-                ctx.stroke();
+                cCtx.beginPath();
+                cCtx.arc(cx, cy, radius, p1EndAngle, startAngle + (Math.PI * 2));
+                cCtx.strokeStyle = isP1Host ? '#006874' : '#B3261E';
+                cCtx.lineWidth = strokeWidth;
+                cCtx.lineCap = 'round';
+                cCtx.stroke();
             }
 
-            ctx.fillStyle = '#191C20';
-            ctx.font = '700 16px "Roboto Mono", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            if (centerText) {
+                cCtx.fillStyle = '#191C20';
+                cCtx.font = '700 16px "Roboto Mono", monospace';
+                cCtx.textAlign = 'center';
+                cCtx.textBaseline = 'middle';
+                cCtx.fillText(centerText, cx, cy);
+            }
+        }
+
+        /* 联机对决仪表盘渲染（支持盘龙环与拔河横向条双模态） */
+        function renderSnakeRing() {
             let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
-            ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, cx, cy);
+            const timerStr = `${m}:${s.toString().padStart(2, '0')}`;
+
+            const cvs = document.getElementById('snakeCanvas');
+            if (cvs) {
+                if (gameMode === 'single') {
+                    const cCtx = cvs.getContext('2d');
+                    cCtx.clearRect(0, 0, cvs.width, cvs.height);
+                    cCtx.beginPath();
+                    cCtx.arc(cvs.width / 2, cvs.height / 2, 48, 0, Math.PI * 2);
+                    cCtx.strokeStyle = '#E1E2E8';
+                    cCtx.lineWidth = 11;
+                    cCtx.stroke();
+                    cCtx.fillStyle = '#191C20';
+                    cCtx.font = '700 16px "Roboto Mono", monospace';
+                    cCtx.textAlign = 'center';
+                    cCtx.textBaseline = 'middle';
+                    cCtx.fillText(`Lv.${p1State.score}`, cvs.width / 2, cvs.height / 2);
+                } else {
+                    drawDualEnergyRing(cvs, p1State.score, p2State.score, roomConfig.winLead || 6, isHost, timerStr);
+                }
+            }
+
+            updateArenaTugGauge(timerStr);
+        }
+
+        function updateArenaTugGauge(timerStr) {
+            const fillP1 = document.getElementById('arena-tug-p1');
+            const fillP2 = document.getElementById('arena-tug-p2');
+            const pin = document.getElementById('arena-tug-pin');
+            const timerEl = document.getElementById('arena-tug-timer');
+            const ruleSummary = document.getElementById('arena-tug-rule-summary');
+
+            const winLead = roomConfig.winLead || 6;
+            if (ruleSummary) ruleSummary.innerText = `领先 ${winLead} 题胜出`;
+            if (timerEl && timerStr) timerEl.innerText = timerStr;
+
+            const diff = p1State.score - p2State.score;
+            const ratio = 0.5 + (diff / (winLead * 2));
+            const p1Width = Math.max(5, Math.min(95, ratio * 100));
+            const p2Width = 100 - p1Width;
+
+            if (fillP1) fillP1.style.width = `${p1Width}%`;
+            if (fillP2) fillP2.style.width = `${p2Width}%`;
+            if (pin) pin.style.left = `calc(${p1Width}% - 2px)`;
         }
 
         function checkOnlineWinCondition() {
@@ -4949,7 +5895,22 @@
            8. WORD RIDDLES 单词解谜小游戏 (完全 Google MD3 风格)
            含：自定义词书、单词长度、尝试次数、双遍扫描算法、3D字母瓷砖矩阵与虚拟键盘
            ========================================================================== */
-        let riddleConfig = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{"bookId":"all","wordLength":5,"maxAttempts":6}');
+        let riddleConfig = {
+            bookId: "GaoKao3500",
+            wordLength: 5,
+            maxAttempts: 6,
+            letterCase: "upper"
+        };
+        try {
+            const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
+            if (saved && typeof saved === 'object') {
+                if (saved.bookId && saved.bookId !== 'all') riddleConfig.bookId = saved.bookId;
+                if (saved.wordLength !== undefined) riddleConfig.wordLength = saved.wordLength;
+                if (saved.maxAttempts) riddleConfig.maxAttempts = saved.maxAttempts;
+                if (saved.letterCase) riddleConfig.letterCase = saved.letterCase;
+            }
+        } catch (e) {}
+
         let riddleState = {
             targetWord: '',
             clueMeaning: '',
@@ -4963,6 +5924,45 @@
             isWon: false,
             letterStatus: {}
         };
+
+        function toggleRiddleCase() {
+            riddleConfig.letterCase = (riddleConfig.letterCase === 'upper') ? 'lower' : 'upper';
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            updateRiddleCaseUI();
+        }
+
+        function selectRiddleCase(letterCase) {
+            riddleConfig.letterCase = letterCase;
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            updateRiddleCaseUI();
+        }
+
+        // 统一根据设置转换字母大小写
+        function formatRiddleCase(str) {
+            if (!str || typeof str !== 'string') return str || '';
+            return riddleConfig.letterCase === 'lower' ? str.toLowerCase() : str.toUpperCase();
+        }
+
+
+        function updateRiddleCaseUI() {
+            document.querySelectorAll('#chips-riddle-case .md3-chip').forEach(c => {
+                const cCase = c.getAttribute('data-case');
+                c.classList.toggle('selected', cCase === riddleConfig.letterCase);
+            });
+            if (riddleState && riddleState.targetLength) {
+                renderRiddleBoard();       // 刷新瓷砖网格字母
+                renderRiddleKeyboard();    // 刷新虚拟键盘
+                if (riddleState.hintLevel > 0) {
+                    renderRiddleHintContent(); // 刷新提示卡片中的字母线索
+                }
+                if (riddleState.gameOver) {
+                    const wordEl = document.getElementById('riddle-result-word');
+                    if (wordEl) {
+                        wordEl.innerText = formatRiddleCase(riddleState.targetWord);
+                    }
+                }
+            }
+        }
 
         function openRiddleSettings() {
             const modal = document.getElementById('modal-riddle-settings');
@@ -4980,7 +5980,17 @@
         function renderRiddleBookChips() {
             const container = document.getElementById('chips-riddle-books');
             if (!container) return;
-            const books = [{ id: 'all', name: '全部词库' }, ...BookManager.availableBooks];
+            const seen = new Set();
+            const books = [];
+            books.push({ id: 'all', name: '全部词库' });
+            seen.add('all');
+            const allAvailable = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
+            allAvailable.forEach(b => {
+                if (b && b.id && !seen.has(b.id)) {
+                    seen.add(b.id);
+                    books.push(b);
+                }
+            });
             container.innerHTML = books.map(b => `
                 <div class="md3-chip ${riddleConfig.bookId === b.id ? 'selected' : ''}" 
                      data-id="${b.id}" 
@@ -4999,6 +6009,10 @@
                 const att = parseInt(c.getAttribute('data-att'));
                 c.classList.toggle('selected', att === riddleConfig.maxAttempts);
             });
+            document.querySelectorAll('#chips-riddle-case .md3-chip').forEach(c => {
+                const cCase = c.getAttribute('data-case');
+                c.classList.toggle('selected', cCase === riddleConfig.letterCase);
+            });
         }
 
         function selectRiddleBook(bookId) {
@@ -5014,6 +6028,14 @@
         function selectRiddleAttempts(att) {
             riddleConfig.maxAttempts = att;
             updateRiddleSettingsChips();
+        }
+
+        // 仅保存设置并关闭弹窗（不重置当前对局）
+        function saveRiddleSettingsOnly() {
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            updateRiddleCaseUI(); // 实时同步字母大小写设置
+            closeRiddleSettings();
+            showToast('设置已保存');
         }
 
         async function saveAndStartRiddle() {
@@ -5096,6 +6118,11 @@
             //     lenTip.innerText = `长度: ${riddleState.targetLength} 字母`;
             // }
 
+            const btnCaseText = document.getElementById('btn-riddle-case-text');
+            if (btnCaseText) {
+                btnCaseText.innerText = riddleConfig.letterCase === 'upper' ? 'Aa 大写' : 'aa 小写';
+            }
+
             renderRiddleBoard();
             renderRiddleKeyboard();
             switchView('view-riddle');
@@ -5123,14 +6150,16 @@
                     const att = riddleState.attempts[r];
                     for (let c = 0; c < riddleState.targetLength; c++) {
                         const letter = att.guess[c] || '';
+                        const displayLetter = (riddleConfig.letterCase === 'lower') ? letter.toLowerCase() : letter.toUpperCase();
                         const evalClass = att.evaluation[c] || '';
-                        html += `<div class="riddle-tile ${evalClass}">${letter}</div>`;
+                        html += `<div class="riddle-tile ${evalClass}">${displayLetter}</div>`;
                     }
                 } else if (r === riddleState.attempts.length && !riddleState.gameOver) {
                     for (let c = 0; c < riddleState.targetLength; c++) {
                         const letter = riddleState.currentInput[c] || '';
+                        const displayLetter = (riddleConfig.letterCase === 'lower') ? letter.toLowerCase() : letter.toUpperCase();
                         const isCurrentActive = (c === riddleState.currentInput.length);
-                        html += `<div class="riddle-tile ${isCurrentActive ? 'active' : ''}">${letter}</div>`;
+                        html += `<div class="riddle-tile ${isCurrentActive ? 'active' : ''}">${displayLetter}</div>`;
                     }
                 } else {
                     for (let c = 0; c < riddleState.targetLength; c++) {
@@ -5153,7 +6182,7 @@
                 const tile = tiles[c];
                 if (!tile) continue;
                 const char = riddleState.currentInput[c] || '';
-                tile.innerText = char;
+                tile.innerText = (riddleConfig.letterCase === 'lower') ? char.toLowerCase() : char.toUpperCase();
                 if (c === riddleState.currentInput.length && !riddleState.gameOver) {
                     tile.classList.add('active');
                 } else {
@@ -5185,6 +6214,7 @@
                         extraClass = 'wide';
                         label = '⌫';
                     } else {
+                        label = (riddleConfig.letterCase === 'lower') ? k.toLowerCase() : k.toUpperCase();
                         const status = riddleState.letterStatus[k];
                         if (status) extraClass = status;
                     }
@@ -5294,7 +6324,8 @@
                 for (let c = 0; c < len; c++) {
                     const tile = tiles[c];
                     if (tile) {
-                        tile.innerText = guess[c];
+                        // 【修改这里】：使用 formatRiddleCase 支持小写
+                        tile.innerText = formatRiddleCase(guess[c]);
                         tile.classList.remove('active');
                         tile.classList.add(evaluation[c]);
                         tile.classList.add('flip');
@@ -5322,7 +6353,6 @@
                 spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#146C2E');
 
                 renderRiddleResult(`🎉 恭喜猜中！用时 ${riddleState.attempts.length} 次尝试`, 'var(--md-sys-color-success)');
-                showToast(`🎉 恭喜获胜！用时 ${riddleState.attempts.length} 次猜中【${riddleState.targetWord}】`);
                 return;
             }
 
@@ -5343,10 +6373,50 @@
             }
         }
 
-        // 提示逻辑：第1次首字母，第2次第2个字母，第3次第3个字母，第4次给出中文释义
+        // 抽取独立函数：渲染提示卡片，支持大小写即时刷新
+        function renderRiddleHintContent() {
+            const hintContent = document.getElementById('riddle-hint-content');
+            if (!hintContent || !riddleState.hintLevel) return;
+
+            const target = riddleState.targetWord;
+            const len = riddleState.targetLength;
+            const revealedCount = Math.min(riddleState.hintLevel, 3);
+
+            const lettersArr = [];
+            for (let i = 0; i < len; i++) {
+                if (i < revealedCount) {
+                    lettersArr.push(formatRiddleCase(target[i])); // 【图片 3 修复】：字母线索应用大小写
+                } else {
+                    lettersArr.push('_');
+                }
+            }
+
+            if (riddleState.hintLevel < 4) {
+                hintContent.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span>前 ${revealedCount} 个字母是：</span>
+                        <span class="riddle-hint-letters">${lettersArr.join(' ')}</span>
+                    </div>
+                `;
+            } else {
+                hintContent.innerHTML = `
+                    <div style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">字母线索：</span>
+                        <span class="riddle-hint-letters" style="font-size:1.1rem;">${lettersArr.join(' ')}</span>
+                    </div>
+                    <div>
+                        <strong>中文释义：</strong>
+                        <span style="font-weight:600; color:var(--md-sys-color-primary);">${riddleState.clueMeaning}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // 提示点击处理
         function handleRiddleHint() {
             if (riddleState.gameOver) {
-                showToast(`游戏已结束，答案为【${riddleState.targetWord}】`);
+                // 【图片 2 修复】：Toast 中的答案应用大小写
+                showToast(`游戏已结束，答案为【${formatRiddleCase(riddleState.targetWord)}】`);
                 return;
             }
 
@@ -5355,7 +6425,6 @@
             const hintBox = document.getElementById('riddle-hint-box');
             const hintTitle = document.getElementById('riddle-hint-title');
             const hintStepTip = document.getElementById('riddle-hint-step-tip');
-            const hintContent = document.getElementById('riddle-hint-content');
             const hintCount = document.getElementById('riddle-hint-count');
 
             if (hintBox) hintBox.style.display = 'block';
@@ -5367,75 +6436,25 @@
                 if (hintTitle) hintTitle.innerText = '提示 (1/4)：首字母';
                 if (hintStepTip) hintStepTip.innerText = '下次提示解锁第 2 个字母';
                 if (hintCount) hintCount.innerText = '1/4';
-
-                const lettersArr = [target[0]];
-                for (let i = 1; i < len; i++) lettersArr.push('_');
-                if (hintContent) {
-                    hintContent.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span>第 1 个字母是：</span>
-                            <span class="riddle-hint-letters">${lettersArr.join(' ')}</span>
-                        </div>
-                    `;
-                }
-                showToast(`提示 1：首字母是【${target[0]}】`);
+                renderRiddleHintContent();
+                showToast(`提示 1：首字母是【${formatRiddleCase(target[0])}】`);
             } else if (riddleState.hintLevel === 2) {
                 if (hintTitle) hintTitle.innerText = '提示 (2/4)：前两个字母';
                 if (hintStepTip) hintStepTip.innerText = '下次提示解锁第 3 个字母';
                 if (hintCount) hintCount.innerText = '2/4';
-
-                const char2 = target.length > 1 ? target[1] : '';
-                const lettersArr = [target[0], char2];
-                for (let i = 2; i < len; i++) lettersArr.push('_');
-                if (hintContent) {
-                    hintContent.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span>前 2 个字母是：</span>
-                            <span class="riddle-hint-letters">${lettersArr.join(' ')}</span>
-                        </div>
-                    `;
-                }
-                showToast(`提示 2：第 2 个字母是【${char2}】`);
+                renderRiddleHintContent();
+                showToast(`提示 2：第 2 个字母是【${formatRiddleCase(target[1])}】`);
             } else if (riddleState.hintLevel === 3) {
                 if (hintTitle) hintTitle.innerText = '提示 (3/4)：前三个字母';
                 if (hintStepTip) hintStepTip.innerText = '下次提示解锁中文释义';
                 if (hintCount) hintCount.innerText = '3/4';
-
-                const char2 = target.length > 1 ? target[1] : '';
-                const char3 = target.length > 2 ? target[2] : '';
-                const lettersArr = [target[0], char2, char3];
-                for (let i = 3; i < len; i++) lettersArr.push('_');
-                if (hintContent) {
-                    hintContent.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span>前 3 个字母是：</span>
-                            <span class="riddle-hint-letters">${lettersArr.join(' ')}</span>
-                        </div>
-                    `;
-                }
-                showToast(`提示 3：第 3 个字母是【${char3}】`);
+                renderRiddleHintContent();
+                showToast(`提示 3：第 3 个字母是【${formatRiddleCase(target[2])}】`);
             } else if (riddleState.hintLevel === 4) {
                 if (hintTitle) hintTitle.innerText = '提示 (4/4)：中文释义';
                 if (hintStepTip) hintStepTip.innerText = '提示已全部解锁';
                 if (hintCount) hintCount.innerText = '4/4';
-
-                const char2 = target.length > 1 ? target[1] : '';
-                const char3 = target.length > 2 ? target[2] : '';
-                const lettersArr = [target[0], char2, char3];
-                for (let i = 3; i < len; i++) lettersArr.push('_');
-
-                if (hintContent) {
-                    hintContent.innerHTML = `
-                        <div style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">字母线索：</span>
-                            <span class="riddle-hint-letters" style="font-size:1.1rem;">${lettersArr.join(' ')}</span>
-                        </div>
-                        <div>
-                            <strong>中文释义：</strong>
-                            <span style="font-weight:600; color:var(--md-sys-color-primary);">${riddleState.clueMeaning}</span>
-                        </div>
-                    `;
-                }
+                renderRiddleHintContent();
                 showToast(`提示 4：已给出中文释义！`);
             } else {
                 showToast(`提示已全部解锁！释义：${riddleState.clueMeaning}`);
@@ -5455,7 +6474,7 @@
             }
 
             const wordEl = document.getElementById('riddle-result-word');
-            if (wordEl) wordEl.innerText = riddleState.targetWord;
+            if (wordEl) wordEl.innerText = (riddleConfig.letterCase === 'lower') ? riddleState.targetWord.toLowerCase() : riddleState.targetWord.toUpperCase();
 
             const phoneEl = document.getElementById('riddle-result-phone');
             if (phoneEl) phoneEl.innerText = riddleState.cluePhone || '';
@@ -5478,6 +6497,954 @@
             if (!riddleState.gameOver && riddleState.attempts.length > 0) {
                 if (!confirm('当前谜题尚未完成，确定退出吗？')) return;
             }
+            switchView('view-hub');
+        }
+
+        /* ==========================================================================
+           9. 希沃多触控同屏双人对决 (SEEWO MULTI-TOUCH LOCAL DUEL)
+           特性：
+           - 适配希沃交互智能平板/多触控屏幕，使用 pointerdown 独立跟踪双人触摸指尖
+           - 左右分屏独立作答，红蓝专区互不阻塞
+           - 3秒答错独立惩罚冻结：单方冻结倒计时完全不影响另一方
+           - 拔河模式（分差获胜）与限时倒计时抢分模式
+           - 零网络依赖，支持完全离线运行
+           ========================================================================== */
+        let localDuelConfig = {
+            bookId: 'GaoKao3500',
+            mode: 'lead', // 'lead' or 'timed'
+            leadThreshold: 6,
+            duration: 60,
+            gaugeStyle: 'tug' // 'tug' (拔河) or 'snake' (盘龙)
+        };
+
+        try {
+            const savedLocalConfig = localStorage.getItem('vocab_local_duel_config');
+            if (savedLocalConfig) {
+                Object.assign(localDuelConfig, JSON.parse(savedLocalConfig));
+            }
+        } catch (e) {}
+
+        let localDuelState = {
+            active: false,
+            pool: [],
+            mode: 'lead',
+            leadThreshold: 6,
+            duration: 60,
+            timeLeft: 60,
+            clockTimer: null,
+            p1: {
+                score: 0,
+                currentQ: null,
+                frozenUntil: 0,
+                freezeTimer: null,
+                freezeTick: null,
+                answered: false,
+                questionCount: 0
+            },
+            p2: {
+                score: 0,
+                currentQ: null,
+                frozenUntil: 0,
+                freezeTimer: null,
+                freezeTick: null,
+                answered: false,
+                questionCount: 0
+            }
+        };
+
+        let localPhraseState = {
+            p1: { targetWords: [], placed: [], chips: [], q: null, correctMeaning: '' },
+            p2: { targetWords: [], placed: [], chips: [], q: null, correctMeaning: '' }
+        };
+
+        function openLocalDuelSettings() {
+            const modal = document.getElementById('modal-local-duel-settings');
+            if (!modal) return;
+            renderLocalDuelBookChips();
+            updateLocalDuelSettingsChips();
+            modal.classList.add('active');
+        }
+
+        function closeLocalDuelSettings() {
+            const modal = document.getElementById('modal-local-duel-settings');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function renderLocalDuelBookChips() {
+            const container = document.getElementById('chips-local-duel-books');
+            if (!container) return;
+            const seen = new Set();
+            const books = [];
+            const allAvailable = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
+            allAvailable.forEach(b => {
+                if (b && b.id && !seen.has(b.id)) {
+                    seen.add(b.id);
+                    books.push(b);
+                }
+            });
+            if (!localDuelConfig.bookId || !books.some(b => b.id === localDuelConfig.bookId)) {
+                localDuelConfig.bookId = books[0] ? books[0].id : 'GaoKao3500';
+            }
+            container.innerHTML = books.map(b => `
+                <div class="md3-chip ${localDuelConfig.bookId === b.id ? 'selected' : ''}" 
+                     data-id="${b.id}" 
+                     onclick="selectLocalDuelBook('${b.id}')">
+                    ${b.name}
+                </div>
+            `).join('');
+        }
+
+        function updateLocalDuelSettingsChips() {
+            document.querySelectorAll('#chips-local-duel-rule .md3-chip').forEach(c => {
+                c.classList.toggle('selected', c.getAttribute('data-rule') === localDuelConfig.mode);
+            });
+            const groupLead = document.getElementById('group-local-duel-lead');
+            const groupTimed = document.getElementById('group-local-duel-timed');
+            if (groupLead) groupLead.style.display = (localDuelConfig.mode === 'lead') ? 'block' : 'none';
+            if (groupTimed) groupTimed.style.display = (localDuelConfig.mode === 'timed') ? 'block' : 'none';
+
+            document.querySelectorAll('#chips-local-duel-lead .md3-chip').forEach(c => {
+                c.classList.toggle('selected', parseInt(c.getAttribute('data-lead')) === localDuelConfig.leadThreshold);
+            });
+            document.querySelectorAll('#chips-local-duel-duration .md3-chip').forEach(c => {
+                c.classList.toggle('selected', parseInt(c.getAttribute('data-time')) === localDuelConfig.duration);
+            });
+            document.querySelectorAll('#chips-local-duel-gauge-style .md3-chip').forEach(c => {
+                c.classList.toggle('selected', c.getAttribute('data-gauge') === (localDuelConfig.gaugeStyle || 'tug'));
+            });
+        }
+
+        function selectLocalDuelBook(bookId) {
+            localDuelConfig.bookId = bookId;
+            renderLocalDuelBookChips();
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        }
+
+        function selectLocalDuelRule(rule) {
+            localDuelConfig.mode = rule;
+            updateLocalDuelSettingsChips();
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        }
+
+        function selectLocalDuelLead(lead) {
+            localDuelConfig.leadThreshold = lead;
+            updateLocalDuelSettingsChips();
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        }
+
+        function selectLocalDuelDuration(duration) {
+            localDuelConfig.duration = duration;
+            updateLocalDuelSettingsChips();
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        }
+
+        function selectLocalDuelGaugeStyle(style) {
+            localDuelConfig.gaugeStyle = style;
+            updateLocalDuelSettingsChips();
+            localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        }
+
+        async function startLocalDuelFromModal() {
+            closeLocalDuelSettings();
+            await startLocalDuel();
+        }
+
+        async function startLocalDuel() {
+            // 清理旧计时器
+            if (localDuelState.clockTimer) clearInterval(localDuelState.clockTimer);
+            if (localDuelState.p1 && localDuelState.p1.freezeTimer) clearTimeout(localDuelState.p1.freezeTimer);
+            if (localDuelState.p1 && localDuelState.p1.freezeTick) clearInterval(localDuelState.p1.freezeTick);
+            if (localDuelState.p2 && localDuelState.p2.freezeTimer) clearTimeout(localDuelState.p2.freezeTimer);
+            if (localDuelState.p2 && localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
+
+            let pool = [];
+            if (localDuelConfig.bookId) {
+                pool = await BookManager.loadBookData(localDuelConfig.bookId);
+            }
+            if (!pool || pool.length < 4) {
+                pool = BookManager.fallbackBooks[0].words;
+            }
+
+            localDuelState = {
+                active: true,
+                pool: pool,
+                mode: localDuelConfig.mode || 'lead',
+                leadThreshold: localDuelConfig.leadThreshold || 6,
+                duration: localDuelConfig.duration || 60,
+                timeLeft: localDuelConfig.duration || 60,
+                clockTimer: null,
+                p1: { score: 0, round: 0, currentQ: null, frozenUntil: 0, freezeTimer: null, freezeTick: null, answered: false },
+                p2: { score: 0, round: 0, currentQ: null, frozenUntil: 0, freezeTimer: null, freezeTick: null, answered: false }
+            };
+
+            localPhraseState = {
+                p1: { targetWords: [], placed: [], chips: [], q: null, correctMeaning: '' },
+                p2: { targetWords: [], placed: [], chips: [], q: null, correctMeaning: '' }
+            };
+
+            // 隐藏惩罚浮层
+            const f1 = document.getElementById('local-freeze-p1');
+            if (f1) f1.style.display = 'none';
+            const f2 = document.getElementById('local-freeze-p2');
+            if (f2) f2.style.display = 'none';
+
+            // 切换顶部仪表盘样式（拔河 vs 盘龙）
+            const gaugeStyle = localDuelConfig.gaugeStyle || 'tug';
+            const tugEl = document.getElementById('local-duel-gauge-tug');
+            const snakeEl = document.getElementById('local-duel-gauge-snake');
+            if (gaugeStyle === 'snake') {
+                if (tugEl) tugEl.style.display = 'none';
+                if (snakeEl) snakeEl.style.display = 'flex';
+            } else {
+                if (tugEl) tugEl.style.display = 'flex';
+                if (snakeEl) snakeEl.style.display = 'none';
+            }
+
+            // 生成双方初始题目
+            generateLocalDuelQuestion('p1');
+            generateLocalDuelQuestion('p2');
+
+            // 更新仪表盘
+            updateLocalDuelGauge();
+
+            if (localDuelState.mode === 'timed') {
+                localDuelState.clockTimer = setInterval(() => {
+                    if (!localDuelState.active) return;
+                    localDuelState.timeLeft--;
+                    updateLocalDuelGauge();
+                    if (localDuelState.timeLeft <= 0) {
+                        clearInterval(localDuelState.clockTimer);
+                        let winner = 'draw';
+                        if (localDuelState.p1.score > localDuelState.p2.score) winner = 'p1';
+                        else if (localDuelState.p2.score > localDuelState.p1.score) winner = 'p2';
+                        endLocalDuel(winner, '时间到！比赛结束');
+                    }
+                }, 1000);
+            }
+
+            switchView('view-local-duel');
+        }
+
+        function generateLocalDuelQuestion(player) {
+            const pState = localDuelState[player];
+            if (!pState) return;
+
+            const pool = localDuelState.pool;
+            if (!pool || pool.length === 0) return;
+
+            pState.round = (pState.round || 0) + 1;
+
+            const targetIdx = Math.floor(Math.random() * pool.length);
+            const targetWord = pool[targetIdx];
+
+            // 判定是否是词组 (包含空格)
+            const isPhrase = targetWord.word && targetWord.word.trim().includes(' ');
+
+            if (isPhrase) {
+                const targetWords = extractPhraseTargetWords(targetWord.word);
+                const chips = (targetWord.phraseChips && targetWord.phraseChips.length > 0)
+                    ? targetWord.phraseChips
+                    : generatePhraseDistractors(targetWords, pool);
+
+                const meaning = targetWord.meanings
+                    ? targetWord.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；')
+                    : (targetWord.meaning || '');
+
+                pState.currentQ = {
+                    isPhrase: true,
+                    word: targetWord.word,
+                    meaning: meaning,
+                    targetWords: targetWords,
+                    chips: chips
+                };
+                pState.answered = false;
+
+                localPhraseState[player] = {
+                    targetWords: targetWords,
+                    placed: new Array(targetWords.length).fill(null),
+                    chips: chips,
+                    q: pState.currentQ,
+                    correctMeaning: meaning
+                };
+            } else {
+                // 抽取 3 个混淆项
+                const distractors = [];
+                const used = new Set([targetIdx]);
+                let attempts = 0;
+                while (distractors.length < 3 && attempts < 50) {
+                    attempts++;
+                    const r = Math.floor(Math.random() * pool.length);
+                    if (!used.has(r)) {
+                        used.add(r);
+                        distractors.push(pool[r]);
+                    }
+                }
+
+                const options = [targetWord, ...distractors].sort(() => Math.random() - 0.5);
+                const correctIdx = options.findIndex(o => o.word === targetWord.word);
+
+                pState.currentQ = {
+                    isPhrase: false,
+                    word: targetWord.word,
+                    phone: targetWord.phone || '',
+                    meaning: targetWord.meanings ? targetWord.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；') : (targetWord.meaning || ''),
+                    options: options.map(o => ({
+                        word: o.word,
+                        meaning: o.meanings ? o.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；') : (o.meaning || '')
+                    })),
+                    correctIdx: correctIdx
+                };
+                pState.answered = false;
+            }
+
+            renderLocalDuelSide(player);
+        }
+
+        function renderLocalDuelSide(player) {
+            const pState = localDuelState[player];
+            if (!pState || !pState.currentQ) return;
+
+            const q = pState.currentQ;
+            const wordEl = document.getElementById(`local-word-${player}`);
+            const phoneEl = document.getElementById(`local-phone-${player}`);
+            const scoreEl = document.getElementById(`local-score-${player}`);
+            const roundEl = document.getElementById(`local-round-${player}`);
+            const bookEl = document.getElementById(`local-book-badge-${player}`);
+            const optContainer = document.getElementById(`local-options-${player}`);
+
+            if (roundEl) roundEl.innerText = `第 ${pState.round || 1} 题`;
+            if (bookEl) {
+                let bName = '对决词库';
+                if (localDuelConfig.bookId && window.BookManager && BookManager.books) {
+                    const b = BookManager.books.find(x => x.id === localDuelConfig.bookId);
+                    if (b) bName = b.name;
+                }
+                bookEl.innerText = bName;
+            }
+            if (scoreEl) scoreEl.innerText = pState.score;
+
+            if (q.isPhrase) {
+                // 词组拼装界面：对齐联机对战
+                if (wordEl) {
+                    wordEl.style.display = 'flex';
+                    wordEl.innerText = q.meaning || '请拼出对应英文词组';
+                }
+                if (phoneEl) {
+                    phoneEl.innerText = '';
+                    phoneEl.style.display = 'none';
+                }
+
+                const phrState = localPhraseState[player];
+                if (!optContainer || !phrState) return;
+
+                optContainer.className = 'options-grid';
+                optContainer.innerHTML = `
+                    <div class="phrase-container" style="margin:0 0 10px;">
+                        <div class="phrase-slots-row" id="local-phrase-slots-${player}">
+                            ${phrState.targetWords.map((_, i) => `
+                                <div class="phrase-slot empty" 
+                                     id="local-slot-${player}-${i}" 
+                                     onpointerdown="handleLocalPhraseSlotPointerDown(event, '${player}', ${i})"></div>
+                            `).join('')}
+                        </div>
+                        <div id="local-phrase-compare-${player}" class="phrase-comparison-card" style="display: none;"></div>
+                        <div class="phrase-bank-card">
+                            <div class="phrase-bank-header">
+                                <span>备选词框：</span>
+                                <button type="button" class="btn-clear-phrase" id="btn-clear-local-phrase-${player}" onpointerdown="clearLocalPhraseSlots(event, '${player}')">
+                                    清空已选
+                                </button>
+                            </div>
+                            <div class="phrase-chips-grid" id="local-phrase-bank-${player}">
+                                ${phrState.chips.map(c => `
+                                    <button type="button" class="phrase-word-chip" id="local-chip-${player}-${c.id}" onpointerdown="handleLocalPhraseChipPointerDown(event, '${player}', '${c.id}')">
+                                        ${c.text}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 单个单词普通题目：对齐联机对战
+                if (wordEl) {
+                    wordEl.style.display = 'flex';
+                    wordEl.innerText = q.word;
+                }
+                if (phoneEl) {
+                    phoneEl.innerText = q.phone || '';
+                    phoneEl.style.display = q.phone ? 'block' : 'none';
+                }
+
+                if (optContainer) {
+                    optContainer.className = 'options-grid';
+                    optContainer.innerHTML = q.options.map((opt, idx) => `
+                        <button class="option-btn" 
+                                id="local-opt-${player}-${idx}" 
+                                data-idx="${idx}" 
+                                onpointerdown="handleLocalPointerDown(event, '${player}', ${idx})">
+                            <span>${opt.meaning || opt.word}</span>
+                        </button>
+                    `).join('');
+                }
+            }
+        }
+
+        function clearLocalPhraseSlots(e, player) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const pState = localDuelState[player];
+            const phrState = localPhraseState[player];
+            if (!pState || !phrState || pState.answered) return;
+            if (Date.now() < pState.frozenUntil) return;
+
+            phrState.placed.forEach((chipId, idx) => {
+                if (chipId) {
+                    const slotEl = document.getElementById(`local-slot-${player}-${idx}`);
+                    if (slotEl) {
+                        slotEl.classList.remove('filled', 'correct', 'wrong');
+                        slotEl.classList.add('empty');
+                        slotEl.innerText = '';
+                    }
+                    const chipEl = document.getElementById(`local-chip-${player}-${chipId}`);
+                    if (chipEl) {
+                        chipEl.classList.remove('used');
+                        chipEl.disabled = false;
+                    }
+                }
+            });
+            phrState.placed = new Array(phrState.targetWords.length).fill(null);
+            const comp = document.getElementById(`local-phrase-compare-${player}`);
+            if (comp) comp.style.display = 'none';
+        }
+
+        function handleLocalPhraseChipPointerDown(e, player, chipId) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const pState = localDuelState[player];
+            const phrState = localPhraseState[player];
+            if (!pState || !phrState || pState.answered) return;
+            if (Date.now() < pState.frozenUntil) return;
+
+            const emptyIdx = phrState.placed.findIndex(p => p === null);
+            if (emptyIdx === -1) return;
+
+            const chip = phrState.chips.find(c => c.id === chipId);
+            if (!chip) return;
+
+            phrState.placed[emptyIdx] = chipId;
+
+            const slotEl = document.getElementById(`local-slot-${player}-${emptyIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('empty', 'correct', 'wrong');
+                slotEl.classList.add('filled');
+                slotEl.innerText = chip.text;
+            }
+
+            const chipEl = document.getElementById(`local-chip-${player}-${chipId}`);
+            if (chipEl) chipEl.classList.add('used');
+
+            const comp = document.getElementById(`local-phrase-compare-${player}`);
+            if (comp) comp.style.display = 'none';
+
+            if (!phrState.placed.includes(null)) {
+                checkLocalPhraseAnswer(player);
+            }
+        }
+
+        function handleLocalPhraseSlotPointerDown(e, player, slotIdx) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const pState = localDuelState[player];
+            const phrState = localPhraseState[player];
+            if (!pState || !phrState || pState.answered) return;
+            if (Date.now() < pState.frozenUntil) return;
+
+            const chipId = phrState.placed[slotIdx];
+            if (!chipId) return;
+
+            phrState.placed[slotIdx] = null;
+
+            const slotEl = document.getElementById(`local-slot-${player}-${slotIdx}`);
+            if (slotEl) {
+                slotEl.classList.remove('filled', 'correct', 'wrong');
+                slotEl.classList.add('empty');
+                slotEl.innerText = '';
+            }
+
+            const chipEl = document.getElementById(`local-chip-${player}-${chipId}`);
+            if (chipEl) chipEl.classList.remove('used');
+
+            const comp = document.getElementById(`local-phrase-compare-${player}`);
+            if (comp) comp.style.display = 'none';
+        }
+
+        function checkLocalPhraseAnswer(player) {
+            const pState = localDuelState[player];
+            const phrState = localPhraseState[player];
+            if (!pState || !phrState || pState.answered) return;
+            if (Date.now() < pState.frozenUntil) return;
+
+            const placedWords = phrState.placed.map(cid => {
+                const c = phrState.chips.find(item => item.id === cid);
+                return c ? c.text.toLowerCase() : '';
+            });
+            const targetWordsLower = phrState.targetWords.map(w => w.toLowerCase());
+            const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+
+            if (isRight) {
+                pState.answered = true;
+                pState.score++;
+
+                phrState.placed.forEach((_, i) => {
+                    const slotEl = document.getElementById(`local-slot-${player}-${i}`);
+                    if (slotEl) {
+                        slotEl.classList.remove('wrong');
+                        slotEl.classList.add('correct');
+                    }
+                });
+
+                const comp = document.getElementById(`local-phrase-compare-${player}`);
+                if (comp) comp.style.display = 'none';
+                const clearBtn = document.getElementById(`btn-clear-local-phrase-${player}`);
+                if (clearBtn) clearBtn.disabled = true;
+
+                const scoreEl = document.getElementById(`local-score-${player}`);
+                if (scoreEl) scoreEl.innerText = pState.score;
+
+                spawnParticles(
+                    player === 'p1' ? window.innerWidth * 0.25 : window.innerWidth * 0.75,
+                    window.innerHeight * 0.5,
+                    player === 'p1' ? '#B3261E' : '#006874'
+                );
+
+                updateLocalDuelGauge();
+                if (checkLocalDuelWinCondition()) return;
+
+                setTimeout(() => {
+                    if (!localDuelState.active) return;
+                    generateLocalDuelQuestion(player);
+                }, 300);
+            } else {
+                // 槽位区分标记正确与错误点
+                phrState.targetWords.forEach((tw, i) => {
+                    const slotEl = document.getElementById(`local-slot-${player}-${i}`);
+                    const chipId = phrState.placed[i];
+                    const chip = chipId ? phrState.chips.find(c => c.id === chipId) : null;
+                    const userWord = chip ? chip.text : '';
+                    const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+                    if (slotEl) {
+                        if (isSlotRight) {
+                            slotEl.classList.remove('wrong');
+                            slotEl.classList.add('correct');
+                        } else {
+                            slotEl.classList.remove('correct');
+                            slotEl.classList.add('wrong');
+                        }
+                    }
+                });
+
+                // 展示错误比对卡片与倒计时提示，包含看答案换题
+                const comp = document.getElementById(`local-phrase-compare-${player}`);
+                if (comp) {
+                    comp.className = 'phrase-comparison-card wrong-state';
+                    comp.style.display = 'block';
+                    comp.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <div class="phrase-compare-row">
+                                <span class="phrase-compare-badge wrong">✕ 搭配有误</span>
+                                <span id="local-penalty-tip-${player}" style="font-size:0.85rem; color:var(--md-sys-color-error); font-weight:600;">冷却 <strong id="local-phrase-cooldown-${player}">3</strong> 秒后可重试</span>
+                            </div>
+                            <button type="button" class="btn-reveal-ten-sec" id="btn-local-reveal-${player}" onpointerdown="handleLocalRevealPhrase(event, '${player}')">
+                                看答案，惩罚10秒
+                            </button>
+                        </div>
+                    `;
+                }
+
+                const clearBtn = document.getElementById(`btn-clear-local-phrase-${player}`);
+                if (clearBtn) clearBtn.disabled = true;
+
+                triggerLocalPhrasePenalty(player);
+            }
+        }
+
+        function triggerLocalPhrasePenalty(player) {
+            const pState = localDuelState[player];
+            if (!pState) return;
+
+            pState.frozenUntil = Date.now() + 3000;
+            let sec = 3;
+
+            if (pState.freezeTimer) clearTimeout(pState.freezeTimer);
+            if (pState.freezeTick) clearInterval(pState.freezeTick);
+
+            pState.freezeTick = setInterval(() => {
+                sec--;
+                const tipNum = document.getElementById(`local-phrase-cooldown-${player}`);
+                if (tipNum) tipNum.innerText = Math.max(0, sec);
+                if (sec <= 0) {
+                    clearInterval(pState.freezeTick);
+                }
+            }, 1000);
+
+            pState.freezeTimer = setTimeout(() => {
+                pState.frozenUntil = 0;
+                const tipEl = document.getElementById(`local-penalty-tip-${player}`);
+                if (tipEl) {
+                    tipEl.innerText = '可点击槽位撤回并重新选择';
+                    tipEl.style.color = 'var(--md-sys-color-primary)';
+                }
+                const clearBtn = document.getElementById(`btn-clear-local-phrase-${player}`);
+                if (clearBtn) clearBtn.disabled = false;
+            }, 3000);
+        }
+
+        function handleLocalRevealPhrase(e, player) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const pState = localDuelState[player];
+            const phrState = localPhraseState[player];
+            if (!pState || !phrState) return;
+
+            // 清理之前的计时器
+            if (pState.freezeTimer) clearTimeout(pState.freezeTimer);
+            if (pState.freezeTick) clearInterval(pState.freezeTick);
+
+            // 1. 将正确答案填充入槽位，供学生记忆
+            phrState.targetWords.forEach((tw, i) => {
+                const slotEl = document.getElementById(`local-slot-${player}-${i}`);
+                if (slotEl) {
+                    slotEl.classList.remove('empty', 'wrong');
+                    slotEl.classList.add('filled', 'correct');
+                    slotEl.innerText = tw;
+                }
+            });
+
+            // 2. 禁用备选词框和清空按钮，防止重复点击
+            const clearBtn = document.getElementById(`btn-clear-local-phrase-${player}`);
+            if (clearBtn) clearBtn.disabled = true;
+            phrState.chips.forEach(c => {
+                const chipEl = document.getElementById(`local-chip-${player}-${c.id}`);
+                if (chipEl) {
+                    chipEl.classList.add('used');
+                    chipEl.disabled = true;
+                }
+            });
+
+            // 3. 比较卡片更新为正确答案并提示 10 秒惩罚
+            const comp = document.getElementById(`local-phrase-compare-${player}`);
+            if (comp) {
+                comp.className = 'phrase-comparison-card';
+                comp.style.display = 'block';
+                comp.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                        <div class="phrase-compare-row">
+                            <span class="phrase-compare-badge correct">✓ 正确词组</span>
+                            <span class="phrase-compare-text correct" style="font-size:1.1rem;">${phrState.targetWords.join(' ')}</span>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--md-sys-color-error); font-weight:700;">
+                            已看答案，惩罚冻结 <strong id="local-reveal-cd-${player}">10</strong> 秒后换题
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 4. 设置该玩家独立冻结 10 秒（完全不影响另一侧玩家答题）
+            pState.frozenUntil = Date.now() + 10000;
+            pState.answered = true;
+
+            // 唤起该侧独立的半透明冻结遮罩
+            const overlay = document.getElementById(`local-freeze-${player}`);
+            const numEl = document.getElementById(`local-freeze-num-${player}`);
+            const barInner = document.getElementById(`local-freeze-bar-${player}`);
+            const freezeTitle = overlay ? overlay.querySelector('.local-freeze-title') : null;
+
+            if (freezeTitle) freezeTitle.innerText = "查看答案惩罚";
+            if (overlay) overlay.style.display = 'flex';
+            if (numEl) numEl.innerText = '10';
+            if (barInner) barInner.style.width = '100%';
+
+            const startTime = Date.now();
+            pState.freezeTick = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remainMs = Math.max(0, 10000 - elapsed);
+                const remainSec = Math.ceil(remainMs / 1000);
+
+                if (numEl) numEl.innerText = remainSec;
+                const inlineCd = document.getElementById(`local-reveal-cd-${player}`);
+                if (inlineCd) inlineCd.innerText = remainSec;
+                if (barInner) barInner.style.width = `${(remainMs / 10000) * 100}%`;
+
+                if (remainMs <= 0) {
+                    clearInterval(pState.freezeTick);
+                }
+            }, 100);
+
+            pState.freezeTimer = setTimeout(() => {
+                if (overlay) {
+                    overlay.style.display = 'none';
+                    if (freezeTitle) freezeTitle.innerText = "答错惩罚";
+                }
+                pState.frozenUntil = 0;
+                pState.answered = false;
+
+                // 10秒惩罚结束后，自动为该方换题
+                if (localDuelState.active) {
+                    generateLocalDuelQuestion(player);
+                }
+            }, 10000);
+        }
+
+        function handleLocalPointerDown(e, player, optIdx) {
+            if (e) {
+                // 彻底阻止手势缩放或双击延时
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            handleLocalDuelAnswer(player, optIdx);
+        }
+
+        function handleLocalDuelAnswer(player, optIdx) {
+            if (!localDuelState.active) return;
+            const pState = localDuelState[player];
+            if (!pState || !pState.currentQ) return;
+
+            // 检查该玩家是否处于惩罚冻结中
+            if (Date.now() < pState.frozenUntil) return;
+            if (pState.answered) return;
+
+            const q = pState.currentQ;
+            const optContainer = document.getElementById(`local-options-${player}`);
+            const card = optContainer ? optContainer.querySelector(`[data-idx="${optIdx}"]`) : null;
+
+            if (optIdx === q.correctIdx) {
+                // 回答正确！
+                pState.answered = true;
+                pState.score++;
+                if (card) card.classList.add('correct');
+                const scoreEl = document.getElementById(`local-score-${player}`);
+                if (scoreEl) scoreEl.innerText = pState.score;
+
+                spawnParticles(
+                    player === 'p1' ? window.innerWidth * 0.25 : window.innerWidth * 0.75,
+                    window.innerHeight * 0.5,
+                    player === 'p1' ? '#B3261E' : '#006874'
+                );
+
+                updateLocalDuelGauge();
+                if (checkLocalDuelWinCondition()) return;
+
+                // 极速切换下一题 (180ms，手感清脆)
+                setTimeout(() => {
+                    if (!localDuelState.active) return;
+                    generateLocalDuelQuestion(player);
+                }, 180);
+            } else {
+                // 答错惩罚 3 秒！仅冻结该方，完全不影响对手！
+                if (card) card.classList.add('wrong');
+                triggerLocalPenalty(player);
+            }
+        }
+
+        function triggerLocalPenalty(player) {
+            const pState = localDuelState[player];
+            if (!pState) return;
+
+            pState.frozenUntil = Date.now() + 3000;
+            const overlay = document.getElementById(`local-freeze-${player}`);
+            const numEl = document.getElementById(`local-freeze-num-${player}`);
+            const barInner = document.getElementById(`local-freeze-bar-${player}`);
+
+            if (overlay) overlay.style.display = 'flex';
+            if (numEl) numEl.innerText = '3';
+            if (barInner) barInner.style.width = '100%';
+
+            if (pState.freezeTimer) clearTimeout(pState.freezeTimer);
+            if (pState.freezeTick) clearInterval(pState.freezeTick);
+
+            const startTime = Date.now();
+            pState.freezeTick = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remainMs = Math.max(0, 3000 - elapsed);
+                const remainSec = Math.ceil(remainMs / 1000);
+                if (numEl) numEl.innerText = remainSec;
+                if (barInner) barInner.style.width = `${(remainMs / 3000) * 100}%`;
+                if (remainMs <= 0) {
+                    clearInterval(pState.freezeTick);
+                }
+            }, 50);
+
+            pState.freezeTimer = setTimeout(() => {
+                if (overlay) overlay.style.display = 'none';
+                pState.frozenUntil = 0;
+                // 惩罚结束后换一题继续
+                if (localDuelState.active) {
+                    generateLocalDuelQuestion(player);
+                }
+            }, 3000);
+        }
+
+        function updateLocalDuelGauge() {
+            const p1Score = localDuelState.p1.score;
+            const p2Score = localDuelState.p2.score;
+
+            const p1Label = document.getElementById('local-duel-p1-lead-label');
+            const p2Label = document.getElementById('local-duel-p2-lead-label');
+            const ruleBadge = document.getElementById('local-duel-rule-badge');
+            const statusSub = document.getElementById('local-duel-status-sub');
+            const tugP1 = document.getElementById('local-tug-p1');
+            const tugP2 = document.getElementById('local-tug-p2');
+            const tugPin = document.getElementById('local-tug-pin');
+
+            if (p1Label) p1Label.innerText = `🔴 红方 ${p1Score}`;
+            if (p2Label) p2Label.innerText = `蓝方 ${p2Score} 🔵`;
+
+            if (localDuelState.mode === 'timed') {
+                if (ruleBadge) ruleBadge.innerText = `剩余时间: ${localDuelState.timeLeft}s`;
+            } else {
+                if (ruleBadge) ruleBadge.innerText = `领先 ${localDuelState.leadThreshold} 题胜出`;
+            }
+
+            // 拔河滑块动态比例
+            let ratio = 50;
+            if (localDuelState.mode === 'lead') {
+                const diff = p1Score - p2Score;
+                const maxDiff = localDuelState.leadThreshold;
+                ratio = 50 + (diff / maxDiff) * 50;
+                ratio = Math.max(0, Math.min(100, ratio));
+
+                if (statusSub) {
+                    if (diff > 0) statusSub.innerText = `红方领先 ${diff} 题！(还需 ${maxDiff - diff} 题胜出)`;
+                    else if (diff < 0) statusSub.innerText = `蓝方领先 ${Math.abs(diff)} 题！(还需 ${maxDiff - Math.abs(diff)} 题胜出)`;
+                    else statusSub.innerText = '双方平分秋色，胜负未分！';
+                }
+            } else {
+                const total = p1Score + p2Score;
+                ratio = total > 0 ? (p1Score / total) * 100 : 50;
+                if (statusSub) {
+                    const diff = p1Score - p2Score;
+                    if (diff > 0) statusSub.innerText = `红方领先 ${diff} 分`;
+                    else if (diff < 0) statusSub.innerText = `蓝方领先 ${Math.abs(diff)} 分`;
+                    else statusSub.innerText = '比分持平';
+                }
+            }
+
+            if (tugP1) tugP1.style.width = `${ratio}%`;
+            if (tugP2) tugP2.style.width = `${100 - ratio}%`;
+            if (tugPin) tugPin.style.left = `calc(${ratio}% - 2px)`;
+
+            // 盘龙 Canvas 渲染
+            const cvs = document.getElementById('localSnakeCanvas');
+            if (cvs) {
+                let centerText = '';
+                if (localDuelState.mode === 'timed') {
+                    let m = Math.floor(localDuelState.timeLeft / 60), s = localDuelState.timeLeft % 60;
+                    centerText = `${m}:${s.toString().padStart(2, '0')}`;
+                } else {
+                    const diff = p1Score - p2Score;
+                    if (diff > 0) centerText = `+${diff}🔴`;
+                    else if (diff < 0) centerText = `🔵+${Math.abs(diff)}`;
+                    else centerText = `平`;
+                }
+                drawDualEnergyRing(cvs, p1Score, p2Score, localDuelState.leadThreshold || 6, true, centerText);
+            }
+            const snakeRule = document.getElementById('local-snake-rule-summary');
+            if (snakeRule) {
+                if (localDuelState.mode === 'timed') {
+                    snakeRule.innerText = `剩余时间: ${localDuelState.timeLeft}s`;
+                } else {
+                    snakeRule.innerText = `领先 ${localDuelState.leadThreshold} 题胜出`;
+                }
+            }
+        }
+
+        function checkLocalDuelWinCondition() {
+            if (!localDuelState.active) return false;
+            if (localDuelState.mode === 'lead') {
+                const diff = localDuelState.p1.score - localDuelState.p2.score;
+                if (diff >= localDuelState.leadThreshold) {
+                    endLocalDuel('p1', `🎉 红方领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+                    return true;
+                } else if (-diff >= localDuelState.leadThreshold) {
+                    endLocalDuel('p2', `🎉 蓝方领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function endLocalDuel(winner, detailText) {
+            localDuelState.active = false;
+            if (localDuelState.clockTimer) clearInterval(localDuelState.clockTimer);
+            if (localDuelState.p1.freezeTimer) clearTimeout(localDuelState.p1.freezeTimer);
+            if (localDuelState.p1.freezeTick) clearInterval(localDuelState.p1.freezeTick);
+            if (localDuelState.p2.freezeTimer) clearTimeout(localDuelState.p2.freezeTimer);
+            if (localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
+
+            let title = '对决结束';
+            let icon = '🏆';
+            if (winner === 'p1') {
+                title = '🔴 红方玩家获胜！';
+                spawnParticles(window.innerWidth * 0.25, window.innerHeight * 0.5, '#B3261E');
+            } else if (winner === 'p2') {
+                title = '🔵 蓝方玩家获胜！';
+                spawnParticles(window.innerWidth * 0.75, window.innerHeight * 0.5, '#006874');
+            } else {
+                title = '🤝 握手言和，双方平局！';
+                icon = '⚖️';
+            }
+
+            const p1Final = localDuelState.p1.score;
+            const p2Final = localDuelState.p2.score;
+
+            document.getElementById('result-icon').innerText = icon;
+            document.getElementById('result-message').innerText = title;
+            document.getElementById('result-details').innerHTML = `
+                <p style="font-size:1.15rem; font-weight:700; margin:10px 0;">${detailText || ''}</p>
+                <div style="display:flex; justify-content:center; gap:24px; font-size:1.25rem; font-weight:800; margin:16px 0;">
+                    <span style="color:var(--p1-sys-color);">🔴 红方: ${p1Final} 题</span>
+                    <span style="color:var(--md-sys-color-outline);">VS</span>
+                    <span style="color:var(--p2-sys-color);">🔵 蓝方: ${p2Final} 题</span>
+                </div>
+            `;
+
+            const btnBack = document.getElementById('btn-back-room');
+            if (btnBack) {
+                btnBack.innerHTML = `
+                    <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
+                    <span class="btn-label-text">再战一局</span>
+                `;
+                btnBack.onclick = () => { startLocalDuel(); };
+            }
+
+            switchView('view-result');
+        }
+
+        function restartLocalDuel() {
+            if (confirm('确认重新开始本局对决吗？比分将清零。')) {
+                startLocalDuel();
+            }
+        }
+
+        function confirmExitLocalDuel() {
+            if (localDuelState.active && (localDuelState.p1.score > 0 || localDuelState.p2.score > 0)) {
+                if (!confirm('对决正在进行中，确认退出返回大厅吗？')) return;
+            }
+            localDuelState.active = false;
+            if (localDuelState.clockTimer) clearInterval(localDuelState.clockTimer);
+            if (localDuelState.p1.freezeTimer) clearTimeout(localDuelState.p1.freezeTimer);
+            if (localDuelState.p1.freezeTick) clearInterval(localDuelState.p1.freezeTick);
+            if (localDuelState.p2.freezeTimer) clearTimeout(localDuelState.p2.freezeTimer);
+            if (localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
             switchView('view-hub');
         }
 
