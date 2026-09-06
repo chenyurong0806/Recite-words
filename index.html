@@ -5,6 +5,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>背单词</title>
+
+    <!-- PWA & Web App 配置 -->
+    <link rel="icon" type="image/png" href="/icon-web.png">
+    <link rel="apple-touch-icon" href="/icon-apple.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="背单词">
+    <meta name="theme-color" content="#f2f5f1" media="(prefers-color-scheme: light)">
+
+    <!-- Web Manifest 配置 -->
+    <link rel="manifest"
+        href='data:application/manifest+json,{"name":"背单词","short_name":"背单词","start_url":"/","display":"standalone","background_color":"%23f2f5f1","theme_color":"%23006a60","icons":[{"src":"/icon-web.png","sizes":"512x512","type":"image/png"}]}'>
+
+
+
     <!-- Google Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2804,9 +2820,9 @@
            1. SUPABASE CLIENT & CORE VOCABULARY DATABASE
            ========================================================================== */
         const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
-        const SUPABASE_KEY = 'sb._publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
+        const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
 
-        const sb.Client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: {
                 persistSession: false,
                 autoRefreshToken: false
@@ -4779,7 +4795,7 @@
             btnJoin.disabled = true;
             btnJoin.innerText = '正在验证房间...';
 
-            const testChannel = sb.Client.channel(`duel_${codeInput}`, {
+            const testChannel = sbClient.channel(`duel_${codeInput}`, {
                 config: { presence: { key: currentUser } }
             });
 
@@ -4860,7 +4876,7 @@
         function connectSupabaseChannel(code) {
             if (realtimeChannel) realtimeChannel.unsubscribe();
 
-            realtimeChannel = sb.Client.channel(`duel_${code}`, {
+            realtimeChannel = sbClient.channel(`duel_${code}`, {
                 config: { presence: { key: currentUser } }
             });
 
@@ -6141,8 +6157,8 @@
             const hintBox = document.getElementById('riddle-hint-box');
             if (hintBox) hintBox.style.display = 'none';
 
-            const resb.ox = document.getElementById('riddle-result-box');
-            if (resb.ox) resb.ox.style.display = 'none';
+            const resbox = document.getElementById('riddle-result-box');
+            if (resbox) resbox.style.display = 'none';
 
             const hintCount = document.getElementById('riddle-hint-count');
             if (hintCount) hintCount.innerText = '0/4';
@@ -6497,9 +6513,9 @@
 
         // 结算/揭晓展示面板渲染
         function renderRiddleResult(title, titleColor) {
-            const resb.ox = document.getElementById('riddle-result-box');
-            if (!resb.ox) return;
-            resb.ox.style.display = 'block';
+            const resbox = document.getElementById('riddle-result-box');
+            if (!resbox) return;
+            resbox.style.display = 'block';
 
             const titleEl = document.getElementById('riddle-result-title');
             if (titleEl) {
