@@ -5913,6 +5913,9 @@
             singleState.answered = false;
             singleState.selectedIdx = -1;
 
+            // ✅ 将判断词组的声明提前到最前列
+            const isPhrase = !!(q.word && q.word.trim().includes(' '));
+
             // 自动朗读发音 (单人设置启用且当前在线时触发)
             if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word && !isPhrase) {
                 playWordAudio(q.word);
@@ -5921,7 +5924,7 @@
             const audioBtn = document.getElementById('btn-single-audio');
             if (audioBtn) audioBtn.style.display = isPhrase ? 'none' : 'inline-flex';
 
-            // 词书小标签 (严格对齐设计图左上角标签，如“测试2”)
+            // 词书小标签
             const badge = document.getElementById('single-book-badge');
             if (badge) badge.innerText = q.bookName || (singleState.sessionName || '单人专练');
 
@@ -5938,7 +5941,7 @@
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
 
-            // 底部按钮初态显示为“跳过” (点击揭晓答案，再次点击进入下一题)
+            // 底部按钮初态
             const nextBtn = document.getElementById('single-next-btn');
             if (nextBtn) {
                 nextBtn.style.display = 'flex';
@@ -5946,7 +5949,6 @@
                 nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">skip_next</span><span class="btn-label-text">跳过</span>';
             }
 
-            const isPhrase = q.word && q.word.trim().includes(' ');
             if (isPhrase) {
                 renderSinglePhraseQuestion(q);
                 return;
