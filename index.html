@@ -87,6 +87,9 @@
 
             --md-motion-standard: 0.22s cubic-bezier(0.2, 0, 0, 1);
             --md-motion-expressive: 0.32s cubic-bezier(0.3, 0, 0, 1);
+
+            --container-max-width: 960px;
+            --app-zoom: 1;
         }
 
         * {
@@ -108,12 +111,14 @@
             min-height: 100vh;
             padding: 12px 16px 36px;
             overflow-x: hidden;
+            transition: padding var(--md-motion-standard);
         }
 
         .container {
             width: 100%;
-            max-width: 960px;
+            max-width: var(--container-max-width, 960px);
             position: relative;
+            transform-origin: top center;
         }
 
         .view {
@@ -2564,10 +2569,483 @@
             .riddle-tile.compact-8 { width: 34px; height: 34px; font-size: 1.05rem; }
             .riddle-tile.compact-9 { width: 30px; height: 30px; font-size: 0.95rem; }
         }
+
+        /* ==========================================================================
+           Google MD3 导航系统 (Navigation Rail & Bottom Navigation Bar)
+           ========================================================================== */
+        .md3-nav-rail {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 84px;
+            background: var(--md-sys-color-surface-container);
+            border-right: 1px solid var(--md-sys-color-outline-variant);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 0 16px;
+            z-index: 900;
+            box-shadow: var(--md-elevation-1);
+            transition: transform var(--md-motion-standard);
+        }
+        .md3-nav-rail-logo {
+            width: 46px;
+            height: 46px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            cursor: pointer;
+            box-shadow: var(--md-elevation-1);
+        }
+        .md3-nav-rail-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            align-items: center;
+        }
+        .md3-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            width: 100%;
+            padding: 4px 0;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: inherit;
+        }
+        .md3-nav-pill {
+            width: 56px;
+            height: 32px;
+            border-radius: var(--md-shape-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--md-sys-color-on-surface-variant);
+            transition: all var(--md-motion-standard);
+        }
+        .md3-nav-item:hover .md3-nav-pill {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+        }
+        .md3-nav-item.active .md3-nav-pill {
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+        .md3-nav-label {
+            font-size: 0.74rem;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface-variant);
+            transition: color var(--md-motion-standard);
+        }
+        .md3-nav-item.active .md3-nav-label {
+            color: var(--md-sys-color-on-surface);
+            font-weight: 700;
+        }
+
+        /* 移动端底部导航栏 */
+        .md3-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: var(--md-sys-color-surface-container);
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+            z-index: 900;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: var(--md-elevation-2);
+            padding: 0 16px;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .md3-bottom-nav .md3-nav-item {
+            flex: 1;
+            max-width: 120px;
+        }
+
+        /* 导航栏响应式与可视控制 */
+        @media (min-width: 768px) {
+            body.has-nav {
+                padding-left: 96px;
+            }
+            .md3-bottom-nav {
+                display: none !important;
+            }
+        }
+        @media (max-width: 767px) {
+            .md3-nav-rail {
+                display: none !important;
+            }
+            body.has-nav {
+                padding-bottom: 80px;
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+            body.has-nav .md3-bottom-nav {
+                display: flex;
+            }
+        }
+        body.nav-hidden .md3-nav-rail,
+        body.nav-hidden .md3-bottom-nav {
+            display: none !important;
+        }
+        body.nav-hidden {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            padding-bottom: 24px !important;
+        }
+
+        /* ==========================================================================
+           Google MD3 设置中心 & 子页面样式 (无弹窗架构)
+           ========================================================================== */
+        .settings-subview {
+            display: none;
+        }
+        .settings-subview.active {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .settings-section-title {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: var(--md-sys-color-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 18px 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--md-sys-color-surface-container-high);
+            gap: 14px;
+        }
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+        .settings-row.clickable {
+            cursor: pointer;
+            transition: background var(--md-motion-standard);
+        }
+        .settings-row.clickable:hover {
+            background: var(--md-sys-color-surface-container-low);
+        }
+        .settings-row-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .settings-icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-surface-container);
+            color: var(--md-sys-color-on-surface-variant);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .settings-row-text h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .settings-row-text p {
+            font-size: 0.8rem;
+            color: var(--md-sys-color-outline);
+            margin: 0;
+            line-height: 1.35;
+        }
+        .quick-user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: var(--md-shape-full);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            background: var(--md-sys-color-surface-container-low);
+            cursor: pointer;
+            font-size: 0.86rem;
+            font-weight: 500;
+            transition: all var(--md-motion-standard);
+        }
+        .quick-user-pill:hover {
+            background: var(--md-sys-color-surface-container-high);
+        }
+        .quick-user-pill.active {
+            border-color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            font-weight: 700;
+        }
+
+        /* 顶部子页面导航头条 */
+        .subview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        /* ==========================================================================
+           右上角版本更新浮动提示卡片 (Update Notification)
+           ========================================================================== */
+        .version-update-card {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 1200;
+            background: var(--md-sys-color-surface-container-lowest);
+            border: 1.5px solid var(--md-sys-color-primary);
+            box-shadow: var(--md-elevation-3);
+            border-radius: var(--md-shape-l);
+            padding: 16px;
+            max-width: 380px;
+            width: calc(100vw - 36px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: slideInDown 0.3s ease-out;
+        }
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ==========================================================================
+           默写模式屏幕虚拟键盘 (Dictation Virtual Keyboard)
+           ========================================================================== */
+        .dictation-keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            max-width: 560px;
+            margin: 14px auto 0;
+            padding: 10px;
+            background: var(--md-sys-color-surface-container);
+            border-radius: var(--md-shape-l);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+        }
+        .dictation-key-row {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+        .dictation-key {
+            flex: 1;
+            height: 44px;
+            min-width: 26px;
+            border-radius: var(--md-shape-s);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--md-motion-standard);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .dictation-key:active {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            transform: scale(0.94);
+        }
+        .dictation-key.wide {
+            flex: 1.5;
+            font-size: 0.88rem;
+            background: var(--md-sys-color-surface-container-high);
+        }
+        .dictation-key.action-enter {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            border-color: var(--md-sys-color-primary);
+        }
+
+        /* ==========================================================================
+           首页在线用户与联机大厅在线房间卡片
+           ========================================================================== */
+        .online-players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .online-player-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-full);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            transition: all var(--md-motion-standard);
+        }
+        .online-player-card:hover {
+            border-color: var(--md-sys-color-primary);
+            box-shadow: var(--md-elevation-1);
+        }
+        .online-player-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .online-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #146C2E;
+            box-shadow: 0 0 0 2px #C8E6C9;
+            flex-shrink: 0;
+        }
+        .online-rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .online-room-card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-l);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: var(--md-elevation-1);
+            transition: all var(--md-motion-standard);
+        }
+        .online-room-card:hover {
+            border-color: var(--md-sys-color-primary);
+            box-shadow: var(--md-elevation-2);
+        }
     </style>
 </head>
 
 <body>
+    <!-- Google MD3 左侧导航栏 (桌面端) -->
+    <nav id="app-nav-rail" class="md3-nav-rail" style="display: none;">
+        <div class="md3-nav-rail-logo" onclick="handleNavClick('home')" title="背单词">
+            <span class="material-symbols-rounded filled" style="font-size:26px;">menu_book</span>
+        </div>
+        <div class="md3-nav-rail-menu">
+            <button type="button" class="md3-nav-item active" id="nav-rail-home" onclick="handleNavClick('home')">
+                <div class="md3-nav-pill">
+                    <span class="material-symbols-rounded">home</span>
+                </div>
+                <span class="md3-nav-label">首页</span>
+            </button>
+            <button type="button" class="md3-nav-item" id="nav-rail-settings" onclick="handleNavClick('settings')">
+                <div class="md3-nav-pill">
+                    <span class="material-symbols-rounded">settings</span>
+                </div>
+                <span class="md3-nav-label">设置</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Google MD3 底部导航栏 (手机端) -->
+    <nav id="app-bottom-nav" class="md3-bottom-nav" style="display: none;">
+        <button type="button" class="md3-nav-item active" id="bottom-nav-home" onclick="handleNavClick('home')">
+            <div class="md3-nav-pill">
+                <span class="material-symbols-rounded">home</span>
+            </div>
+            <span class="md3-nav-label">首页</span>
+        </button>
+        <button type="button" class="md3-nav-item" id="bottom-nav-settings" onclick="handleNavClick('settings')">
+            <div class="md3-nav-pill">
+                <span class="material-symbols-rounded">settings</span>
+            </div>
+            <span class="md3-nav-label">设置</span>
+        </button>
+    </nav>
+
+    <!-- 右上角版本更新浮动提示卡片 -->
+    <div id="version-update-card" class="version-update-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 24px;">system_update</span>
+                <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 700; margin:0;" id="version-card-title">发现新版本</h4>
+                    <span style="font-size: 0.74rem; color: var(--md-sys-color-outline);" id="version-card-date">云端最新</span>
+                </div>
+            </div>
+            <button class="modal-close-btn" onclick="dismissVersionUpdateCard()" style="width: 28px; height: 28px; border:none; background:transparent; cursor:pointer;">
+                <span class="material-symbols-rounded" style="font-size: 18px;">close</span>
+            </button>
+        </div>
+        <div id="version-card-log" style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); max-height: 120px; overflow-y: auto; line-height: 1.45; padding: 4px 0;">
+            <!-- 动态填入更新日志 -->
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+            <button type="button" class="btn btn-outlined btn-sm" onclick="openChangelogInSettings()">
+                <span class="btn-label-text">查看日志</span>
+            </button>
+            <button type="button" class="btn btn-filled btn-sm" id="btn-version-action" onclick="handleVersionUpdateAction()">
+                <span class="btn-label-text" id="btn-version-action-text">下载最新HTML</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 实时对战邀请弹窗 (MD3 规范) -->
+    <div id="modal-match-invite" class="modal-overlay">
+        <div class="modal-card" style="max-width: 420px; text-align: center;">
+            <div style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                <span class="material-symbols-rounded" style="font-size: 32px;">sports_esports</span>
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 700;" id="match-invite-title">对决挑战</h3>
+            <p style="margin: 8px 0 20px; font-size: 0.92rem; color: var(--md-sys-color-on-surface-variant);" id="match-invite-msg">
+                玩家邀请你进行对局
+            </p>
+            <div class="modal-footer" style="padding: 0; justify-content: center; gap: 12px;">
+                <button class="btn btn-outlined btn-touch-large" style="flex: 1;" onclick="declineMatchInvite()">
+                    <span class="btn-label-text">婉言拒绝</span>
+                </button>
+                <button class="btn btn-filled btn-touch-large" style="flex: 1; background: var(--md-sys-color-primary);" onclick="acceptMatchInvite()">
+                    <span class="btn-label-text">接受挑战</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
 
         <!-- VIEW 1: 玩家账号中心 (MD3 风格) -->
@@ -2747,6 +3225,27 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 实时在线玩家卡片 (MD3 规范，支持即时邀请对局) -->
+            <div class="card" style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-rounded filled" style="color: var(--md-sys-color-primary); font-size: 24px;">group</span>
+                        <h3 style="margin: 0; font-size: 1.15rem;">在线玩家</h3>
+                        <span class="badge" id="online-users-count-badge" style="background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-size: 0.76rem;">0 人在线</span>
+                    </div>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="refreshOnlineUsersPresence()">
+                        <span class="material-symbols-rounded" style="font-size: 16px;">refresh</span>
+                        <span class="btn-label-text">刷新</span>
+                    </button>
+                </div>
+                <p style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">实时在线的其他用户，点击发起挑战对方同意后自动创建专属房间</p>
+                <div id="online-users-list" class="online-players-grid">
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 18px; color: var(--md-sys-color-outline); font-size: 0.85rem;">
+                        暂无其他在线玩家
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
@@ -2756,30 +3255,76 @@
                 <button class="btn btn-tonal" onclick="leaveOnlineLobby()">返回主页</button>
             </div>
 
-            <div class="card" style="max-width: 580px; margin: 0 auto;">
+            <div class="card" style="max-width: 680px; margin: 0 auto;">
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
-                    <div>
-                        <h3>创建房间</h3>
-                        <p style="margin: 6px 0 14px;">获取 6 位房间号邀请好友加入。</p>
-                        <button class="btn btn-filled btn-touch-large" style="margin: 6px 0 14px; width:100%;" onclick="createOnlineRoom()">立即创建新房间</button>
+                    <!-- 创建房间配置 (支持设置房间名与人数限制，保存与删除) -->
+                    <div class="card-filled" style="padding: 18px; border-radius: var(--md-shape-l);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <h3 style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">add_circle</span>
+                                创建联机房间
+                            </h3>
+                            <span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-size:0.75rem;">房主权限</span>
+                        </div>
+                        <p style="font-size:0.83rem; color:var(--md-sys-color-outline); margin-bottom:12px;">创建专属对决房间，自动保存至房间列表，支持在线玩家直接加入或删除自建房间。</p>
+
+                        <div style="display:flex; flex-direction:column; gap:12px;">
+                            <div>
+                                <label style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:5px;">房间名称</label>
+                                <input type="text" id="create-room-name-input" class="input-field" placeholder="请输入房间名称 (如：高考冲刺对决)" maxlength="18" style="height:42px; border-radius:var(--md-shape-full);">
+                            </div>
+                            <div>
+                                <label style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:5px;">人数限制</label>
+                                <div class="chip-group" id="chips-room-capacity">
+                                    <div class="md3-chip selected" data-cap="2">2 人对决 (当前游戏模式支持)</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-filled btn-touch-large" style="width:100%; margin-top:4px;" onclick="handleCreateCustomRoom()">
+                                <span class="material-symbols-rounded">meeting_room</span>
+                                <span class="btn-label-text">创建并保存房间</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div style="border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 20px;">
-                        <h3>加入已有房间</h3>
-                        <p style="margin: 6px 0 14px;"></p>
-                        <div style="display: flex; gap: 10px;margin: 6px 0 14px;">
-                            <input type="text" id="join-room-code" class="input-field" placeholder="输入 6 位房间码..." maxlength="6" style="text-transform: uppercase;">
-                            <button class="btn btn-tonal btn-touch-large" id="btn-join-room" onclick="joinOnlineRoom()">加入房间</button>
+                    <!-- 在线房间列表 (列出有人在线的房间，显示房间名称、用户名、加入按钮) -->
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <h3 style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">list_alt</span>
+                                在线房间列表
+                            </h3>
+                            <button type="button" class="btn btn-outlined btn-sm" onclick="fetchOnlineRoomsList()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
+                                <span class="btn-label-text">刷新列表</span>
+                            </button>
+                        </div>
+                        <p style="font-size:0.83rem; color:var(--md-sys-color-outline); margin-bottom:10px;">实时列出当前有玩家在线的房间，可直接加入</p>
+                        <div id="online-rooms-container" class="online-rooms-grid">
+                            <div style="grid-column: 1 / -1; text-align:center; padding:24px; color:var(--md-sys-color-outline); font-size:0.85rem;">
+                                正在获取在线房间...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 16px;">
+                        <h4 style="font-size:0.92rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px;">通过 6 位房间码精准加入</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="join-room-code" class="input-field" placeholder="输入 6 位房间码..." maxlength="6" style="text-transform: uppercase; height:42px; border-radius:var(--md-shape-full);">
+                            <button class="btn btn-tonal btn-sm" id="btn-join-room" style="height:42px; border-radius:var(--md-shape-full); padding:0 20px;" onclick="joinOnlineRoom()">加入房间</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- 房间内等待与规则选择区 -->
                 <div id="online-in-room" style="display: none;">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <span class="badge badge-online" style="font-size: 0.85rem; padding: 4px 14px;">房间已就绪</span>
+                    <div style="text-align: center; margin-bottom: 18px;">
+                        <h3 id="room-custom-title" style="font-size: 1.25rem; font-weight: 700; color: var(--md-sys-color-primary); margin-bottom: 4px;">对决房间</h3>
+                        <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
+                            <span class="badge badge-online" style="font-size: 0.8rem; padding: 3px 12px;">房间已就绪</span>
+                            <span class="badge" id="room-capacity-badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">双人对决 (上限 2 人)</span>
+                        </div>
                         <div style="font-size: 2.3rem; font-weight: 700; letter-spacing: 4px; margin: 8px 0; color: var(--md-sys-color-primary); cursor: pointer;" id="display-room-code" title="点击复制">------</div>
-                        <p style="font-size: 0.85rem;">点击房间号复制到剪贴板</p>
+                        <p style="font-size: 0.82rem; color:var(--md-sys-color-outline);">点击房间号复制到剪贴板</p>
                     </div>
 
                     <div class="card-filled" style="border-radius: var(--md-shape-l); padding: 14px; margin-bottom: 16px;">
@@ -2885,7 +3430,11 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-outlined btn-danger" id="btn-delete-room" style="display:none; flex:1;" onclick="handleHostDeleteRoom()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">delete_forever</span>
+                            <span class="btn-label-text">删除房间</span>
+                        </button>
                         <button class="btn btn-danger" style="flex:1;" onclick="leaveOnlineLobby(true)">
                             <span class="material-symbols-rounded" style="font-size:18px;">logout</span>
                             <span class="btn-label-text">退出房间</span>
@@ -3299,6 +3848,9 @@
                         <!-- 动态渲染 -->
                     </div>
 
+                    <!-- 虚拟键盘挂载容器 (MD3 规范，可在设置中开启/关闭) -->
+                    <div id="dictation-keyboard-container"></div>
+
                     <!-- 正确答案比对/提示卡片 (默认隐藏) -->
                     <div id="dictation-feedback-card" style="display:none; padding:12px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="font-size:0.85rem; color:var(--md-sys-color-outline);" id="dictation-feedback-title">正确答案：</div>
@@ -3323,6 +3875,267 @@
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 10: MD3 系统设置与子页面架构 (原生无弹窗词书管理、更新日志、尺寸缩放、快速切号) -->
+        <div id="view-settings" class="view">
+            <!-- 子页面 1: 主设置页 -->
+            <div id="settings-subview-main" class="settings-subview active">
+                <div class="app-bar">
+                    <div>
+                        <h2>设置</h2>
+                        <p style="font-size:0.85rem; color:var(--md-sys-color-outline);">自定义显示尺寸、词书管理、快速切号与版本维护</p>
+                    </div>
+                    <button class="btn btn-outlined btn-sm" onclick="switchNav('home')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">home</span>
+                        <span class="btn-label-text">返回首页</span>
+                    </button>
+                </div>
+
+                <!-- 1. 账号中心与快速切号 -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">manage_accounts</span>
+                    <span>账号管理</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary);">
+                                <span class="material-symbols-rounded">person</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 id="settings-current-user-name">当前登录：玩家</h4>
+                                <p id="settings-current-user-stat">作答词数：0 词</p>
+                            </div>
+                        </div>
+                        <button class="btn btn-outlined btn-sm" onclick="handleLogout()">
+                            <span class="material-symbols-rounded" style="font-size:16px;">logout</span>
+                            <span class="btn-label-text">退出登录</span>
+                        </button>
+                    </div>
+                    <div style="padding:14px 20px; background:var(--md-sys-color-surface-container-low); border-top:1px solid var(--md-sys-color-surface-container-high);">
+                        <div style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px;">快速切换账号：</div>
+                        <div id="settings-quick-users-list" style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <!-- 动态渲染账号 Pills -->
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
+                            <input type="text" id="settings-new-user-input" class="input-field" placeholder="创建并切换新账号..." maxlength="12" style="flex:1; height:38px; border-radius:var(--md-shape-full); font-size:0.85rem;" onkeydown="if(event.key==='Enter') createAndSwitchAccount()">
+                            <button type="button" class="btn btn-filled btn-sm" style="height:38px; min-height:38px; border-radius:var(--md-shape-full); padding:0 16px;" onclick="createAndSwitchAccount()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">add</span>
+                                <span class="btn-label-text">新建</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 显示与界面尺寸调整 (页面最大宽度与缩放比例) -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">aspect_ratio</span>
+                    <span>显示与界面尺寸</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="flex-direction:column; align-items:flex-start;">
+                        <div class="settings-row-left" style="width:100%; justify-content:space-between;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="settings-icon-box">
+                                    <span class="material-symbols-rounded">fit_screen</span>
+                                </div>
+                                <div class="settings-row-text">
+                                    <h4>页面最大宽度</h4>
+                                    <p>在大屏或宽屏显示器下保持舒适阅读宽度</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chip-group" id="chips-page-width" style="margin-top:10px; width:100%;">
+                            <div class="md3-chip" data-width="720px" onclick="setPageMaxWidth('720px')">紧凑 (720px)</div>
+                            <div class="md3-chip selected" data-width="960px" onclick="setPageMaxWidth('960px')">标准 (960px)</div>
+                            <div class="md3-chip" data-width="1200px" onclick="setPageMaxWidth('1200px')">宽屏 (1200px)</div>
+                            <div class="md3-chip" data-width="100%" onclick="setPageMaxWidth('100%')">全宽 (100%)</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-row" style="flex-direction:column; align-items:flex-start;">
+                        <div class="settings-row-left" style="width:100%; justify-content:space-between;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="settings-icon-box">
+                                    <span class="material-symbols-rounded">zoom_in</span>
+                                </div>
+                                <div class="settings-row-text">
+                                    <h4>界面缩放比例</h4>
+                                    <p>调整页面全局字体与元素缩放，适配远距离或移动端显示</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chip-group" id="chips-app-zoom" style="margin-top:10px; width:100%;">
+                            <div class="md3-chip" data-zoom="0.9" onclick="setAppZoom('0.9')">90%</div>
+                            <div class="md3-chip selected" data-zoom="1" onclick="setAppZoom('1')">100% (默认)</div>
+                            <div class="md3-chip" data-zoom="1.1" onclick="setAppZoom('1.1')">110%</div>
+                            <div class="md3-chip" data-zoom="1.2" onclick="setAppZoom('1.2')">120%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 学习与练习交互设置 (包含默写键盘开关) -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">keyboard</span>
+                    <span>默写模式交互</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">keyboard</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>默写模式虚拟键盘</h4>
+                                <p>在看义写词与听音写词时显示屏幕 QWERTY 虚拟键盘，可随时开关</p>
+                            </div>
+                        </div>
+                        <div class="chip-group" id="chips-settings-dictation-kb" style="margin:0;">
+                            <div class="md3-chip selected" data-kb="true" onclick="setDictationKeyboardToggle(true)">开启</div>
+                            <div class="md3-chip" data-kb="false" onclick="setDictationKeyboardToggle(false)">关闭</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 词书管理入口 (点击直接进入设置子页面，非弹窗) -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">library_books</span>
+                    <span>词书与分类</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row clickable" onclick="switchSettingsSubview('books')">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
+                                <span class="material-symbols-rounded">folder_managed</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>管理词书与分类文件夹</h4>
+                                <p id="settings-books-summary-text">创建分类文件夹、导入本地词书、查看词书单词列表与云端同步</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                </div>
+
+                <!-- 5. 版本与更新日志 -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">info</span>
+                    <span>关于与更新日志</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">verified</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>当前应用版本</h4>
+                                <p id="settings-version-label">v2.5.0 (Material Design 3)</p>
+                            </div>
+                        </div>
+                        <button class="btn btn-tonal btn-sm" onclick="checkCloudVersion(true)">
+                            <span class="material-symbols-rounded" style="font-size:16px;">cloud_sync</span>
+                            <span class="btn-label-text">检查更新</span>
+                        </button>
+                    </div>
+                    <div class="settings-row clickable" onclick="switchSettingsSubview('changelog')">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">history</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>查看完整更新日志</h4>
+                                <p>查阅所有历史版本迭代、新特性与修复详情</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 子页面 2: 本地词书与文件夹管理子页面 (原生页面无弹窗) -->
+            <div id="settings-subview-books" class="settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('main')">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                            <span class="btn-label-text">返回设置</span>
+                        </button>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书与分类管理</h3>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:14px; padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-filled btn-sm" onclick="promptCreateFolder()">
+                                <span class="material-symbols-rounded" style="font-size:18px;">create_new_folder</span>
+                                <span class="btn-label-text">新建文件夹</span>
+                            </button>
+                            <button class="btn btn-outlined btn-sm" onclick="document.getElementById('settings-custom-book-input').click()">
+                                <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
+                                <span class="btn-label-text">导入词书</span>
+                            </button>
+                            <input type="file" id="settings-custom-book-input" accept=".json" style="display:none;" onchange="loadCustomBook(event)">
+                        </div>
+                        <button class="btn btn-tonal btn-sm" onclick="syncLocalBooksWithCloud(true)">
+                            <span class="material-symbols-rounded" style="font-size:18px;">cloud_sync</span>
+                            <span class="btn-label-text">云端同步</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="settings-manage-books-list" style="display:flex; flex-direction:column; gap:12px;">
+                    <!-- 动态渲染文件夹与词书 -->
+                </div>
+            </div>
+
+            <!-- 子页面 3: 词书内容查看子页面 (原生页面无弹窗) -->
+            <div id="settings-subview-words" class="settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('books')">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                            <span class="btn-label-text">返回词书</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;" id="settings-view-book-title">词书内容</h3>
+                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-view-book-count">共 0 词</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                    <input type="text" id="settings-view-book-search" class="input-field" placeholder="搜索单词或释义..." style="height:42px; border-radius:var(--md-shape-full);" oninput="filterSettingsBookWordsDisplay()">
+                </div>
+
+                <div class="card" style="max-height:600px; overflow-y:auto; padding:14px;">
+                    <div id="settings-view-book-words-container" style="display:flex; flex-direction:column; gap:8px;">
+                        <!-- 动态渲染单词列表 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 子页面 4: 详细更新日志子页面 -->
+            <div id="settings-subview-changelog" class="settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('main')">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                            <span class="btn-label-text">返回设置</span>
+                        </button>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">系统更新日志</h3>
+                    </div>
+                    <button type="button" class="btn btn-filled btn-sm" id="btn-changelog-action" onclick="handleVersionUpdateAction()">
+                        <span class="btn-label-text" id="btn-changelog-action-text">下载最新HTML</span>
+                    </button>
+                </div>
+
+                <div id="settings-changelog-container" style="display:flex; flex-direction:column; gap:14px;">
+                    <!-- 动态渲染更新日志时间线卡片 -->
                 </div>
             </div>
         </div>
@@ -4456,6 +5269,19 @@
         }
 
         function switchView(viewId) {
+            const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle'];
+            if (hideNavViews.includes(viewId) || !currentUser) {
+                document.body.classList.remove('has-nav');
+                document.body.classList.add('nav-hidden');
+            } else {
+                document.body.classList.add('has-nav');
+                document.body.classList.remove('nav-hidden');
+            }
+
+            if (typeof updateNavActive === 'function') {
+                updateNavActive(viewId === 'view-settings' ? 'settings' : 'home');
+            }
+
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             setTimeout(() => {
                 const target = document.getElementById(viewId);
@@ -4464,10 +5290,24 @@
 
             if (viewId === 'view-hub') {
                 updateHub();
+                if (currentUser && typeof initGlobalPresence === 'function') {
+                    initGlobalPresence();
+                    checkCloudVersion();
+                }
             } else if (viewId === 'view-auth') {
                 renderAuthUsersList(); // 确保回到登录页时刷新账号卡片列表
+            } else if (viewId === 'view-settings') {
+                if (typeof switchSettingsSubview === 'function') {
+                    switchSettingsSubview('main');
+                }
+            } else if (viewId === 'view-online') {
+                if (typeof fetchOnlineRoomsList === 'function') {
+                    fetchOnlineRoomsList();
+                    initGlobalPresence();
+                }
             }
         }
+
 
         let isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
 
@@ -4706,6 +5546,9 @@
             `;
 
             container.innerHTML = html;
+            if (typeof renderManageLocalBooksInSettings === 'function') {
+                renderManageLocalBooksInSettings();
+            }
         }
 
         function renderManageBookRow(b) {
@@ -5896,6 +6739,7 @@
             return chips;
         }
 
+        let singlePhraseTimer = null;
         let singlePhraseState = {
             targetWords: [],
             placed: [],
@@ -5904,6 +6748,10 @@
         };
 
         function renderSingleQuestion() {
+            if (singlePhraseTimer) {
+                clearTimeout(singlePhraseTimer);
+                singlePhraseTimer = null;
+            }
             if (singleState.currentIdx >= singleState.pool.length) {
                 endSingleGame();
                 return;
@@ -5991,7 +6839,6 @@
             const singleAudioBtn = document.getElementById('btn-single-audio');
             if (singleAudioBtn) singleAudioBtn.style.display = 'none';
 
-
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
             if (wordEl) wordEl.style.display = 'none';
@@ -6003,12 +6850,12 @@
             const optionsContainer = document.getElementById('single-options');
             if (!optionsContainer) return;
 
-            const correctMeaning = q.options[q.correctIdx]?.meaning || '';
+            const correctMeaning = q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : '');
 
             optionsContainer.innerHTML = `
                 <div class="phrase-container">
                     <div class="phrase-trans-card">
-                        <div class="phrase-trans-title">${correctMeaning}</div>
+                        <div class="phrase-trans-title">${escapeHtml(correctMeaning)}</div>
                     </div>
                     <div class="phrase-slots-row" id="single-phrase-slots">
                         ${targetWords.map((_, i) => `<div class="phrase-slot empty" id="single-slot-${i}" onclick="handleSinglePhraseSlotClick(${i})"></div>`).join('')}
@@ -6024,7 +6871,7 @@
                         <div class="phrase-chips-grid" id="single-phrase-bank">
                             ${singlePhraseState.chips.map(c => `
                                 <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')">
-                                    ${c.text}
+                                    ${escapeHtml(c.text)}
                                 </button>
                             `).join('')}
                         </div>
@@ -6035,6 +6882,10 @@
 
         function clearSinglePhraseSlots() {
             if (singleState.answered) return;
+            if (singlePhraseTimer) {
+                clearTimeout(singlePhraseTimer);
+                singlePhraseTimer = null;
+            }
             singlePhraseState.placed.forEach((chipId, idx) => {
                 if (chipId) {
                     const slotEl = document.getElementById(`single-slot-${idx}`);
@@ -6121,10 +6972,11 @@
                 singleState.score++;
 
                 // 答对：在中文释义右侧加入发音按钮并播放
+                const correctMeaning = q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : '');
                 const transTitle = document.querySelector('.phrase-trans-title');
                 if (transTitle) {
-                    transTitle.innerHTML = `${correctMeaning} 
-                        <button type="button" class="btn-audio-speak" onclick="playWordAudio('${escapeHtml(q.word)}')" title="朗读词组">
+                    transTitle.innerHTML = `${escapeHtml(correctMeaning)} 
+                        <button type="button" class="btn-audio-speak" onclick="playCurrentSingleWordAudio()" title="朗读词组">
                             <span class="material-symbols-rounded" style="font-size:20px;">volume_up</span>
                         </button>`;
                 }
@@ -6140,7 +6992,10 @@
 
                 singlePhraseState.placed.forEach((_, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
-                    if (slotEl) slotEl.classList.add('correct');
+                    if (slotEl) {
+                        slotEl.classList.remove('wrong');
+                        slotEl.classList.add('correct');
+                    }
                 });
 
                 const wordEl = document.getElementById('single-word');
@@ -6157,16 +7012,34 @@
 
                 singleState.answered = true;
 
+                // 禁用备选块与清空按钮，防止重复输入
+                singlePhraseState.chips.forEach(c => {
+                    const chipEl = document.getElementById(`single-chip-${c.id}`);
+                    if (chipEl) {
+                        chipEl.classList.add('used');
+                        chipEl.disabled = true;
+                    }
+                });
+                const clearBtn = document.getElementById('btn-clear-single-phrase');
+                if (clearBtn) clearBtn.disabled = true;
+
                 const nextBtn = document.getElementById('single-next-btn');
                 if (nextBtn) {
                     nextBtn.className = 'single-next-btn';
                     nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
                     nextBtn.style.display = 'flex';
+                    nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
                 const comp = document.getElementById('single-phrase-compare');
                 if (comp) comp.style.display = 'none';
-                const clearBtn = document.getElementById('btn-clear-single-phrase');
-                if (clearBtn) clearBtn.disabled = true;
+
+                // 关键修复：答对后延时 850ms 自动平滑流转下一题，杜绝卡住感；若用户手动点击则直接执行并清除定时器
+                if (singlePhraseTimer) clearTimeout(singlePhraseTimer);
+                singlePhraseTimer = setTimeout(() => {
+                    if (singleState && singleState.answered && gameMode === 'single') {
+                        nextSingleQuestion();
+                    }
+                }, 850);
             } else {
                 if (!userStats.mistakes) userStats.mistakes = {};
                 if (!userStats.mistakes[q.word]) {
@@ -6372,6 +7245,10 @@
         }
 
         function nextSingleQuestion() {
+            if (singlePhraseTimer) {
+                clearTimeout(singlePhraseTimer);
+                singlePhraseTimer = null;
+            }
             if (!singleState.answered) {
                 revealSingleAnswer();
                 return;
@@ -6758,7 +7635,7 @@
                 });
         }
 
-        function setupRoomLobbyUI(code) {
+        function setupRoomLobbyUI(code, customName) {
             document.getElementById('online-pre-join').style.display = 'none';
             document.getElementById('online-in-room').style.display = 'block';
             document.getElementById('display-room-code').innerText = code;
@@ -6766,6 +7643,16 @@
                 navigator.clipboard.writeText(code);
                 showToast(`已复制房间码: ${code}`);
             };
+
+            const titleEl = document.getElementById('display-room-name');
+            if (titleEl) {
+                titleEl.innerText = customName || (typeof customRoomName !== 'undefined' && customRoomName ? customRoomName : '对战房间');
+            }
+
+            const delBtn = document.getElementById('btn-host-delete-room');
+            if (delBtn) {
+                delBtn.style.display = isHost ? 'inline-flex' : 'none';
+            }
 
             renderRuleChips();
             refreshRoomPlayerCards();
@@ -6883,6 +7770,11 @@
                 .on('broadcast', { event: 'room_sync' }, ({ payload }) => {
                     hostName = payload.hostName;
                     guestName = payload.guestName;
+                    if (payload.roomName) {
+                        customRoomName = payload.roomName;
+                        const titleEl = document.getElementById('display-room-name');
+                        if (titleEl) titleEl.innerText = customRoomName;
+                    }
                     if (payload.customBooksMeta) applyReceivedCustomBooks(payload.customBooksMeta);
                     if (payload.config) roomConfig = payload.config;
                     renderRuleChips();
@@ -6902,7 +7794,7 @@
                 })
                 .on('broadcast', { event: 'sync_back_to_room' }, () => {
                     if (!isHost) {
-                        setupRoomLobbyUI(roomCode);
+                        setupRoomLobbyUI(roomCode, customRoomName);
                         switchView('view-online');
                         showToast('已返回房间');
                     }
@@ -6917,6 +7809,12 @@
                 .on('broadcast', { event: 'room_closed' }, () => {
                     if (!isHost) {
                         alert('房间已解散。');
+                        cleanUpAndBackToHub();
+                    }
+                })
+                .on('broadcast', { event: 'room_disbanded' }, ({ payload }) => {
+                    if (!isHost) {
+                        alert(payload?.message || '房主已解散并删除该房间');
                         cleanUpAndBackToHub();
                     }
                 })
@@ -9970,6 +10868,9 @@
             if (dictationConfig.type === 'listen' && !q.isPhrase && dictationConfig.autoPlay && navigator.onLine) {
                 setTimeout(() => playDictationAudio(), 250);
             }
+            if (typeof renderDictationKeyboard === 'function') {
+                renderDictationKeyboard();
+            }
         }
 
         function handleDictationSlotKey(event, idx) {
@@ -10206,7 +11107,1082 @@
         }
 
 
+        /* ==========================================================================
+           7. GOOGLE MATERIAL DESIGN 3 全局导航、设置子页面与显示控制
+           ========================================================================== */
+        
+        // 7.1 导航项点击与状态高亮
+        function handleNavClick(dest) {
+            if (dest === 'settings') {
+                switchView('view-settings');
+            } else {
+                switchView('view-hub');
+            }
+        }
+
+        function updateNavActive(current) {
+            ['home', 'settings'].forEach(key => {
+                const railEl = document.getElementById(`nav-rail-${key}`);
+                const botEl = document.getElementById(`bottom-nav-${key}`);
+                if (railEl) {
+                    if (key === current) railEl.classList.add('active');
+                    else railEl.classList.remove('active');
+                }
+                if (botEl) {
+                    if (key === current) botEl.classList.add('active');
+                    else botEl.classList.remove('active');
+                }
+            });
+        }
+
+        // 7.2 显示尺寸与缩放设置
+        function setPageMaxWidth(width) {
+            const allowed = ['720px', '960px', '1200px', '100%'];
+            const val = allowed.includes(width) ? width : '960px';
+            document.documentElement.style.setProperty('--container-max-width', val);
+            localStorage.setItem('app_max_width', val);
+            document.querySelectorAll('#chips-page-width .md3-chip').forEach(c => {
+                c.classList.toggle('selected', c.getAttribute('data-width') === val);
+            });
+            showToast(`页面最大宽度已调整为：${val}`);
+        }
+
+        function setAppZoom(zoom) {
+            const allowed = ['0.9', '1', '1.1', '1.2'];
+            const val = allowed.includes(zoom) ? zoom : '1';
+            document.documentElement.style.setProperty('--app-zoom', val);
+            document.body.style.zoom = val;
+            localStorage.setItem('app_zoom', val);
+            document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(c => {
+                c.classList.toggle('selected', c.getAttribute('data-zoom') === val);
+            });
+            showToast(`界面缩放比例已设为：${Math.round(parseFloat(val) * 100)}%`);
+        }
+
+        function initDisplaySettings() {
+            const savedWidth = localStorage.getItem('app_max_width') || '960px';
+            document.documentElement.style.setProperty('--container-max-width', savedWidth);
+
+            const savedZoom = localStorage.getItem('app_zoom') || '1';
+            document.documentElement.style.setProperty('--app-zoom', savedZoom);
+            document.body.style.zoom = savedZoom;
+        }
+
+        // 7.3 设置子页面路由切换 (原生无弹窗)
+        function switchSettingsSubview(subviewKey) {
+            const subviews = ['main', 'books', 'words', 'changelog'];
+            subviews.forEach(k => {
+                const el = document.getElementById(`settings-subview-${k}`);
+                if (el) {
+                    if (k === subviewKey) el.classList.add('active');
+                    else el.classList.remove('active');
+                }
+            });
+
+            if (subviewKey === 'main') {
+                renderSettingsMain();
+            } else if (subviewKey === 'books') {
+                renderManageLocalBooksInSettings();
+            } else if (subviewKey === 'changelog') {
+                renderChangelogInSettings();
+            }
+        }
+
+        // 7.4 设置主页面信息与快速账号切换
+        function renderSettingsMain() {
+            const nameEl = document.getElementById('settings-current-user-name');
+            const statEl = document.getElementById('settings-current-user-stat');
+            if (nameEl) nameEl.innerText = `当前登录：${currentUser || '未登录'}`;
+            if (statEl) {
+                const acc = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) : 0;
+                statEl.innerText = `作答词数：${userStats.total || 0} 词  |  正确率：${acc}%  |  错题数：${Object.keys(userStats.mistakes || {}).length} 词`;
+            }
+
+            const quickUsersList = document.getElementById('settings-quick-users-list');
+            if (quickUsersList) {
+                quickUsersList.innerHTML = allUsersList.map(u => {
+                    const isCur = u === currentUser;
+                    return `
+                        <div class="md3-chip ${isCur ? 'selected' : ''}" onclick="switchAccount('${escapeHtml(u)}')">
+                            <span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">${isCur ? 'check' : 'person'}</span>
+                            <span>${escapeHtml(u)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const savedWidth = localStorage.getItem('app_max_width') || '960px';
+            document.querySelectorAll('#chips-page-width .md3-chip').forEach(chip => {
+                chip.classList.toggle('selected', chip.getAttribute('data-width') === savedWidth);
+            });
+
+            const savedZoom = localStorage.getItem('app_zoom') || '1';
+            document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(chip => {
+                chip.classList.toggle('selected', chip.getAttribute('data-zoom') === savedZoom);
+            });
+
+            const kbEnabled = localStorage.getItem('dictation_virtual_keyboard_enabled') !== 'false';
+            document.querySelectorAll('#chips-settings-dictation-kb .md3-chip').forEach(chip => {
+                chip.classList.toggle('selected', chip.getAttribute('data-kb') === String(kbEnabled));
+            });
+
+            const summaryEl = document.getElementById('settings-books-summary-text');
+            if (summaryEl) {
+                const customCount = (window.customBooks || []).length;
+                const folderCount = (localFolders || []).length;
+                summaryEl.innerText = `当前已有 ${folderCount} 个分类文件夹，${customCount} 本本地词书，点击查看详情与管理`;
+            }
+        }
+
+        function switchAccount(name) {
+            if (!name || name === currentUser) return;
+            loadUserData(name);
+            renderSettingsMain();
+            updateHub();
+            if (globalLobbyChannel) {
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    status: 'idle',
+                    joinedAt: Date.now()
+                });
+            }
+            showToast(`已成功切换至账号【${name}】`);
+        }
+
+        function createAndSwitchAccount() {
+            const input = document.getElementById('settings-new-user-input');
+            if (!input) return;
+            const name = input.value.trim();
+            if (!name) return showToast('请输入有效的账号名称');
+            if (allUsersList.includes(name)) {
+                switchAccount(name);
+                input.value = '';
+                return;
+            }
+            allUsersList.push(name);
+            localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+            loadUserData(name);
+            input.value = '';
+            renderSettingsMain();
+            updateHub();
+            if (globalLobbyChannel) {
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    status: 'idle',
+                    joinedAt: Date.now()
+                });
+            }
+            showToast(`已新建并切换至账号【${name}】`);
+        }
+
+        // 7.5 设置页原生词书与文件夹管理
+        function renderManageLocalBooksInSettings() {
+            const container = document.getElementById('settings-manage-books-list');
+            if (!container) return;
+
+            const customBooks = (window.customBooks || []);
+            let html = '';
+
+            if (localFolders.length === 0 && customBooks.length === 0) {
+                html = `
+                    <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-l);">
+                        <span class="material-symbols-rounded" style="font-size:48px; opacity:0.5;">folder_off</span>
+                        <p style="margin-top:8px; font-weight:600;">暂无自定义本地词书或文件夹</p>
+                        <p style="font-size:0.82rem;">点击上方【新建文件夹】或【导入词书】进行归类与管理</p>
+                    </div>
+                `;
+                container.innerHTML = html;
+                return;
+            }
+
+            localFolders.forEach(folder => {
+                const booksInFolder = customBooks.filter(b => b.folderId === folder.id);
+                html += `
+                    <div class="tree-folder" style="border:1.5px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); overflow:hidden;">
+                        <div class="tree-folder-header">
+                            <div class="tree-folder-left">
+                                <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-primary);">folder</span>
+                                <span class="tree-folder-name" style="font-weight:700;">${escapeHtml(folder.name)}</span>
+                                <span class="tree-folder-badge">${booksInFolder.length} 本词书</span>
+                            </div>
+                            <div class="tree-folder-right">
+                                <button type="button" class="btn btn-outlined btn-sm" style="padding:0 10px; height:30px; font-size:0.75rem;" onclick="promptRenameFolder('${folder.id}', '${escapeHtml(folder.name)}')">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">edit</span>
+                                    <span>重命名</span>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" style="padding:0 8px; height:30px; font-size:0.75rem;" onclick="confirmDeleteFolder('${folder.id}')" title="解散文件夹">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tree-folder-body" style="padding:10px; display:flex; flex-direction:column; gap:8px;">
+                            ${booksInFolder.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:8px;">该文件夹暂无词书，可在下方词书中移动至此处</div>` : ''}
+                            ${booksInFolder.map(b => renderSettingsManageBookRow(b)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            const uncatBooks = customBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
+            html += `
+                <div class="tree-folder" style="border:1.5px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); overflow:hidden;">
+                    <div class="tree-folder-header" style="background:var(--md-sys-color-surface-container);">
+                        <div class="tree-folder-left">
+                            <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-secondary);">folder_open</span>
+                            <span class="tree-folder-name" style="font-weight:700;">未归类本地词书</span>
+                            <span class="tree-folder-badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);">${uncatBooks.length} 本</span>
+                        </div>
+                    </div>
+                    <div class="tree-folder-body" style="padding:10px; display:flex; flex-direction:column; gap:8px;">
+                        ${uncatBooks.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:8px;">暂无未归类词书</div>` : ''}
+                        ${uncatBooks.map(b => renderSettingsManageBookRow(b)).join('')}
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function renderSettingsManageBookRow(b) {
+            const folderOptions = `
+                <option value="" ${!b.folderId ? 'selected' : ''}>未归类</option>
+                ${localFolders.map(f => `<option value="${f.id}" ${b.folderId === f.id ? 'selected' : ''}>📁 ${escapeHtml(f.name)}</option>`).join('')}
+            `;
+
+            return `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--md-sys-color-surface-container-lowest); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant); flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <div style="font-weight:700; font-size:0.92rem; color:var(--md-sys-color-on-surface);">${escapeHtml(b.rawName || b.name)}</div>
+                        <div style="font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:2px;">词汇量: ${b.count || (b.words ? b.words.length : 0)} 词</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <select onchange="changeBookFolder('${b.id}', this.value)" style="height:32px; font-size:0.8rem; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); padding:0 8px; outline:none;">
+                            ${folderOptions}
+                        </select>
+                        <button type="button" class="btn btn-tonal btn-sm" style="padding:0 10px; height:32px; font-size:0.8rem;" onclick="viewBookWordsInSettings('${b.id}')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
+                            <span>查看内容</span>
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" style="padding:0 8px; height:32px; font-size:0.8rem;" onclick="confirmDeleteCustomBook('${b.id}', '${escapeHtml(b.rawName || b.name)}')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">delete</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 7.6 设置页原生词书内容浏览与检索
+        let settingsViewingBookId = null;
+        let settingsViewingBookWords = [];
+
+        async function viewBookWordsInSettings(bookId) {
+            const book = (window.customBooks || []).find(b => b.id === bookId) || 
+                         BookManager.availableBooks.find(b => b.id === bookId) || 
+                         BookManager.fallbackBooks.find(b => b.id === bookId);
+            if (!book) return;
+
+            settingsViewingBookId = bookId;
+            let words = await BookManager.loadBookData(bookId);
+            settingsViewingBookWords = words || [];
+
+            const titleEl = document.getElementById('settings-view-book-title');
+            const countEl = document.getElementById('settings-view-book-count');
+            const searchEl = document.getElementById('settings-view-book-search');
+
+            if (titleEl) titleEl.innerText = book.rawName || book.name;
+            if (countEl) countEl.innerText = `共 ${settingsViewingBookWords.length} 词`;
+            if (searchEl) searchEl.value = '';
+
+            renderSettingsViewingWordsList(settingsViewingBookWords);
+            switchSettingsSubview('words');
+        }
+
+        function filterSettingsBookWordsDisplay() {
+            const query = (document.getElementById('settings-view-book-search')?.value || '').trim().toLowerCase();
+            if (!query) {
+                renderSettingsViewingWordsList(settingsViewingBookWords);
+                return;
+            }
+            const filtered = settingsViewingBookWords.filter(w => {
+                const wordMatch = (w.word || '').toLowerCase().includes(query);
+                const meaningStr = w.meanings ? w.meanings.map(m => m.meaning).join(' ') : (w.meaning || '');
+                const meaningMatch = meaningStr.toLowerCase().includes(query);
+                return wordMatch || meaningMatch;
+            });
+            renderSettingsViewingWordsList(filtered);
+        }
+
+        function renderSettingsViewingWordsList(words) {
+            const container = document.getElementById('settings-view-book-words-container');
+            const countEl = document.getElementById('settings-view-book-count');
+            if (!container) return;
+
+            if (countEl) countEl.innerText = `显示 ${words.length} / ${settingsViewingBookWords.length} 词`;
+
+            if (words.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:32px; color:var(--md-sys-color-outline);">未找到匹配的词汇</div>`;
+                return;
+            }
+
+            const slice = words.slice(0, 200);
+            container.innerHTML = slice.map((w, idx) => {
+                const meaningStr = w.meanings ? w.meanings.map(m => (m.pos ? `<span style="color:var(--md-sys-color-primary); font-weight:700;">${m.pos}</span> ` : '') + m.meaning).join('；') : (w.meaning || '');
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:1.02rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(w.word)}</span>
+                                ${w.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(w.phone)}</span>` : ''}
+                                <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(w.word)}')" title="发音">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
+                                </button>
+                            </div>
+                            <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${meaningStr}</div>
+                        </div>
+                        <span style="font-size:0.75rem; color:var(--md-sys-color-outline); font-family:monospace;">#${idx + 1}</span>
+                    </div>
+                `;
+            }).join('') + (words.length > 200 ? `<div style="text-align:center; padding:12px; font-size:0.82rem; color:var(--md-sys-color-outline);">已展示前 200 词，搜索关键词以查看更多</div>` : '');
+        }
+
+        // 7.7 更新日志与版本管理
+        const APP_VERSION = '2.5.0';
+        const APP_CHANGELOG = [
+            {
+                version: 'v2.5.0',
+                date: '2026-09-09',
+                badge: '当前最新',
+                items: [
+                    '【MD3 左右分栏与底部导航】全新 Material Design 3 风格左侧导轨导航栏 (桌面端) 与底部导航栏 (移动端)，全屏自适应响应式布局。',
+                    '【个性化页面与缩放控制】设置中心支持动态自定义页面最大宽度 (720px / 960px / 1200px / 100%) 与界面缩放比例 (90% - 120%)。',
+                    '【原生嵌入式词书管理】词书与分类文件夹管理全量内嵌至“设置”子页面，支持词库原生查词与词目检索，告别弹窗阻断。',
+                    '【快速多账号切换】设置页内一键快速切换历史账号并支持即时新建账号，个性化学习数据独立保存。',
+                    '【云端版本比对与智能提醒】本地运行自动比对 Cloudflare 云端最新版本，右上角卡片提示更新并提供最新 HTML 一键下载；网页端支持一键刷新同步。',
+                    '【题目交互 Bug 修复】彻底解决单人专练中词组拼装答对后界面卡死的偶发问题，增加平滑自动流转与反馈。',
+                    '【默写模式屏幕虚拟键盘】默写看义写词与听音写词新增拟真 QWERTY 屏幕键盘，支持在设置中灵活开启或关闭。',
+                    '【联机房间与权限升级】支持自定义房间名称与人数上限 (支持双人对决)，房主可随时解散与删除已创建的房间。',
+                    '【联机大厅在线房间与玩家邀请】大厅实时列出所有在线等待房间，主页展示全服在线用户并支持一键发起双人对战邀请。'
+                ]
+            },
+            {
+                version: 'v2.4.0',
+                date: '2026-09-01',
+                badge: '历史版本',
+                items: [
+                    '支持词组专练与短语拆词重组拼写交互；',
+                    '支持自定义词书树状目录分类与拖拽归类；',
+                    '艾宾浩斯智能复习流与多设备 IndexedDB 离线缓存优化。'
+                ]
+            },
+            {
+                version: 'v2.3.0',
+                date: '2026-08-20',
+                badge: '历史版本',
+                items: [
+                    '接入 Supabase Realtime 毫秒级多端对战同步与规则自定；',
+                    '新增 Wordle 猜词解谜专练与错题智能分析报告；',
+                    '重构轻量化音频发音与离线合成系统。'
+                ]
+            }
+        ];
+
+        function renderChangelogInSettings() {
+            const container = document.getElementById('settings-changelog-container');
+            if (!container) return;
+
+            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const actionText = document.getElementById('btn-changelog-action-text');
+            if (actionText) actionText.innerText = isLocal ? '下载最新HTML' : '刷新网页同步';
+
+            container.innerHTML = APP_CHANGELOG.map((entry, idx) => `
+                <div class="card" style="padding:18px 20px; border-left: 4px solid ${idx === 0 ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${entry.version}</h3>
+                            <span class="badge" style="background:${idx === 0 ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${idx === 0 ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${entry.badge}</span>
+                        </div>
+                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${entry.date}</span>
+                    </div>
+                    <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
+                        ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        function semverCompare(vA, vB) {
+            const pA = String(vA || '').replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+            const pB = String(vB || '').replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+            for (let i = 0; i < Math.max(pA.length, pB.length); i++) {
+                const numA = pA[i] || 0;
+                const numB = pB[i] || 0;
+                if (numA > numB) return 1;
+                if (numA < numB) return -1;
+            }
+            return 0;
+        }
+
+        let latestCloudVersionInfo = null;
+
+        async function checkCloudVersion(manual = false) {
+            try {
+                const res = await fetch(`${BookManager.API_BASE}/api/version`, { cache: 'no-cache' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                latestCloudVersionInfo = data;
+
+                const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const hasNewer = semverCompare(data.version, APP_VERSION) > 0;
+
+                if (hasNewer) {
+                    showVersionUpdateCard(data, isLocal);
+                } else {
+                    if (manual) {
+                        showToast(`当前已是最新版本 v${APP_VERSION}`);
+                    }
+                }
+            } catch (e) {
+                console.warn('[VersionCheck] Cloud check failed:', e);
+                if (manual) {
+                    showToast('检查更新失败，请确认网络连接与 Worker 状态');
+                }
+            }
+        }
+
+        function showVersionUpdateCard(data, isLocal) {
+            const card = document.getElementById('version-update-card');
+            if (!card) return;
+
+            const titleEl = document.getElementById('version-card-title');
+            const dateEl = document.getElementById('version-card-date');
+            const descEl = document.getElementById('version-card-desc');
+            const actionBtn = document.getElementById('btn-version-card-action');
+
+            if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
+            if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate}`;
+            if (descEl && Array.isArray(data.changelog)) {
+                descEl.innerHTML = `
+                    <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
+                    <ul style="padding-left:16px; margin:0; line-height:1.5;">
+                        ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it)}</li>`).join('')}
+                    </ul>
+                `;
+            }
+
+            if (actionBtn) {
+                if (isLocal) {
+                    actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载最新 HTML</span>';
+                    actionBtn.onclick = () => handleDownloadLatestHtml(data.downloadUrl);
+                } else {
+                    actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">refresh</span><span>刷新网页同步</span>';
+                    actionBtn.onclick = () => window.location.reload(true);
+                }
+            }
+
+            card.style.display = 'block';
+        }
+
+        function dismissVersionUpdateCard() {
+            const card = document.getElementById('version-update-card');
+            if (card) card.style.display = 'none';
+        }
+
+        function openChangelogInSettings() {
+            dismissVersionUpdateCard();
+            switchView('view-settings');
+            switchSettingsSubview('changelog');
+        }
+
+        function handleDownloadLatestHtml(downloadUrl) {
+            const targetUrl = downloadUrl || `${BookManager.API_BASE}/api/download-latest`;
+            const a = document.createElement('a');
+            a.href = targetUrl;
+            a.download = 'index.html';
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('已开始下载最新版 index.html 文件');
+        }
+
+        function handleVersionUpdateAction() {
+            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (isLocal) {
+                handleDownloadLatestHtml();
+            } else {
+                window.location.reload(true);
+            }
+        }
+
+        // 7.8 默写模式屏幕虚拟键盘系统
+        let dictationVirtualKeyboardEnabled = localStorage.getItem('dictation_virtual_keyboard_enabled') !== 'false';
+
+        function setDictationKeyboardToggle(enabled) {
+            dictationVirtualKeyboardEnabled = Boolean(enabled);
+            localStorage.setItem('dictation_virtual_keyboard_enabled', dictationVirtualKeyboardEnabled ? 'true' : 'false');
+            document.querySelectorAll('#chips-settings-dictation-kb .md3-chip').forEach(c => {
+                c.classList.toggle('selected', c.getAttribute('data-kb') === String(dictationVirtualKeyboardEnabled));
+            });
+            renderDictationKeyboard();
+            showToast(dictationVirtualKeyboardEnabled ? '默写虚拟键盘已开启' : '默写虚拟键盘已关闭');
+        }
+
+        function renderDictationKeyboard() {
+            const container = document.getElementById('dictation-keyboard-container');
+            if (!container) return;
+            if (!dictationVirtualKeyboardEnabled) {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'block';
+
+            const row1 = ['Q','W','E','R','T','Y','U','I','O','P'];
+            const row2 = ['A','S','D','F','G','H','J','K','L'];
+            const row3 = ['Z','X','C','V','B','N','M'];
+
+            container.innerHTML = `
+                <div class="dictation-keyboard">
+                    <div class="dictation-keyboard-row">
+                        ${row1.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
+                    </div>
+                    <div class="dictation-keyboard-row">
+                        ${row2.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
+                    </div>
+                    <div class="dictation-keyboard-row">
+                        <button type="button" class="dictation-key key-wide" onclick="handleVirtualKeyPress('BACKSPACE')" title="退格删除">
+                            <span class="material-symbols-rounded" style="font-size:18px;">backspace</span>
+                        </button>
+                        ${row3.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
+                        <button type="button" class="dictation-key key-wide" onclick="handleVirtualKeyPress('ENTER')" title="确认提交" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                            <span class="material-symbols-rounded" style="font-size:18px;">check</span>
+                        </button>
+                    </div>
+                    <div class="dictation-keyboard-row">
+                        <button type="button" class="dictation-key key-space" onclick="handleVirtualKeyPress('SPACE')">空格 (Space)</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleVirtualKeyPress(key) {
+            const wordInput = document.getElementById('dictation-word-input');
+            if (wordInput && wordInput.offsetParent !== null) {
+                if (key === 'BACKSPACE') {
+                    wordInput.value = wordInput.value.slice(0, -1);
+                } else if (key === 'ENTER') {
+                    submitDictationAnswer();
+                } else if (key === 'SPACE') {
+                    wordInput.value += ' ';
+                } else {
+                    wordInput.value += key.toLowerCase();
+                }
+                wordInput.dispatchEvent(new Event('input'));
+                wordInput.focus();
+                return;
+            }
+
+            const allSlotInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
+            if (allSlotInputs.length > 0) {
+                let activeInput = document.activeElement;
+                if (!allSlotInputs.includes(activeInput)) {
+                    activeInput = allSlotInputs.find(inp => inp.value.length < (inp.getAttribute('data-token') || '').length) || allSlotInputs[0];
+                }
+                const activeIdx = allSlotInputs.indexOf(activeInput);
+
+                if (key === 'BACKSPACE') {
+                    if (activeInput.value.length > 0) {
+                        activeInput.value = activeInput.value.slice(0, -1);
+                    } else if (activeIdx > 0) {
+                        const prev = allSlotInputs[activeIdx - 1];
+                        prev.focus();
+                        prev.value = prev.value.slice(0, -1);
+                    }
+                } else if (key === 'ENTER') {
+                    submitDictationAnswer();
+                } else if (key === 'SPACE') {
+                    if (activeIdx < allSlotInputs.length - 1) {
+                        allSlotInputs[activeIdx + 1].focus();
+                    }
+                } else {
+                    const token = activeInput.getAttribute('data-token') || '';
+                    activeInput.value += key.toLowerCase();
+                    activeInput.dispatchEvent(new Event('input'));
+                    if (activeInput.value.length >= token.length && activeIdx < allSlotInputs.length - 1) {
+                        allSlotInputs[activeIdx + 1].focus();
+                    }
+                }
+            }
+        }
+
+        /* ==========================================================================
+           8. SUPABASE 联机大厅、在线玩家、实时对战邀请与自定义房间管理
+           ========================================================================== */
+
+        let globalLobbyChannel = null;
+        let myCreatedRooms = JSON.parse(localStorage.getItem('my_created_rooms') || '[]');
+        let discoveredLobbyRooms = [];
+        let selectedRoomCapacity = 2;
+        let customRoomName = '';
+        let matchInviteTimer = null;
+        let currentIncomingInvite = null;
+
+        function initGlobalPresence() {
+            if (!currentUser || !sbClient) return;
+            if (globalLobbyChannel) {
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    status: 'idle',
+                    joinedAt: Date.now()
+                });
+                return;
+            }
+
+            globalLobbyChannel = sbClient.channel('global_lobby', {
+                config: { presence: { key: currentUser } }
+            });
+
+            globalLobbyChannel
+                .on('presence', { event: 'sync' }, () => {
+                    syncGlobalPresenceState();
+                })
+                .on('broadcast', { event: 'invite_match' }, ({ payload }) => {
+                    handleReceivedMatchInvite(payload);
+                })
+                .on('broadcast', { event: 'invite_response' }, ({ payload }) => {
+                    handleMatchInviteResponse(payload);
+                })
+                .on('broadcast', { event: 'room_state_change' }, ({ payload }) => {
+                    handleRoomStateBroadcast(payload);
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await globalLobbyChannel.track({
+                            username: currentUser,
+                            status: 'idle',
+                            joinedAt: Date.now()
+                        });
+                        fetchOnlineRoomsList();
+                    }
+                });
+        }
+
+        function syncGlobalPresenceState() {
+            if (!globalLobbyChannel) return;
+            const container = document.getElementById('hub-online-players-list');
+            const countBadge = document.getElementById('hub-online-players-count');
+            if (!container) return;
+
+            const state = globalLobbyChannel.presenceState();
+            const onlineUsers = [];
+
+            Object.keys(state).forEach(k => {
+                if (k && k !== currentUser) {
+                    const pres = state[k][0] || {};
+                    onlineUsers.push({
+                        username: k,
+                        status: pres.status || 'idle',
+                        joinedAt: pres.joinedAt || Date.now()
+                    });
+                }
+            });
+
+            if (countBadge) countBadge.innerText = `${onlineUsers.length} 人在线`;
+
+            if (onlineUsers.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
+                        <span class="material-symbols-rounded" style="font-size:36px; opacity:0.5;">person_search</span>
+                        <p style="margin-top:6px; font-size:0.88rem;">当前暂无其他在线玩家</p>
+                        <p style="font-size:0.75rem;">可点击下方【联机对决】创建房间，邀请好友输入房间码加入</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = onlineUsers.map(u => `
+                <div class="online-player-card">
+                    <div class="online-player-avatar">
+                        <span class="material-symbols-rounded" style="font-size:24px;">person</span>
+                    </div>
+                    <div class="online-player-info">
+                        <div class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</div>
+                        <div class="online-player-status">
+                            <span class="status-indicator online"></span>
+                            <span>在线空闲</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-filled btn-sm" onclick="sendMatchInvite('${escapeHtml(u.username)}')">
+                        <span class="material-symbols-rounded" style="font-size:16px;">swords</span>
+                        <span>发起对战</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function syncGlobalPresence() {
+            if (globalLobbyChannel) {
+                syncGlobalPresenceState();
+                showToast('已刷新在线玩家列表');
+            } else {
+                initGlobalPresence();
+            }
+        }
+
+        // 8.2 对战邀请机制 (主页发起 -> 对方弹窗响应 -> 自动入局)
+        function sendMatchInvite(targetUser) {
+            if (!targetUser || targetUser === currentUser) return;
+            if (!globalLobbyChannel) {
+                showToast('正在连接大厅服务器...');
+                initGlobalPresence();
+                return;
+            }
+
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const autoRoomName = `${currentUser}和${targetUser}的房间`;
+
+            globalLobbyChannel.send({
+                type: 'broadcast',
+                event: 'invite_match',
+                payload: {
+                    from: currentUser,
+                    to: targetUser,
+                    roomCode: code,
+                    roomName: autoRoomName
+                }
+            });
+
+            showToast(`已向【${targetUser}】发起对战邀请，等待对方接受...`);
+        }
+
+        function handleReceivedMatchInvite(payload) {
+            if (!payload || payload.to !== currentUser) return;
+            currentIncomingInvite = payload;
+
+            const modal = document.getElementById('modal-match-invite');
+            const fromEl = document.getElementById('invite-from-name');
+            const roomEl = document.getElementById('invite-room-name');
+            const countdownEl = document.getElementById('invite-countdown');
+            if (!modal) return;
+
+            if (fromEl) fromEl.innerText = `【${payload.from}】向你发起对决邀请！`;
+            if (roomEl) roomEl.innerText = `房间名称：${payload.roomName}`;
+
+            let countdown = 15;
+            if (countdownEl) countdownEl.innerText = countdown;
+
+            if (matchInviteTimer) clearInterval(matchInviteTimer);
+            matchInviteTimer = setInterval(() => {
+                countdown--;
+                if (countdownEl) countdownEl.innerText = countdown;
+                if (countdown <= 0) {
+                    declineMatchInvite(true);
+                }
+            }, 1000);
+
+            modal.classList.add('active');
+        }
+
+        function acceptMatchInvite() {
+            if (!currentIncomingInvite) return;
+            if (matchInviteTimer) clearInterval(matchInviteTimer);
+            const modal = document.getElementById('modal-match-invite');
+            if (modal) modal.classList.remove('active');
+
+            const invite = currentIncomingInvite;
+            currentIncomingInvite = null;
+
+            if (globalLobbyChannel) {
+                globalLobbyChannel.send({
+                    type: 'broadcast',
+                    event: 'invite_response',
+                    payload: {
+                        from: currentUser,
+                        to: invite.from,
+                        accepted: true,
+                        roomCode: invite.roomCode,
+                        roomName: invite.roomName
+                    }
+                });
+            }
+
+            isHost = false;
+            roomCode = invite.roomCode;
+            hostName = invite.from;
+            guestName = currentUser;
+            customRoomName = invite.roomName;
+
+            setupRoomLobbyUI(roomCode, invite.roomName);
+            connectSupabaseChannel(roomCode);
+            switchView('view-online');
+            showToast(`已接受对战邀请，正在进入【${invite.roomName}】...`);
+        }
+
+        function declineMatchInvite(isTimeout = false) {
+            if (matchInviteTimer) clearInterval(matchInviteTimer);
+            const modal = document.getElementById('modal-match-invite');
+            if (modal) modal.classList.remove('active');
+
+            if (currentIncomingInvite && globalLobbyChannel) {
+                globalLobbyChannel.send({
+                    type: 'broadcast',
+                    event: 'invite_response',
+                    payload: {
+                        from: currentUser,
+                        to: currentIncomingInvite.from,
+                        accepted: false,
+                        isTimeout: isTimeout
+                    }
+                });
+            }
+            currentIncomingInvite = null;
+            if (isTimeout) showToast('对战邀请已超时关闭');
+            else showToast('已拒绝该对战邀请');
+        }
+
+        function handleMatchInviteResponse(payload) {
+            if (!payload || payload.to !== currentUser) return;
+            if (payload.accepted) {
+                showToast(`🎉【${payload.from}】接受了对战邀请！正在进入房间...`);
+                isHost = true;
+                roomCode = payload.roomCode;
+                hostName = currentUser;
+                guestName = payload.from;
+                customRoomName = payload.roomName;
+
+                setupRoomLobbyUI(roomCode, payload.roomName);
+                connectSupabaseChannel(roomCode);
+                switchView('view-online');
+            } else {
+                showToast(`玩家【${payload.from}】${payload.isTimeout ? '未在限时内应答邀请' : '谢绝了对战邀请'}`);
+            }
+        }
+
+        // 8.3 自定义房间与联机大厅
+        function selectRoomCapacity(cap) {
+            selectedRoomCapacity = cap;
+            document.querySelectorAll('#chips-room-capacity .md3-chip').forEach(c => {
+                c.classList.toggle('selected', parseInt(c.getAttribute('data-cap')) === cap);
+            });
+        }
+
+        async function handleCreateCustomRoom() {
+            const inputEl = document.getElementById('input-custom-room-name');
+            const nameVal = (inputEl ? inputEl.value : '').trim();
+            const finalRoomName = nameVal || `${currentUser}的单词对决室`;
+
+            roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            isHost = true;
+            hostName = currentUser;
+            guestName = '';
+            customRoomName = finalRoomName;
+            roomConfig = {
+                duration: 60,
+                winLead: 6,
+                gaugeStyle: 'snake',
+                selectedBooks: (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? [...singleSelectedBookIds] : ['GaoKao3500']
+            };
+
+            const roomMeta = {
+                code: roomCode,
+                name: finalRoomName,
+                host: currentUser,
+                capacity: selectedRoomCapacity || 2,
+                playerCount: 1,
+                createdAt: Date.now()
+            };
+
+            if (!myCreatedRooms.some(r => r.code === roomCode)) {
+                myCreatedRooms.push(roomMeta);
+                localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
+            }
+
+            try {
+                await sbClient.from('rooms').upsert({
+                    code: roomCode,
+                    name: finalRoomName,
+                    host: currentUser,
+                    capacity: selectedRoomCapacity || 2,
+                    player_count: 1,
+                    status: 'waiting',
+                    created_at: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn('Supabase rooms table sync skipped:', e);
+            }
+
+            if (globalLobbyChannel) {
+                globalLobbyChannel.send({
+                    type: 'broadcast',
+                    event: 'room_state_change',
+                    payload: { action: 'create', room: roomMeta }
+                });
+            }
+
+            setupRoomLobbyUI(roomCode, finalRoomName);
+            connectSupabaseChannel(roomCode);
+            showToast(`房间【${finalRoomName}】创建成功！房间码：${roomCode}`);
+        }
+
+        async function handleHostDeleteRoom(targetCode) {
+            const codeToDelete = targetCode || roomCode;
+            if (!codeToDelete) return;
+
+            if (!confirm(`确定解散并删除房间 ${codeToDelete} 吗？`)) return;
+
+            myCreatedRooms = myCreatedRooms.filter(r => r.code !== codeToDelete);
+            localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
+
+            if (roomCode === codeToDelete) {
+                if (realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'room_disbanded',
+                        payload: { code: codeToDelete, message: '房主已解散并删除该房间' }
+                    });
+                    realtimeChannel.unsubscribe();
+                    realtimeChannel = null;
+                }
+                roomCode = null;
+                isHost = false;
+                hostName = '';
+                guestName = '';
+                document.getElementById('online-pre-join').style.display = 'flex';
+                document.getElementById('online-in-room').style.display = 'none';
+            }
+
+            if (globalLobbyChannel) {
+                globalLobbyChannel.send({
+                    type: 'broadcast',
+                    event: 'room_state_change',
+                    payload: { action: 'delete', code: codeToDelete }
+                });
+            }
+
+            try {
+                await sbClient.from('rooms').delete().eq('code', codeToDelete);
+            } catch (e) {
+                console.warn('Supabase rooms delete skipped:', e);
+            }
+
+            fetchOnlineRoomsList();
+            showToast('房间已成功解散并删除');
+        }
+
+        function handleRoomStateBroadcast(payload) {
+            if (!payload) return;
+            if (payload.action === 'create' && payload.room) {
+                if (!discoveredLobbyRooms.some(r => r.code === payload.room.code)) {
+                    discoveredLobbyRooms.push(payload.room);
+                }
+            } else if (payload.action === 'delete' && payload.code) {
+                discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.code !== payload.code);
+            }
+            fetchOnlineRoomsList();
+        }
+
+        async function fetchOnlineRoomsList(manual = false) {
+            const container = document.getElementById('online-rooms-container');
+            if (!container) return;
+
+            let dbRooms = [];
+            try {
+                const { data, error } = await sbClient
+                    .from('rooms')
+                    .select('*')
+                    .eq('status', 'waiting')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                if (!error && Array.isArray(data)) {
+                    dbRooms = data.map(r => ({
+                        code: r.code,
+                        name: r.name || `${r.host}的房间`,
+                        host: r.host,
+                        capacity: r.capacity || 2,
+                        playerCount: r.player_count || 1,
+                        createdAt: new Date(r.created_at).getTime()
+                    }));
+                }
+            } catch (e) {}
+
+            const roomMap = new Map();
+            discoveredLobbyRooms.forEach(r => roomMap.set(r.code, r));
+            dbRooms.forEach(r => roomMap.set(r.code, r));
+            myCreatedRooms.forEach(r => roomMap.set(r.code, r));
+
+            const now = Date.now();
+            const activeRoomsList = Array.from(roomMap.values()).filter(r => (now - (r.createdAt || now)) < 7200000);
+
+            if (activeRoomsList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:28px 12px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
+                        <span class="material-symbols-rounded" style="font-size:40px; opacity:0.6;">meeting_room</span>
+                        <p style="margin-top:8px; font-size:0.9rem;">暂无等待中的联机房间</p>
+                        <p style="font-size:0.78rem;">点击上方【创建专属对战房间】开始组局吧！</p>
+                    </div>
+                `;
+                if (manual) showToast('已刷新，暂无等待中的房间');
+                return;
+            }
+
+            container.innerHTML = activeRoomsList.map(r => {
+                const isMine = r.host === currentUser;
+                const isFull = (r.playerCount || 1) >= (r.capacity || 2);
+                return `
+                    <div class="online-room-card">
+                        <div class="online-room-header">
+                            <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-on-surface); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>
+                            <span class="room-capacity-badge ${isFull ? 'full' : ''}">${r.playerCount || 1} / ${r.capacity || 2} 人</span>
+                        </div>
+                        <div class="online-room-body">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span class="material-symbols-rounded" style="font-size:16px; color:var(--md-sys-color-primary);">badge</span>
+                                <span>房主：<strong>${escapeHtml(r.host)}</strong></span>
+                            </div>
+                            <div style="font-family:monospace; color:var(--md-sys-color-outline); font-size:0.75rem;">码: ${r.code}</div>
+                        </div>
+                        <div class="online-room-actions">
+                            ${isMine ? `
+                                <button type="button" class="btn btn-outlined btn-sm" onclick="quickEnterMyRoom('${r.code}', '${escapeHtml(r.name)}')">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">meeting_room</span>
+                                    <span>进入我的房间</span>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="handleHostDeleteRoom('${r.code}')" title="删除房间">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
+                                    <span>删除</span>
+                                </button>
+                            ` : `
+                                <button type="button" class="btn btn-filled btn-sm" style="flex:1;" ${isFull ? 'disabled' : ''} onclick="quickJoinLobbyRoom('${r.code}')">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">login</span>
+                                    <span>${isFull ? '房间已满' : '加入对战'}</span>
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (manual) showToast('在线房间列表已刷新');
+        }
+
+        function quickJoinLobbyRoom(code) {
+            const codeInput = document.getElementById('join-room-code');
+            if (codeInput) codeInput.value = code;
+            joinOnlineRoom();
+        }
+
+        function quickEnterMyRoom(code, name) {
+            roomCode = code;
+            isHost = true;
+            hostName = currentUser;
+            guestName = '';
+            customRoomName = name;
+            setupRoomLobbyUI(roomCode, name);
+            connectSupabaseChannel(roomCode);
+        }
+
         // 初始化启动逻辑
+        initDisplaySettings();
         BookManager.init();
         renderAuthUsersList(); // 👈 关键：启动时务必渲染已保存的账号列表
 
