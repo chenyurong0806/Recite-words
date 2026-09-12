@@ -1,0 +1,2282 @@
+[
+  {
+    "name": "a great drain on sth.",
+    "trans": ["对...巨大的消耗"]
+  },
+  {
+    "name": "account for",
+    "trans": ["说明", "解释"]
+  },
+  {
+    "name": "accuse ... of ...",
+    "trans": ["指控...", "谴责..."]
+  },
+  {
+    "name": "act as",
+    "trans": ["担任", "充当"]
+  },
+  {
+    "name": "adapt to",
+    "trans": ["使适应"]
+  },
+  {
+    "name": "add to",
+    "trans": ["增添"]
+  },
+  {
+    "name": "add up to",
+    "trans": ["合计达"]
+  },
+  {
+    "name": "adjust to",
+    "trans": ["(使)适应"]
+  },
+  {
+    "name": "admit ... to",
+    "trans": ["准许...进入"]
+  },
+  {
+    "name": "admit ... into",
+    "trans": ["准许...进入"]
+  },
+  {
+    "name": "agree on",
+    "trans": ["就...取得一致"]
+  },
+  {
+    "name": "agree to",
+    "trans": ["同意某人观点、意见"]
+  },
+  {
+    "name": "agree with ...",
+    "trans": ["同意...的意见", "适合"]
+  },
+  {
+    "name": "ahead of time",
+    "trans": ["提前"]
+  },
+  {
+    "name": "ahead of schedule",
+    "trans": ["提前"]
+  },
+  {
+    "name": "aim at",
+    "trans": ["瞄准", "争取"]
+  },
+  {
+    "name": "appeal to",
+    "trans": ["呼吁", "吸引"]
+  },
+  {
+    "name": "apply ... to ...",
+    "trans": ["把...应用于..."]
+  },
+  {
+    "name": "apply for",
+    "trans": ["申请"]
+  },
+  {
+    "name": "approve of",
+    "trans": ["赞成"]
+  },
+  {
+    "name": "as a matter of fact",
+    "trans": ["事实上"]
+  },
+  {
+    "name": "as a result",
+    "trans": ["作为结果", "因此"]
+  },
+  {
+    "name": "as a whole",
+    "trans": ["作为整体", "就整体来看"]
+  },
+  {
+    "name": "as far as",
+    "trans": ["就...而言", "远到...", "到...程度(表示程度,范围)"]
+  },
+  {
+    "name": "as usual",
+    "trans": ["照常"]
+  },
+  {
+    "name": "ask a favor of",
+    "trans": ["请...帮个忙"]
+  },
+  {
+    "name": "ask about",
+    "trans": ["查问", "打听"]
+  },
+  {
+    "name": "ask after",
+    "trans": ["问候"]
+  },
+  {
+    "name": "associate A with B",
+    "trans": ["把 A 和 B 联系起来"]
+  },
+  {
+    "name": "assure ... of",
+    "trans": ["向...保证"]
+  },
+  {
+    "name": "at a loss",
+    "trans": ["茫然不知所措"]
+  },
+  {
+    "name": "at all costs",
+    "trans": ["不惜一切代价"]
+  },
+  {
+    "name": "at any cost",
+    "trans": ["不惜一切代价"]
+  },
+  {
+    "name": "at first sight",
+    "trans": ["乍一看"]
+  },
+  {
+    "name": "at one time",
+    "trans": ["一度"]
+  },
+  {
+    "name": "at present",
+    "trans": ["现在", "目前"]
+  },
+  {
+    "name": "at the cost of",
+    "trans": ["以...为代价"]
+  },
+  {
+    "name": "at the mercy of",
+    "trans": ["任由...摆布"]
+  },
+  {
+    "name": "at the moment",
+    "trans": ["此刻,目前", "那时,当时"]
+  },
+  {
+    "name": "at the risk of one's life",
+    "trans": ["冒着生命危险"]
+  },
+  {
+    "name": "at times",
+    "trans": ["有时"]
+  },
+  {
+    "name": "attach to",
+    "trans": ["把...依附于"]
+  },
+  {
+    "name": "attach importance to",
+    "trans": ["重视"]
+  },
+  {
+    "name": "award sb. sth.",
+    "trans": ["授予某人某物"]
+  },
+  {
+    "name": "base ... on ...",
+    "trans": ["把...放在...的基础上"]
+  },
+  {
+    "name": "be absent from",
+    "trans": ["缺席"]
+  },
+  {
+    "name": "be absorbed in ...",
+    "trans": ["全神贯注于..."]
+  },
+  {
+    "name": "be accustomed to doing",
+    "trans": ["习惯于做"]
+  },
+  {
+    "name": "be anxious about",
+    "trans": ["担忧"]
+  },
+  {
+    "name": "be aware of",
+    "trans": ["意识到的"]
+  },
+  {
+    "name": "be capable of",
+    "trans": ["有能力"]
+  },
+  {
+    "name": "be composed of ...",
+    "trans": ["由...组成"]
+  },
+  {
+    "name": "be concerned about",
+    "trans": ["关心"]
+  },
+  {
+    "name": "be confident of",
+    "trans": ["对...有信心"]
+  },
+  {
+    "name": "be considerate of sb. to do sth.",
+    "trans": ["某人做某事考虑得周到"]
+  },
+  {
+    "name": "be contrary to",
+    "trans": ["与...相反"]
+  },
+  {
+    "name": "be curious about",
+    "trans": ["对...好奇"]
+  },
+  {
+    "name": "be determined to do",
+    "trans": ["决定做某事"]
+  },
+  {
+    "name": "be down with",
+    "trans": ["由于...病倒了"]
+  },
+  {
+    "name": "be engaged in",
+    "trans": ["忙于做某事"]
+  },
+  {
+    "name": "be equal to",
+    "trans": ["与...相等"]
+  },
+  {
+    "name": "be exposed to",
+    "trans": ["曝光于,接触"]
+  },
+  {
+    "name": "be faced with sth.",
+    "trans": ["面对..."]
+  },
+  {
+    "name": "be familiar with",
+    "trans": ["对...熟悉"]
+  },
+  {
+    "name": "be fed up with",
+    "trans": ["对...厌烦"]
+  },
+  {
+    "name": "be fit for",
+    "trans": ["适合..."]
+  },
+  {
+    "name": "be free from",
+    "trans": ["没有...的"]
+  },
+  {
+    "name": "be grateful to sb. for sth.",
+    "trans": ["因某事感谢某人"]
+  },
+  {
+    "name": "be thankful to sb. for sth.",
+    "trans": ["因某事感谢某人"]
+  },
+  {
+    "name": "be ignorant of",
+    "trans": ["对某事一无所知"]
+  },
+  {
+    "name": "be in favour of",
+    "trans": ["支持(赞成)..."]
+  },
+  {
+    "name": "be independent of",
+    "trans": ["独立于"]
+  },
+  {
+    "name": "be infected with",
+    "trans": ["受感染"]
+  },
+  {
+    "name": "be inferior to",
+    "trans": ["较低于,与...相比不如"]
+  },
+  {
+    "name": "be involved in",
+    "trans": ["卷入,参与"]
+  },
+  {
+    "name": "be located (in)",
+    "trans": ["坐落(在)"]
+  },
+  {
+    "name": "be lost in thought",
+    "trans": ["陷入沉思"]
+  },
+  {
+    "name": "be of good quality",
+    "trans": ["质量好"]
+  },
+  {
+    "name": "be of poor quality",
+    "trans": ["质量差"]
+  },
+  {
+    "name": "be on a diet",
+    "trans": ["节食"]
+  },
+  {
+    "name": "be opposed to doing",
+    "trans": ["强烈反对做某事"]
+  },
+  {
+    "name": "be particular about",
+    "trans": ["对...挑剔"]
+  },
+  {
+    "name": "be popular with",
+    "trans": ["受某人欢迎"]
+  },
+  {
+    "name": "be popular among",
+    "trans": ["受某人欢迎"]
+  },
+  {
+    "name": "be present at",
+    "trans": ["出席,在场"]
+  },
+  {
+    "name": "be qualified for",
+    "trans": ["可胜任..."]
+  },
+  {
+    "name": "be related to",
+    "trans": ["与...相关"]
+  },
+  {
+    "name": "be resistant to ...",
+    "trans": ["对...有抵抗能力"]
+  },
+  {
+    "name": "be responsible for",
+    "trans": ["对...负责任"]
+  },
+  {
+    "name": "be satisfied with",
+    "trans": ["对...感到满意"]
+  },
+  {
+    "name": "be second to none",
+    "trans": ["第一,不次于任何人"]
+  },
+  {
+    "name": "be short of",
+    "trans": ["缺乏"]
+  },
+  {
+    "name": "be similar to",
+    "trans": ["与...相似"]
+  },
+  {
+    "name": "be strict with",
+    "trans": ["对...严格"]
+  },
+  {
+    "name": "be suitable for",
+    "trans": ["适合..."]
+  },
+  {
+    "name": "be superior to",
+    "trans": ["优于..."]
+  },
+  {
+    "name": "be sure of",
+    "trans": ["坚信", "确信"]
+  },
+  {
+    "name": "be worried about",
+    "trans": ["为...担心"]
+  },
+  {
+    "name": "be used to",
+    "trans": ["习惯于..."]
+  },
+  {
+    "name": "get used to",
+    "trans": ["习惯于..."]
+  },
+  {
+    "name": "bear ... in mind",
+    "trans": ["把...牢记在心"]
+  },
+  {
+    "name": "begin with",
+    "trans": ["由...开始"]
+  },
+  {
+    "name": "behave oneself",
+    "trans": ["行为检点、守规矩"]
+  },
+  {
+    "name": "believe in",
+    "trans": ["信仰", "对...有信心"]
+  },
+  {
+    "name": "believe it or not",
+    "trans": ["信不信由你"]
+  },
+  {
+    "name": "benefit from",
+    "trans": ["得益于"]
+  },
+  {
+    "name": "beyond one's power",
+    "trans": ["力所不及"]
+  },
+  {
+    "name": "within one's power",
+    "trans": ["力所能及"]
+  },
+  {
+    "name": "beyond description",
+    "trans": ["难以描述"]
+  },
+  {
+    "name": "blame ... for",
+    "trans": ["因...责备某人"]
+  },
+  {
+    "name": "break away from",
+    "trans": ["脱离,逃跑"]
+  },
+  {
+    "name": "break down",
+    "trans": ["抛锚", "倒塌", "中止"]
+  },
+  {
+    "name": "break out",
+    "trans": ["爆发"]
+  },
+  {
+    "name": "break the law",
+    "trans": ["违法"]
+  },
+  {
+    "name": "break through",
+    "trans": ["突破", "突围"]
+  },
+  {
+    "name": "bring ... to an end",
+    "trans": ["结束"]
+  },
+  {
+    "name": "bring ... to life",
+    "trans": ["使...苏醒"]
+  },
+  {
+    "name": "bring about",
+    "trans": ["引起"]
+  },
+  {
+    "name": "bring up",
+    "trans": ["抚养"]
+  },
+  {
+    "name": "build up",
+    "trans": ["建立,树立"]
+  },
+  {
+    "name": "bump into",
+    "trans": ["撞上", "碰见"]
+  },
+  {
+    "name": "burst into",
+    "trans": ["突然发作", "突然...起来"]
+  },
+  {
+    "name": "by accident",
+    "trans": ["意外地", "偶然"]
+  },
+  {
+    "name": "by all means",
+    "trans": ["一定"]
+  },
+  {
+    "name": "by comparison",
+    "trans": ["比较起来,相比之下"]
+  },
+  {
+    "name": "by means of",
+    "trans": ["用", "依靠"]
+  },
+  {
+    "name": "by mistake",
+    "trans": ["弄错"]
+  },
+  {
+    "name": "by no means",
+    "trans": ["决不"]
+  },
+  {
+    "name": "by the dozen",
+    "trans": ["以打计"]
+  },
+  {
+    "name": "by this means",
+    "trans": ["用这种方法"]
+  },
+  {
+    "name": "by contrast",
+    "trans": ["对比之下"]
+  },
+  {
+    "name": "in contrast",
+    "trans": ["对比之下"]
+  },
+  {
+    "name": "call at",
+    "trans": ["访问某地"]
+  },
+  {
+    "name": "call for",
+    "trans": ["要求", "需要"]
+  },
+  {
+    "name": "call in",
+    "trans": ["顺路到(某处)", "请某人来帮忙"]
+  },
+  {
+    "name": "call off",
+    "trans": ["取消"]
+  },
+  {
+    "name": "call on",
+    "trans": ["拜访某人", "号召"]
+  },
+  {
+    "name": "call out",
+    "trans": ["大声叫唤", "唤起"]
+  },
+  {
+    "name": "care about",
+    "trans": ["关心、介意"]
+  },
+  {
+    "name": "carry on",
+    "trans": ["继续", "进行"]
+  },
+  {
+    "name": "carry out",
+    "trans": ["执行", "实施"]
+  },
+  {
+    "name": "catch one's eye",
+    "trans": ["吸引注意"]
+  },
+  {
+    "name": "catch up with",
+    "trans": ["赶上"]
+  },
+  {
+    "name": "catch sight of",
+    "trans": ["看见"]
+  },
+  {
+    "name": "lose sight of",
+    "trans": ["看不见"]
+  },
+  {
+    "name": "change for the better",
+    "trans": ["好转"]
+  },
+  {
+    "name": "change for the worse",
+    "trans": ["恶化"]
+  },
+  {
+    "name": "charge ... with",
+    "trans": ["控告"]
+  },
+  {
+    "name": "cheer up",
+    "trans": ["使高兴", "高兴起来"]
+  },
+  {
+    "name": "clean up",
+    "trans": ["打扫干净"]
+  },
+  {
+    "name": "clear up",
+    "trans": ["澄清", "(天气)变晴"]
+  },
+  {
+    "name": "combine ... with ...",
+    "trans": ["把...和...结合起来"]
+  },
+  {
+    "name": "come across",
+    "trans": ["不期而遇"]
+  },
+  {
+    "name": "come down with",
+    "trans": ["患病"]
+  },
+  {
+    "name": "come into existence",
+    "trans": ["产生、成立"]
+  },
+  {
+    "name": "come into being",
+    "trans": ["产生、成立"]
+  },
+  {
+    "name": "come out",
+    "trans": ["出来", "开花", "结果是"]
+  },
+  {
+    "name": "come to (oneself)",
+    "trans": ["达到", "共计", "恢复知觉,苏醒"]
+  },
+  {
+    "name": "come to power",
+    "trans": ["上台,执掌"]
+  },
+  {
+    "name": "come into power",
+    "trans": ["上台,执掌"]
+  },
+  {
+    "name": "come to a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "arrive at a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "come up",
+    "trans": ["走近", "长出来"]
+  },
+  {
+    "name": "come up with",
+    "trans": ["提出"]
+  },
+  {
+    "name": "comment on",
+    "trans": ["评论"]
+  },
+  {
+    "name": "commit a crime",
+    "trans": ["犯罪"]
+  },
+  {
+    "name": "common knowledge",
+    "trans": ["常识"]
+  },
+  {
+    "name": "compare A to B",
+    "trans": ["把 A 比喻成 B"]
+  },
+  {
+    "name": "compare A with B",
+    "trans": ["把 A 和 B 比较"]
+  },
+  {
+    "name": "compete with",
+    "trans": ["与...相竞争"]
+  },
+  {
+    "name": "concentrate on",
+    "trans": ["集中精力在..."]
+  },
+  {
+    "name": "conduct a survey",
+    "trans": ["做一个调查"]
+  },
+  {
+    "name": "confuse A with B",
+    "trans": ["把 A 和 B 混淆"]
+  },
+  {
+    "name": "congratulate sb. on sth.",
+    "trans": ["因某事祝贺某人"]
+  },
+  {
+    "name": "consider ... as",
+    "trans": ["把...看作"]
+  },
+  {
+    "name": "consider ... to be",
+    "trans": ["把...看作"]
+  },
+  {
+    "name": "consist of",
+    "trans": ["由...组成"]
+  },
+  {
+    "name": "contribute to",
+    "trans": ["有助于"]
+  },
+  {
+    "name": "convince sb. of sth.",
+    "trans": ["使某人相信某事"]
+  },
+  {
+    "name": "cooperate with sb.",
+    "trans": ["和某人合作"]
+  },
+  {
+    "name": "cope with",
+    "trans": ["对付,应付,处理"]
+  },
+  {
+    "name": "count on",
+    "trans": ["依靠,指望"]
+  },
+  {
+    "name": "cover a long distance",
+    "trans": ["走了很长一段路"]
+  },
+  {
+    "name": "cut down on",
+    "trans": ["减少"]
+  },
+  {
+    "name": "cut off",
+    "trans": ["切断", "断绝"]
+  },
+  {
+    "name": "date back to",
+    "trans": ["追溯到"]
+  },
+  {
+    "name": "devote oneself to doing sth.",
+    "trans": ["献身于做某事"]
+  },
+  {
+    "name": "die down",
+    "trans": ["逐渐平息"]
+  },
+  {
+    "name": "die out",
+    "trans": ["灭绝"]
+  },
+  {
+    "name": "differ from",
+    "trans": ["与...不同"]
+  },
+  {
+    "name": "distinguish ... from...",
+    "trans": ["把...区别于..."]
+  },
+  {
+    "name": "divide ... into",
+    "trans": ["把...分成"]
+  },
+  {
+    "name": "do harm to",
+    "trans": ["对...有害处"]
+  },
+  {
+    "name": "do good to",
+    "trans": ["对...有好处"]
+  },
+  {
+    "name": "do nothing but do",
+    "trans": ["除了...什么也不做"]
+  },
+  {
+    "name": "draw a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "form a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "reach a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "make a conclusion",
+    "trans": ["得出结论"]
+  },
+  {
+    "name": "draw one's attention",
+    "trans": ["吸引某人的注意"]
+  },
+  {
+    "name": "attract one's attention",
+    "trans": ["吸引某人的注意"]
+  },
+  {
+    "name": "drive sb. mad",
+    "trans": ["把某人逼疯"]
+  },
+  {
+    "name": "drop in on",
+    "trans": ["顺便拜访"]
+  },
+  {
+    "name": "drop in at",
+    "trans": ["顺便拜访"]
+  },
+  {
+    "name": "due to",
+    "trans": ["由于", "因为"]
+  },
+  {
+    "name": "end up with",
+    "trans": ["以...告终"]
+  },
+  {
+    "name": "enter for",
+    "trans": ["报名参加"]
+  },
+  {
+    "name": "sign up for",
+    "trans": ["报名参加"]
+  },
+  {
+    "name": "entertain sb. with sth.",
+    "trans": ["用...来招待某人"]
+  },
+  {
+    "name": "equip sb. with sth.",
+    "trans": ["用...来装备某人"]
+  },
+  {
+    "name": "escape from",
+    "trans": ["从...逃离"]
+  },
+  {
+    "name": "ever since",
+    "trans": ["从那时起直至今日"]
+  },
+  {
+    "name": "exchange A for B",
+    "trans": ["用 A 交换 B"]
+  },
+  {
+    "name": "face up to",
+    "trans": ["勇敢面对"]
+  },
+  {
+    "name": "fall in love with ...",
+    "trans": ["爱上某人"]
+  },
+  {
+    "name": "fall off",
+    "trans": ["跌落"]
+  },
+  {
+    "name": "fall on",
+    "trans": ["落在某一天", "责任落在某人身上"]
+  },
+  {
+    "name": "far from enough",
+    "trans": ["远远不够"]
+  },
+  {
+    "name": "fight against",
+    "trans": ["与...斗争"]
+  },
+  {
+    "name": "figure out",
+    "trans": ["算出,推测出"]
+  },
+  {
+    "name": "fill ... with",
+    "trans": ["用...充满"]
+  },
+  {
+    "name": "find an excuse",
+    "trans": ["找借口"]
+  },
+  {
+    "name": "find fault with",
+    "trans": ["挑...毛病"]
+  },
+  {
+    "name": "fit in with",
+    "trans": ["适合"]
+  },
+  {
+    "name": "focus (one's attention) on",
+    "trans": ["集中注意"]
+  },
+  {
+    "name": "follow one's example",
+    "trans": ["学某人的样子"]
+  },
+  {
+    "name": "food for thought",
+    "trans": ["应思考的问题"]
+  },
+  {
+    "name": "for free",
+    "trans": ["免费地", "无偿地"]
+  },
+  {
+    "name": "for the sake of",
+    "trans": ["为了...利益"]
+  },
+  {
+    "name": "forgive sb. for",
+    "trans": ["因...而原谅某人"]
+  },
+  {
+    "name": "form the habit of",
+    "trans": ["养成某种习惯"]
+  },
+  {
+    "name": "free of charge",
+    "trans": ["免费"]
+  },
+  {
+    "name": "from the bottom of one's heart",
+    "trans": ["从心底里,发自内心地"]
+  },
+  {
+    "name": "get across",
+    "trans": ["横过", "穿过"]
+  },
+  {
+    "name": "get down to",
+    "trans": ["开始认真对待"]
+  },
+  {
+    "name": "get in the way",
+    "trans": ["挡道,妨碍"]
+  },
+  {
+    "name": "get lost",
+    "trans": ["迷路"]
+  },
+  {
+    "name": "get over",
+    "trans": ["克服", "从...恢复过来"]
+  },
+  {
+    "name": "get through with",
+    "trans": ["完成"]
+  },
+  {
+    "name": "give ... a lift",
+    "trans": ["给...搭便车"]
+  },
+  {
+    "name": "give away",
+    "trans": ["泄露", "出卖", "赠送"]
+  },
+  {
+    "name": "give in",
+    "trans": ["投降", "让步", "上交"]
+  },
+  {
+    "name": "give off",
+    "trans": ["发出(气体)"]
+  },
+  {
+    "name": "give out",
+    "trans": ["分发"]
+  },
+  {
+    "name": "give rise to",
+    "trans": ["引起"]
+  },
+  {
+    "name": "give way to",
+    "trans": ["让位于,对...让步"]
+  },
+  {
+    "name": "glance at",
+    "trans": ["瞥一眼,匆匆一看"]
+  },
+  {
+    "name": "go after",
+    "trans": ["追求"]
+  },
+  {
+    "name": "go in for",
+    "trans": ["从事于,报名参加"]
+  },
+  {
+    "name": "go round",
+    "trans": ["足够分配", "(疾病)流传,传播"]
+  },
+  {
+    "name": "go through",
+    "trans": ["检查", "经历"]
+  },
+  {
+    "name": "go with",
+    "trans": ["伴随", "与...协调"]
+  },
+  {
+    "name": "graduate from",
+    "trans": ["从...毕业"]
+  },
+  {
+    "name": "hand out",
+    "trans": ["分发"]
+  },
+  {
+    "name": "hang on",
+    "trans": ["抓紧不放,不挂电话"]
+  },
+  {
+    "name": "have a gift for",
+    "trans": ["有...的天赋"]
+  },
+  {
+    "name": "have a talent for",
+    "trans": ["有...的天赋"]
+  },
+  {
+    "name": "have a genius for",
+    "trans": ["有...的天赋"]
+  },
+  {
+    "name": "have a good opinion of",
+    "trans": ["对...评价高"]
+  },
+  {
+    "name": "have a poor opinion of",
+    "trans": ["对...评价低"]
+  },
+  {
+    "name": "have a good command of",
+    "trans": ["精通"]
+  },
+  {
+    "name": "have a look at",
+    "trans": ["看一看", "请看"]
+  },
+  {
+    "name": "have a passion for",
+    "trans": ["酷爱"]
+  },
+  {
+    "name": "have a word with sb.",
+    "trans": ["和...说话"]
+  },
+  {
+    "name": "have access to",
+    "trans": ["可以进入/使用"]
+  },
+  {
+    "name": "have an effect on",
+    "trans": ["对...有影响、效果"]
+  },
+  {
+    "name": "have faith in",
+    "trans": ["对...有信心"]
+  },
+  {
+    "name": "have confidence in",
+    "trans": ["对...有信心"]
+  },
+  {
+    "name": "have influence on",
+    "trans": ["对...有影响"]
+  },
+  {
+    "name": "have no choice but to do",
+    "trans": ["别无选择"]
+  },
+  {
+    "name": "have show for",
+    "trans": ["尊敬某人"]
+  },
+  {
+    "name": "have respect for",
+    "trans": ["尊敬某人"]
+  },
+  {
+    "name": "have trouble with",
+    "trans": ["...有困难"]
+  },
+  {
+    "name": "head for",
+    "trans": ["驶向,走向"]
+  },
+  {
+    "name": "hold a firm belief in sth.",
+    "trans": ["对某事怀着坚定信念"]
+  },
+  {
+    "name": "hold back",
+    "trans": ["阻止,忍住"]
+  },
+  {
+    "name": "hold on",
+    "trans": ["抓牢", "坚持"]
+  },
+  {
+    "name": "hold out",
+    "trans": ["伸出(手等)", "提供"]
+  },
+  {
+    "name": "hold up",
+    "trans": ["举起", "阻挡,使停顿"]
+  },
+  {
+    "name": "in (the) presence of",
+    "trans": ["当着...的面"]
+  },
+  {
+    "name": "in (the) face of",
+    "trans": ["当着...的面"]
+  },
+  {
+    "name": "in a loud voice",
+    "trans": ["大声"]
+  },
+  {
+    "name": "in a way",
+    "trans": ["在某种程度上"]
+  },
+  {
+    "name": "in a word",
+    "trans": ["总之"]
+  },
+  {
+    "name": "in addition to",
+    "trans": ["除…之外(还)"]
+  },
+  {
+    "name": "in advance",
+    "trans": ["提前"]
+  },
+  {
+    "name": "in all",
+    "trans": ["总共"]
+  },
+  {
+    "name": "in any case",
+    "trans": ["无论如何"]
+  },
+  {
+    "name": "in brief",
+    "trans": ["简而言之"]
+  },
+  {
+    "name": "in case of",
+    "trans": ["万一"]
+  },
+  {
+    "name": "in common with",
+    "trans": ["和...有共同之处"]
+  },
+  {
+    "name": "in danger of",
+    "trans": ["处于...的危险中"]
+  },
+  {
+    "name": "in detail",
+    "trans": ["详细地"]
+  },
+  {
+    "name": "in good condition",
+    "trans": ["状况良好"]
+  },
+  {
+    "name": "in honour of",
+    "trans": ["向...表示敬意", "为纪念..."]
+  },
+  {
+    "name": "in line",
+    "trans": ["协调,有秩序", "成一直线"]
+  },
+  {
+    "name": "in low spirits",
+    "trans": ["情绪低落"]
+  },
+  {
+    "name": "in high spirits",
+    "trans": ["兴高采烈"]
+  },
+  {
+    "name": "in memory of",
+    "trans": ["纪念"]
+  },
+  {
+    "name": "in no case",
+    "trans": ["绝不"]
+  },
+  {
+    "name": "in no time",
+    "trans": ["立刻"]
+  },
+  {
+    "name": "in no way",
+    "trans": ["决不"]
+  },
+  {
+    "name": "in order",
+    "trans": ["按顺序", "整齐", "状况良好"]
+  },
+  {
+    "name": "in other words",
+    "trans": ["换句话说"]
+  },
+  {
+    "name": "in particular",
+    "trans": ["尤其,特别"]
+  },
+  {
+    "name": "in poor health",
+    "trans": ["身体不好"]
+  },
+  {
+    "name": "in private",
+    "trans": ["私下里"]
+  },
+  {
+    "name": "in public",
+    "trans": ["当众", "公开地"]
+  },
+  {
+    "name": "in reality",
+    "trans": ["实际上,事实上"]
+  },
+  {
+    "name": "in search of",
+    "trans": ["对...的搜寻"]
+  },
+  {
+    "name": "in short",
+    "trans": ["简言之,总之"]
+  },
+  {
+    "name": "in spite of",
+    "trans": ["不顾", "不管"]
+  },
+  {
+    "name": "in terms of",
+    "trans": ["在...方面,就...而言,用...的字眼"]
+  },
+  {
+    "name": "in the course of",
+    "trans": ["在...的过程中"]
+  },
+  {
+    "name": "in the form of",
+    "trans": ["以...的形式"]
+  },
+  {
+    "name": "in the meantime",
+    "trans": ["同时,在这期间"]
+  },
+  {
+    "name": "in use",
+    "trans": ["使用着"]
+  },
+  {
+    "name": "inform ... of ...",
+    "trans": ["通知某人某事"]
+  },
+  {
+    "name": "insist on",
+    "trans": ["坚持"]
+  },
+  {
+    "name": "intend to do sth.",
+    "trans": ["打算做某事"]
+  },
+  {
+    "name": "judge from",
+    "trans": ["从...判断"]
+  },
+  {
+    "name": "keep ... at a distance",
+    "trans": ["与...保持距离"]
+  },
+  {
+    "name": "keep ... doing",
+    "trans": ["让某人一直做"]
+  },
+  {
+    "name": "keep ... in mind",
+    "trans": ["牢牢记住"]
+  },
+  {
+    "name": "keep an eye on",
+    "trans": ["照看"]
+  },
+  {
+    "name": "keep in contact with",
+    "trans": ["与...保持联系"]
+  },
+  {
+    "name": "keep off",
+    "trans": ["让开", "不接近"]
+  },
+  {
+    "name": "keep on",
+    "trans": ["继续,保持"]
+  },
+  {
+    "name": "keep one's promise",
+    "trans": ["信守诺言"]
+  },
+  {
+    "name": "keep pace with",
+    "trans": ["跟上...的步伐,与...齐头并进"]
+  },
+  {
+    "name": "keep sb. company",
+    "trans": ["陪伴某人"]
+  },
+  {
+    "name": "keep to",
+    "trans": ["遵守(计划、时刻表等)", "信守(诺言等)"]
+  },
+  {
+    "name": "keep up with",
+    "trans": ["跟上(人、潮流、形势等)"]
+  },
+  {
+    "name": "kill time",
+    "trans": ["消磨时间"]
+  },
+  {
+    "name": "pass time",
+    "trans": ["消磨时间"]
+  },
+  {
+    "name": "knock down",
+    "trans": ["撞到", "击倒"]
+  },
+  {
+    "name": "last but not least",
+    "trans": ["最后但一样重要的是"]
+  },
+  {
+    "name": "later on",
+    "trans": ["后来"]
+  },
+  {
+    "name": "lay a foundation for",
+    "trans": ["为...奠定基础"]
+  },
+  {
+    "name": "lay emphasis on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "lay importance on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "place emphasis on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "place importance on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "put emphasis on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "put importance on",
+    "trans": ["强调,重视"]
+  },
+  {
+    "name": "lead to",
+    "trans": ["导致", "通向"]
+  },
+  {
+    "name": "learn ... by heart",
+    "trans": ["熟记,背"]
+  },
+  {
+    "name": "learn a lesson from",
+    "trans": ["从...中吸取教训"]
+  },
+  {
+    "name": "draw a lesson from",
+    "trans": ["从...中吸取教训"]
+  },
+  {
+    "name": "leave ... alone",
+    "trans": ["丢下某人不管"]
+  },
+  {
+    "name": "let alone",
+    "trans": ["更不用说"]
+  },
+  {
+    "name": "let out",
+    "trans": ["放出", "发出"]
+  },
+  {
+    "name": "lie in",
+    "trans": ["在于"]
+  },
+  {
+    "name": "live up to",
+    "trans": ["实现,不辜负"]
+  },
+  {
+    "name": "living standards",
+    "trans": ["生活水平"]
+  },
+  {
+    "name": "long for",
+    "trans": ["渴望"]
+  },
+  {
+    "name": "look around",
+    "trans": ["环视", "向四周看"]
+  },
+  {
+    "name": "look back",
+    "trans": ["回顾"]
+  },
+  {
+    "name": "look down on",
+    "trans": ["轻视"]
+  },
+  {
+    "name": "look down upon",
+    "trans": ["轻视"]
+  },
+  {
+    "name": "look into",
+    "trans": ["调查,观察"]
+  },
+  {
+    "name": "look on",
+    "trans": ["旁观"]
+  },
+  {
+    "name": "look through",
+    "trans": ["浏览", "核查", "看穿,识破"]
+  },
+  {
+    "name": "look to",
+    "trans": ["依赖,指望"]
+  },
+  {
+    "name": "look up to",
+    "trans": ["尊敬"]
+  },
+  {
+    "name": "lose heart",
+    "trans": ["失去信心"]
+  },
+  {
+    "name": "major in",
+    "trans": ["主修"]
+  },
+  {
+    "name": "make a mistake",
+    "trans": ["犯错"]
+  },
+  {
+    "name": "commit a mistake",
+    "trans": ["犯错"]
+  },
+  {
+    "name": "make a living",
+    "trans": ["谋生"]
+  },
+  {
+    "name": "earn a living",
+    "trans": ["谋生"]
+  },
+  {
+    "name": "make a decision",
+    "trans": ["做决定"]
+  },
+  {
+    "name": "make a fortune",
+    "trans": ["发财"]
+  },
+  {
+    "name": "make a list",
+    "trans": ["列一张清单"]
+  },
+  {
+    "name": "make a profit",
+    "trans": ["赚取利润"]
+  },
+  {
+    "name": "make a promise",
+    "trans": ["许诺"]
+  },
+  {
+    "name": "make an effort",
+    "trans": ["努力"]
+  },
+  {
+    "name": "make an offer",
+    "trans": ["主动提供"]
+  },
+  {
+    "name": "make arrangements for",
+    "trans": ["为...安排"]
+  },
+  {
+    "name": "make comments on",
+    "trans": ["发表评论"]
+  },
+  {
+    "name": "make complaints about",
+    "trans": ["抱怨"]
+  },
+  {
+    "name": "make contact with",
+    "trans": ["与...取得联系"]
+  },
+  {
+    "name": "make contributions to",
+    "trans": ["对...作贡献"]
+  },
+  {
+    "name": "make out",
+    "trans": ["辨认出"]
+  },
+  {
+    "name": "make sense",
+    "trans": ["讲得通,有意义"]
+  },
+  {
+    "name": "make sure",
+    "trans": ["确保,查明"]
+  },
+  {
+    "name": "make trouble",
+    "trans": ["惹麻烦"]
+  },
+  {
+    "name": "make up",
+    "trans": ["组成", "编造", "补偿"]
+  },
+  {
+    "name": "make up for",
+    "trans": ["补偿,弥补"]
+  },
+  {
+    "name": "make use of",
+    "trans": ["使用", "利用"]
+  },
+  {
+    "name": "make an impression on",
+    "trans": ["留下印象"]
+  },
+  {
+    "name": "leave an impression on",
+    "trans": ["留下印象"]
+  },
+  {
+    "name": "meet one's need",
+    "trans": ["满足某人的需要"]
+  },
+  {
+    "name": "meet one's demand",
+    "trans": ["满足某人的要求"]
+  },
+  {
+    "name": "meet one's expectation",
+    "trans": ["满足某人的期望"]
+  },
+  {
+    "name": "meet the requirement of",
+    "trans": ["满足要求"]
+  },
+  {
+    "name": "mess up",
+    "trans": ["弄乱,弄糟"]
+  },
+  {
+    "name": "mistake A for B",
+    "trans": ["把 A 误认为 B"]
+  },
+  {
+    "name": "negotiate with sb.",
+    "trans": ["与某人谈判协商"]
+  },
+  {
+    "name": "object to",
+    "trans": ["反对"]
+  },
+  {
+    "name": "oblige sb. to do",
+    "trans": ["迫使某人做某事"]
+  },
+  {
+    "name": "observe the regulations/rules",
+    "trans": ["遵守规则"]
+  },
+  {
+    "name": "observe the rules",
+    "trans": ["遵守规则"]
+  },
+  {
+    "name": "occur to",
+    "trans": ["想到"]
+  },
+  {
+    "name": "on board",
+    "trans": ["在船上"]
+  },
+  {
+    "name": "on campus",
+    "trans": ["在校园内"]
+  },
+  {
+    "name": "on condition that",
+    "trans": ["只要"]
+  },
+  {
+    "name": "on display",
+    "trans": ["在展览"]
+  },
+  {
+    "name": "on fire",
+    "trans": ["着火"]
+  },
+  {
+    "name": "on one's own",
+    "trans": ["单独,靠自己"]
+  },
+  {
+    "name": "on one's side",
+    "trans": ["站在某人一边,支持某人"]
+  },
+  {
+    "name": "on purpose",
+    "trans": ["故意地"]
+  },
+  {
+    "name": "on sale",
+    "trans": ["出售", "廉价出售"]
+  },
+  {
+    "name": "on schedule",
+    "trans": ["准时"]
+  },
+  {
+    "name": "on the contrary",
+    "trans": ["正相反"]
+  },
+  {
+    "name": "on the occasion of",
+    "trans": ["在做某事的场合/情况"]
+  },
+  {
+    "name": "on the way to",
+    "trans": ["在去...的路上"]
+  },
+  {
+    "name": "on the whole",
+    "trans": ["就总体而言"]
+  },
+  {
+    "name": "once in a while",
+    "trans": ["偶尔"]
+  },
+  {
+    "name": "operate on",
+    "trans": ["做手术"]
+  },
+  {
+    "name": "other than",
+    "trans": ["除了"]
+  },
+  {
+    "name": "out of breath",
+    "trans": ["喘不过气来"]
+  },
+  {
+    "name": "out of order",
+    "trans": ["失灵"]
+  },
+  {
+    "name": "out of control",
+    "trans": ["失控"]
+  },
+  {
+    "name": "out of range",
+    "trans": ["在射程外"]
+  },
+  {
+    "name": "within range",
+    "trans": ["在射程内"]
+  },
+  {
+    "name": "owing to",
+    "trans": ["由于"]
+  },
+  {
+    "name": "participate in",
+    "trans": ["参与"]
+  },
+  {
+    "name": "pass away",
+    "trans": ["逝世,去世"]
+  },
+  {
+    "name": "pass by",
+    "trans": ["路过"]
+  },
+  {
+    "name": "pass on",
+    "trans": ["传递", "传授"]
+  },
+  {
+    "name": "pass down",
+    "trans": ["传递", "传授"]
+  },
+  {
+    "name": "pass through",
+    "trans": ["穿过,经历"]
+  },
+  {
+    "name": "pay a visit to",
+    "trans": ["访问"]
+  },
+  {
+    "name": "pay attention to",
+    "trans": ["注意"]
+  },
+  {
+    "name": "pay back",
+    "trans": ["偿还,回报"]
+  },
+  {
+    "name": "pay off",
+    "trans": ["还清(借款)"]
+  },
+  {
+    "name": "persevere in",
+    "trans": ["坚持不懈"]
+  },
+  {
+    "name": "persist in",
+    "trans": ["坚持/执意做某事"]
+  },
+  {
+    "name": "pick up",
+    "trans": ["学会", "(用车、船)接人"]
+  },
+  {
+    "name": "place an order for",
+    "trans": ["订购某物"]
+  },
+  {
+    "name": "play a part(in)",
+    "trans": ["(在...中)起作用"]
+  },
+  {
+    "name": "point at",
+    "trans": ["指着"]
+  },
+  {
+    "name": "prohibit sb. from doing sth.",
+    "trans": ["禁止某人做某事"]
+  },
+  {
+    "name": "provide sb. with sth.",
+    "trans": ["向某人提供某物"]
+  },
+  {
+    "name": "provide sth. for sb.",
+    "trans": ["向某人提供某物"]
+  },
+  {
+    "name": "put ... into practice",
+    "trans": ["将...付诸实施"]
+  },
+  {
+    "name": "put ... into words",
+    "trans": ["用言辞表达..."]
+  },
+  {
+    "name": "put away",
+    "trans": ["把...收起", "放好"]
+  },
+  {
+    "name": "put down",
+    "trans": ["放下", "记下"]
+  },
+  {
+    "name": "put forward",
+    "trans": ["提出"]
+  },
+  {
+    "name": "put out",
+    "trans": ["出版", "公布", "扑灭"]
+  },
+  {
+    "name": "put pressure on",
+    "trans": ["对...施加压力"]
+  },
+  {
+    "name": "put through",
+    "trans": ["接通电话"]
+  },
+  {
+    "name": "put up",
+    "trans": ["搭建", "提出(计划等)", "留宿"]
+  },
+  {
+    "name": "put up with",
+    "trans": ["忍受"]
+  },
+  {
+    "name": "range (in) ... from ... to",
+    "trans": ["(在某方面)从...到...不等"]
+  },
+  {
+    "name": "rather than",
+    "trans": ["而不是"]
+  },
+  {
+    "name": "reach out for",
+    "trans": ["伸出手拿..."]
+  },
+  {
+    "name": "recover from",
+    "trans": ["从...中恢复"]
+  },
+  {
+    "name": "refer to",
+    "trans": ["参阅,指的是"]
+  },
+  {
+    "name": "regard ... as",
+    "trans": ["把...看作"]
+  },
+  {
+    "name": "regardless of",
+    "trans": ["不顾,不管"]
+  },
+  {
+    "name": "remind sb. of sth.",
+    "trans": ["提醒某人..."]
+  },
+  {
+    "name": "replace A with B",
+    "trans": ["用 B 取代 A"]
+  },
+  {
+    "name": "respond to",
+    "trans": ["对...作反应"]
+  },
+  {
+    "name": "result from",
+    "trans": ["产生于,来自"]
+  },
+  {
+    "name": "result in",
+    "trans": ["导致、引起"]
+  },
+  {
+    "name": "reward ... with ...",
+    "trans": ["用某物回报某人"]
+  },
+  {
+    "name": "run across",
+    "trans": ["碰见", "偶然发现"]
+  },
+  {
+    "name": "run after",
+    "trans": ["追赶,追捕,跟踪"]
+  },
+  {
+    "name": "rush hour",
+    "trans": ["(公共车辆的)高峰时间"]
+  },
+  {
+    "name": "see through",
+    "trans": ["看穿"]
+  },
+  {
+    "name": "see to",
+    "trans": ["注意", "负责(做某事),照顾(某人)"]
+  },
+  {
+    "name": "send for",
+    "trans": ["派人去请"]
+  },
+  {
+    "name": "separate A from B",
+    "trans": ["把 A 和 B 分开"]
+  },
+  {
+    "name": "serve as",
+    "trans": ["充当,起...作用"]
+  },
+  {
+    "name": "set ... free",
+    "trans": ["释放"]
+  },
+  {
+    "name": "set about",
+    "trans": ["开始,着手"]
+  },
+  {
+    "name": "set an example",
+    "trans": ["树立榜样"]
+  },
+  {
+    "name": "set aside",
+    "trans": ["留出,拨出", "把...置于一旁"]
+  },
+  {
+    "name": "set off",
+    "trans": ["出发,启程", "着手(做某事)"]
+  },
+  {
+    "name": "set out",
+    "trans": ["出发", "开始"]
+  },
+  {
+    "name": "set up",
+    "trans": ["竖立", "建立", "设立", "提出"]
+  },
+  {
+    "name": "settle down",
+    "trans": ["定居"]
+  },
+  {
+    "name": "shortly after",
+    "trans": ["在...后不久"]
+  },
+  {
+    "name": "soon after",
+    "trans": ["在...后不久"]
+  },
+  {
+    "name": "show up",
+    "trans": ["出席", "(使)显现"]
+  },
+  {
+    "name": "sign up for",
+    "trans": ["报名参加"]
+  },
+  {
+    "name": "sit up",
+    "trans": ["熬夜"]
+  },
+  {
+    "name": "slow down",
+    "trans": ["减慢速度"]
+  },
+  {
+    "name": "sooner or later",
+    "trans": ["迟早"]
+  },
+  {
+    "name": "spare no efforts",
+    "trans": ["不遗余力"]
+  },
+  {
+    "name": "speak highly of",
+    "trans": ["高度赞扬"]
+  },
+  {
+    "name": "speed up",
+    "trans": ["加快速度"]
+  },
+  {
+    "name": "spring up",
+    "trans": ["涌现"]
+  },
+  {
+    "name": "stand for",
+    "trans": ["代表"]
+  },
+  {
+    "name": "stand out",
+    "trans": ["突出,引人注目"]
+  },
+  {
+    "name": "stay awake",
+    "trans": ["醒着"]
+  },
+  {
+    "name": "stick to",
+    "trans": ["坚持、忠于"]
+  },
+  {
+    "name": "straight away",
+    "trans": ["立即,马上"]
+  },
+  {
+    "name": "substitute for",
+    "trans": ["代替"]
+  },
+  {
+    "name": "succeed in",
+    "trans": ["在...上成功"]
+  },
+  {
+    "name": "suffer from",
+    "trans": ["承受...之苦", "患病"]
+  },
+  {
+    "name": "supply sb. with sth.",
+    "trans": ["供应某人某物"]
+  },
+  {
+    "name": "surf the Internet",
+    "trans": ["上网冲浪"]
+  },
+  {
+    "name": "switch off",
+    "trans": ["(用开关)关掉"]
+  },
+  {
+    "name": "switch on",
+    "trans": ["(用开关)打开"]
+  },
+  {
+    "name": "take (great) pains to do",
+    "trans": ["煞费苦心做某事"]
+  },
+  {
+    "name": "take ... as an example",
+    "trans": ["举...为例"]
+  },
+  {
+    "name": "take ... for granted",
+    "trans": ["想当然,认为理所当然"]
+  },
+  {
+    "name": "take ... into consideration",
+    "trans": ["把某事考虑进去"]
+  },
+  {
+    "name": "take ... seriously",
+    "trans": ["认真对待"]
+  },
+  {
+    "name": "take action",
+    "trans": ["采取行动"]
+  },
+  {
+    "name": "take advantage of",
+    "trans": ["利用"]
+  },
+  {
+    "name": "take effect",
+    "trans": ["生效"]
+  },
+  {
+    "name": "take in",
+    "trans": ["吸收", "了解", "欺骗"]
+  },
+  {
+    "name": "take measures",
+    "trans": ["采取措施"]
+  },
+  {
+    "name": "take steps",
+    "trans": ["采取措施"]
+  },
+  {
+    "name": "take notice of",
+    "trans": ["注意"]
+  },
+  {
+    "name": "take on",
+    "trans": ["呈现", "承担", "雇用"]
+  },
+  {
+    "name": "take one's time",
+    "trans": ["慢慢来"]
+  },
+  {
+    "name": "take over",
+    "trans": ["接收"]
+  },
+  {
+    "name": "take pride in",
+    "trans": ["以...为荣"]
+  },
+  {
+    "name": "take shape",
+    "trans": ["成形", "出现"]
+  },
+  {
+    "name": "take the advice",
+    "trans": ["采纳建议"]
+  },
+  {
+    "name": "take the place of",
+    "trans": ["代替"]
+  },
+  {
+    "name": "take the trouble",
+    "trans": ["费神"]
+  },
+  {
+    "name": "take turns",
+    "trans": ["轮流"]
+  },
+  {
+    "name": "take up",
+    "trans": ["从事", "占去(地方、时间、注意力等)"]
+  },
+  {
+    "name": "take the risk of",
+    "trans": ["冒险"]
+  },
+  {
+    "name": "run the risk of",
+    "trans": ["冒险"]
+  },
+  {
+    "name": "tear down",
+    "trans": ["拆掉(旧房)"]
+  },
+  {
+    "name": "tell the truth",
+    "trans": ["老实说"]
+  },
+  {
+    "name": "thank ... for",
+    "trans": ["因...而感谢"]
+  },
+  {
+    "name": "thanks to",
+    "trans": ["多亏了,由于"]
+  },
+  {
+    "name": "think of ... as",
+    "trans": ["把...看作"]
+  },
+  {
+    "name": "throw light on",
+    "trans": ["阐明"]
+  },
+  {
+    "name": "to one's relief",
+    "trans": ["使某人宽慰的是"]
+  },
+  {
+    "name": "to some extent",
+    "trans": ["在一定程度上"]
+  },
+  {
+    "name": "to the point",
+    "trans": ["切题"]
+  },
+  {
+    "name": "touch on",
+    "trans": ["涉及到"]
+  },
+  {
+    "name": "treat ... as",
+    "trans": ["把...看作"]
+  },
+  {
+    "name": "try out",
+    "trans": ["试用", "试验"]
+  },
+  {
+    "name": "turn a blind eye to",
+    "trans": ["对...熟视无睹"]
+  },
+  {
+    "name": "turn down",
+    "trans": ["拒绝"]
+  },
+  {
+    "name": "turn in",
+    "trans": ["上交", "拐弯进入"]
+  },
+  {
+    "name": "turn out",
+    "trans": ["生产,制造", "结果是"]
+  },
+  {
+    "name": "turn over",
+    "trans": ["移交", "仔细考虑"]
+  },
+  {
+    "name": "turn sth. into reality",
+    "trans": ["把某事变为现实"]
+  },
+  {
+    "name": "turn to",
+    "trans": ["转向", "求助于"]
+  },
+  {
+    "name": "turn up",
+    "trans": ["开大,调大", "出现,被找到"]
+  },
+  {
+    "name": "turning point",
+    "trans": ["转折点,转机"]
+  },
+  {
+    "name": "under construction",
+    "trans": ["在建设中"]
+  },
+  {
+    "name": "under no circumstances",
+    "trans": ["无论在什么条件下都不"]
+  },
+  {
+    "name": "under pressure",
+    "trans": ["在压力下"]
+  },
+  {
+    "name": "under way",
+    "trans": ["在进行中"]
+  },
+  {
+    "name": "use one's head",
+    "trans": ["动脑筋"]
+  },
+  {
+    "name": "use up",
+    "trans": ["用光,耗尽"]
+  },
+  {
+    "name": "vice versa",
+    "trans": ["反过来也一样", "反之亦然"]
+  },
+  {
+    "name": "warn sb. of sth.",
+    "trans": ["警告某人某事"]
+  },
+  {
+    "name": "warn sb. against sth.",
+    "trans": ["警告某人某事"]
+  },
+  {
+    "name": "watch out for",
+    "trans": ["留神"]
+  },
+  {
+    "name": "when it comes to",
+    "trans": ["当谈到"]
+  },
+  {
+    "name": "with one voice",
+    "trans": ["异口同声"]
+  },
+  {
+    "name": "with the rise of",
+    "trans": ["随着...的兴起/提高"]
+  },
+  {
+    "name": "within one's reach",
+    "trans": ["在伸手够得到的地方"]
+  },
+  {
+    "name": "out of one's reach",
+    "trans": ["在伸手够不到的地方"]
+  },
+  {
+    "name": "without exception",
+    "trans": ["毫无例外地"]
+  },
+  {
+    "name": "would rather do A than do B",
+    "trans": ["宁可做 A 而不做 B"]
+  }
+]

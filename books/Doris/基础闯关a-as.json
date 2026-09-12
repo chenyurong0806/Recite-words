@@ -1,0 +1,286 @@
+[
+  {
+    "name": "abnormal",
+    "trans": ["adj. 反常的，异常的"]
+  },
+  {
+    "name": "appetite",
+    "trans": ["n. 食欲，欲望，爱好，趣味"]
+  },
+  {
+    "name": "accommodation",
+    "trans": ["n. 住处，膳宿，方便设施"]
+  },
+  {
+    "name": "academic",
+    "trans": ["adj. 学校的，学术的，普通文化课的"]
+  },
+  {
+    "name": "accountant",
+    "trans": ["n. 会计人员"]
+  },
+  {
+    "name": "appliance",
+    "trans": ["n. 器具，器械"]
+  },
+  {
+    "name": "announcement",
+    "trans": ["n. 宣布，宣告，通告，布告"]
+  },
+  {
+    "name": "amuse",
+    "trans": ["vt. 逗乐，逗笑，给…提供娱乐消遣"]
+  },
+  {
+    "name": "air-conditioned",
+    "trans": ["adj. 装有空调设备的"]
+  },
+  {
+    "name": "agriculture",
+    "trans": ["n. 农业，农艺"]
+  },
+  {
+    "name": "agreeable",
+    "trans": ["adj. 令人愉快的，惬意的"]
+  },
+  {
+    "name": "aggressive",
+    "trans": ["adj. 侵犯的，侵略的，积极进取的"]
+  },
+  {
+    "name": "allowance",
+    "trans": ["n. 津贴，补贴，零用钱"]
+  },
+  {
+    "name": "adequate",
+    "trans": ["adj. 足够的，适当的"]
+  },
+  {
+    "name": "adolescent",
+    "trans": [
+      "n. 青少年（尤指 16 岁以下）",
+      "adj. 青春期的，青少年的"
+    ]
+  },
+  {
+    "name": "arrow",
+    "trans": ["n. 箭头，箭头符号"]
+  },
+  {
+    "name": "artificial",
+    "trans": ["adj. 人工的，人造的"]
+  },
+  {
+    "name": "approximately",
+    "trans": ["adv. 估计，近似"]
+  },
+  {
+    "name": "architect",
+    "trans": ["n. 建筑师，设计师"]
+  },
+  {
+    "name": "architecture",
+    "trans": ["n. 建筑学，建筑式样，建筑工程"]
+  },
+  {
+    "name": "analysis",
+    "trans": ["n. 分析"]
+  },
+  {
+    "name": "ancestor",
+    "trans": ["n. 祖先，先驱，原型"]
+  },
+  {
+    "name": "anniversary",
+    "trans": [
+      "n. 周年纪念日",
+      "adj. 周年的，每年的"
+    ]
+  },
+  {
+    "name": "alphabet",
+    "trans": ["n. 字母表，全部字母，初步入门，基础知识"]
+  },
+  {
+    "name": "ankle",
+    "trans": ["n. 脚踝"]
+  },
+  {
+    "name": "angle",
+    "trans": ["n. 角，角度"]
+  },
+  {
+    "name": "accurate",
+    "trans": ["adj. 准确的，精确的，正确无误的"]
+  },
+  {
+    "name": "addict",
+    "trans": [
+      "vt. 使沉迷，使入迷，使成瘾",
+      "n. 入迷的人，有瘾的人"
+    ]
+  },
+  {
+    "name": "amateur",
+    "trans": [
+      "n. 业余爱好者",
+      "adj. 业余爱好的"
+    ]
+  },
+  {
+    "name": "additional",
+    "trans": ["adj. 额外的，附加的"]
+  },
+  {
+    "name": "in the absence of",
+    "trans": ["缺乏…的情况下"]
+  },
+  {
+    "name": "take account of",
+    "trans": ["把…考虑在内"]
+  },
+  {
+    "name": "take…into account",
+    "trans": ["把…考虑在内"]
+  },
+  {
+    "name": "take action",
+    "trans": ["采取行动"]
+  },
+  {
+    "name": "aim to do",
+    "trans": ["旨在做…"]
+  },
+  {
+    "name": "aim at doing",
+    "trans": ["旨在做…"]
+  },
+  {
+    "name": "arise from",
+    "trans": ["由…产生"]
+  },
+  {
+    "name": "address a meeting",
+    "trans": ["在会议上致辞"]
+  },
+  {
+    "name": "agree on",
+    "trans": ["对…达成一致"]
+  },
+  {
+    "name": "have a deep affection for",
+    "trans": ["对…有很深的情感"]
+  },
+  {
+    "name": "appoint sb. as",
+    "trans": ["任命某人为…"]
+  },
+  {
+    "name": "arrange for…to do…",
+    "trans": ["安排…做某事"]
+  },
+  {
+    "name": "arouse one’s curiosity",
+    "trans": ["引发某人的好奇心"]
+  },
+  {
+    "name": "be anxious to do sth.",
+    "trans": ["渴望做某事"]
+  },
+  {
+    "name": "I would appreciate it very much if you could…",
+    "trans": ["如果你能…我将不胜感激"]
+  },
+  {
+    "name": "act as",
+    "trans": ["充当，担任"]
+  },
+  {
+    "name": "accuse sb. of",
+    "trans": ["指控某人…"]
+  },
+  {
+    "name": "add up to",
+    "trans": ["合计达"]
+  },
+  {
+    "name": "approve of",
+    "trans": ["赞成"]
+  },
+  {
+    "name": "on alert",
+    "trans": ["处于警戒状态，密切注意"]
+  },
+  {
+    "name": "on the alert",
+    "trans": ["处于警戒状态，密切注意"]
+  },
+  {
+    "name": "take full advantage of",
+    "trans": ["充分利用"]
+  },
+  {
+    "name": "amaze sb. with",
+    "trans": ["用…惊艳某人"]
+  },
+  {
+    "name": "turn over",
+    "trans": ["移交，仔细考虑"]
+  },
+  {
+    "name": "take over",
+    "trans": ["接收"]
+  },
+  {
+    "name": "turn down",
+    "trans": ["拒绝"]
+  },
+  {
+    "name": "take shape",
+    "trans": ["成形，出现"]
+  },
+  {
+    "name": "to one’s relief",
+    "trans": ["使某人宽慰的是"]
+  },
+  {
+    "name": "throw light on",
+    "trans": ["阐明"]
+  },
+  {
+    "name": "succeed in",
+    "trans": ["在…上成功"]
+  },
+  {
+    "name": "speak highly of",
+    "trans": ["高度赞扬"]
+  },
+  {
+    "name": "take effect",
+    "trans": ["生效"]
+  },
+  {
+    "name": "supply sb. with sth.",
+    "trans": ["供应某人某物"]
+  },
+  {
+    "name": "stick to",
+    "trans": ["坚持，终于"]
+  },
+  {
+    "name": "without exception",
+    "trans": ["毫无例外地"]
+  },
+  {
+    "name": "under no circumstances",
+    "trans": ["无论在什么条件下都不"]
+  },
+  {
+    "name": "spring up",
+    "trans": ["涌现"]
+  },
+  {
+    "name": "turn to",
+    "trans": ["转向，求助于"]
+  }
+]
