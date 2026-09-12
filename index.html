@@ -639,7 +639,247 @@
         .md3-dropdown-item .material-symbols-rounded {
             font-size: 16px;
         }
+        /* 词汇掌握度 5 颗菱形：无外框、无背景、纯净胶囊内嵌排版 */
+        .mastery-stars-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            margin: 0 0 0 2px !important;
+            user-select: none;
+        }
 
+        .mastery-diamond {
+            font-size: 14px;
+            line-height: 1;
+            color: var(--md-sys-color-outline-variant, #C4C7D0);
+            transition: color 0.2s ease, transform 0.2s ease;
+            display: inline-block;
+        }
+
+        .mastery-diamond.filled {
+            color: #EAA000; /* 闪耀金黄色 */
+        }
+
+        /* 减弱加星动画效果（微量缩放，温和不晃眼） */
+        .star-gain-anim {
+            animation: starPulseGlow 0.35s ease-out forwards;
+        }
+        @keyframes starPulseGlow {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        /* 减弱掉星动画效果（微幅左右位移） */
+        .star-loss-anim {
+            animation: starDropShake 0.3s ease-out forwards;
+        }
+        @keyframes starDropShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+
+        .mastery-stage-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-left: 4px;
+        }
+
+        /* 首页学习周历卡片组件 */
+        .week-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            width: 100%;
+            margin-top: 8px;
+            box-sizing: border-box;
+        }
+
+        .week-day-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 4px;
+            border-radius: var(--md-shape-m);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--md-sys-color-surface-container-lowest, #ffffff);
+            border: 1.5px solid transparent;
+            user-select: none;
+        }
+
+        .week-day-col:hover {
+            background: var(--md-sys-color-surface-container-low, #f1f3f9);
+        }
+
+        .week-day-col.active-today {
+            border-color: var(--md-sys-color-primary, #0061a4);
+            background: var(--md-sys-color-surface-container-low, #f1f3f9);
+        }
+
+        .week-day-col.selected-day {
+            background: var(--md-sys-color-primary-container, #d1e4ff);
+            border-color: var(--md-sys-color-primary, #0061a4);
+        }
+
+        .week-day-name {
+            font-size: 0.72rem;
+            color: var(--md-sys-color-outline);
+            font-weight: 600;
+        }
+
+        .week-day-num {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .week-day-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background: transparent;
+        }
+
+        .week-day-dot.has-record {
+            background: #22c55e;
+            box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+        }
+
+        /* 学习记录对话框消息 UI (Chat Bubble UI) */
+        .calendar-chat-dialog {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--md-sys-color-surface-container-low, #f3f5fa);
+            border-radius: var(--md-shape-l);
+            border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+            box-sizing: border-box;
+            animation: fadeIn 0.2s ease-out;
+            position: relative;
+        }
+
+        .chat-dialog-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: var(--md-elevation-1);
+        }
+
+        .chat-dialog-bubble {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-dialog-title {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .chat-dialog-badge {
+            font-size: 0.74rem;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chat-dialog-badge.punched {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .chat-dialog-badge.empty {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-outline);
+        }
+
+        .chat-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 8px;
+        }
+
+        .chat-stat-item {
+            background: #ffffff;
+            border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+            border-radius: var(--md-shape-m);
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-stat-icon {
+            font-size: 20px;
+        }
+
+        .chat-stat-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-stat-label {
+            font-size: 0.7rem;
+            color: var(--md-sys-color-outline);
+        }
+
+        .chat-stat-val {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .chat-dialog-motto {
+            font-size: 0.78rem;
+            color: var(--md-sys-color-on-surface-variant);
+            line-height: 1.4;
+        }
+
+        /* 词书进度条与待复习徽标 */
+        .book-progress-mini {
+            width: 100%;
+            height: 4px;
+            background: var(--md-sys-color-surface-container-high, #e2e8f0);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .book-progress-mini-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--md-sys-color-primary, #0061a4), #38bdf8);
+            border-radius: 9999px;
+            transition: width 0.3s ease;
+        }
 
         /* Material Symbols Rounded 样式规范 */
         .material-symbols-rounded {
@@ -3672,6 +3912,121 @@
             padding: 0 !important; /* 让单个删除图标按钮呈现完美的圆形 */
         }
 
+        /* 词书管理卡片：完全对照图 2 样式规范 */
+        .settings-book-group-card {
+            border: 1.5px solid var(--md-sys-color-outline-variant, #dce2eb);
+            border-radius: var(--md-shape-xl, 24px);
+            overflow: hidden;
+            background: var(--md-sys-color-surface-container-lowest, #ffffff);
+            box-shadow: var(--md-elevation-1);
+            margin-bottom: 16px;
+            padding: 18px 20px;
+        }
+
+        .settings-book-group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .settings-book-group-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-book-item-card {
+            display: flex;
+            flex-direction: column;
+            padding: 16px 20px;
+            background: #f8faff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .settings-book-item-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-book-item-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .settings-book-item-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .settings-book-item-name {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-book-item-tag {
+            font-size: 0.75rem;
+            background: #eef2f6;
+            color: #475569;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .settings-book-item-sub {
+            font-size: 0.84rem;
+            color: #64748b;
+        }
+
+        .settings-book-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .settings-book-item-btn {
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 9999px;
+            border: 1.5px solid #dce2eb;
+            background: #ffffff;
+            color: #1e293b;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .settings-book-item-btn:hover {
+            background: #f1f4f9;
+            border-color: #cbd5e1;
+        }
+
+        .settings-book-item-percent {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--md-sys-color-primary, #0061a4);
+            text-align: right;
+            margin-top: 4px;
+        }
+
         /* 设置子页面的顶部操作栏专用卡片样式 */
         .settings-toolbar-card {
             background: var(--md-sys-color-surface-container-lowest);
@@ -3683,31 +4038,27 @@
             box-sizing: border-box;
         }
 
-        /* 修复回收站容器图层截断与滚动样式 */
+        /* 移除回收站容器的多余高度与内边距，完全自适应词条内容 */
         .trash-scroll-container {
-            min-height: 280px; /* 保证词条较少时下拉菜单也有充足展开空间，不被裁剪 */
-            max-height: 620px;
+            min-height: auto !important; /* 彻底移除原有的 min-height: 280px */
+            max-height: 600px;
             overflow-y: auto;
-            padding: 14px 14px 40px; /* 底部增加安全内边距 */
-            background: var(--md-sys-color-surface-container-lowest);
-            border-radius: var(--md-shape-xl);
-            border: 1px solid var(--md-sys-color-outline-variant);
-            box-shadow: var(--md-elevation-1);
-            position: relative;
+            padding: 0 !important; /* 去除内部大留白 */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
 
-        /* 回收站单词条目：消除嵌套硬边框，改用平滑流式布局 */
         .trash-word-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: var(--md-sys-color-surface-container-low);
-            border-radius: var(--md-shape-m);
-            border: 1px solid transparent;
-            transition: background var(--md-motion-standard);
+            align-items: flex-start;
+            padding: 16px 20px;
+            background: #f8faff;
+            border-radius: var(--md-shape-xl, 20px);
+            border: 1.5px solid var(--md-sys-color-outline-variant, #e2e8f0);
             gap: 16px;
-            position: relative;
+            margin-bottom: 12px;
         }
 
         .trash-word-row:hover {
@@ -4194,40 +4545,6 @@
                 </div>
             </div>
 
-            <!-- 数据中心（独立通栏卡片） -->
-            <div class="card" style="margin-top: 14px;">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                    <h3 style="margin: 0;">数据中心</h3>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <!-- 直接跳转至设置-管理词书页面，不弹窗 -->
-                        <button class="btn btn-outlined btn-sm" onclick="goToManageBooksInSettings()"
-                            style="border-color:var(--md-sys-color-outline-variant);">
-                            <span class="material-symbols-rounded">folder_managed</span>
-                            <span class="btn-label-text">管理本地词书</span>
-                        </button>
-                        <button class="btn btn-tonal btn-sm" onclick="openMistakesView()">
-                            <span class="material-symbols-rounded">bookmark</span>
-                            <span class="btn-label-text">我的错题本</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">总作答词数</div>
-                        <div class="stat-value" id="stat-total">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">正确率</div>
-                        <div class="stat-value" id="stat-acc" style="color: var(--md-sys-color-success);">0%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">错词数量</div>
-                        <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
-                    </div>
-                </div>
-            </div>
-
             <!-- 实时在线玩家卡片 (MD3 规范，彻底修复文字竖排/挤压问题) -->
             <div class="card" style="margin-top: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -4251,8 +4568,78 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 模式 6: 学习周历与打卡统计 -->
+            <div class="card" id="hub-calendar-card" style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-rounded filled"
+                            style="color: var(--md-sys-color-primary); font-size: 24px;">calendar_month</span>
+                        <h3 style="margin: 0; font-size: 1.15rem;">学习周历</h3>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button type="button" class="btn btn-outlined btn-sm" style="padding: 0 8px; height: 30px;" onclick="shiftCalendarWeek(-1)" title="上一周">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">chevron_left</span>
+                        </button>
+                        <span id="calendar-week-range-label" style="font-size: 0.8rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); min-width: 50px; text-align: center;">本周</span>
+                        <button type="button" class="btn btn-outlined btn-sm" style="padding: 0 8px; height: 30px;" onclick="shiftCalendarWeek(1)" title="下一周">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- 周历 7 天网格 -->
+                <div id="hub-week-calendar-grid" class="week-calendar-grid"></div>
+                <!-- 新增：强度图例 (对照图 5)
+                <div class="calendar-legend-bar">
+                    <span>Less</span>
+                    <span class="calendar-legend-box" style="background: #f1f4f9;"></span>
+                    <span class="calendar-legend-box" style="background: #a7f3d0;"></span>
+                    <span class="calendar-legend-box" style="background: #4ade80;"></span>
+                    <span class="calendar-legend-box" style="background: #22c55e;"></span>
+                    <span class="calendar-legend-box" style="background: #15803d;"></span>
+                    <span>More</span>
+                </div> -->
+                
+                <!-- 对话框 UI 学习记录 -->
+                <div id="hub-calendar-dialog" style="margin-top: 12px;"></div>
+            </div>
+
+            <!-- 数据中心（独立通栏卡片） -->
+            <div class="card" style="margin-top: 14px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <h3 style="margin: 0;">数据中心</h3>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <!-- 直接跳转至设置-管理词书页面，不弹窗 -->
+                        <button class="btn btn-outlined btn-sm" onclick="goToManageBooksInSettings()"
+                            style="border-color:var(--md-sys-color-outline-variant);">
+                            <span class="material-symbols-rounded">folder_managed</span>
+                            <span class="btn-label-text">词书与分类管理</span>
+                        </button>
+                        <button class="btn btn-tonal btn-sm" onclick="openMistakesView()">
+                            <span class="material-symbols-rounded">bookmark</span>
+                            <span class="btn-label-text">我的错题本</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">总作答词数</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">正确率</div>
+                        <div class="stat-value" id="stat-acc" style="color: var(--md-sys-color-success);">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">错词数量</div>
+                        <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
+        
         <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
         <div id="view-online" class="view">
             <div class="riddle-top-bar" style="margin-bottom: 12px;">
@@ -4518,6 +4905,13 @@
                             <span id="single-retest-tag" style="display:none;" class="retest-banner">
                                 <span class="btn-label-text">错题</span>
                             </span>
+                            <div class="mastery-stars-bar" id="single-mastery-stars" title="掌握程度：生词 - 1至4轮复习 - 熟词">
+                                <span class="mastery-diamond" id="mastery-star-1">◇</span>
+                                <span class="mastery-diamond" id="mastery-star-2">◇</span>
+                                <span class="mastery-diamond" id="mastery-star-3">◇</span>
+                                <span class="mastery-diamond" id="mastery-star-4">◇</span>
+                                <span class="mastery-diamond" id="mastery-star-5">◇</span>
+                            </div>
                         </div>
 
                         <!-- 右侧与进度条末端对齐的工具栏 -->
@@ -5079,7 +5473,7 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">library_books</span>
-                    <span>本地词书</span>
+                    <span>管理词书</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row clickable" onclick="switchSettingsSubview('books')">
@@ -5089,8 +5483,8 @@
                                 <span class="material-symbols-rounded">folder_managed</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>本地词书</h4>
-                                <p id="settings-books-summary-text">创建分类文件夹、导入本地词书、查看词书单词列表与同步</p>
+                                <h4>管理词书</h4>
+                                <p id="settings-books-summary-text">查看云端与本地词书、学习进度、重学词书、导入与分类管理</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded"
@@ -5172,9 +5566,38 @@
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">open_in_new</span>
                     </a>
                 </div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">backup</span>
+                    <span>数据备份与管理</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="flex-wrap:wrap; gap:12px;">
+                        <div class="settings-row-left" style="flex:1; min-width:200px;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">cloud_download</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>备份与恢复</h4>
+                                <p>导入或导出所有配置与学习记录</p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button type="button" class="btn btn-tonal btn-sm" onclick="exportUserConfigAndProgress()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">download</span>
+                                <span class="btn-label-text">导出备份</span>
+                            </button>
+                            <button type="button" class="btn btn-outlined btn-sm" onclick="document.getElementById('settings-backup-input').click()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
+                                <span class="btn-label-text">导入备份</span>
+                            </button>
+                            <input type="file" id="settings-backup-input" accept=".json" style="display:none;" onchange="importUserConfigAndProgress(event)">
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 子页面 2: 本地词书与文件夹管理子页面 (原生页面无弹窗) -->
+            <!-- 子页面 2: 词书与分类管理子页面 (原生页面无弹窗) -->
             <div id="settings-subview-books" class="settings-subview">
                 <div class="subview-header">
                     <div style="display:flex; align-items:center; gap:10px;">
@@ -5182,7 +5605,7 @@
                             <span class="material-symbols-rounded">arrow_back</span>
                             <span class="btn-label-text">返回设置</span>
                         </button>
-                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书</h3>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">词书与分类管理</h3>
                     </div>
                 </div>
 
@@ -5318,8 +5741,6 @@
                 </div>
             </div>
         </div>
-
-    </div>
 
     <!-- 人机对战设置弹窗 -->
     <div id="modal-ai-duel-settings" class="modal-overlay">
@@ -5472,6 +5893,34 @@
                 <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveDictationSettings()">
                     <span class="material-symbols-rounded">check</span>
                     <span class="btn-label-text">保存设置</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 首次打开/版本更新说明弹窗 (Google MD3 规范) -->
+    <div id="modal-welcome-update" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 42px; height: 42px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-rounded" style="font-size:24px;">auto_awesome</span>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v1.9.0</span>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="welcome-update-body" style="max-height: 380px;">
+                <!-- 动态渲染当前版本的更新内容 -->
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-filled btn-touch-large" style="min-width: 120px;" onclick="closeWelcomeUpdateModal()">
+                    <span class="btn-label-text">开始使用</span>
                 </button>
             </div>
         </div>
@@ -6533,6 +6982,7 @@
             }
 
             if (window.EbbinghausEngine) {
+                window.EbbinghausEngine.checkOverduePenalties();
                 window.EbbinghausEngine.updateDueBadge();
             }
             updateHubResumeButtons();
@@ -6769,6 +7219,209 @@
             showToast('网络已断开');
         });
 
+        let currentCalendarWeekOffset = 0;
+        let currentSelectedCalendarDate = null;
+
+        const DailyStudyTracker = {
+            getLogs() {
+                if (!currentUser) return {};
+                try {
+                    return JSON.parse(localStorage.getItem(`vocab_daily_logs_${currentUser}`) || '{}');
+                } catch (e) {
+                    return {};
+                }
+            },
+            saveLogs(logs) {
+                if (!currentUser) return;
+                localStorage.setItem(`vocab_daily_logs_${currentUser}`, JSON.stringify(logs));
+            },
+            getTodayStr() {
+                const d = new Date();
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            },
+            record(type, count = 1) {
+                if (!currentUser) return;
+                const logs = this.getLogs();
+                const todayStr = this.getTodayStr();
+                if (!logs[todayStr]) {
+                    logs[todayStr] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0 };
+                }
+                logs[todayStr][type] = (logs[todayStr][type] || 0) + count;
+                this.saveLogs(logs);
+                this.renderWeekCalendar(currentCalendarWeekOffset);
+            },
+            getDaysOfWeek(offset = 0) {
+                const now = new Date();
+                const dayOfWeek = now.getDay();
+                const distanceToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+                const monday = new Date(now);
+                monday.setDate(now.getDate() + distanceToMonday + offset * 7);
+                monday.setHours(0, 0, 0, 0);
+
+                const days = [];
+                const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+                const todayStr = this.getTodayStr();
+
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const dateNum = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${y}-${m}-${dateNum}`;
+                    days.push({
+                        dateStr,
+                        dayName: dayNames[i],
+                        dayNum: d.getDate(),
+                        month: d.getMonth() + 1,
+                        year: y,
+                        isToday: dateStr === todayStr
+                    });
+                }
+                return days;
+            },
+            renderWeekCalendar(offset = 0) {
+                const gridEl = document.getElementById('hub-week-calendar-grid');
+                if (!gridEl) return;
+
+                const days = this.getDaysOfWeek(offset);
+                const logs = this.getLogs();
+
+                const rangeLabel = document.getElementById('calendar-week-range-label');
+                if (rangeLabel) {
+                    if (offset === 0) rangeLabel.innerText = '本周';
+                    else if (offset === -1) rangeLabel.innerText = '上周';
+                    else if (offset === 1) rangeLabel.innerText = '下周';
+                    else rangeLabel.innerText = `${days[0].month}/${days[0].dayNum} - ${days[6].month}/${days[6].dayNum}`;
+                }
+
+                if (!currentSelectedCalendarDate) {
+                    currentSelectedCalendarDate = this.getTodayStr();
+                }
+
+                let html = '';
+                days.forEach(day => {
+                    const log = logs[day.dateStr] || { learned: 0, reviewed: 0, riddle: 0, dictation: 0 };
+                    const totalActions = (log.learned || 0) + (log.reviewed || 0) + (log.riddle || 0) + (log.dictation || 0);
+                    const hasRecord = totalActions > 0;
+                    const isSelected = (day.dateStr === currentSelectedCalendarDate);
+
+                    // 计算学习强度等级
+                    let intensityClass = 'day-intensity-0';
+                    if (totalActions > 30) intensityClass = 'day-intensity-4';
+                    else if (totalActions >= 16) intensityClass = 'day-intensity-3';
+                    else if (totalActions >= 6) intensityClass = 'day-intensity-2';
+                    else if (totalActions >= 1) intensityClass = 'day-intensity-1';
+
+                    // 核心规则：当天不用强度圆圈标注，而是使用蓝色卡片框与下方小绿点（对照图 4）
+                    let dayNumHtml = '';
+                    if (day.isToday) {
+                        dayNumHtml = `<span class="week-day-num">${day.dayNum}</span><span class="week-day-dot ${hasRecord ? 'has-record' : ''}"></span>`;
+                    } else {
+                        dayNumHtml = `<span class="week-day-num-circle ${intensityClass}">${day.dayNum}</span>`;
+                    }
+
+                    html += `
+                    <div class="week-day-col ${day.isToday ? 'active-today' : ''} ${isSelected ? 'selected-day' : ''}" data-date="${day.dateStr}" onclick="DailyStudyTracker.selectCalendarDay('${day.dateStr}')">
+                        <span class="week-day-name">${day.dayName}</span>
+                        ${dayNumHtml}
+                    </div>
+                    `;
+                });
+
+                gridEl.innerHTML = html;
+                this.renderDayDialog(currentSelectedCalendarDate);
+            },
+            selectCalendarDay(dateStr) {
+                currentSelectedCalendarDate = dateStr;
+                document.querySelectorAll('.week-day-col').forEach(col => {
+                    col.classList.toggle('selected-day', col.getAttribute('data-date') === dateStr);
+                });
+                this.renderDayDialog(dateStr);
+            },
+            renderDayDialog(dateStr) {
+                const dialogEl = document.getElementById('hub-calendar-dialog');
+                if (!dialogEl) return;
+
+                const logs = this.getLogs();
+                const log = logs[dateStr] || { learned: 0, reviewed: 0, riddle: 0, dictation: 0 };
+                const totalActions = (log.learned || 0) + (log.reviewed || 0) + (log.riddle || 0) + (log.dictation || 0);
+                const isPunched = totalActions > 0;
+                const isToday = (dateStr === this.getTodayStr());
+
+                const parts = dateStr.split('-');
+                const formattedDate = `${parts[0]}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+
+                let commentText = '';
+                if (isPunched) {
+                    commentText = `今日已完成 ${totalActions} 项背诵、复习与答题训练，加油吧！`;
+                } else if (isToday) {
+                    commentText = '今天还没开始学习呢，选择一本词书开启今日的背词之旅吧！';
+                } else {
+                    commentText = '该日暂无打卡记录。';
+                }
+
+                dialogEl.innerHTML = `
+                <div class="calendar-chat-dialog">
+                    <div class="chat-dialog-avatar">
+                        <span class="material-symbols-rounded" style="font-size:22px;">${isPunched ? 'auto_awesome' : 'school'}</span>
+                    </div>
+                    <div class="chat-dialog-bubble">
+                        <div class="chat-dialog-header">
+                            <span class="chat-dialog-title">${formattedDate}</span>
+                            <span class="chat-dialog-badge ${isPunched ? 'punched' : 'empty'}">
+                                <span class="material-symbols-rounded" style="font-size:14px;">${isPunched ? 'check_circle' : 'radio_button_unchecked'}</span>
+                                <span>${isPunched ? '已打卡' : '未打卡'}</span>
+                            </span>
+                        </div>
+                        <div class="chat-stats-grid">
+                            <div class="chat-stat-item">
+                                <span class="material-symbols-rounded chat-stat-icon" style="color:var(--md-sys-color-primary);">menu_book</span>
+                                <div class="chat-stat-info">
+                                    <span class="chat-stat-label">新学</span>
+                                    <span class="chat-stat-val">${log.learned || 0} 词</span>
+                                </div>
+                            </div>
+                            <div class="chat-stat-item">
+                                <span class="material-symbols-rounded chat-stat-icon" style="color:#0284c7;">replay</span>
+                                <div class="chat-stat-info">
+                                    <span class="chat-stat-label">已复习</span>
+                                    <span class="chat-stat-val">${log.reviewed || 0} 词</span>
+                                </div>
+                            </div>
+                            <div class="chat-stat-item">
+                                <span class="material-symbols-rounded chat-stat-icon" style="color:#16a34a;">sports_esports</span>
+                                <div class="chat-stat-info">
+                                    <span class="chat-stat-label">Wordle</span>
+                                    <span class="chat-stat-val">${log.riddle || 0} 次</span>
+                                </div>
+                            </div>
+                            <div class="chat-stat-item">
+                                <span class="material-symbols-rounded chat-stat-icon" style="color:#d97706;">edit_note</span>
+                                <div class="chat-stat-info">
+                                    <span class="chat-stat-label">默写</span>
+                                    <span class="chat-stat-val">${log.dictation || 0} 词</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-dialog-motto">
+                            ${commentText}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+        };
+        window.DailyStudyTracker = DailyStudyTracker;
+
+        function shiftCalendarWeek(direction) {
+            currentCalendarWeekOffset += direction;
+            DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
+        }
+
         function updateHub() {
             if (!currentUser) return switchView('view-auth');
             document.getElementById('hub-profile-tag').innerText = `${currentUser}`;
@@ -6781,6 +7434,9 @@
 
             if (window.EbbinghausEngine) {
                 window.EbbinghausEngine.updateDueBadge();
+            }
+            if (window.DailyStudyTracker) {
+                window.DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
             }
         }
 
@@ -7059,18 +7715,32 @@
 
         function renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly = false) {
             const isSel = isBookIdSelected(selectedIds, b.id);
-            const countLabel = b.count ? `共${b.count}词` : '多词';
             const displayName = escapeHtml(b.rawName || b.name);
             const clickHandler = isReadOnly ? '' : `onclick="${onToggleFn}('${b.id}')"`;
             const cursorStyle = isReadOnly ? 'cursor:default;' : '';
 
+            const prog = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookProgress === 'function')
+                ? EbbinghausEngine.getBookProgress(b.id, b.words)
+                : { total: b.count || 0, learned: 0, due: 0, mastered: 0, progressPercent: 0 };
+
+            const countText = prog.total ? `共${prog.total}词` : (b.count ? `共${b.count}词` : '多词');
+
             return `
             <div class="tree-book-item ${isSel ? 'selected' : ''}" ${clickHandler} style="${cursorStyle}">
-                <div class="tree-book-info">
-                    <span class="tree-book-name">${displayName}</span>
-                    <span class="tree-book-count">${countLabel}</span>
+                <div class="tree-book-info" style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <span class="tree-book-name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
+                        <span class="tree-book-count" style="flex-shrink:0;">${countText}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                        <div class="book-progress-mini" style="flex:1; height:4px;">
+                            <div class="book-progress-mini-fill" style="width:${prog.progressPercent}%;"></div>
+                        </div>
+                        <span style="font-size:0.72rem; font-weight:700; color:var(--md-sys-color-primary); flex-shrink:0;">${prog.progressPercent}%</span>
+                        ${prog.due > 0 ? `<span style="font-size:0.68rem; font-weight:700; background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:9999px; flex-shrink:0;">待复习: ${prog.due}</span>` : ''}
+                    </div>
                 </div>
-                <div class="tree-book-check">
+                <div class="tree-book-check" style="margin-left:8px; flex-shrink:0;">
                     ${isSel ? '<span class="material-symbols-rounded" style="font-size:16px; color:white;">check</span>' : ''}
                 </div>
             </div>
@@ -7297,14 +7967,10 @@
         }
 
         const EBBINGHAUS_INTERVALS = [
-            5 * 60 * 1000,
-            30 * 60 * 1000,
-            12 * 60 * 60 * 1000,
-            24 * 60 * 60 * 1000,
-            2 * 24 * 60 * 60 * 1000,
-            4 * 24 * 60 * 60 * 1000,
-            7 * 24 * 60 * 60 * 1000,
-            15 * 24 * 60 * 60 * 1000
+            1 * 24 * 60 * 60 * 1000,   // 第 1 轮复习：1天后（第二天）
+            4 * 24 * 60 * 60 * 1000,   // 第 2 轮复习：4天后
+            7 * 24 * 60 * 60 * 1000,   // 第 3 轮复习：7天后（一周后）
+            28 * 24 * 60 * 60 * 1000   // 第 4 轮复习：28天后（四周后）
         ];
 
         const EbbinghausEngine = {
@@ -7321,36 +7987,199 @@
             getDueWords() {
                 const records = this.getRecords();
                 const now = Date.now();
-                return Object.values(records).filter(r => r && r.nextReview && now >= r.nextReview);
+                return Object.values(records).filter(r => r && r.stage >= 1 && r.stage < 5 && r.nextReview && now >= r.nextReview && !isWordMastered(r.word));
             },
             getAllLearnedWords() {
-                return Object.values(this.getRecords());
+                const records = this.getRecords();
+                return Object.values(records).filter(r => r && (r.stage >= 1 || isWordMastered(r.word)));
             },
-            recordWord(word, meaning, phone, isSuccess) {
-                if (!word) return;
+            getDueWordsForBooks(bookIds = []) {
+                if (!bookIds || bookIds.length === 0) return [];
+                const allDue = this.getDueWords();
+                if (allDue.length === 0) return [];
+
+                const wordSet = new Set();
+                bookIds.forEach(id => {
+                    let words = BookManager.bookCache[id];
+                    if (!words && window.customBooks) {
+                        const cb = window.customBooks.find(b => b.id === id);
+                        if (cb && cb.words) words = cb.words;
+                    }
+                    if (!words && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')) {
+                        words = DEFAULT_WORDS;
+                    }
+                    if (words && Array.isArray(words)) {
+                        words.forEach(w => {
+                            if (w && w.word) wordSet.add(w.word.trim().toLowerCase());
+                        });
+                    }
+                });
+
+                return allDue.filter(r => {
+                    const key = (r.word || '').trim().toLowerCase();
+                    return wordSet.has(key) || (r.bookId && bookIds.includes(r.bookId));
+                });
+            },
+            getBookProgress(bookId, bookWords = null) {
+                let words = bookWords;
+                if (!words && BookManager.bookCache) {
+                    words = BookManager.bookCache[bookId];
+                }
+                if (!words && window.customBooks) {
+                    const cb = window.customBooks.find(b => b.id === bookId);
+                    if (cb && cb.words) words = cb.words;
+                }
+                if (!words && (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json')) {
+                    words = DEFAULT_WORDS;
+                }
+
+                const records = this.getRecords();
+                const now = Date.now();
+
+                if (words && Array.isArray(words) && words.length > 0) {
+                    const total = words.length;
+                    let learned = 0;
+                    let due = 0;
+                    let mastered = 0;
+
+                    words.forEach(w => {
+                        if (!w || !w.word) return;
+                        const k = w.word.trim().toLowerCase();
+                        const isMast = isWordMastered(k);
+                        const rec = records[k];
+
+                        if (isMast || (rec && rec.stage >= 5)) {
+                            learned++;
+                            mastered++;
+                        } else if (rec && rec.stage >= 1) {
+                            learned++;
+                            if (rec.nextReview && now >= rec.nextReview) {
+                                due++;
+                            }
+                        }
+                    });
+
+                    const effective = Math.max(0, learned - due);
+                    const progressPercent = Math.min(100, Math.round((effective / total) * 100));
+                    return { total, learned, due, mastered, progressPercent };
+                }
+
+                // 若词汇列表尚未加载到内存，尝试通过元数据与已学记录计算
+                let metaCount = 0;
+                const meta = (BookManager.availableBooks || []).find(b => b.id === bookId) ||
+                    (BookManager.fallbackBooks || []).find(b => b.id === bookId) ||
+                    (window.customBooks || []).find(b => b.id === bookId);
+                if (meta && meta.count) {
+                    metaCount = parseInt(meta.count) || 0;
+                }
+
+                const recs = Object.values(records).filter(r => r && r.bookId === bookId);
+                let learned = 0;
+                let due = 0;
+                let mastered = 0;
+                recs.forEach(r => {
+                    const isMast = isWordMastered(r.word);
+                    if (isMast || r.stage >= 5) {
+                        learned++;
+                        mastered++;
+                    } else if (r.stage >= 1) {
+                        learned++;
+                        if (r.nextReview && now >= r.nextReview) {
+                            due++;
+                        }
+                    }
+                });
+
+                const total = metaCount || learned;
+                const effective = Math.max(0, learned - due);
+                const progressPercent = total > 0 ? Math.min(100, Math.round((effective / total) * 100)) : 0;
+                return { total, learned, due, mastered, progressPercent };
+            },
+            async resetBookProgress(bookId) {
+                if (!currentUser || !bookId) return;
+                let words = await BookManager.loadBookData(bookId);
+                if (!words || words.length === 0) {
+                    if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json') {
+                        words = DEFAULT_WORDS;
+                    }
+                }
+                const records = this.getRecords();
+                if (words && Array.isArray(words)) {
+                    words.forEach(w => {
+                        if (!w || !w.word) return;
+                        const k = w.word.trim().toLowerCase();
+                        delete records[k];
+                        removeWordMastered(k);
+                    });
+                }
+                Object.keys(records).forEach(k => {
+                    if (records[k] && records[k].bookId === bookId) {
+                        removeWordMastered(records[k].word);
+                        delete records[k];
+                    }
+                });
+                this.saveRecords(records);
+                this.updateDueBadge();
+                if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+            },
+            recordWord(word, meaning, phone, isSuccess, bookId = null) {
+                if (!word || !currentUser) return;
                 const key = word.trim().toLowerCase();
                 const records = this.getRecords();
                 const now = Date.now();
+                const isMast = isWordMastered(key);
+
                 const record = records[key] || {
                     word: word.trim(),
                     meaning: meaning || '',
                     phone: phone || '',
-                    stage: 0,
+                    stage: isMast ? 5 : 0,
                     historyCount: 0
                 };
 
-                record.lastPracticed = now;
-                record.historyCount = (record.historyCount || 0) + 1;
+                if (bookId) record.bookId = bookId;
                 if (meaning) record.meaning = meaning;
                 if (phone) record.phone = phone;
+                record.lastPracticed = now;
+                record.historyCount = (record.historyCount || 0) + 1;
 
-                if (isSuccess) {
-                    const nextStage = Math.min((record.stage || 0) + 1, EBBINGHAUS_INTERVALS.length);
-                    record.stage = nextStage;
-                    record.nextReview = now + EBBINGHAUS_INTERVALS[nextStage - 1];
+                const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
+
+                if (currentStage === 0) {
+                    // 首次学习生词
+                    if (isSuccess) {
+                        // 首次答对直接跳到第 2 轮复习（4天后）
+                        record.stage = 2;
+                        record.nextReview = now + EBBINGHAUS_INTERVALS[1];
+                    } else {
+                        // 首次答错进入第 1 轮复习（第二天）
+                        record.stage = 1;
+                        record.nextReview = now + EBBINGHAUS_INTERVALS[0];
+                    }
                 } else {
-                    record.stage = 1;
-                    record.nextReview = now + EBBINGHAUS_INTERVALS[0];
+                    // 复习阶段 (Stage 1..4) 或熟词 (Stage 5)
+                    if (isSuccess) {
+                        if (currentStage === 1) {
+                            record.stage = 2;
+                            record.nextReview = now + EBBINGHAUS_INTERVALS[1];
+                        } else if (currentStage === 2) {
+                            record.stage = 3;
+                            record.nextReview = now + EBBINGHAUS_INTERVALS[2];
+                        } else if (currentStage === 3) {
+                            record.stage = 4;
+                            record.nextReview = now + EBBINGHAUS_INTERVALS[3];
+                        } else {
+                            // 第 4 轮复习答对 -> 标记为熟词
+                            record.stage = 5;
+                            record.nextReview = 0;
+                            ensureWordMastered(word, phone, meaning);
+                        }
+                    } else {
+                        // 任何一轮答错，则回到第 1 轮复习（第二天）
+                        record.stage = 1;
+                        record.nextReview = now + EBBINGHAUS_INTERVALS[0];
+                        removeWordMastered(word);
+                    }
                 }
 
                 records[key] = record;
@@ -7359,12 +8188,106 @@
             },
             updateDueBadge() {
                 const badgeEl = document.getElementById('hub-review-due-count');
+                const btnReview = document.getElementById('btn-hub-review');
+
+                const hasSelectedBooks = (singleSelectedBookIds && singleSelectedBookIds.length > 0);
+                if (btnReview) {
+                    btnReview.disabled = !hasSelectedBooks;
+                    if (!hasSelectedBooks) {
+                        btnReview.title = '请先选择词书再进行复习';
+                    } else {
+                        btnReview.title = '按选中的词书进行艾宾浩斯间隔复习';
+                    }
+                }
+
+                if (!hasSelectedBooks) {
+                    if (badgeEl) badgeEl.innerText = '0';
+                    return;
+                }
+
+                const dueWords = this.getDueWordsForBooks(singleSelectedBookIds);
                 if (badgeEl) {
-                    badgeEl.innerText = this.getDueWords().length;
+                    badgeEl.innerText = dueWords.length;
+                }
+            },
+            // 新增：如果到期当天未复习，则掉一颗星
+            checkOverduePenalties() {
+                if (!currentUser) return;
+                const records = this.getRecords();
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const todayStartMs = today.getTime();
+                const todayStr = DailyStudyTracker.getTodayStr();
+
+                let modified = false;
+                Object.values(records).forEach(rec => {
+                    if (!rec || typeof rec.stage !== 'number') return;
+                    // 处于复习阶段 (Stage 1..4) 且有到期时间的单词
+                    if (rec.stage >= 1 && rec.stage <= 4 && rec.nextReview) {
+                        // 如果到期时间早于今日凌晨（即昨天或更早到期，但直至今天仍未复习）
+                        if (rec.nextReview < todayStartMs) {
+                            // 保证一天只扣减一次，避免每次刷新重复掉星
+                            if (rec.lastOverduePenalizedDate !== todayStr) {
+                                rec.lastOverduePenalizedDate = todayStr;
+                                // 掉一颗星 (最低保留为第 1 轮复习)
+                                rec.stage = Math.max(1, rec.stage - 1);
+                                // 调整为立即待复习
+                                rec.nextReview = todayStartMs - 1000;
+                                modified = true;
+                            }
+                        }
+                    }
+                });
+
+                if (modified) {
+                    this.saveRecords(records);
+                    this.updateDueBadge();
                 }
             }
         };
         window.EbbinghausEngine = EbbinghausEngine;
+
+        function renderCardMasteryDiamonds(word, animType = null) {
+            const bar = document.getElementById('single-mastery-stars');
+            if (!bar) return;
+
+            let stage = 0;
+            if (word) {
+                if (isWordMastered(word)) {
+                    stage = 5;
+                } else {
+                    const records = EbbinghausEngine.getRecords();
+                    const rec = records[word.trim().toLowerCase()];
+                    if (rec && typeof rec.stage === 'number') {
+                        stage = rec.stage;
+                    }
+                }
+            }
+
+            // 设置 5 颗菱形的填充状态
+            for (let i = 1; i <= 5; i++) {
+                const star = document.getElementById(`mastery-star-${i}`);
+                if (star) {
+                    if (i <= stage) {
+                        star.innerText = '◆';
+                        star.classList.add('filled');
+                    } else {
+                        star.innerText = '◇';
+                        star.classList.remove('filled');
+                    }
+                }
+            }
+
+            // 触发平缓的动画效果
+            bar.classList.remove('star-gain-anim', 'star-loss-anim');
+            if (animType === 'gain') {
+                void bar.offsetWidth;
+                bar.classList.add('star-gain-anim');
+            } else if (animType === 'loss') {
+                void bar.offsetWidth;
+                bar.classList.add('star-loss-anim');
+            }
+        }
 
         function scheduleRetestForCurrentQuestion() {
             if (gameMode !== 'single') return;
@@ -7454,18 +8377,18 @@
                 dictionary = words;
 
                 const learnedMap = EbbinghausEngine.getRecords();
-                const unmasteredWords = words.filter(w => !isWordMastered(w.word));
-                const unlearnedWords = unmasteredWords.filter(w => !learnedMap[(w.word || '').trim().toLowerCase()]);
+                const candidateWords = words.filter(w => {
+                    if (!w || !w.word) return false;
+                    const k = w.word.trim().toLowerCase();
+                    if (isWordMastered(k)) return false;
+                    const rec = learnedMap[k];
+                    if (rec && rec.stage >= 1) return false;
+                    return true;
+                });
 
-                let candidateWords = unlearnedWords;
                 if (candidateWords.length === 0) {
-                    if (unmasteredWords.length === 0) {
-                        showToast('当前所选词书的所有词汇均已标记为熟词！可在设置中查看熟词本。');
-                        candidateWords = words;
-                    } else {
-                        showToast('选定词书已学完，将进行强化巩固！');
-                        candidateWords = unmasteredWords;
-                    }
+                    showToast('所选词书中的生词已全部学完！请前往【复习】巩固，或在设置中重置词书进度。');
+                    return;
                 }
 
                 const batchSize = singleConfig.learnBatch || 10;
@@ -7478,19 +8401,40 @@
             }
         }
 
-        // 艾宾浩斯复习入口
+        // 艾宾浩斯复习入口 (按所选词书复习)
         async function startSingleReview() {
             try {
-                const dueRecords = EbbinghausEngine.getDueWords();
+                if (!singleSelectedBookIds || singleSelectedBookIds.length === 0) {
+                    showToast('请至少选择一本词书再进行复习！');
+                    openSingleBookSelector();
+                    return;
+                }
+
+                const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+                if (!words || words.length === 0) {
+                    showToast('未获取到词书词汇，请检查网络或选择词书！');
+                    return;
+                }
+
+                const wordMap = new Map();
+                words.forEach(w => {
+                    if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+                });
+
+                const dueRecords = EbbinghausEngine.getDueWordsForBooks(singleSelectedBookIds);
                 let reviewTargets = [];
 
                 if (dueRecords.length === 0) {
-                    const allLearned = EbbinghausEngine.getAllLearnedWords();
+                    const allLearned = EbbinghausEngine.getAllLearnedWords().filter(r => {
+                        const k = (r.word || '').trim().toLowerCase();
+                        return wordMap.has(k) && !isWordMastered(k);
+                    });
+
                     if (allLearned.length === 0) {
-                        showToast('暂无待复习词汇，请先学习新词！');
+                        showToast('所选词书暂无已学词汇，请先学习新词！');
                         return;
                     }
-                    if (!confirm(`暂无急需复习的词汇。是否强化复习已学单词？`)) {
+                    if (!confirm('所选词书当前暂无急需复习的词汇。是否提前强化复习已学单词？')) {
                         return;
                     }
                     reviewTargets = [...allLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
@@ -7500,10 +8444,6 @@
 
                 const batchSize = singleConfig.reviewBatch || 20;
                 const selectedBatch = reviewTargets.slice(0, batchSize);
-
-                const allDb = getAllDatabaseWords();
-                const wordMap = new Map();
-                allDb.forEach(w => wordMap.set((w.word || '').trim().toLowerCase(), w));
 
                 const wordsList = selectedBatch.map(r => {
                     const existing = wordMap.get(r.word.toLowerCase());
@@ -7538,10 +8478,26 @@
 
             try {
                 const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+                const learnedMap = EbbinghausEngine.getRecords();
+                const candidateWords = words.filter(w => {
+                    if (!w || !w.word) return false;
+                    const k = w.word.trim().toLowerCase();
+                    if (isWordMastered(k)) return false;
+                    const rec = learnedMap[k];
+                    if (rec && rec.stage >= 1) return false;
+                    return true;
+                });
+
+                if (candidateWords.length === 0) {
+                    showToast('所选词书中的生词已全部学完！请前往【复习】巩固，或在设置中重置词书进度。');
+                    return;
+                }
+
                 closeSingleBookSelector();
                 dictionary = words;
                 const batchSize = singleConfig.learnBatch || 10;
-                const pool = generateShuffledPoolFromWords(words, Math.min(batchSize * 2, words.length));
+                const shuffled = [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
+                const pool = generateShuffledPoolFromWords(shuffled, shuffled.length);
                 startSinglePlayerWithPool(pool, '单人练习');
             } catch (err) {
                 alert('加载词书失败：' + err.message);
@@ -7959,6 +8915,33 @@
             return nowMastered;
         }
 
+        function ensureWordMastered(word, phone = '', meaning = '') {
+            if (!currentUser || !word) return;
+            const clean = word.trim().toLowerCase();
+            let list = getMasteredWords();
+            const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+            if (existingIdx < 0) {
+                list.push({
+                    word: word.trim(),
+                    phone: phone || '',
+                    meaning: meaning || '',
+                    markedAt: Date.now()
+                });
+                saveMasteredWords(list);
+            }
+        }
+
+        function removeWordMastered(word) {
+            if (!currentUser || !word) return;
+            const clean = word.trim().toLowerCase();
+            let list = getMasteredWords();
+            const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+            if (existingIdx >= 0) {
+                list.splice(existingIdx, 1);
+                saveMasteredWords(list);
+            }
+        }
+
         function toggleCurrentWordMastered() {
             if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
             const q = singleState.pool[singleState.currentIdx];
@@ -8237,6 +9220,7 @@
             }
 
             updateSingleCardToolbar(q);
+            renderCardMasteryDiamonds(q.word);
 
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
@@ -8452,6 +9436,10 @@
                 }
                 saveCurrentUserData();
                 EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, true);
+                renderCardMasteryDiamonds(q.word, 'gain');
+                if (window.DailyStudyTracker) {
+                    DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
+                }
 
                 singlePhraseState.placed.forEach((cid, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
@@ -8557,6 +9545,8 @@
             singleState.total++;
             recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
             scheduleRetestForCurrentQuestion();
+            EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false);
+            renderCardMasteryDiamonds(q.word, 'loss');
 
             const isPhrase = q.word && q.word.trim().includes(' ');
             if (isPhrase) {
@@ -8661,9 +9651,15 @@
                     delete userStats.mistakes[q.word];
                 }
                 EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, true);
+                renderCardMasteryDiamonds(q.word, 'gain');
+                if (window.DailyStudyTracker) {
+                    DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
+                }
             } else {
                 recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
                 scheduleRetestForCurrentQuestion();
+                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false);
+                renderCardMasteryDiamonds(q.word, 'loss');
             }
             saveCurrentUserData();
             saveSingleProgress();
@@ -11254,6 +12250,9 @@
                 riddleState.gameOver = true;
                 riddleState.isWon = true;
                 saveRiddleProgress();
+                if (window.DailyStudyTracker) {
+                    DailyStudyTracker.record('riddle', 1);
+                }
                 spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#146C2E');
                 renderRiddleResult(`🎉 恭喜猜中！用时 ${riddleState.attempts.length} 次尝试`, 'var(--md-sys-color-success)');
                 return;
@@ -12867,6 +13866,9 @@
 
             if (isCorrect) {
                 dictationState.score++;
+                if (window.DailyStudyTracker) {
+                    DailyStudyTracker.record('dictation', 1);
+                }
                 showToast('回答正确！🎉');
 
                 if (feedbackCard) {
@@ -13135,134 +14137,238 @@
             const container = document.getElementById('settings-manage-books-list');
             if (!container) return;
 
+            const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : BookManager.fallbackBooks;
+            const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500');
             const customBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_'));
+
             let html = '';
 
-            if (localFolders.length === 0 && customBooks.length === 0) {
-                html = `
-                <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-l);">
-                    <span class="material-symbols-rounded" style="font-size:48px; opacity:0.5;">folder_off</span>
-                    <p style="margin-top:8px; font-weight:600;">暂无自定义本地词书或文件夹</p>
-                    <p style="font-size:0.82rem;">点击上方【新建文件夹】或【导入词书】进行归类与管理</p>
-                </div>
-            `;
-                container.innerHTML = html;
-                return;
+            // 1. 云端词书分类卡片（对照图 2 结构）
+            if (cloudBooks.length > 0) {
+                const categories = {};
+                cloudBooks.forEach(b => {
+                    const cat = b.category || '精选';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(b);
+                });
+
+                Object.keys(categories).forEach(cat => {
+                    const booksInCat = categories[cat];
+                    html += `
+                    <div class="settings-book-group-card">
+                        <div class="settings-book-group-header">
+                            <div class="settings-book-group-title">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:22px;">cloud</span>
+                                <span>${escapeHtml(cat)}</span>
+                            </div>
+                            <span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-weight:700;">${booksInCat.length} 本词书</span>
+                        </div>
+                        <div>
+                            ${booksInCat.map(b => renderSettingsManageBookRow(b, true, cat)).join('')}
+                        </div>
+                    </div>
+                    `;
+                });
             }
 
-            localFolders.forEach(folder => {
-                const booksInFolder = customBooks.filter(b => b.folderId === folder.id);
-                html += `
-                <div class="tree-folder" style="border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-xl); overflow: hidden; background: var(--md-sys-color-surface-container-low); box-shadow: var(--md-elevation-1); margin-bottom: 16px;">
-                    <div class="tree-folder-header" style="padding: 12px 18px; border-bottom: 1px solid var(--md-sys-color-outline-variant);">
-                        <div class="tree-folder-left">
-                            <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-primary);">folder</span>
-                            <span class="tree-folder-name" style="font-weight:700; font-size: 0.95rem;">${escapeHtml(folder.name)}</span>
-                            <span class="tree-folder-badge">${booksInFolder.length} 本词书</span>
+            // 2. 本地词书分类卡片
+            if (customBooks.length > 0 || localFolders.length > 0) {
+                localFolders.forEach(folder => {
+                    const booksInFolder = customBooks.filter(b => b.folderId === folder.id);
+                    html += `
+                    <div class="settings-book-group-card">
+                        <div class="settings-book-group-header" style="justify-content:space-between;">
+                            <div class="settings-book-group-title">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:22px;">folder</span>
+                                <span>${escapeHtml(folder.name)}</span>
+                                <span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-weight:700;">${booksInFolder.length} 本</span>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-outlined btn-sm" onclick="promptRenameFolder('${folder.id}', '${escapeHtml(folder.name)}')">重命名</button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteFolder('${folder.id}')">解散</button>
+                            </div>
                         </div>
-                        <div class="tree-folder-right">
-                            <button type="button" class="btn btn-outlined btn-sm" style="padding:0 10px; height:30px; font-size:0.75rem;" onclick="promptRenameFolder('${folder.id}', '${escapeHtml(folder.name)}')">
-                                <span class="material-symbols-rounded" style="font-size:15px;">edit</span>
-                                <span>重命名</span>
-                            </button>
-                            <button type="button" class="btn btn-danger btn-sm" style="padding:0; width:30px; height:30px;" onclick="confirmDeleteFolder('${folder.id}')" title="解散文件夹">
-                                <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
-                            </button>
+                        <div>
+                            ${booksInFolder.length === 0 ? `<div style="font-size:0.84rem; color:var(--md-sys-color-outline); padding:8px 0;">该文件夹暂无词书</div>` : ''}
+                            ${booksInFolder.map(b => renderSettingsManageBookRow(b, false)).join('')}
                         </div>
                     </div>
-                    <div class="tree-folder-body" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: #ffffff;">
-                        ${booksInFolder.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:10px 6px;">该文件夹暂无词书</div>` : ''}
-                        ${booksInFolder.map(b => renderSettingsManageBookRow(b)).join('')}
-                    </div>
-                </div>
-                `;
-            });
+                    `;
+                });
 
-            const uncatBooks = customBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
-            html += `
-            <div class="tree-folder" style="border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-xl); overflow: hidden; background: var(--md-sys-color-surface-container-low); box-shadow: var(--md-elevation-1); margin-bottom: 16px;">
-                <div class="tree-folder-header" style="padding: 12px 18px; border-bottom: 1px solid var(--md-sys-color-outline-variant);">
-                    <div class="tree-folder-left">
-                        <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-secondary);">folder_open</span>
-                        <span class="tree-folder-name" style="font-weight:700; font-size: 0.95rem;">未归类</span>
-                        <span class="tree-folder-badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);">${uncatBooks.length} 本</span>
+                const uncatBooks = customBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
+                if (uncatBooks.length > 0) {
+                    html += `
+                    <div class="settings-book-group-card">
+                        <div class="settings-book-group-header">
+                            <div class="settings-book-group-title">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-secondary); font-size:22px;">folder_open</span>
+                                <span>本地词书 · 未归类</span>
+                            </div>
+                            <span class="badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface); font-weight:700;">${uncatBooks.length} 本</span>
+                        </div>
+                        <div>
+                            ${uncatBooks.map(b => renderSettingsManageBookRow(b, false)).join('')}
+                        </div>
                     </div>
-                </div>
-                <div class="tree-folder-body" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: #ffffff;">
-                    ${uncatBooks.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:10px 6px;">暂无未归类的本地词书</div>` : ''}
-                    ${uncatBooks.map(b => renderSettingsManageBookRow(b)).join('')}
-                </div>
-            </div>
-            `;
+                    `;
+                }
+            }
 
             container.innerHTML = html;
         }
 
-        function toggleBookFolderDropdown(e, bookId) {
-            if (e) e.stopPropagation();
-            const dropdownId = `dropdown-book-folder-${bookId}`;
-            const targetEl = document.getElementById(dropdownId);
-            if (!targetEl) return;
-            const isAlreadyOpen = targetEl.classList.contains('open');
-            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
-            if (!isAlreadyOpen) {
-                targetEl.classList.add('open');
-            }
-        }
-
-        function selectBookFolderOption(bookId, folderId) {
-            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
-            changeBookFolder(bookId, folderId);
-        }
-
-        // 全局点击监听：点击外部空白处自动收起所有打开的 MD3 下拉菜单
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.md3-custom-dropdown')) {
-                document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
-            }
-        });
-
-        function renderSettingsManageBookRow(b) {
-            const currentFolder = localFolders.find(f => f.id === b.folderId);
-            const currentLabel = currentFolder ? currentFolder.name : '未归类';
+        function renderSettingsManageBookRow(b, isCloud = false, categoryName = '') {
+            const displayName = escapeHtml(b.rawName || b.name);
+            const prog = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookProgress === 'function')
+                ? EbbinghausEngine.getBookProgress(b.id, b.words)
+                : { total: b.count || 0, learned: 0, due: 0, mastered: 0, progressPercent: 0 };
+            const totalWords = prog.total || b.count || (b.words ? b.words.length : 0);
+            const tag = isCloud ? (categoryName || b.category || '精选') : '本地';
 
             return `
-            <div class="settings-book-row-item">
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(b.rawName || b.name)}</div>
-                    <div style="font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:2px;">词汇量: ${b.count || (b.words ? b.words.length : 0)} 词</div>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0;">
-                    <!-- MD3 自定义下拉菜单 -->
-                    <div class="md3-custom-dropdown" id="dropdown-book-folder-${escapeHtml(b.id)}">
-                        <button type="button" class="md3-dropdown-btn" style="height:34px; padding:0 12px; font-size:0.82rem;" onclick="toggleBookFolderDropdown(event, '${escapeHtml(b.id)}')">
-                            <span>${escapeHtml(currentLabel)}</span>
-                            <span class="material-symbols-rounded dropdown-chevron" style="font-size:18px;">expand_more</span>
-                        </button>
-                        <div class="md3-dropdown-menu">
-                            <div class="md3-dropdown-item ${!b.folderId ? 'selected' : ''}" onclick="selectBookFolderOption('${escapeHtml(b.id)}', '')">
-                                <span class="material-symbols-rounded">${!b.folderId ? 'check' : 'label_off'}</span>
-                                <span>未归类</span>
-                            </div>
-                            ${localFolders.map(f => `
-                                <div class="md3-dropdown-item ${b.folderId === f.id ? 'selected' : ''}" onclick="selectBookFolderOption('${escapeHtml(b.id)}', '${escapeHtml(f.id)}')">
-                                    <span class="material-symbols-rounded">${b.folderId === f.id ? 'check' : 'folder'}</span>
-                                    <span>${escapeHtml(f.name)}</span>
-                                </div>
-                            `).join('')}
+            <div class="settings-book-item-card">
+                <!-- 上半部分：词书信息与操作按钮 -->
+                <div class="settings-book-item-main">
+                    <div>
+                        <div class="settings-book-item-title-row">
+                            <span class="settings-book-item-name">
+                                <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">${isCloud ? 'cloud' : 'folder'}</span>
+                                ${displayName}
+                            </span>
+                            <span class="settings-book-item-tag">${escapeHtml(tag)}</span>
+                        </div>
+                        <div class="settings-book-item-sub">
+                            共 ${totalWords} 词 | 已学 ${prog.learned} 词 | 待复习 ${prog.due} 词
                         </div>
                     </div>
+                    <div class="settings-book-item-actions">
+                        <button type="button" class="settings-book-item-btn" onclick="viewBookWordsInSettings('${b.id}')">
+                            <span class="material-symbols-rounded" style="font-size:17px;">visibility</span>
+                            <span>查看内容</span>
+                        </button>
+                        <button type="button" class="settings-book-item-btn" onclick="confirmResetBookProgress('${b.id}', '${displayName}')" title="重学该词书">
+                            <span class="material-symbols-rounded" style="font-size:17px; color:#ea580c;">refresh</span>
+                            <span>重学</span>
+                        </button>
+                        ${!isCloud ? `
+                        <button type="button" class="btn btn-danger btn-sm" style="width:36px; height:36px; padding:0;" onclick="confirmDeleteCustomBook('${b.id}', '${displayName}')" title="删除词书">
+                            <span class="material-symbols-rounded" style="font-size:16px;">delete</span>
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
 
-                    <button type="button" class="btn btn-tonal btn-sm" style="padding:0 12px; height:34px; font-size:0.82rem;" onclick="viewBookWordsInSettings('${b.id}')">
-                        <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
-                        <span class="btn-label-text">查看内容</span>
-                    </button>
-                    <button type="button" class="btn btn-danger btn-sm" style="width:34px; height:34px; padding:0;" onclick="confirmDeleteCustomBook('${b.id}', '${escapeHtml(b.rawName || b.name)}')" title="删除词书">
-                        <span class="material-symbols-rounded" style="font-size:17px;">delete</span>
-                    </button>
+                <!-- 下半部分：补回平滑进度条与右侧百分比对齐 (MD3 规范) -->
+                <div style="display: flex; align-items: center; gap: 14px; margin-top: 10px;">
+                    <div class="book-progress-mini" style="flex: 1; height: 6px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; margin: 0;">
+                        <div class="book-progress-mini-fill" style="width: ${prog.progressPercent}%; height: 100%; background: linear-gradient(90deg, var(--md-sys-color-primary, #0061a4), #38bdf8); border-radius: 9999px; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="font-size: 0.95rem; font-weight: 800; color: var(--md-sys-color-primary, #0061a4); min-width: 36px; text-align: right; flex-shrink: 0;">
+                        ${prog.progressPercent}%
+                    </div>
                 </div>
             </div>
             `;
+        }
+
+        async function confirmResetBookProgress(bookId, bookName) {
+            if (!currentUser) return;
+            if (!confirm(`确定要重置词书“${bookName}”的学习进度吗？\n\n重置后，该词书的所有复习记录与相关熟词标记将被清空，恢复为全新未学状态。`)) {
+                return;
+            }
+            await EbbinghausEngine.resetBookProgress(bookId);
+            showToast(`已重置词书“${bookName}”的学习进度`);
+            renderManageLocalBooksInSettings();
+        }
+
+        function exportUserConfigAndProgress() {
+            if (!currentUser) return showToast('请先登录后再导出备份');
+            try {
+                const backupObj = {
+                    version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.0.0',
+                    exportedAt: new Date().toISOString(),
+                    user: currentUser,
+                    data: {
+                        ebbinghaus: localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`),
+                        mastered: localStorage.getItem(`vocab_mastered_words_${currentUser}`),
+                        dailyLogs: localStorage.getItem(`vocab_daily_logs_${currentUser}`),
+                        userStats: localStorage.getItem(`user_stats_${currentUser}`),
+                        singleSelectedBooks: localStorage.getItem(`vocab_single_selected_books_${currentUser}`),
+                        singleConfig: localStorage.getItem('vocab_single_config'),
+                        dictationConfig: localStorage.getItem('vocab_dictation_config'),
+                        riddleHistory: localStorage.getItem(`vocab_riddle_daily_history_${currentUser}`)
+                    }
+                };
+
+                const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentUser}的学习记录 ${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('已导出备份文件！');
+            } catch (err) {
+                alert('导出备份失败：' + err.message);
+            }
+        }
+
+        function importUserConfigAndProgress(event) {
+            if (!currentUser) return showToast('请先登录后再导入备份');
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed || !parsed.data) {
+                        throw new Error('备份文件格式不符合要求');
+                    }
+
+                    if (!confirm(`确定要恢复备份文件吗？\n导出时间: ${parsed.exportedAt || '未知'}\n用户名: ${parsed.user || '未知'}\n当前用户的复习进度与配置将被覆盖。`)) {
+                        event.target.value = '';
+                        return;
+                    }
+
+                    const d = parsed.data;
+                    if (d.ebbinghaus !== undefined && d.ebbinghaus !== null) {
+                        localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, d.ebbinghaus);
+                    }
+                    if (d.mastered !== undefined && d.mastered !== null) {
+                        localStorage.setItem(`vocab_mastered_words_${currentUser}`, d.mastered);
+                    }
+                    if (d.dailyLogs !== undefined && d.dailyLogs !== null) {
+                        localStorage.setItem(`vocab_daily_logs_${currentUser}`, d.dailyLogs);
+                    }
+                    if (d.userStats !== undefined && d.userStats !== null) {
+                        localStorage.setItem(`user_stats_${currentUser}`, d.userStats);
+                    }
+                    if (d.singleSelectedBooks !== undefined && d.singleSelectedBooks !== null) {
+                        localStorage.setItem(`vocab_single_selected_books_${currentUser}`, d.singleSelectedBooks);
+                    }
+                    if (d.singleConfig) {
+                        localStorage.setItem('vocab_single_config', d.singleConfig);
+                    }
+                    if (d.dictationConfig) {
+                        localStorage.setItem('vocab_dictation_config', d.dictationConfig);
+                    }
+                    if (d.riddleHistory) {
+                        localStorage.setItem(`vocab_riddle_daily_history_${currentUser}`, d.riddleHistory);
+                    }
+
+                    showToast('备份数据恢复成功！正在刷新应用...');
+                    setTimeout(() => location.reload(), 600);
+                } catch (err) {
+                    alert('导入备份失败：' + err.message);
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
         }
 
         async function promptCreateFolder() {
@@ -13714,12 +14820,25 @@
 
         
 
-        const APP_VERSION = '1.8.1';
+        const APP_VERSION = '1.9.0';
         const APP_CHANGELOG = [
+            {
+                version: 'v1.9.0',
+                date: '2026-09-12',
+                badge: '当前版本',
+                items: [
+                    '更新学习日历。',
+                    '云端词书也支持在设置中查看。',
+                    '更新复习规则：学习一个词汇/词组分为生词-第 1-4 轮复习-熟词共 5 个阶段，对应掌握程度，在单词卡片中用◇◇◇◇◇标识。第一轮复习为第二天，第二轮复习为第四天，第三轮复习为一周后，第四轮复习为四周后。如果有一轮答错，则回到第一轮复习。第一次如果答对则直接跳到第二轮复习。如果需要复习那一天未复习，则掉一颗星。',
+                    '在选择词书界面支持显示每本词书的学习进度条、待复习词数，学习进度动态更新。',
+                    '按照选择的词书进行复习。',
+                    '在设置中支持导入、导出个人配置与学习记录。'
+                ]
+            },
             {
                 version: 'v1.8.1',
                 date: '2026-09-12',
-                badge: '当前版本',
+                badge: '历史版本',
                 items: [
                     '更新词汇卡片工具栏：支持播放发音、标注熟词、删除词汇功能。',
                     '从 GitHub 加载词书。',
@@ -14670,6 +15789,34 @@
             }
         }
 
+        function checkFirstOpenWelcome() {
+            const lastSeen = localStorage.getItem('vocab_last_seen_version');
+            if (lastSeen !== APP_VERSION) {
+                const currentLog = APP_CHANGELOG.find(c => c.version === `v${APP_VERSION}`) || APP_CHANGELOG[0];
+                const modal = document.getElementById('modal-welcome-update');
+                const verEl = document.getElementById('welcome-update-ver');
+                const bodyEl = document.getElementById('welcome-update-body');
+                if (modal && currentLog) {
+                    if (verEl) verEl.innerText = `${currentLog.version} (${currentLog.date})`;
+                    if (bodyEl) {
+                        bodyEl.innerHTML = `
+                            <div style="font-weight:700; margin-bottom:8px; color:var(--md-sys-color-primary);">更新说明：</div>
+                            <ul style="padding-left: 20px; font-size: 0.88rem; line-height: 1.75; color: var(--md-sys-color-on-surface-variant); margin: 0;">
+                                ${currentLog.items.map(it => `<li style="margin-bottom: 6px;">${escapeHtml(it)}</li>`).join('')}
+                            </ul>
+                        `;
+                    }
+                    modal.classList.add('active');
+                }
+            }
+        }
+
+        function closeWelcomeUpdateModal() {
+            const modal = document.getElementById('modal-welcome-update');
+            if (modal) modal.classList.remove('active');
+            localStorage.setItem('vocab_last_seen_version', APP_VERSION);
+        }
+
         window.addEventListener('beforeunload', () => {
             if (isHost && roomCode) {
                 // 1. 立即向房间内的对手发送强制踢人广播
@@ -14713,6 +15860,8 @@
             }
         });
 
+
+
         /* ==========================================================================
            14. 系统初始化启动逻辑
            ========================================================================== */
@@ -14720,6 +15869,7 @@
         BookManager.init();
         renderAuthUsersList();
         checkCloudVersion(false);
+        checkFirstOpenWelcome();
 
         if (currentUser && allUsersList.includes(currentUser)) {
             loadUserData(currentUser);
