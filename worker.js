@@ -59,24 +59,17 @@ export default {
         console.warn('Failed to fetch books from GitHub API:', err);
       }
 
-      // KV 降级
-      const kvManifest = await env.VOCAB_BOOKS?.get('__book_manifest__');
-      if (kvManifest) {
-        return new Response(kvManifest, { headers: corsHeaders });
-      }
-
-      // 静态已知词书备用目录
+      // 静态已知词书备用目录 (与 GitHub 仓库 books/ 目录完全对齐)
       const defaultBooks = [
         { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 68, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
         { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 58, path: 'books/Doris/翻译.json', isCloud: true },
         { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
-        { id: 'books/Doris/高一高二笔记.json', name: '高一高二', category: 'Doris', count: 1039, path: 'books/Doris/高一高二笔记.json', isCloud: true },
-        { id: 'books/Doris/高三笔记.json', name: '高三', category: 'Doris', count: 31, path: 'books/Doris/高三笔记.json', isCloud: true },
+        { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1039, path: 'books/Doris/高一高二笔记.json', isCloud: true },
+        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 31, path: 'books/Doris/高三笔记.json', isCloud: true },
         { id: 'books/考纲/518.json', name: '518', category: '考纲', count: 570, path: 'books/考纲/518.json', isCloud: true },
         { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1201, path: 'books/考纲/考纲词组.json', isCloud: true },
         { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3893, path: 'books/考纲/高考3500.json', isCloud: true },
         { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
-        { id: 'books/其他/GRE1500.json', name: 'GRE1500', category: '其他', count: 1533, path: 'books/其他/GRE1500.json', isCloud: true },
         { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true }
       ];
       return new Response(JSON.stringify(defaultBooks), { headers: corsHeaders });

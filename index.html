@@ -132,6 +132,8 @@
 
         .view {
             display: none;
+            width: 100%;
+            box-sizing: border-box;
             opacity: 0;
             transform: translateY(12px) scale(0.99);
             transition: opacity var(--md-motion-expressive), transform var(--md-motion-expressive);
@@ -228,6 +230,7 @@
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
+            color-scheme: light;
             height: 38px;
             padding: 0 36px 0 14px;
             font-size: 0.86rem;
@@ -245,11 +248,13 @@
             cursor: pointer;
             box-sizing: border-box;
             transition: all var(--md-motion-standard);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         select.md3-select:hover {
             background-color: var(--md-sys-color-surface-container);
             border-color: var(--md-sys-color-primary);
+            box-shadow: 0 2px 6px rgba(0, 97, 164, 0.12);
         }
 
         select.md3-select:focus {
@@ -257,6 +262,384 @@
             box-shadow: 0 0 0 3px rgba(0, 97, 164, 0.16);
             background-color: #ffffff;
         }
+
+        select.md3-select option {
+            background-color: #ffffff;
+            color: #1f2937;
+            font-size: 0.88rem;
+            padding: 8px 12px;
+        }
+
+        /* 现代化 MD3 胶囊圆角平滑进度条 */
+        .md3-progress-track {
+            width: 100%;
+            height: 6px;
+            background-color: var(--md-sys-color-surface-container-highest, #e2e8f0);
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .md3-progress-indicator {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--md-sys-color-primary, #0061A4), #38BDF8);
+            border-radius: 9999px;
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 2px rgba(0, 97, 164, 0.2);
+        }
+
+        /* MD3 极简现代悬浮细滚动条规范 */
+        .md3-scroll-view {
+            /* 现代 Firefox 浏览器标准 */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(116, 119, 127, 0.35) transparent;
+        }
+
+        /* Chrome / Safari / Edge / Webkit 浏览器内核美化 */
+        .md3-scroll-view::-webkit-scrollbar {
+            width: 6px; /* 收窄为 6px 纤细宽度 */
+        }
+
+        .md3-scroll-view::-webkit-scrollbar-track {
+            background: transparent; /* 完全透明轨道，消除突兀的灰底槽 */
+            margin: 10px 0; /* 上下留白，防止滚动滑块触碰卡片顶部和底部的圆角 */
+        }
+
+        .md3-scroll-view::-webkit-scrollbar-thumb {
+            background: rgba(116, 119, 127, 0.3); /* 柔和半透明色调 */
+            border-radius: 9999px; /* 完美胶囊全圆角 */
+            transition: background 0.2s ease, opacity 0.2s ease;
+        }
+
+        .md3-scroll-view::-webkit-scrollbar-thumb:hover {
+            background: var(--md-sys-color-primary, #0061A4); /* 悬浮时呈现主题主色并加深 */
+        }
+
+        .md3-scroll-view::-webkit-scrollbar-thumb:active {
+            background: #004c82; /* 按下拖动时的反馈色 */
+        }
+        
+        /* 1. 外层卡片：锁定圆角与边界，不产生滚动条，保护外框完整 */
+        .words-list-outer-card {
+            max-height: 600px;
+            padding: 12px 6px 12px 14px !important; /* 右侧预留安全空隙，容纳内嵌滚动条 */
+            overflow: hidden !important;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* 2. 内层真实滚动区：负责滚动，并与右侧外边框保持间隙 */
+        .words-list-scroll-inner {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 8px; /* 单词内容与滚动条之间的间距 */
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            
+            /* 现代 Firefox 滚动条 */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(116, 119, 127, 0.35) transparent;
+        }
+
+        /* 3. 内嵌细胶囊滚动条（WebKit 内核） */
+        .words-list-scroll-inner::-webkit-scrollbar {
+            width: 6px; /* 纤细优雅 */
+        }
+
+        .words-list-scroll-inner::-webkit-scrollbar-track {
+            background: transparent; /* 完全透明，完全融入背景 */
+            margin: 6px 0; /* 上下预留空隙，绝不碰触圆角 */
+        }
+
+        .words-list-scroll-inner::-webkit-scrollbar-thumb {
+            background: rgba(116, 119, 127, 0.28);
+            border-radius: 9999px; /* 胶囊圆角 */
+            transition: background 0.2s ease;
+        }
+
+        .words-list-scroll-inner::-webkit-scrollbar-thumb:hover {
+            background: var(--md-sys-color-primary, #0061A4); /* 悬浮时变蓝 */
+        }
+
+
+        /* 词汇卡片右上角合并式 MD3 胶囊工具栏容器 */
+        .card-top-right-group {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .card-toolbar-cluster {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            height: 34px;           /* 与左侧高考3500容器严格等高 */
+            padding: 0 6px;
+            background: var(--md-sys-color-surface-container-high);
+            border-radius: var(--md-shape-full);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-sizing: border-box;
+        }
+
+        .card-tool-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--md-shape-full);
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+            padding: 0;
+        }
+
+        .card-tool-btn:hover {
+            background: rgba(0, 97, 164, 0.12);
+            color: var(--md-sys-color-primary);
+        }
+
+        .card-tool-btn.active {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .card-tool-btn.danger:hover {
+            background: #FFDAD6;
+            color: var(--md-sys-color-error);
+        }
+
+        /* 禁用删除按钮状态（当词汇来自云端词书时） */
+        .card-tool-btn:hover:not(:disabled) {
+            background: rgba(0, 97, 164, 0.12);
+            color: var(--md-sys-color-primary);
+        }
+
+        .card-tool-btn:disabled {
+            opacity: 0.28;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .card-tool-btn.danger:hover:not(:disabled) {
+            background: #FFDAD6;
+            color: var(--md-sys-color-error);
+        }
+
+        /* 位于“高考3500”左侧的进度计数文本 */
+        .card-progress-counter {
+            font-family: inherit; /* 使用页面主字体 */
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--md-sys-color-primary);
+            line-height: 1;
+            white-space: nowrap;
+            letter-spacing: normal;
+        }
+
+        /* 去掉大外框的轻量 MD3 平滑线性进度条 */
+        .single-progress-bar-only {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .single-progress-bar-only .md3-progress-track {
+            width: 100%;
+            height: 4px;
+            background-color: var(--md-sys-color-surface-container-highest, #e2e8f0);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .single-progress-bar-only .md3-progress-indicator {
+            height: 100%;
+            width: 0%;
+            background: var(--md-sys-color-primary, #0061A4);
+            border-radius: 9999px;
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 词书单词列表项工具栏 (Task 24) */
+        .word-item-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .word-item-tool-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--md-shape-full);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface-variant);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            padding: 0;
+        }
+
+        .word-item-tool-btn .material-symbols-rounded {
+            font-size: 17px;
+        }
+
+        .word-item-tool-btn:hover {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-primary);
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .word-item-tool-btn.active {
+            background: #E8F5E9;
+            color: #2E7D32;
+            border-color: #A5D6A7;
+        }
+
+        .word-item-tool-btn.danger:hover {
+            background: #FFEBEE;
+            color: #C62828;
+            border-color: #EF9A9A;
+        }
+
+        /* 学习模式/默写模式 框选进度条组件 */
+        .single-progress-box {
+            background: var(--md-sys-color-surface-container-low, #f2f4f8);
+            border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+            border-radius: var(--md-shape-m, 14px);
+            padding: 10px 14px;
+            margin: 12px 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .single-progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 600;
+        }
+
+        .single-progress-count {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--md-sys-color-primary);
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        /* 修改后：提升层级并确保不被任何父级遮挡 */
+        .md3-custom-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* 当下拉菜单打开时，给当前父行提升 z-index，防止被下面的卡片遮挡 */
+        .md3-custom-dropdown.open {
+            z-index: 100;
+        }
+
+        .md3-dropdown-btn {
+            height: 36px;
+            padding: 0 12px;
+            border-radius: var(--md-shape-full);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            background: var(--md-sys-color-surface-container-lowest);
+            color: var(--md-sys-color-on-surface);
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+
+        .md3-dropdown-btn:hover {
+            border-color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-surface-container-low);
+        }
+
+        .md3-dropdown-btn .dropdown-chevron {
+            font-size: 18px;
+            color: var(--md-sys-color-on-surface-variant);
+            transition: transform 0.2s ease;
+        }
+
+        .md3-custom-dropdown.open .md3-dropdown-btn .dropdown-chevron {
+            transform: rotate(180deg);
+        }
+
+        .md3-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 140px;
+            max-width: 260px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #ffffff;
+            border-radius: var(--md-shape-m);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+            z-index: 99999; /* 确保层级置顶 */
+            padding: 6px 0;
+            box-sizing: border-box;
+        }
+
+        .md3-custom-dropdown.open .md3-dropdown-menu {
+            display: block;
+        }
+
+        .md3-dropdown-item {
+            padding: 9px 14px;
+            font-size: 0.84rem;
+            color: var(--md-sys-color-on-surface);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .md3-dropdown-item:hover {
+            background: var(--md-sys-color-surface-container-high, #e7e8ee);
+        }
+
+        .md3-dropdown-item.selected {
+            color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-primary-container, #d1e4ff);
+            font-weight: 700;
+        }
+
+        .md3-dropdown-item .material-symbols-rounded {
+            font-size: 16px;
+        }
+
 
         /* Material Symbols Rounded 样式规范 */
         .material-symbols-rounded {
@@ -1002,7 +1385,7 @@
             }
         }
 
-        /* 单人专练模式样式 */
+        /* 学习练习模式样式 */
         .single-mode-wrapper {
             width: 100%;
             max-width: 560px;
@@ -1081,15 +1464,51 @@
             text-align: left;
         }
 
+        /* 顶部首行对齐容器：左侧放置 [进度 + 高考3500]，右侧放置 [椭圆工具栏] */
+        .single-top-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        /* 统一的高考3500容器高度与样式 */
         .single-book-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 30px !important;
+            padding: 0 14px;
             background-color: #ffeedb;
             color: #c45716;
-            padding: 4px 14px;
             border-radius: var(--md-shape-full);
             font-size: 0.82rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            line-height: 1;
+            box-sizing: border-box;
+            border: none;
+            vertical-align: middle;
+        }
+
+        .badge-tag-secondary {
+            background-color: var(--md-sys-color-primary-container, #d1e4ff);
+            color: var(--md-sys-color-on-primary-container, #001d36);
+        }
+
+        .single-badge-row .badge,
+        .dictation-badge-row .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 28px;
+            padding: 0 12px;
+            border-radius: var(--md-shape-full);
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            box-sizing: border-box;
         }
 
         .single-word-display {
@@ -1666,17 +2085,24 @@
             transform: scale(0.97);
         }
 
+        /* 错词复问徽标规范：与左侧词书徽标严格等高 30px，等圆角、等内边距，去除硬边框 */
         .retest-banner {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            background: #FFF3E0;
-            color: #B26A00;
-            border: 1px solid #FFE0B2;
+            justify-content: center;
+            height: 30px !important;
+            padding: 0 14px;
+            background-color: #ffeedb;       /* 或用 #FFF3E0，不加外边框 */
+            color: #c45716;                  /* 或用 #B26A00 */
             border-radius: var(--md-shape-full);
-            font-size: 0.78rem;
-            font-weight: 600;
+            font-size: 0.82rem;              /* 与左侧完全一致 */
+            font-weight: 700;
+            line-height: 1;
+            box-sizing: border-box;
+            border: none !important;         /* 必须去掉边框，否则 1px 边框会导致外尺寸多出 2px */
+            gap: 6px;
+            white-space: nowrap;
+            vertical-align: middle;
             animation: popIn 0.3s ease;
         }
 
@@ -2544,11 +2970,10 @@
         }
 
         .tree-folder {
-            background: var(--md-sys-color-surface-container-lowest);
-            border: 1.5px solid var(--md-sys-color-outline-variant);
-            border-radius: var(--md-shape-m);
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
             overflow: hidden;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .tree-folder:hover {
@@ -2622,12 +3047,12 @@
         }
 
         .tree-folder-body {
-            padding: 6px 10px 8px;
+            padding: 8px 12px;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
             background: var(--md-sys-color-surface-container-lowest);
-            border-top: 1px solid var(--md-sys-color-surface-container-high);
+            border-top: 1px solid var(--md-sys-color-outline-variant);
         }
 
         .tree-folder.collapsed .tree-folder-body {
@@ -3111,6 +3536,10 @@
         /* 设置中心与子页面样式 */
         .settings-subview {
             display: none;
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+            box-sizing: border-box;
         }
 
         .settings-subview.active {
@@ -3192,13 +3621,168 @@
             line-height: 1.35;
         }
 
+        /* 内部条目不再使用独立的硬 border，采用轻量背景区分 */
+        .settings-book-row-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--md-sys-color-surface-container-lowest); /* 纯白底色，在浅灰底槽中浮起 */
+            border-radius: 12px; /* 与外层 20px - 8px padding 精准同心对齐 */
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            gap: 12px;
+            box-sizing: border-box;
+            transition: all var(--md-motion-standard);
+        }
+
+        .settings-book-row-item:hover {
+            background: #ffffff;
+            border-color: var(--md-sys-color-outline);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        /* 词书管理列表中的下拉菜单：统一向上弹出，完美避开卡片底边截断与边框冲突 */
+        .settings-book-row-item .md3-dropdown-menu {
+            top: auto !important;
+            bottom: calc(100% + 6px) !important;
+            right: 0;
+            box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.14) !important;
+        }
+
+        /* 箭头向上翻转对应 */
+        .settings-book-row-item .md3-custom-dropdown.open .dropdown-chevron {
+            transform: rotate(180deg);
+        }
+
+        /* 统一控制词书条目中的操作按钮：高度统一为 34px，垂直严格对齐 */
+        .settings-book-row-item .md3-dropdown-btn,
+        .settings-book-row-item .btn {
+            height: 34px !important;
+            min-height: 34px !important;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+
+        .settings-book-row-item .btn-danger {
+            width: 34px;
+            padding: 0 !important; /* 让单个删除图标按钮呈现完美的圆形 */
+        }
+
+        /* 设置子页面的顶部操作栏专用卡片样式 */
+        .settings-toolbar-card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-l) !important; /* 16px 标准圆角，杜绝跑道胶囊圆角 */
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            padding: 12px 18px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        /* 修复回收站容器图层截断与滚动样式 */
+        .trash-scroll-container {
+            min-height: 280px; /* 保证词条较少时下拉菜单也有充足展开空间，不被裁剪 */
+            max-height: 620px;
+            overflow-y: auto;
+            padding: 14px 14px 40px; /* 底部增加安全内边距 */
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            position: relative;
+        }
+
+        /* 回收站单词条目：消除嵌套硬边框，改用平滑流式布局 */
+        .trash-word-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--md-sys-color-surface-container-low);
+            border-radius: var(--md-shape-m);
+            border: 1px solid transparent;
+            transition: background var(--md-motion-standard);
+            gap: 16px;
+            position: relative;
+        }
+
+        .trash-word-row:hover {
+            background: var(--md-sys-color-surface-container);
+            border-color: var(--md-sys-color-outline-variant);
+        }
+
+        /* 智能朝上展开：当接近底部时菜单自动向上弹出，杜绝被截断 */
+        .trash-word-row .md3-dropdown-menu {
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 1000;
+        }
+
+        .trash-word-info {
+            flex: 1 1 auto;
+            min-width: 0; /* 防止长文本把右侧按钮挤压变形 */
+        }
+
+        .trash-word-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .trash-word-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .trash-word-phone {
+            font-size: 0.85rem;
+            color: var(--md-sys-color-outline);
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .trash-word-meaning {
+            font-size: 0.88rem;
+            color: var(--md-sys-color-on-surface-variant);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .trash-word-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0; /* 核心：禁止右侧操作按钮发生任何挤压变形 */
+        }
+
         .subview-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
+            margin-bottom: 18px;
+            padding: 4px 0 14px;
             border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .subview-header > div:first-child {
+            display: flex;
+            align-items: center;
+            gap: 14px; /* 增大按钮与标题之间的间隔 */
+        }
+
+        .subview-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1; /* 与按钮中线对齐 */
+            display: flex;
+            align-items: center;
         }
 
         .version-update-card {
@@ -3414,7 +3998,6 @@
     </div>
 
     <!-- 实时对战邀请弹窗 (MD3 规范) -->
-    <!-- 实时对战邀请弹窗 (MD3 规范) -->
     <div id="modal-match-invite" class="modal-overlay">
         <div class="modal-card" style="max-width: 420px; text-align: center;">
             <div
@@ -3508,7 +4091,7 @@
                                 <span id="hub-online-offline-text">在线</span>
                             </span>
                         </div>
-                        <h3>联机对战</h3>
+                        <h3>对战</h3>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%;">
                         <div class="mode-card-btn-row">
@@ -3531,7 +4114,7 @@
                     </div>
                 </div>
 
-                <!-- 模式 2: 单人模式 -->
+                <!-- 模式 2: 学习模式 -->
                 <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);">
                     <div>
                         <div
@@ -3539,7 +4122,7 @@
                             <span class="material-symbols-rounded filled"
                                 style="font-size:32px; width:32px; height:32px; color:#B3261E;">track_changes</span>
                         </div>
-                        <h3>单人模式</h3>
+                        <h3>学习</h3>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%;">
                         <div class="mode-card-btn-row">
@@ -3596,7 +4179,7 @@
                             <span class="material-symbols-rounded filled"
                                 style="font-size:32px; width:32px; height:32px; color:#0061A4;">spellcheck</span>
                         </div>
-                        <h3>听音/看义默写</h3>
+                        <h3>默写</h3>
                     </div>
                     <div class="mode-card-btn-row" style="margin-top: 16px;">
                         <button class="btn btn-filled" style="background: #0061A4;" onclick="startDictationPractice();">
@@ -3672,9 +4255,15 @@
 
         <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
         <div id="view-online" class="view">
-            <div class="app-bar">
-                <h2>联机大厅</h2>
-                <button class="btn btn-tonal" onclick="leaveOnlineLobby()">返回主页</button>
+            <div class="riddle-top-bar" style="margin-bottom: 12px;">
+                <div class="riddle-top-left">
+                    <button class="md3-icon-btn" onclick="leaveOnlineLobby()" title="返回主页">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+                    <div class="riddle-title-group">
+                        <h2 class="riddle-top-title">联机大厅</h2>
+                    </div>
+                </div>
             </div>
 
             <div class="card" style="max-width: 680px; margin: 0 auto;">
@@ -3689,7 +4278,7 @@
                             </h3>
                         </div>
                         <p style="font-size:0.83rem; color:var(--md-sys-color-outline); margin-bottom:12px;">
-                            自动保存至云端，无人在线时房间将在1天后自动清理。</p>
+                            无人在线时房间将自动清理。</p>
 
                         <div style="display:flex; flex-direction:column; gap:12px;">
                             <div>
@@ -3708,7 +4297,7 @@
                             <button class="btn btn-filled btn-touch-large" style="width:100%; margin-top:4px;"
                                 onclick="handleCreateCustomRoom()">
                                 <span class="material-symbols-rounded">meeting_room</span>
-                                <span class="btn-label-text">创建并保存房间</span>
+                                <span class="btn-label-text">创建房间</span>
                             </button>
                         </div>
                     </div>
@@ -3792,8 +4381,6 @@
                         <div
                             style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
                             <h4 style="font-size: 0.95rem; margin:0;">设置规则：</h4>
-                            <span id="rule-sync-hint"
-                                style="font-size: 0.8rem; color: var(--md-sys-color-secondary); font-weight: 500;">配置规则与词库</span>
                         </div>
 
                         <div class="rule-group">
@@ -3841,7 +4428,7 @@
                                         <span class="material-symbols-rounded"
                                             style="font-size:16px;">upload_file</span>
                                         <span class="btn-label-text">导入本地词书</span>
-                                        <input type="file" accept=".json" style="display: none;"
+                                        <input type="file" accept=".json" multiple style="display: none;"
                                             onchange="loadCustomBook(event)">
                                     </label>
                                     <span id="room-book-count-tip"
@@ -3860,10 +4447,8 @@
                             <div style="display:flex; align-items:center; gap:6px;">
                                 <span class="material-symbols-rounded"
                                     style="font-size:18px; color:var(--md-sys-color-primary);">forum</span>
-                                <span>房间聊天室</span>
+                                <span>聊天栏</span>
                             </div>
-                            <span style="font-size:0.75rem; color:var(--md-sys-color-outline);"
-                                id="room-chat-status">当前房间通信</span>
                         </div>
                         <div class="room-chat-messages" id="room-chat-messages">
                             <div
@@ -3871,7 +4456,7 @@
                                 房间已创建，欢迎和对手交流！</div>
                         </div>
                         <div class="room-chat-input-row">
-                            <input type="text" id="room-chat-input" class="input-field" placeholder="发送消息给对手..."
+                            <input type="text" id="room-chat-input" class="input-field" placeholder="请输入文本..."
                                 maxlength="80"
                                 style="flex:1; height:38px; padding:0 12px; font-size:0.86rem; border-radius:var(--md-shape-full);"
                                 onkeydown="if(event.key==='Enter') sendRoomChatMessage()">
@@ -3904,37 +4489,65 @@
             </div>
         </div>
 
-        <!-- VIEW 7: 单人专练模式 -->
+        <!-- VIEW 7: 学习练习模式 -->
         <div id="view-single" class="view">
             <div class="single-mode-wrapper">
-                <div class="single-top-bar">
-                    <h2 class="single-mode-title" id="single-mode-title">单人模式</h2>
-                    <button class="single-btn-exit" onclick="confirmExitSingle()">
-                        <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
-                        <span class="btn-label-text">退出</span>
-                    </button>
+                <div class="riddle-top-bar" style="margin-bottom: 14px;">
+                    <div class="riddle-top-left">
+                        <button class="md3-icon-btn" onclick="confirmExitSingle()" title="返回主页">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div class="riddle-title-group">
+                            <h2 class="riddle-top-title" id="single-mode-title">学习模式</h2>
+                        </div>
+                    </div>
+                    <div class="riddle-top-actions">
+                        <button class="btn btn-outlined btn-sm" onclick="openSingleSettings()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
+                            <span class="btn-label-text">设置</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="single-quiz-card">
-                    <div class="single-badge-row"
-                        style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="single-book-badge" id="single-book-badge">高考3500词</span>
+                    <!-- 顶部排布行：左端为 [进度 + 词书]，右端为 [椭圆工具栏]，宽度 100% 与下方进度条首尾对齐 -->
+                    <div class="single-top-header-row">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span id="single-progress-text" class="card-progress-counter">1/10</span>
+                            <span class="single-book-badge" id="single-book-badge">高考3500</span>
                             <span id="single-retest-tag" style="display:none;" class="retest-banner">
-                                <span class="material-symbols-rounded" style="font-size:16px;">autorenew</span>
-                                <span class="btn-label-text">错词巩固复问</span>
+                                <span class="btn-label-text">错题</span>
                             </span>
                         </div>
-                        <span id="single-progress-text"
-                            style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">1 / 10</span>
+
+                        <!-- 右侧与进度条末端对齐的工具栏 -->
+                        <div class="card-toolbar-cluster">
+                            <button type="button" class="card-tool-btn" id="btn-card-audio"
+                                onclick="playCurrentSingleWordAudio()" title="朗读发音">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-card-master"
+                                onclick="toggleCurrentWordMastered()" title="标注熟词（不再抽取）">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">check_circle_outline</span>
+                            </button>
+                            <button type="button" class="card-tool-btn danger" id="btn-card-delete"
+                                onclick="deleteCurrentSingleWord()" title="从本地词书删除">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">delete</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 线性进度条（左端与 4/40 对齐，右端与工具栏末端对齐） -->
+                    <div class="single-progress-bar-only">
+                        <div class="md3-progress-track">
+                            <div class="md3-progress-indicator" id="single-progress-fill" style="width: 10%;"></div>
+                        </div>
                     </div>
 
                     <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
                         <div class="single-word-display" id="single-word">abandon</div>
-                        <button type="button" class="btn-audio-speak" id="btn-single-audio"
-                            onclick="playCurrentSingleWordAudio()" title="朗读发音">
-                            <span class="material-symbols-rounded" style="font-size:20px;">volume_up</span>
-                        </button>
+                        <button type="button" id="btn-single-audio" style="display:none;"
+                            onclick="playCurrentSingleWordAudio()"></button>
                     </div>
                     <div class="single-phone-display" id="single-phone">/əˈbændən/</div>
 
@@ -4162,42 +4775,51 @@
 
         <!-- VIEW 9: 希沃同屏多触控对决 -->
         <div id="view-local-duel" class="view">
-            <div class="local-duel-wrapper">
-                <div class="local-duel-top-bar">
-                    <button class="single-btn-exit" onclick="confirmExitLocalDuel()">
-                        <span class="material-symbols-rounded">arrow_back</span>
-                        <span class="btn-label-text">返回主页</span>
-                    </button>
-
-                    <div class="local-duel-gauge" id="local-duel-gauge-tug">
-                        <div class="local-duel-gauge-header">
-                            <span style="color:var(--p1-sys-color);" id="local-duel-p1-lead-label">🔴 红方 0</span>
-                            <span style="font-size:0.85rem; color:var(--md-sys-color-outline);"
-                                id="local-duel-rule-badge">领先 6 题胜出</span>
-                            <span style="color:var(--p2-sys-color);" id="local-duel-p2-lead-label">蓝方 0 🔵</span>
+                <!-- 同屏对决顶部区域：统一 Wordle 风格 (Task 16) -->
+                <div class="local-duel-top-section" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px; width:100%;">
+                    <!-- 第一行：左侧返回按钮、标题，右侧重开按钮，与 Wordle 统一 -->
+                    <div class="riddle-top-bar" style="padding:0; margin:0;">
+                        <div class="riddle-top-left">
+                            <button class="md3-icon-btn" onclick="confirmExitLocalDuel()" title="返回主页">
+                                <span class="material-symbols-rounded">arrow_back</span>
+                            </button>
+                            <div class="riddle-title-group">
+                                <h2 class="riddle-top-title">同屏对决</h2>
+                            </div>
                         </div>
-                        <div class="local-tug-track">
-                            <div class="local-tug-fill-p1" id="local-tug-p1" style="width: 50%;"></div>
-                            <div class="local-tug-fill-p2" id="local-tug-p2" style="width: 50%;"></div>
-                            <div class="local-tug-pin" id="local-tug-pin" style="left: calc(50% - 3px);"></div>
+                        <div class="riddle-top-actions">
+                            <button class="btn btn-outlined btn-sm" onclick="restartLocalDuel()">
+                                <span class="material-symbols-rounded">replay</span>
+                                <span class="btn-label-text">重开</span>
+                            </button>
                         </div>
-                        <span id="local-duel-status-sub"
-                            style="font-size:0.75rem; color:var(--md-sys-color-outline);">双方势均力敌</span>
                     </div>
 
-                    <div id="local-duel-gauge-snake"
-                        style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin: 0 16px;">
-                        <canvas id="localSnakeCanvas" width="130" height="130"></canvas>
-                        <span id="local-snake-rule-summary"
-                            style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6
-                            题胜出</span>
-                    </div>
+                    <!-- 第二行：对战进度仪表盘 / 拔河进度条 / 贪吃蛇 -->
+                    <div style="display:flex; justify-content:center; align-items:center; width:100%;">
+                        <div class="local-duel-gauge" id="local-duel-gauge-tug" style="max-width:540px; margin:0 auto; width:100%;">
+                            <div class="local-duel-gauge-header">
+                                <span style="color:var(--p1-sys-color);" id="local-duel-p1-lead-label">🔴 红方 0</span>
+                                <span style="font-size:0.85rem; color:var(--md-sys-color-outline);"
+                                    id="local-duel-rule-badge">领先 6 题胜出</span>
+                                <span style="color:var(--p2-sys-color);" id="local-duel-p2-lead-label">蓝方 0 🔵</span>
+                            </div>
+                            <div class="local-tug-track">
+                                <div class="local-tug-fill-p1" id="local-tug-p1" style="width: 50%;"></div>
+                                <div class="local-tug-fill-p2" id="local-tug-p2" style="width: 50%;"></div>
+                                <div class="local-tug-pin" id="local-tug-pin" style="left: calc(50% - 3px);"></div>
+                            </div>
+                            <span id="local-duel-status-sub"
+                                style="font-size:0.75rem; color:var(--md-sys-color-outline);">双方势均力敌</span>
+                        </div>
 
-                    <div class="local-top-actions">
-                        <button class="btn btn-outlined btn-sm" onclick="restartLocalDuel()">
-                            <span class="material-symbols-rounded">replay</span>
-                            <span class="btn-label-text">重开</span>
-                        </button>
+                        <div id="local-duel-gauge-snake"
+                            style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin: 0 16px;">
+                            <canvas id="localSnakeCanvas" width="130" height="130"></canvas>
+                            <span id="local-snake-rule-summary"
+                                style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">领先 6
+                                题胜出</span>
+                        </div>
                     </div>
                 </div>
 
@@ -4269,34 +4891,42 @@
                     </div>
                 </div>
             </div>
-        </div>
 
         <!-- VIEW 8: 默写模式 -->
         <div id="view-dictation" class="view">
             <div class="single-mode-wrapper">
-                <div class="single-top-bar">
-                    <h2 class="single-mode-title" id="dictation-mode-title">默写练习</h2>
-                    <div style="display:flex; gap:8px;">
+                <div class="riddle-top-bar" style="margin-bottom: 14px;">
+                    <div class="riddle-top-left">
+                        <button class="md3-icon-btn" onclick="confirmExitDictation()" title="返回主页">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div class="riddle-title-group">
+                            <h2 class="riddle-top-title" id="dictation-mode-title">默写练习</h2>
+                        </div>
+                    </div>
+                    <div class="riddle-top-actions">
                         <button class="btn btn-outlined btn-sm" onclick="openDictationSettings()">
                             <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
                             <span class="btn-label-text">设置</span>
-                        </button>
-                        <button class="single-btn-exit" onclick="confirmExitDictation()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span>
-                            <span class="btn-label-text">返回</span>
                         </button>
                     </div>
                 </div>
 
                 <div class="dictation-card">
+                    <!-- 顶部两枚统一尺寸的 MD3 胶囊徽标与右上角进度 -->
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="single-book-badge" id="dictation-book-badge">默写词库</span>
-                            <span class="badge" id="dictation-type-badge"
-                                style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-size:0.75rem;">看义写词</span>
+                        <div class="dictation-badge-row" style="display:flex; align-items:center; gap:8px;">
+                            <span class="single-book-badge" id="dictation-book-badge">基础闯关a-as</span>
+                            <span class="badge badge-tag-secondary" id="dictation-type-badge">词组看义默写</span>
                         </div>
-                        <span id="dictation-progress-text"
-                            style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">1 / 10</span>
+                        <div class="card-progress-counter" id="dictation-progress-text" style="font-size: 0.95rem;">1 / 20</div>
+                    </div>
+
+                    <!-- 无外边框细条进度条 -->
+                    <div class="single-progress-bar-only" style="margin: 8px 0 12px;">
+                        <div class="md3-progress-track">
+                            <div class="md3-progress-indicator" id="dictation-progress-fill" style="width: 5%;"></div>
+                        </div>
                     </div>
 
                     <div class="dictation-prompt-box">
@@ -4449,7 +5079,7 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">library_books</span>
-                    <span>词书</span>
+                    <span>本地词书</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row clickable" onclick="switchSettingsSubview('books')">
@@ -4459,8 +5089,36 @@
                                 <span class="material-symbols-rounded">folder_managed</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>管理词书</h4>
+                                <h4>本地词书</h4>
                                 <p id="settings-books-summary-text">创建分类文件夹、导入本地词书、查看词书单词列表与同步</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded"
+                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                    <div class="settings-row clickable" onclick="switchSettingsSubview('mastered')">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box"
+                                style="background:#E8F5E9; color:#2E7D32;">
+                                <span class="material-symbols-rounded">check_circle</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>熟词</h4>
+                                <p id="settings-mastered-summary-text">查看已标注为熟词的单词（练习与对战中不再抽取）</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded"
+                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                    <div class="settings-row clickable" onclick="switchSettingsSubview('trash')">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box"
+                                style="background:#FFEBEE; color:#C62828;">
+                                <span class="material-symbols-rounded">delete</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>已删除词汇</h4>
+                                <p id="settings-trash-summary-text">查看从本地词书中删除的词汇，支持恢复或移至其他词书</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded"
@@ -4524,31 +5182,28 @@
                             <span class="material-symbols-rounded">arrow_back</span>
                             <span class="btn-label-text">返回设置</span>
                         </button>
-                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书与分类管理</h3>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书</h3>
                     </div>
                 </div>
 
-                <div class="card" style="margin-bottom:14px; padding:16px;">
-                    <div
-                        style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <button class="btn btn-filled btn-sm" onclick="promptCreateFolder()">
-                                <span class="material-symbols-rounded" style="font-size:18px;">create_new_folder</span>
-                                <span class="btn-label-text">新建文件夹</span>
-                            </button>
-                            <button class="btn btn-outlined btn-sm"
-                                onclick="document.getElementById('settings-custom-book-input').click()">
-                                <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                                <span class="btn-label-text">导入词书</span>
-                            </button>
-                            <input type="file" id="settings-custom-book-input" accept=".json" style="display:none;"
-                                onchange="loadCustomBook(event)">
-                        </div>
-                        <button class="btn btn-tonal btn-sm" onclick="syncLocalBooksWithCloud(true)">
-                            <span class="material-symbols-rounded" style="font-size:18px;">cloud_sync</span>
-                            <span class="btn-label-text">云端同步</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-filled btn-sm" onclick="promptCreateFolder()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">create_new_folder</span>
+                            <span class="btn-label-text">新建文件夹</span>
                         </button>
+                        <button type="button" class="btn btn-outlined btn-sm"
+                            onclick="document.getElementById('settings-custom-book-input').click()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
+                            <span class="btn-label-text">导入词书</span>
+                        </button>
+                        <input type="file" id="settings-custom-book-input" accept=".json" multiple style="display:none;"
+                            onchange="loadCustomBook(event)">
                     </div>
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="syncLocalBooksWithCloud(true)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">cloud_sync</span>
+                        <span class="btn-label-text">云端同步</span>
+                    </button>
                 </div>
 
                 <div id="settings-manage-books-list" style="display:flex; flex-direction:column; gap:12px;"></div>
@@ -4577,14 +5232,14 @@
                         oninput="filterSettingsBookWordsDisplay()">
                 </div>
 
-                <div class="card" style="max-height:600px; overflow-y:auto; padding:14px;">
-                    <div id="settings-view-book-words-container" style="display:flex; flex-direction:column; gap:8px;">
-                    </div>
+            <div class="card words-list-outer-card">
+                <div id="settings-view-book-words-container" class="words-list-scroll-inner">
                 </div>
             </div>
+        </div> <!-- 补上这个 </div> 用于闭合 #settings-subview-words -->
 
-            <!-- 子页面 4: 详细更新日志子页面 -->
-            <div id="settings-subview-changelog" class="settings-subview">
+        <!-- 子页面 4: 详细更新日志子页面 -->
+        <div id="settings-subview-changelog" class="settings-subview">
                 <div class="subview-header">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('main')">
@@ -4600,6 +5255,67 @@
                 </div>
 
                 <div id="settings-changelog-container" style="display:flex; flex-direction:column; gap:14px;"></div>
+            </div>
+
+            <!-- 子页面 5: 熟词本子页面 (Task 22) -->
+            <div id="settings-subview-mastered" class="settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('main')">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                            <span class="btn-label-text">返回设置</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">熟词本</h3>
+                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-mastered-count">共 0 词</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllMasteredWords()">
+                        <span class="material-symbols-rounded" style="font-size:16px;">delete_sweep</span>
+                        <span class="btn-label-text">清空全部熟词</span>
+                    </button>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                    <input type="text" id="settings-mastered-search" class="input-field" placeholder="搜索单词或释义..."
+                        style="height:42px; border-radius:var(--md-shape-full);"
+                        oninput="filterMasteredWordsDisplay()">
+                </div>
+
+                <div class="card md3-scroll-view" style="max-height: 600px; overflow-y: auto; padding: 14px 10px 14px 14px;">
+                    <div id="settings-mastered-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+            </div>
+
+            <!-- 子页面 6: 回收站子页面 -->
+            <div id="settings-subview-trash" class="settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="switchSettingsSubview('main')">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                            <span class="btn-label-text">返回设置</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书回收站</h3>
+                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-trash-count">共 0 词</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllTrashWords()">
+                        <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
+                        <span class="btn-label-text">清空回收站</span>
+                    </button>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                    <input type="text" id="settings-trash-search" class="input-field" placeholder="搜索已删词汇..."
+                        style="height:42px; border-radius:var(--md-shape-full);"
+                        oninput="filterTrashWordsDisplay()">
+                </div>
+
+                <!-- 修复后的滚动容器 -->
+                <div class="trash-scroll-container">
+                    <div id="settings-trash-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
             </div>
         </div>
 
@@ -4727,8 +5443,8 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <span class="rule-label" style="margin:0;">自动发音（需联网）</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">听音或看义进入题目时自动朗读</p>
+                        <span class="rule-label" style="margin:0;">自动发音</span>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api，不支持长词组</p>
                     </div>
                     <label class="md3-switch" id="switch-dictation-autoplay-label">
                         <input type="checkbox" id="switch-dictation-autoplay" onchange="toggleDictationAutoplaySwitch(this.checked)">
@@ -4740,7 +5456,7 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
                     <div>
-                        <span class="rule-label" style="margin:0;">屏幕虚拟键盘</span>
+                        <span class="rule-label" style="margin:0;">虚拟键盘</span>
                         <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">默写作答界面显示虚拟字母键盘</p>
                     </div>
                     <label class="md3-switch" id="switch-dictation-kb-label">
@@ -4761,13 +5477,13 @@
         </div>
     </div>
 
-    <!-- 单人模式多选词书选择弹窗 (默认收起，去除全选本组按钮) -->
+    <!-- 学习模式多选词书选择弹窗 (默认收起，去除全选本组按钮) -->
     <div id="modal-single-books" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.18rem; font-weight:700;">选择词书</h3>
-                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">支持多选词书进行专练</p>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">支持多选词书进行练习</p>
                 </div>
                 <button class="modal-close-btn" onclick="closeSingleBookSelector()">
                     <span class="material-symbols-rounded">close</span>
@@ -4795,7 +5511,7 @@
                         <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
                         <span class="btn-label-text">导入词书</span>
                     </button>
-                    <input type="file" id="custom-book-input" accept=".json" style="display:none;"
+                    <input type="file" id="custom-book-input" accept=".json" multiple style="display:none;"
                         onchange="loadCustomBook(event)">
                 </div>
             </div>
@@ -4819,7 +5535,7 @@
         </div>
     </div>
 
-    <!-- 单人模式学习/复习节奏设置弹窗 -->
+    <!-- 学习模式学习/复习节奏设置弹窗 -->
     <div id="modal-single-settings" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
@@ -4868,8 +5584,8 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
                     <div>
-                        <span class="rule-label" style="margin:0;">自动发音（需联网）</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">切换单词或词组时自动播放标准发音</p>
+                        <span class="rule-label" style="margin:0;">自动发音</span>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api，不支持长词组</p>
                     </div>
                     <label class="md3-switch" id="switch-single-autoplay-label">
                         <input type="checkbox" id="switch-single-autoplay" onchange="toggleSingleAutoplaySwitch(this.checked)">
@@ -4895,20 +5611,19 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="modal-footer">
-                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeSingleSettings()">
-                    <span class="material-symbols-rounded">close</span>
-                    <span class="btn-label-text">取消</span>
-                </button>
-                <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveSingleSettings()">
-                    <span class="material-symbols-rounded">check</span>
-                    <span class="btn-label-text">保存设置</span>
-                </button>
+                <div class="modal-footer">
+                    <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeSingleSettings()">
+                        <span class="material-symbols-rounded">close</span>
+                        <span class="btn-label-text">取消</span>
+                    </button>
+                    <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveSingleSettings()">
+                        <span class="material-symbols-rounded">check</span>
+                        <span class="btn-label-text">保存设置</span>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
     <!-- Wordle 谜题参数设置弹窗 -->
     <div id="modal-riddle-settings" class="modal-overlay">
@@ -5471,9 +6186,9 @@
                 { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 68, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
                 { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 58, path: 'books/Doris/翻译.json', isCloud: true },
                 { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
-                { id: 'books/Doris/高一高二.json', name: '高一高二', category: 'Doris', count: 1039, path: 'books/Doris/高一高二.json', isCloud: true },
+                { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1039, path: 'books/Doris/高一高二笔记.json', isCloud: true },
+                { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 31, path: 'books/Doris/高三笔记.json', isCloud: true },
                 { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
-                { id: 'books/其他/GRE1500.json', name: 'GRE1500', category: '其他', count: 1533, path: 'books/其他/GRE1500.json', isCloud: true },
                 { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true }
             ],
 
@@ -5523,54 +6238,65 @@
                 const banner = document.getElementById('worker-status-banner');
                 let fetchedBooks = null;
 
-                // 1. 尝试从 Cloudflare Worker 获取
+                // 1. 优先直接从 GitHub 仓库读取 books 目录 (确保实时获取最新提交的词书)
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4000);
-                    const res = await fetch(`${this.API_BASE}/api/books`, { signal: controller.signal });
+                    const timeoutId = setTimeout(() => controller.abort(), 4500);
+                    const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/git/trees/main?recursive=1', {
+                        signal: controller.signal
+                    });
                     clearTimeout(timeoutId);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (Array.isArray(data) && data.length > 0) {
-                            fetchedBooks = data;
+                    if (ghRes.ok) {
+                        const ghData = await ghRes.json();
+                        if (ghData.tree && Array.isArray(ghData.tree)) {
+                            const books = ghData.tree
+                                .filter(item => item.type === 'blob' && item.path.startsWith('books/') && item.path.endsWith('.json'))
+                                .map(item => {
+                                    const parts = item.path.split('/');
+                                    const filename = parts[parts.length - 1];
+                                    const name = filename.replace(/\.json$/i, '');
+                                    const category = parts.length > 2 ? parts[1] : '精选';
+                                    return {
+                                        id: item.path,
+                                        name: name,
+                                        category: category,
+                                        path: item.path,
+                                        size: item.size,
+                                        cdnUrl: `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(item.path)}`,
+                                        downloadUrl: `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(item.path)}`,
+                                        isCloud: true
+                                    };
+                                });
+                            if (books.length > 0) {
+                                fetchedBooks = books;
+                            }
                         }
                     }
-                } catch (err) {
-                    console.warn('[BookManager] Worker fetch failed, trying GitHub API directly:', err);
+                } catch (ghErr) {
+                    console.warn('[BookManager] Direct GitHub trees fetch failed, trying worker:', ghErr);
                 }
 
-                // 2. Worker 失败时，直接调用 GitHub Git Trees API 获取 books/ 目录下全部词书
+                // 2. 若 GitHub API 受限或失败，尝试从 Cloudflare Worker 获取 (且必须是包含 books/ 规范路径的新结构)
                 if (!fetchedBooks || fetchedBooks.length === 0) {
                     try {
-                        const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/git/trees/main?recursive=1');
-                        if (ghRes.ok) {
-                            const ghData = await ghRes.json();
-                            if (ghData.tree && Array.isArray(ghData.tree)) {
-                                const books = ghData.tree
-                                    .filter(item => item.type === 'blob' && item.path.startsWith('books/') && item.path.endsWith('.json'))
-                                    .map(item => {
-                                        const parts = item.path.split('/');
-                                        const filename = parts[parts.length - 1];
-                                        const name = filename.replace(/\.json$/i, '');
-                                        const category = parts.length > 2 ? parts[1] : '精选';
-                                        return {
-                                            id: item.path,
-                                            name: name,
-                                            category: category,
-                                            path: item.path,
-                                            size: item.size,
-                                            cdnUrl: `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(item.path)}`,
-                                            downloadUrl: `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(item.path)}`,
-                                            isCloud: true
-                                        };
-                                    });
-                                if (books.length > 0) {
-                                    fetchedBooks = books;
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 4000);
+                        const res = await fetch(`${this.API_BASE}/api/books`, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const data = await res.json();
+                            // 检查返回的是否为新的 GitHub books 结构（过滤掉旧版 KV 遗留的旧字典清单）
+                            if (Array.isArray(data) && data.length > 0) {
+                                const isNewFormat = data.some(b => (b.path && b.path.startsWith('books/')) || b.category);
+                                if (isNewFormat) {
+                                    fetchedBooks = data;
+                                } else {
+                                    console.warn('[BookManager] Worker returned legacy KV books, ignoring in favor of books/ folder.');
                                 }
                             }
                         }
-                    } catch (ghErr) {
-                        console.warn('[BookManager] GitHub trees fetch failed, using fallback:', ghErr);
+                    } catch (err) {
+                        console.warn('[BookManager] Worker fetch failed:', err);
                     }
                 }
 
@@ -5580,7 +6306,7 @@
                         id: String(item.id || item.path || item.name),
                         name: item.name || item.title || item.id,
                         category: item.category || '精选',
-                        count: item.count || (item.words ? item.words.length : null) || (item.size ? `约${Math.round(item.size / 120)}` : null) || '多词',
+                        count: item.count || (item.words ? item.words.length : null) || (item.size ? `${Math.round(item.size / 120)}` : null) || '多词',
                         path: item.path || (String(item.id).startsWith('books/') ? item.id : `books/${item.category || '其他'}/${item.name || item.id}.json`),
                         cdnUrl: item.cdnUrl || `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(item.path || item.id)}`,
                         downloadUrl: item.downloadUrl || `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(item.path || item.id)}`,
@@ -5722,7 +6448,7 @@
                         word,
                         phone,
                         meanings,
-                        bookName: bookName || '专练词书',
+                        bookName: bookName || '练习词书',
                         bookId: bookId || 'default'
                     };
                 }).filter(Boolean);
@@ -6068,7 +6794,7 @@
                     try {
                         const parsed = JSON.parse(singleSaved);
                         if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
-                            learnBtnText.innerText = `继续 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                            learnBtnText.innerText = `继续(${parsed.currentIdx + 1}/${parsed.pool.length})`;
                         } else {
                             learnBtnText.innerText = '学习新词';
                         }
@@ -6087,7 +6813,7 @@
                     try {
                         const parsed = JSON.parse(riddleSaved);
                         if (parsed && !parsed.gameOver && parsed.attempts && parsed.attempts.length > 0) {
-                            riddleBtnText.innerText = `继续 (${parsed.attempts.length}/${parsed.maxAttempts})`;
+                            riddleBtnText.innerText = `继续解谜`;
                         } else {
                             riddleBtnText.innerText = '开始解谜';
                         }
@@ -6107,48 +6833,74 @@
         }
 
         async function loadCustomBook(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function (evt) {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+
+            let successCount = 0;
+            let failCount = 0;
+            const importedNames = [];
+
+            if (!window.customBooks) window.customBooks = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 try {
-                    const rawData = JSON.parse(evt.target.result);
+                    const text = await file.text();
+                    const rawData = JSON.parse(text);
                     const bookName = file.name.replace(/\.json$/i, '');
-                    const bookId = 'custom_' + Date.now();
+                    const bookId = 'custom_' + Date.now() + '_' + i;
                     const normalized = BookManager.normalizeWords(rawData, bookName, bookId);
                     if (normalized.length === 0) throw new Error('未解析到有效词条');
 
                     const bookObj = {
                         id: bookId,
-                        name: `📂 ${bookName}`,
+                        name: bookName,
                         rawName: bookName,
                         count: normalized.length,
                         words: normalized,
                         folderId: null,
                         isCloud: false,
-                        createdAt: Date.now()
+                        createdAt: Date.now() + i
                     };
 
-                    if (!window.customBooks) window.customBooks = [];
                     window.customBooks.push(bookObj);
                     await VocabOfflineDB.saveBook(bookObj);
 
                     BookManager.bookCache[bookId] = normalized;
-                    BookManager.mergeCustomBooks();
 
                     if (!singleSelectedBookIds.includes(bookId)) {
                         singleSelectedBookIds.push(bookId);
                     }
-                    renderSingleBookList();
-                    renderRoomBookChips();
-                    renderLocalDuelBookChips();
-                    renderAiDuelBookChips();
-                    showToast(`成功导入本地词书【${bookName}】！`);
+                    importedNames.push(bookName);
+                    successCount++;
                 } catch (err) {
-                    alert('词库解析失败，请确认为标准词典JSON格式。');
+                    console.error('导入词书解析失败:', file.name, err);
+                    failCount++;
                 }
-            };
-            reader.readAsText(file);
+            }
+
+            // 重置 input value 以支持再次导入同名文件
+            e.target.value = '';
+
+            BookManager.mergeCustomBooks();
+
+            // 立即刷新所有相关词书列表
+            renderSingleBookList();
+            renderRoomBookChips();
+            renderLocalDuelBookChips();
+            renderAiDuelBookChips();
+            renderManageLocalBooksInSettings();
+            renderSettingsBooksSummary();
+
+            if (successCount > 0) {
+                if (successCount === 1) {
+                    showToast(`成功导入本地词书“${importedNames[0]}”！`);
+                } else {
+                    showToast(`成功导入 ${successCount} 本词书！` + (failCount > 0 ? ` (${failCount} 本失败)` : ''));
+                }
+            } else if (failCount > 0) {
+                alert('所选词库解析失败，请确认为标准词典JSON格式。');
+            }
         }
 
         function isBookIdSelected(selectedIds, bookId) {
@@ -6211,7 +6963,7 @@
                             <div class="tree-folder-header" onclick="toggleTreeFolderCollapse('${containerId}-folder-cloud-${safeCatId}', '${folderKey}')">
                                 <div class="tree-folder-left">
                                     <span class="material-symbols-rounded tree-folder-icon">cloud</span>
-                                    <span class="tree-folder-name">云端 · ${escapeHtml(cat)}</span>
+                                    <span class="tree-folder-name">${escapeHtml(cat)}</span>
                                     <span class="tree-folder-badge">${catSelectedCount}/${booksInCat.length} 本</span>
                                 </div>
                                 <div class="tree-folder-right">
@@ -6250,10 +7002,11 @@
 
             // 2. 自建文件夹分类 (默认收起)
             localFolders.forEach(folder => {
-                const booksInThisFolder = localCustomBooks.filter(b => b.folderId === folder.id);
+                const booksInFolder = localCustomBooks.filter(b => b.folderId === folder.id);
+                if (booksInFolder.length === 0) return;
                 const folderKey = `${containerId}_folder_${folder.id}`;
                 const isCollapsed = folderTreeCollapseMap[folderKey] !== false;
-                const folderSelectedCount = booksInThisFolder.filter(b => isBookIdSelected(selectedIds, b.id)).length;
+                const folderSelectedCount = booksInFolder.filter(b => isBookIdSelected(selectedIds, b.id)).length;
 
                 html += `
                 <div class="tree-folder ${isCollapsed ? 'collapsed' : ''}" id="${containerId}-folder-${folder.id}">
@@ -6261,44 +7014,43 @@
                         <div class="tree-folder-left">
                             <span class="material-symbols-rounded tree-folder-icon">folder</span>
                             <span class="tree-folder-name">${escapeHtml(folder.name)}</span>
-                            <span class="tree-folder-badge">${folderSelectedCount}/${booksInThisFolder.length} 本</span>
+                            <span class="tree-folder-badge">${folderSelectedCount}/${booksInFolder.length} 本</span>
                         </div>
                         <div class="tree-folder-right">
                             <span class="material-symbols-rounded tree-folder-chevron">expand_more</span>
                         </div>
                     </div>
                     <div class="tree-folder-body">
-                        ${booksInThisFolder.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:6px 10px;">该文件夹暂无词书</div>` : ''}
-                        ${booksInThisFolder.map(b => renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly)).join('')}
+                        ${booksInFolder.map(b => renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly)).join('')}
                     </div>
                 </div>
-            `;
+                `;
             });
 
-            // 3. 未归类本地词书分类 (只放真正的本地导入词书，绝不混入云端下载词书，默认收起)
-            const uncatLocalBooks = localCustomBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
-            if (uncatLocalBooks.length > 0 || localFolders.length === 0) {
-                const isCollapsed = folderTreeCollapseMap[`${containerId}_uncat`] !== false;
-                const uncatSelectedCount = uncatLocalBooks.filter(b => isBookIdSelected(selectedIds, b.id)).length;
+            // 3. 未归类本地词书分类 (统一样式：带折叠箭头与复选框条目)
+            const uncatBooks = localCustomBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
+            if (uncatBooks.length > 0) {
+                const folderKey = `${containerId}_uncat`;
+                const isCollapsed = folderTreeCollapseMap[folderKey] !== false;
+                const uncatSelectedCount = uncatBooks.filter(b => isBookIdSelected(selectedIds, b.id)).length;
 
                 html += `
                 <div class="tree-folder ${isCollapsed ? 'collapsed' : ''}" id="${containerId}-folder-uncat">
-                    <div class="tree-folder-header" onclick="toggleTreeFolderCollapse('${containerId}-folder-uncat', '${containerId}_uncat')">
+                    <div class="tree-folder-header" onclick="toggleTreeFolderCollapse('${containerId}-folder-uncat', '${folderKey}')">
                         <div class="tree-folder-left">
-                            <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-outline);">folder_open</span>
+                            <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-secondary);">folder_open</span>
                             <span class="tree-folder-name">未归类</span>
-                            <span class="tree-folder-badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);">${uncatSelectedCount}/${uncatLocalBooks.length} 本</span>
+                            <span class="tree-folder-badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);">${uncatSelectedCount}/${uncatBooks.length} 本</span>
                         </div>
                         <div class="tree-folder-right">
                             <span class="material-symbols-rounded tree-folder-chevron">expand_more</span>
                         </div>
                     </div>
                     <div class="tree-folder-body">
-                        ${uncatLocalBooks.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:6px 10px;">暂无未归类的本地词书</div>` : ''}
-                        ${uncatLocalBooks.map(b => renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly)).join('')}
+                        ${uncatBooks.map(b => renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly)).join('')}
                     </div>
                 </div>
-            `;
+                `;
             }
 
             html += '</div>';
@@ -6307,7 +7059,7 @@
 
         function renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly = false) {
             const isSel = isBookIdSelected(selectedIds, b.id);
-            const countLabel = b.count ? `(${b.count}词)` : '(多词)';
+            const countLabel = b.count ? `共${b.count}词` : '多词';
             const displayName = escapeHtml(b.rawName || b.name);
             const clickHandler = isReadOnly ? '' : `onclick="${onToggleFn}('${b.id}')"`;
             const cursorStyle = isReadOnly ? 'cursor:default;' : '';
@@ -6316,7 +7068,7 @@
             <div class="tree-book-item ${isSel ? 'selected' : ''}" ${clickHandler} style="${cursorStyle}">
                 <div class="tree-book-info">
                     <span class="tree-book-name">${displayName}</span>
-                    <span class="tree-book-count">容量: ${countLabel}</span>
+                    <span class="tree-book-count">${countLabel}</span>
                 </div>
                 <div class="tree-book-check">
                     ${isSel ? '<span class="material-symbols-rounded" style="font-size:16px; color:white;">check</span>' : ''}
@@ -6338,7 +7090,7 @@
         }
 
         /* ==========================================================================
-           5. 单人专练模式核心控制 (免二次确认、进度保存与断点恢复)
+           5. 学习练习模式核心控制 (免二次确认、进度保存与断点恢复)
            ========================================================================== */
         function openSingleBookSelector() {
             // 每次打开弹窗时，重置所有分类文件夹默认收起
@@ -6640,7 +7392,7 @@
             saveSingleProgress();
         }
 
-        // 保存单人模式当前进度
+        // 保存学习模式当前进度
         function saveSingleProgress() {
             if (!currentUser || gameMode !== 'single' || !singleState || !singleState.pool || singleState.pool.length === 0) return;
             if (singleState.currentIdx >= singleState.pool.length) {
@@ -6702,12 +7454,18 @@
                 dictionary = words;
 
                 const learnedMap = EbbinghausEngine.getRecords();
-                const unlearnedWords = words.filter(w => !learnedMap[(w.word || '').trim().toLowerCase()]);
+                const unmasteredWords = words.filter(w => !isWordMastered(w.word));
+                const unlearnedWords = unmasteredWords.filter(w => !learnedMap[(w.word || '').trim().toLowerCase()]);
 
                 let candidateWords = unlearnedWords;
                 if (candidateWords.length === 0) {
-                    showToast('选定词书已学完，将进行强化巩固！');
-                    candidateWords = words;
+                    if (unmasteredWords.length === 0) {
+                        showToast('当前所选词书的所有词汇均已标记为熟词！可在设置中查看熟词本。');
+                        candidateWords = words;
+                    } else {
+                        showToast('选定词书已学完，将进行强化巩固！');
+                        candidateWords = unmasteredWords;
+                    }
                 }
 
                 const batchSize = singleConfig.learnBatch || 10;
@@ -6784,7 +7542,7 @@
                 dictionary = words;
                 const batchSize = singleConfig.learnBatch || 10;
                 const pool = generateShuffledPoolFromWords(words, Math.min(batchSize * 2, words.length));
-                startSinglePlayerWithPool(pool, '单人专练');
+                startSinglePlayerWithPool(pool, '单人练习');
             } catch (err) {
                 alert('加载词书失败：' + err.message);
             } finally {
@@ -6795,7 +7553,7 @@
             }
         }
 
-        function startSinglePlayerWithPool(pool, defaultBookName = '单人专练') {
+        function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
             resetAllGameAlertsAndFeedback();
             gameMode = 'single';
             singleState = {
@@ -7151,6 +7909,284 @@
             return chips;
         }
 
+        /* ==========================================================================
+           熟词本（Mastered Words）与本地词书回收站（Trash Bin）系统
+           ========================================================================== */
+        function getMasteredWords() {
+            if (!currentUser) return [];
+            try {
+                const raw = localStorage.getItem(`vocab_mastered_words_${currentUser}`);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveMasteredWords(words) {
+            if (!currentUser) return;
+            localStorage.setItem(`vocab_mastered_words_${currentUser}`, JSON.stringify(words));
+        }
+
+        function isWordMastered(word) {
+            if (!word) return false;
+            const clean = word.trim().toLowerCase();
+            const list = getMasteredWords();
+            return list.some(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+        }
+
+        function toggleMasteredWord(word, phone = '', meaning = '') {
+            if (!currentUser || !word) return false;
+            const clean = word.trim().toLowerCase();
+            let list = getMasteredWords();
+            const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+
+            let nowMastered = false;
+            if (existingIdx >= 0) {
+                list.splice(existingIdx, 1);
+                nowMastered = false;
+                showToast(`已取消“${word}”的熟词标记`);
+            } else {
+                list.push({
+                    word: word.trim(),
+                    phone: phone || '',
+                    meaning: meaning || '',
+                    markedAt: Date.now()
+                });
+                nowMastered = true;
+                showToast(`已将“${word}”标为熟词`);
+            }
+            saveMasteredWords(list);
+            return nowMastered;
+        }
+
+        function toggleCurrentWordMastered() {
+            if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
+            const q = singleState.pool[singleState.currentIdx];
+            if (!q || !q.word) return;
+            const nowMastered = toggleMasteredWord(q.word, q.phone, q.meaning);
+            updateSingleCardToolbar(q);
+            if (nowMastered) {
+                // 用户需求：标注熟词后直接跳到下一题
+                setTimeout(() => {
+                    nextSingleQuestion(true);
+                }, 280);
+            }
+        }
+
+        function confirmClearAllMasteredWords() {
+            const list = getMasteredWords();
+            if (list.length === 0) {
+                showToast('熟词本为空');
+                return;
+            }
+            if (!confirm("确定要清空全部熟词标记吗？")) return;
+            saveMasteredWords([]);
+            showToast('已清空全部熟词标记');
+            renderMasteredWordsInSettings();
+            if (gameMode === 'single' && singleState && singleState.pool) {
+                const q = singleState.pool[singleState.currentIdx];
+                if (q) updateSingleCardToolbar(q);
+            }
+        }
+
+        function getTrashWords() {
+            try {
+                return JSON.parse(localStorage.getItem('vocab_trash_words') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveTrashWords(list) {
+            try {
+                localStorage.setItem('vocab_trash_words', JSON.stringify(list));
+            } catch (e) {
+                console.error('Failed to save trash words', e);
+            }
+        }
+
+        async function deleteWordFromCustomBook(word, bookId, showToastAlert = true) {
+            if (!word || !bookId) return false;
+            let book = (window.customBooks || []).find(b => b.id === bookId);
+            if (!book) return false;
+
+            const originalWords = book.words || [];
+            const targetWordObj = originalWords.find(w => (w.word || '').toLowerCase() === word.toLowerCase());
+            if (!targetWordObj) return false;
+
+            const trashList = getTrashWords();
+            trashList.unshift({
+                id: 'trash_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                word: targetWordObj.word,
+                phone: targetWordObj.phone || '',
+                meaning: targetWordObj.meanings ? targetWordObj.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；') : (targetWordObj.meaning || ''),
+                meanings: targetWordObj.meanings || null,
+                originalBookId: book.id,
+                originalBookName: book.rawName || book.name,
+                deletedAt: Date.now()
+            });
+            saveTrashWords(trashList);
+
+            book.words = originalWords.filter(w => (w.word || '').toLowerCase() !== word.toLowerCase());
+            book.count = book.words.length;
+            await BookManager.saveCustomBook(book);
+
+            if (showToastAlert) showToast(`已将“${word}”从词书移入回收站`);
+            return true;
+        }
+
+        async function deleteCurrentSingleWord() {
+            if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
+            const q = singleState.pool[singleState.currentIdx];
+            if (!q || !q.word) return;
+
+            if (!confirm(`确定要将单词“${q.word}”移出该词书吗？`)) return;
+
+            const ok = await deleteWordFromCustomBook(q.word, q.bookId);
+            if (ok) {
+                nextSingleQuestion(true);
+            } else {
+                showToast('移入回收站失败：未在本地词书中找到该词条');
+            }
+        }
+
+        async function restoreTrashWord(trashId) {
+            const trash = getTrashWords();
+            const itemIdx = trash.findIndex(t => t.id === trashId);
+            if (itemIdx < 0) return;
+            const item = trash[itemIdx];
+
+            let targetBook = (window.customBooks || []).find(b => b.id === item.originalBookId);
+            if (!targetBook) {
+                if (!window.customBooks || window.customBooks.length === 0) {
+                    alert('原词书已不存在，且当前无其他本地词书可供恢复。请先在词书管理中创建或导入本地词书。');
+                    return;
+                }
+                targetBook = window.customBooks[0];
+            }
+
+            if (!Array.isArray(targetBook.words)) targetBook.words = [];
+            if (!targetBook.words.some(w => (w.word || '').toLowerCase() === item.word.toLowerCase())) {
+                targetBook.words.push({
+                    word: item.word,
+                    phone: item.phone || '',
+                    meanings: item.meanings && item.meanings.length > 0 ? item.meanings : [{ pos: '', meaning: item.meaning || '' }],
+                    bookName: targetBook.rawName || targetBook.name,
+                    bookId: targetBook.id
+                });
+                targetBook.count = targetBook.words.length;
+                await VocabOfflineDB.saveBook(targetBook);
+                BookManager.bookCache[targetBook.id] = targetBook.words;
+            }
+
+            trash.splice(itemIdx, 1);
+            saveTrashWords(trash);
+            showToast(`已将 “${item.word}” 恢复至 “${targetBook.rawName || targetBook.name}”`);
+            renderTrashWordsInSettings();
+            renderManageLocalBooksInSettings();
+        }
+
+        async function moveTrashWordToAnotherBook(trashId, targetBookId) {
+            const trash = getTrashWords();
+            const itemIdx = trash.findIndex(t => t.id === trashId);
+            if (itemIdx < 0) return;
+            const item = trash[itemIdx];
+
+            const targetBook = (window.customBooks || []).find(b => b.id === targetBookId);
+            if (!targetBook) {
+                alert('目标词书不存在');
+                return;
+            }
+
+            if (!Array.isArray(targetBook.words)) targetBook.words = [];
+            if (!targetBook.words.some(w => (w.word || '').toLowerCase() === item.word.toLowerCase())) {
+                targetBook.words.push({
+                    word: item.word,
+                    phone: item.phone || '',
+                    meanings: item.meanings && item.meanings.length > 0 ? item.meanings : [{ pos: '', meaning: item.meaning || '' }],
+                    bookName: targetBook.rawName || targetBook.name,
+                    bookId: targetBook.id
+                });
+                targetBook.count = targetBook.words.length;
+                await VocabOfflineDB.saveBook(targetBook);
+                BookManager.bookCache[targetBook.id] = targetBook.words;
+            }
+
+            trash.splice(itemIdx, 1);
+            saveTrashWords(trash);
+            showToast(`已将“${item.word}”移动至“${targetBook.rawName || targetBook.name}”！`);
+            renderTrashWordsInSettings();
+            renderManageLocalBooksInSettings();
+        }
+
+        function permanentlyDeleteTrashWord(trashId) {
+            let trash = getTrashWords();
+            const item = trash.find(t => t.id === trashId);
+            if (!item) return;
+            if (!confirm(`确定要彻底删除“${item.word}”吗？此操作无法撤销。`)) return;
+            trash = trash.filter(t => t.id !== trashId);
+            saveTrashWords(trash);
+            showToast(`已彻底删除“${item.word}”`);
+            renderTrashWordsInSettings();
+        }
+
+        function confirmClearAllTrashWords() {
+            const trash = getTrashWords();
+            if (trash.length === 0) {
+                showToast('回收站为空');
+                return;
+            }
+            if (!confirm(`确定要清空回收站吗？`)) return;
+            saveTrashWords([]);
+            showToast(`已彻底删除${trash.length}个单词`);
+            renderTrashWordsInSettings();
+        }
+
+        function updateSingleCardToolbar(q) {
+            if (!q) return;
+            const isMastered = isWordMastered(q.word);
+            const masterBtn = document.getElementById('btn-card-master');
+            if (masterBtn) {
+                masterBtn.classList.toggle('active', isMastered);
+                masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
+                masterBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>`;
+            }
+
+            const deleteBtn = document.getElementById('btn-card-delete');
+            if (deleteBtn) {
+                const isCustomBook = (q.bookId && String(q.bookId).startsWith('custom_')) ||
+                    (window.customBooks || []).some(cb => cb.id === q.bookId);
+
+                if (isCustomBook) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.title = "从当前本地词书删除并移入回收站";
+                    deleteBtn.style.cursor = "pointer";
+                } else {
+                    deleteBtn.disabled = true;
+                    deleteBtn.title = "云端预置词书不支持删除词汇";
+                    deleteBtn.style.cursor = "not-allowed";
+                }
+                deleteBtn.style.display = 'inline-flex';
+            }
+
+            // 控制发音按钮：回答前禁用，回答后启用
+            const audioBtn = document.getElementById('btn-card-audio');
+            if (audioBtn) {
+                audioBtn.style.display = 'inline-flex';
+                if (singleState.answered) {
+                    audioBtn.disabled = false;
+                    audioBtn.style.opacity = '1';
+                    audioBtn.style.cursor = 'pointer';
+                    audioBtn.title = '朗读发音';
+                } else {
+                    audioBtn.disabled = true;
+                    audioBtn.style.opacity = '0.35';
+                    audioBtn.style.cursor = 'not-allowed';
+                    audioBtn.title = '回答后方可播放发音';
+                }
+            }
+        }
+
         let singlePhraseTimer = null;
         let singlePhraseState = {
             targetWords: [],
@@ -7175,24 +8211,32 @@
 
             const isPhrase = !!(q.word && q.word.trim().includes(' '));
 
-            if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word) {
+            if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word && !isPhrase) {
                 playWordAudio(q.word);
             }
 
             const audioBtn = document.getElementById('btn-single-audio');
-            if (audioBtn) audioBtn.style.display = isPhrase ? 'none' : 'inline-flex';
+            if (audioBtn) audioBtn.style.display = 'none';
 
             const badge = document.getElementById('single-book-badge');
-            if (badge) badge.innerText = q.bookName || (singleState.sessionName || '单人专练');
+            if (badge) badge.innerText = q.bookName || (singleState.sessionName || '单人练习');
 
             const progEl = document.getElementById('single-progress-text');
             if (progEl) {
                 progEl.innerText = `${singleState.currentIdx + 1} / ${singleState.pool.length}`;
             }
+
+            const progFillEl = document.getElementById('single-progress-fill');
+            if (progFillEl) {
+                progFillEl.style.width = Math.round(((singleState.currentIdx + 1) / singleState.pool.length) * 100) + '%';
+            }
+
             const retestTag = document.getElementById('single-retest-tag');
             if (retestTag) {
                 retestTag.style.display = q._isRetest ? 'inline-flex' : 'none';
             }
+
+            updateSingleCardToolbar(q);
 
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
@@ -7246,6 +8290,8 @@
                 q: q
             };
 
+            updateSingleCardToolbar(q);
+
             const singleAudioBtn = document.getElementById('btn-single-audio');
             if (singleAudioBtn) singleAudioBtn.style.display = 'none';
 
@@ -7267,9 +8313,6 @@
                 <div class="phrase-trans-card">
                     <div class="phrase-trans-title" style="display:flex; align-items:center; justify-content:center; gap:8px;">
                         <span>${escapeHtml(correctMeaning)}</span>
-                        <button type="button" class="btn-audio-speak" onclick="playWordAudio('${escapeHtml(q.word)}')" title="朗读发音">
-                            <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                        </button>
                     </div>
                 </div>
                 <div class="phrase-slots-row" id="single-phrase-slots">
@@ -7397,10 +8440,7 @@
                 const correctMeaning = q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : '');
                 const transTitle = document.querySelector('.phrase-trans-title');
                 if (transTitle) {
-                    transTitle.innerHTML = `<span>${escapeHtml(correctMeaning)}</span> 
-                    <button type="button" class="btn-audio-speak" onclick="playCurrentSingleWordAudio()" title="朗读词组">
-                        <span class="material-symbols-rounded" style="font-size:20px;">volume_up</span>
-                    </button>`;
+                    transTitle.innerHTML = `<span>${escapeHtml(correctMeaning)}</span>`;
                 }
                 // 仅当开启自动发音时才自动朗读
                 if (singleConfig.autoPlayAudio && navigator.onLine) {
@@ -7435,6 +8475,13 @@
 
                 singleState.answered = true;
                 saveSingleProgress();
+                updateSingleCardToolbar(q); // 解禁发音按钮
+
+                // 核心：若开启自动发音，在词组拼对后自动朗读发音
+                if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word) {
+                    playWordAudio(q.word);
+                }
+
 
                 singlePhraseState.chips.forEach(c => {
                     const chipEl = document.getElementById(`single-chip-${c.id}`);
@@ -7581,6 +8628,13 @@
             }
 
             saveSingleProgress();
+            updateSingleCardToolbar(q); // 解禁发音按钮
+
+            // 核心：词组被跳过揭晓答案时，若开启自动发音则播放
+            if (isPhrase && singleConfig.autoPlayAudio && navigator.onLine && q && q.word) {
+                playWordAudio(q.word);
+            }
+
             const nextBtn = document.getElementById('single-next-btn');
             if (nextBtn) {
                 nextBtn.className = 'single-next-btn';
@@ -7613,6 +8667,8 @@
             }
             saveCurrentUserData();
             saveSingleProgress();
+            updateSingleCardToolbar(q); // 解禁发音按钮
+            saveSingleProgress();
 
             q.options.forEach((opt, i) => {
                 const btn = document.getElementById(`single-opt-${i}`);
@@ -7638,12 +8694,12 @@
             }
         }
 
-        function nextSingleQuestion() {
+        function nextSingleQuestion(forceAdvance = false) {
             if (singlePhraseTimer) {
                 clearTimeout(singlePhraseTimer);
                 singlePhraseTimer = null;
             }
-            if (!singleState.answered) {
+            if (!forceAdvance && !singleState.answered) {
                 revealSingleAnswer();
                 return;
             }
@@ -7755,11 +8811,13 @@
 
         function generateShuffledPoolFromWords(wordsList, count = 70) {
             const list = (wordsList && wordsList.length > 0) ? wordsList : dictionary;
-            const shuffled = shuffle(list);
+            const unmastered = list.filter(w => !isWordMastered(w.word));
+            const activeList = unmastered.length > 0 ? unmastered : list;
+            const shuffled = shuffle(activeList);
             const sliceCount = Math.min(count, shuffled.length);
             return shuffled.slice(0, sliceCount).map(w => {
-                const selected = w.meanings[Math.floor(Math.random() * w.meanings.length)] || { pos: '', meaning: '---' };
-                const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + selected.meaning;
+                const selected = (w.meanings && w.meanings.length > 0) ? w.meanings[Math.floor(Math.random() * w.meanings.length)] : { pos: '', meaning: w.meaning || '---' };
+                const fullMeaning = (selected.pos ? selected.pos + ' ' : '') + (selected.meaning || '');
                 const optData = generateOptions(w.word, fullMeaning, list);
                 const isPhrase = w.word && w.word.trim().includes(' ');
                 const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list) : null;
@@ -7767,6 +8825,8 @@
                     word: w.word,
                     phone: w.phone,
                     bookName: w.bookName || '高考3500词',
+                    bookId: w.bookId || null,
+                    meanings: w.meanings || [{ pos: '', meaning: fullMeaning }],
                     meaning: fullMeaning,
                     options: optData.options,
                     correctIdx: optData.correctIdx,
@@ -7820,22 +8880,35 @@
             const container = document.getElementById('chips-books');
             if (!container) return;
 
+            // 统一的书名查找字典
+            const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
+                ? BookManager.availableBooks
+                : BookManager.fallbackBooks;
+            const bookMap = {};
+            allBooks.forEach(b => {
+                bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
+            });
+            (window.customBooks || []).forEach(b => {
+                bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
+            });
+
             if (!isHost) {
-                // P2 视角：只显示房主已选定的词书，不显示本地可能不同步的树
+                // P2 视角：优先从房主广播过来的 selectedBookNames 读取真实中文名
                 const selectedNames = roomConfig.selectedBookNames || [];
                 const selectedIds = roomConfig.selectedBooks || [];
                 const displayItems = [];
 
                 if (selectedNames.length > 0) {
-                    selectedNames.forEach(name => displayItems.push(name));
+                    selectedNames.forEach(name => {
+                        // 过滤掉残留的 custom_ ID 与 emoji
+                        const clean = String(name).replace(/^[📂📁\s]+/, '');
+                        displayItems.push(clean);
+                    });
                 } else if (selectedIds.length > 0) {
-                    const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-                        ? BookManager.availableBooks
-                        : BookManager.fallbackBooks;
-                    const bookMap = {};
-                    allBooks.forEach(b => bookMap[b.id] = b.name);
-                    (window.customBooks || []).forEach(b => bookMap[b.id] = b.name);
-                    selectedIds.forEach(id => displayItems.push(bookMap[id] || id));
+                    selectedIds.forEach(id => {
+                        const resolvedName = bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id);
+                        displayItems.push(String(resolvedName).replace(/^[📂📁\s]+/, ''));
+                    });
                 }
 
                 if (displayItems.length === 0) {
@@ -7860,7 +8933,7 @@
 
                 const tip = document.getElementById('room-book-count-tip');
                 if (tip) {
-                    tip.innerText = `房主已选定 ${displayItems.length} 本词书`;
+                    tip.innerText = `房主已选择 ${displayItems.length} 本词书`;
                 }
 
                 const importBtn = document.getElementById('btn-room-import-book');
@@ -7868,10 +8941,8 @@
                 return;
             }
 
-            const books = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-                ? BookManager.availableBooks
-                : BookManager.fallbackBooks;
-
+            // 房主视角渲染树形目录
+            const books = allBooks;
             if (!roomConfig.selectedBooks || roomConfig.selectedBooks.length === 0) {
                 roomConfig.selectedBooks = [books[0]?.id || 'GaoKao3500'];
             }
@@ -7884,14 +8955,12 @@
 
             const tip = document.getElementById('room-book-count-tip');
             if (tip) {
-                tip.innerText = isHost
-                    ? `已选 ${roomConfig.selectedBooks.length} 本词书`
-                    : `当前已选 ${roomConfig.selectedBooks.length} 本词书`;
+                tip.innerText = `已选 ${roomConfig.selectedBooks.length} 本词书`;
             }
 
             const importBtn = document.getElementById('btn-room-import-book');
             if (importBtn) {
-                importBtn.style.display = isHost ? 'inline-flex' : 'none';
+                importBtn.style.display = 'inline-flex';
             }
         }
 
@@ -7923,9 +8992,13 @@
                 ? BookManager.availableBooks
                 : BookManager.fallbackBooks;
             const bookMap = {};
-            allBooks.forEach(b => bookMap[b.id] = b.name);
-            (window.customBooks || []).forEach(b => bookMap[b.id] = b.name);
-            const bookNames = (roomConfig.selectedBooks || []).map(id => bookMap[id] || id);
+            allBooks.forEach(b => bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, ''));
+            (window.customBooks || []).forEach(b => bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, ''));
+            
+            // 将每一个选中的 ID 转为清晰的书名，杜绝传递 custom_xxx 给对方
+            const bookNames = (roomConfig.selectedBooks || []).map(id => {
+                return bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id);
+            });
             roomConfig.selectedBookNames = bookNames;
 
             realtimeChannel.send({
@@ -8172,6 +9245,13 @@
                         refreshRoomPlayerCards();
                     }
                 })
+                // === 核心新增：接收到房主解散/踢人广播时，所有人强制退出 ===
+                .on('broadcast', { event: 'host_closed_and_kick' }, () => {
+                    if (!isHost) {
+                        alert('房主已关闭页面或离开房间，您已被移出房间。');
+                        cleanUpAndBackToHub();
+                    }
+                })
                 .on('broadcast', { event: 'room_closed' }, () => {
                     if (!isHost) {
                         alert('房间已解散。');
@@ -8196,6 +9276,7 @@
                 .on('broadcast', { event: 'game_over' }, ({ payload }) => {
                     endGame(payload.msg, false);
                 })
+                // === 核心心跳兜底：当房主断网、浏览器崩溃导致心跳消失时，对手被自动踢出 ===
                 .on('presence', { event: 'leave' }, ({ leftPresences }) => {
                     leftPresences.forEach(p => {
                         if (isHost && p.key === guestName) {
@@ -8203,7 +9284,7 @@
                             guestName = '';
                             refreshRoomPlayerCards();
                         } else if (!isHost && p.key === hostName) {
-                            alert('房主网络连接中断，房间已解散');
+                            alert('房主已断开连接并离开房间，您已被移出房间。');
                             cleanUpAndBackToHub();
                         }
                     });
@@ -8222,20 +9303,49 @@
                 });
         }
 
-        function leaveOnlineLobby(confirmNeeded = false) {
+        async function leaveOnlineLobby(confirmNeeded = false) {
             if (confirmNeeded && !confirm('确认退出当前房间吗？')) return;
 
+            const codeToLeave = roomCode;
+            const wasHost = isHost;
+
             if (realtimeChannel) {
-                if (isHost) {
+                if (wasHost) {
                     realtimeChannel.send({ type: 'broadcast', event: 'room_closed', payload: {} });
                 } else {
                     realtimeChannel.send({ type: 'broadcast', event: 'player_left', payload: { name: currentUser, role: 'guest' } });
                 }
             }
+
+            // 如果是房主退出具体房间：
+            if (wasHost && codeToLeave) {
+                // 1. 云端置为 closed（非 waiting 状态，对他人隐藏）
+                try {
+                    await sbClient.from('rooms').update({ status: 'closed', player_count: 0 }).eq('code', codeToLeave);
+                } catch (e) { }
+
+                // 2. 广播通知他人立刻移除该房间
+                if (globalLobbyChannel) {
+                    globalLobbyChannel.send({
+                        type: 'broadcast',
+                        event: 'room_state_change',
+                        payload: { action: 'hide', code: codeToLeave }
+                    });
+                }
+            }
+
             cleanUpAndBackToHub();
+
+            if (typeof fetchOnlineRoomsList === 'function') {
+                fetchOnlineRoomsList();
+            }
         }
 
         function cleanUpAndBackToHub() {
+            if (gameTimer) clearInterval(gameTimer);
+            if (p1State && p1State.timerId) clearInterval(p1State.timerId);
+            resetAllGameAlertsAndFeedback();
+
             if (realtimeChannel) {
                 realtimeChannel.unsubscribe();
                 realtimeChannel = null;
@@ -8247,8 +9357,11 @@
 
             document.getElementById('online-pre-join').style.display = 'flex';
             document.getElementById('online-in-room').style.display = 'none';
-            document.getElementById('btn-join-room').disabled = false;
-            document.getElementById('btn-join-room').innerText = '加入房间';
+            const btnJoin = document.getElementById('btn-join-room');
+            if (btnJoin) {
+                btnJoin.disabled = false;
+                btnJoin.innerText = '加入房间';
+            }
             switchView('view-hub');
         }
 
@@ -8400,7 +9513,7 @@
             const dictFeedback = document.getElementById('dictation-feedback-card');
             if (dictFeedback) dictFeedback.style.display = 'none';
 
-            // 5. 单人专练词组比对卡片清理
+            // 5. 单人练习词组比对卡片清理
             const singleComp = document.getElementById('single-phrase-compare');
             if (singleComp) singleComp.style.display = 'none';
         }
@@ -9197,22 +10310,45 @@
             }
         }
 
-        function handleResultBackToHub() {
+        async function handleResultBackToHub() {
+            const codeToClean = roomCode;
+            const wasHost = isHost;
+
             if (gameMode === 'online') {
-                if (isHost && realtimeChannel) {
+                if (wasHost && realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'room_closed',
                         payload: { reason: 'host_left' }
                     });
-                } else if (!isHost && realtimeChannel) {
+                } else if (!wasHost && realtimeChannel) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'player_left',
                         payload: { name: currentUser, role: 'guest' }
                     });
                 }
+
+                // 房主从对决结算页面退出，彻底删除房间
+                if (wasHost && codeToClean) {
+                    myCreatedRooms = myCreatedRooms.filter(r => r.code !== codeToClean);
+                    localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
+                    discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.code !== codeToClean);
+
+                    if (globalLobbyChannel) {
+                        globalLobbyChannel.send({
+                            type: 'broadcast',
+                            event: 'room_state_change',
+                            payload: { action: 'delete', code: codeToClean }
+                        });
+                    }
+
+                    try {
+                        await sbClient.from('rooms').delete().eq('code', codeToClean);
+                    } catch (e) { }
+                }
             }
+            
             cleanUpAndBackToHub();
         }
 
@@ -11481,7 +12617,9 @@
                 return;
             }
 
-            const shuffled = shuffle([...words]);
+            const unmastered = words.filter(w => !isWordMastered(w.word));
+            const activeWords = unmastered.length > 0 ? unmastered : words;
+            const shuffled = shuffle([...activeWords]);
             const batchCount = Math.min(dictationConfig.batchSize || 20, shuffled.length);
             const pool = shuffled.slice(0, batchCount).map(w => {
                 const meaning = (w.meanings && w.meanings.length > 0)
@@ -11527,6 +12665,11 @@
 
             const progEl = document.getElementById('dictation-progress-text');
             if (progEl) progEl.innerText = `${dictationState.currentIdx + 1} / ${dictationState.pool.length}`;
+
+            const dProgFillEl = document.getElementById('dictation-progress-fill');
+            if (dProgFillEl) {
+                dProgFillEl.style.width = Math.round(((dictationState.currentIdx + 1) / dictationState.pool.length) * 100) + '%';
+            }
 
             const typeBadge = document.getElementById('dictation-type-badge');
             if (typeBadge) {
@@ -11866,7 +13009,7 @@
         }
 
         function switchSettingsSubview(subviewKey) {
-            const subviews = ['main', 'books', 'words', 'changelog'];
+            const subviews = ['main', 'books', 'words', 'changelog', 'mastered', 'trash'];
             subviews.forEach(k => {
                 const el = document.getElementById(`settings-subview-${k}`);
                 if (el) {
@@ -11881,6 +13024,10 @@
                 renderManageLocalBooksInSettings();
             } else if (subviewKey === 'changelog') {
                 renderChangelogInSettings();
+            } else if (subviewKey === 'mastered') {
+                renderMasteredWordsInSettings();
+            } else if (subviewKey === 'trash') {
+                renderTrashWordsInSettings();
             }
         }
 
@@ -11927,7 +13074,19 @@
             if (summaryEl) {
                 const customCount = (window.customBooks || []).length;
                 const folderCount = (localFolders || []).length;
-                summaryEl.innerText = `已创建 ${folderCount} 个文件夹，${customCount} 个本地词书。`;
+                summaryEl.innerText = `已创建 ${folderCount} 个文件夹，${customCount} 个本地词书`;
+            }
+
+            const masteredSummaryEl = document.getElementById('settings-mastered-summary-text');
+            if (masteredSummaryEl) {
+                const mCount = getMasteredWords().length;
+                masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
+            }
+
+            const trashSummaryEl = document.getElementById('settings-trash-summary-text');
+            if (trashSummaryEl) {
+                const tCount = getTrashWords().length;
+                trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
             }
         }
 
@@ -11943,7 +13102,7 @@
                     joinedAt: Date.now()
                 });
             }
-            showToast(`已成功切换至账号【${name}】`);
+            showToast(`已切换至账号 ${name} `);
         }
 
         function createAndSwitchAccount() {
@@ -11994,11 +13153,11 @@
             localFolders.forEach(folder => {
                 const booksInFolder = customBooks.filter(b => b.folderId === folder.id);
                 html += `
-                <div class="tree-folder" style="border:1.5px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); overflow:hidden;">
-                    <div class="tree-folder-header">
+                <div class="tree-folder" style="border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-xl); overflow: hidden; background: var(--md-sys-color-surface-container-low); box-shadow: var(--md-elevation-1); margin-bottom: 16px;">
+                    <div class="tree-folder-header" style="padding: 12px 18px; border-bottom: 1px solid var(--md-sys-color-outline-variant);">
                         <div class="tree-folder-left">
                             <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-primary);">folder</span>
-                            <span class="tree-folder-name" style="font-weight:700;">${escapeHtml(folder.name)}</span>
+                            <span class="tree-folder-name" style="font-weight:700; font-size: 0.95rem;">${escapeHtml(folder.name)}</span>
                             <span class="tree-folder-badge">${booksInFolder.length} 本词书</span>
                         </div>
                         <div class="tree-folder-right">
@@ -12006,65 +13165,104 @@
                                 <span class="material-symbols-rounded" style="font-size:15px;">edit</span>
                                 <span>重命名</span>
                             </button>
-                            <button type="button" class="btn btn-danger btn-sm" style="padding:0 8px; height:30px; font-size:0.75rem;" onclick="confirmDeleteFolder('${folder.id}')" title="解散文件夹">
+                            <button type="button" class="btn btn-danger btn-sm" style="padding:0; width:30px; height:30px;" onclick="confirmDeleteFolder('${folder.id}')" title="解散文件夹">
                                 <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
                             </button>
                         </div>
                     </div>
-                    <div class="tree-folder-body" style="padding:10px; display:flex; flex-direction:column; gap:8px;">
-                        ${booksInFolder.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:8px;">该文件夹暂无词书，可在下方词书中移动至此处</div>` : ''}
+                    <div class="tree-folder-body" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: #ffffff;">
+                        ${booksInFolder.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:10px 6px;">该文件夹暂无词书</div>` : ''}
                         ${booksInFolder.map(b => renderSettingsManageBookRow(b)).join('')}
                     </div>
                 </div>
-            `;
+                `;
             });
 
             const uncatBooks = customBooks.filter(b => !b.folderId || !localFolders.some(f => f.id === b.folderId));
             html += `
-            <div class="tree-folder" style="border:1.5px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); overflow:hidden;">
-                <div class="tree-folder-header" style="background:var(--md-sys-color-surface-container);">
+            <div class="tree-folder" style="border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-xl); overflow: hidden; background: var(--md-sys-color-surface-container-low); box-shadow: var(--md-elevation-1); margin-bottom: 16px;">
+                <div class="tree-folder-header" style="padding: 12px 18px; border-bottom: 1px solid var(--md-sys-color-outline-variant);">
                     <div class="tree-folder-left">
                         <span class="material-symbols-rounded tree-folder-icon" style="color:var(--md-sys-color-secondary);">folder_open</span>
-                        <span class="tree-folder-name" style="font-weight:700;">未归类</span>
+                        <span class="tree-folder-name" style="font-weight:700; font-size: 0.95rem;">未归类</span>
                         <span class="tree-folder-badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);">${uncatBooks.length} 本</span>
                     </div>
                 </div>
-                <div class="tree-folder-body" style="padding:10px; display:flex; flex-direction:column; gap:8px;">
-                    ${uncatBooks.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:8px;">暂无未归类的本地词书</div>` : ''}
+                <div class="tree-folder-body" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: #ffffff;">
+                    ${uncatBooks.length === 0 ? `<div style="font-size:0.82rem; color:var(--md-sys-color-outline); padding:10px 6px;">暂无未归类的本地词书</div>` : ''}
                     ${uncatBooks.map(b => renderSettingsManageBookRow(b)).join('')}
                 </div>
             </div>
-        `;
+            `;
 
             container.innerHTML = html;
         }
 
+        function toggleBookFolderDropdown(e, bookId) {
+            if (e) e.stopPropagation();
+            const dropdownId = `dropdown-book-folder-${bookId}`;
+            const targetEl = document.getElementById(dropdownId);
+            if (!targetEl) return;
+            const isAlreadyOpen = targetEl.classList.contains('open');
+            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
+            if (!isAlreadyOpen) {
+                targetEl.classList.add('open');
+            }
+        }
+
+        function selectBookFolderOption(bookId, folderId) {
+            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
+            changeBookFolder(bookId, folderId);
+        }
+
+        // 全局点击监听：点击外部空白处自动收起所有打开的 MD3 下拉菜单
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.md3-custom-dropdown')) {
+                document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
+            }
+        });
+
         function renderSettingsManageBookRow(b) {
-            const folderOptions = `
-            <option value="" ${!b.folderId ? 'selected' : ''}>未归类</option>
-            ${localFolders.map(f => `<option value="${f.id}" ${b.folderId === f.id ? 'selected' : ''}>📁 ${escapeHtml(f.name)}</option>`).join('')}
-        `;
+            const currentFolder = localFolders.find(f => f.id === b.folderId);
+            const currentLabel = currentFolder ? currentFolder.name : '未归类';
 
             return `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--md-sys-color-surface-container-lowest); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant); flex-wrap:wrap; gap:10px;">
-                <div>
-                    <div style="font-weight:700; font-size:0.92rem; color:var(--md-sys-color-on-surface);">${escapeHtml(b.rawName || b.name)}</div>
+            <div class="settings-book-row-item">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(b.rawName || b.name)}</div>
                     <div style="font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:2px;">词汇量: ${b.count || (b.words ? b.words.length : 0)} 词</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <select class="md3-select" onchange="changeBookFolder('${b.id}', this.value)">
-                        ${folderOptions}
-                    </select>
-                    <button type="button" class="btn btn-tonal btn-sm" style="padding:0 10px; height:36px; font-size:0.82rem;" onclick="viewBookWordsInSettings('${b.id}')">
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink: 0;">
+                    <!-- MD3 自定义下拉菜单 -->
+                    <div class="md3-custom-dropdown" id="dropdown-book-folder-${escapeHtml(b.id)}">
+                        <button type="button" class="md3-dropdown-btn" style="height:34px; padding:0 12px; font-size:0.82rem;" onclick="toggleBookFolderDropdown(event, '${escapeHtml(b.id)}')">
+                            <span>${escapeHtml(currentLabel)}</span>
+                            <span class="material-symbols-rounded dropdown-chevron" style="font-size:18px;">expand_more</span>
+                        </button>
+                        <div class="md3-dropdown-menu">
+                            <div class="md3-dropdown-item ${!b.folderId ? 'selected' : ''}" onclick="selectBookFolderOption('${escapeHtml(b.id)}', '')">
+                                <span class="material-symbols-rounded">${!b.folderId ? 'check' : 'label_off'}</span>
+                                <span>未归类</span>
+                            </div>
+                            ${localFolders.map(f => `
+                                <div class="md3-dropdown-item ${b.folderId === f.id ? 'selected' : ''}" onclick="selectBookFolderOption('${escapeHtml(b.id)}', '${escapeHtml(f.id)}')">
+                                    <span class="material-symbols-rounded">${b.folderId === f.id ? 'check' : 'folder'}</span>
+                                    <span>${escapeHtml(f.name)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-tonal btn-sm" style="padding:0 12px; height:34px; font-size:0.82rem;" onclick="viewBookWordsInSettings('${b.id}')">
                         <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
-                        <span>查看内容</span>
+                        <span class="btn-label-text">查看内容</span>
                     </button>
-                    <button type="button" class="btn btn-danger btn-sm" style="padding:0 8px; height:36px; font-size:0.82rem;" onclick="confirmDeleteCustomBook('${b.id}', '${escapeHtml(b.rawName || b.name)}')">
-                        <span class="material-symbols-rounded" style="font-size:16px;">delete</span>
+                    <button type="button" class="btn btn-danger btn-sm" style="width:34px; height:34px; padding:0;" onclick="confirmDeleteCustomBook('${b.id}', '${escapeHtml(b.rawName || b.name)}')" title="删除词书">
+                        <span class="material-symbols-rounded" style="font-size:17px;">delete</span>
                     </button>
                 </div>
             </div>
-        `;
+            `;
         }
 
         async function promptCreateFolder() {
@@ -12158,6 +13356,7 @@
 
         let settingsViewingBookId = null;
         let settingsViewingBookWords = [];
+        let settingsViewingWordsExpanded = false;
 
         async function viewBookWordsInSettings(bookId) {
             const book = (window.customBooks || []).find(b => b.id === bookId) ||
@@ -12166,6 +13365,7 @@
             if (!book) return;
 
             settingsViewingBookId = bookId;
+            settingsViewingWordsExpanded = false;
             let words = await BookManager.loadBookData(bookId);
             settingsViewingBookWords = words || [];
 
@@ -12196,56 +13396,347 @@
             renderSettingsViewingWordsList(filtered);
         }
 
+        function expandSettingsViewingWords() {
+            settingsViewingWordsExpanded = true;
+            const query = (document.getElementById('settings-view-book-search')?.value || '').trim();
+            if (query) {
+                filterSettingsBookWordsDisplay();
+            } else {
+                renderSettingsViewingWordsList(settingsViewingBookWords);
+            }
+        }
+
+        function handleToggleMasteredInWordList(word, phone, meaning) {
+            toggleMasteredWord(word, phone, meaning);
+            const query = (document.getElementById('settings-view-book-search')?.value || '').trim();
+            if (query) filterSettingsBookWordsDisplay();
+            else renderSettingsViewingWordsList(settingsViewingBookWords);
+        }
+
+        async function handleDeleteWordFromBookList(word) {
+            if (!confirm(`确定将单词【${word}】从当前词书移除并移入回收站吗？可在回收站中随时恢复。`)) return;
+            const ok = await deleteWordFromCustomBook(word, settingsViewingBookId);
+            if (ok) {
+                settingsViewingBookWords = settingsViewingBookWords.filter(w => (w.word || '').toLowerCase() !== word.toLowerCase());
+                const query = (document.getElementById('settings-view-book-search')?.value || '').trim();
+                if (query) filterSettingsBookWordsDisplay();
+                else renderSettingsViewingWordsList(settingsViewingBookWords);
+                renderManageLocalBooksInSettings();
+            }
+        }
+
         function renderSettingsViewingWordsList(words) {
             const container = document.getElementById('settings-view-book-words-container');
             const countEl = document.getElementById('settings-view-book-count');
             if (!container) return;
 
-            if (countEl) countEl.innerText = `显示 ${words.length} / ${settingsViewingBookWords.length} 词`;
+            const isLocalCustomBook = settingsViewingBookId && String(settingsViewingBookId).startsWith('custom_');
+            const totalCount = settingsViewingBookWords.length;
+            const currentMatchCount = words.length;
+
+            if (countEl) {
+                countEl.innerText = `显示 ${Math.min(settingsViewingWordsExpanded ? currentMatchCount : 200, currentMatchCount)} / ${totalCount} 词`;
+            }
 
             if (words.length === 0) {
                 container.innerHTML = `<div style="text-align:center; padding:32px; color:var(--md-sys-color-outline);">未找到匹配的词汇</div>`;
                 return;
             }
 
-            const slice = words.slice(0, 200);
-            container.innerHTML = slice.map((w, idx) => {
+            const displayedWords = settingsViewingWordsExpanded ? words : words.slice(0, 200);
+
+            container.innerHTML = displayedWords.map((w, idx) => {
+                const isMastered = isWordMastered(w.word);
                 const meaningStr = w.meanings ? w.meanings.map(m => (m.pos ? `<span style="color:var(--md-sys-color-primary); font-weight:700;">${m.pos}</span> ` : '') + m.meaning).join('；') : (w.meaning || '');
+                const meaningPlain = w.meanings ? w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；') : (w.meaning || '');
+
                 return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
-                    <div style="flex:1;">
-                        <div style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant); gap:12px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px;">
                             <span style="font-size:1.02rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(w.word)}</span>
                             ${w.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(w.phone)}</span>` : ''}
-                            <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(w.word)}')" title="发音">
-                                <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                            </button>
+                            <span style="font-size:0.75rem; color:var(--md-sys-color-outline); font-family:monospace;">#${idx + 1}</span>
                         </div>
-                        <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${meaningStr}</div>
+                        <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px; line-height:1.4;">${meaningStr}</div>
                     </div>
-                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline); font-family:monospace;">#${idx + 1}</span>
+                    <div class="word-item-toolbar">
+                        <button type="button" class="word-item-tool-btn" onclick="playWordAudio('${escapeHtml(w.word)}')" title="播放发音">
+                            <span class="material-symbols-rounded">volume_up</span>
+                        </button>
+                        <button type="button" class="word-item-tool-btn ${isMastered ? 'active' : ''}" onclick="handleToggleMasteredInWordList('${escapeHtml(w.word)}', '${escapeHtml(w.phone || '')}', '${escapeHtml(meaningPlain)}')" title="${isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）'}">
+                            <span class="material-symbols-rounded">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
+                        </button>
+                        ${isLocalCustomBook ? `
+                        <button type="button" class="word-item-tool-btn danger" onclick="handleDeleteWordFromBookList('${escapeHtml(w.word)}')" title="移出词书并放入回收站">
+                            <span class="material-symbols-rounded">delete</span>
+                        </button>
+                        ` : ''}
+                    </div>
                 </div>
             `;
-            }).join('') + (words.length > 200 ? `<div style="text-align:center; padding:12px; font-size:0.82rem; color:var(--md-sys-color-outline);">已展示前 200 词，搜索关键词以查看更多</div>` : '');
+            }).join('') + (words.length > 200 && !settingsViewingWordsExpanded ? `
+                <div style="text-align:center; padding:16px 0;">
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="expandSettingsViewingWords()" style="border-radius:var(--md-shape-full); padding:0 18px;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
+                        <span class="btn-label-text">查看全部 (共 ${words.length} 词)</span>
+                    </button>
+                </div>
+            ` : (words.length > 200 ? `<div style="text-align:center; padding:12px; font-size:0.82rem; color:var(--md-sys-color-outline);">已展示全部 ${words.length} 词</div>` : ''));
         }
+
+        /* Settings 熟词本页面渲染逻辑 (Task 22) */
+        function renderMasteredWordsInSettings() {
+            const container = document.getElementById('settings-mastered-container');
+            const countEl = document.getElementById('settings-mastered-count');
+            if (!container) return;
+
+            const list = getMasteredWords();
+            if (countEl) countEl.innerText = `共 ${list.length} 词`;
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
+                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">check_circle</span>
+                        <p style="margin-top:8px; font-size:0.92rem;">暂无标注的熟词</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = list.map((item, idx) => {
+                const word = typeof item === 'string' ? item : item.word;
+                const phone = typeof item === 'string' ? '' : (item.phone || '');
+                const meaning = typeof item === 'string' ? '' : (item.meaning || '');
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:1.02rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
+                                ${phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(phone)}</span>` : ''}
+                                <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
+                                </button>
+                            </div>
+                            ${meaning ? `<div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${escapeHtml(meaning)}</div>` : ''}
+                        </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                            <span class="material-symbols-rounded" style="font-size:16px;">remove_done</span>
+                            <span class="btn-label-text">取消熟词</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handleUnmarkMastered(word) {
+            toggleMasteredWord(word);
+            renderMasteredWordsInSettings();
+            if (gameMode === 'single' && singleState && singleState.pool) {
+                const q = singleState.pool[singleState.currentIdx];
+                if (q) updateSingleCardToolbar(q);
+            }
+        }
+
+        function filterMasteredWordsDisplay() {
+            const query = (document.getElementById('settings-mastered-search')?.value || '').trim().toLowerCase();
+            const container = document.getElementById('settings-mastered-container');
+            if (!container) return;
+
+            const list = getMasteredWords();
+            if (!query) {
+                renderMasteredWordsInSettings();
+                return;
+            }
+
+            const filtered = list.filter(item => {
+                const word = typeof item === 'string' ? item : item.word;
+                const meaning = typeof item === 'string' ? '' : (item.meaning || '');
+                return word.toLowerCase().includes(query) || meaning.toLowerCase().includes(query);
+            });
+
+            const countEl = document.getElementById('settings-mastered-count');
+            if (countEl) countEl.innerText = `显示 ${filtered.length} / ${list.length} 词`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:32px; color:var(--md-sys-color-outline);">未找到匹配的熟词</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map((item, idx) => {
+                const word = typeof item === 'string' ? item : item.word;
+                const phone = typeof item === 'string' ? '' : (item.phone || '');
+                const meaning = typeof item === 'string' ? '' : (item.meaning || '');
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:1.02rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
+                                ${phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(phone)}</span>` : ''}
+                                <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
+                                </button>
+                            </div>
+                            ${meaning ? `<div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${escapeHtml(meaning)}</div>` : ''}
+                        </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                            <span class="material-symbols-rounded" style="font-size:16px;">remove_done</span>
+                            <span class="btn-label-text">取消熟词</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+        function toggleTrashMoveDropdown(e, trashId) {
+            if (e) e.stopPropagation();
+            const dropdownId = `dropdown-trash-move-${trashId}`;
+            const targetEl = document.getElementById(dropdownId);
+            if (!targetEl) return;
+            const isAlreadyOpen = targetEl.classList.contains('open');
+            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
+            if (!isAlreadyOpen) {
+                targetEl.classList.add('open');
+            }
+        }
+
+        function selectMoveTrashWordOption(trashId, targetBookId) {
+            document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
+            moveTrashWordToAnotherBook(trashId, targetBookId);
+        }
+
+        /* ==========================================================================
+           回收站公用单行模板函数（统一防挤压、自适应图层展开）
+           ========================================================================== */
+        function renderTrashWordRow(item, customBooks) {
+            const deletedTimeStr = item.deletedAt 
+                ? new Date(item.deletedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                : '';
+            const cleanBookName = String(item.originalBookName || '未知').replace(/^[📂📁\s]+/, '');
+
+            return `
+                <div class="trash-word-row">
+                    <!-- 左侧信息区：自适应伸缩，自动折行，绝不挤压右侧按钮 -->
+                    <div class="trash-word-info">
+                        <div class="trash-word-header">
+                            <span class="trash-word-title">${escapeHtml(item.word)}</span>
+                            ${item.phone ? `<span class="trash-word-phone">${escapeHtml(item.phone)}</span>` : ''}
+                            <span class="badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline); font-size:0.75rem;">原词书: ${escapeHtml(cleanBookName)}</span>
+                            ${deletedTimeStr ? `<span style="font-size:0.75rem; color:var(--md-sys-color-outline);">${deletedTimeStr}</span>` : ''}
+                        </div>
+                        <div class="trash-word-meaning">${escapeHtml(item.meaning || '')}</div>
+                    </div>
+
+                    <!-- 右侧操作区：flex-shrink: 0 彻底防止挤压变形 -->
+                    <div class="trash-word-actions">
+                        <button type="button" class="btn btn-tonal btn-sm" onclick="restoreTrashWord('${item.id}')" title="恢复到原词书">
+                            <span class="material-symbols-rounded" style="font-size:16px;">restore</span>
+                            <span class="btn-label-text">恢复</span>
+                        </button>
+
+                        ${customBooks.length > 0 ? `
+                        <div class="md3-custom-dropdown" id="dropdown-trash-move-${item.id}">
+                            <button type="button" class="md3-dropdown-btn" style="height:34px; font-size:0.82rem; padding:0 12px;" onclick="toggleTrashMoveDropdown(event, '${item.id}')">
+                                <span>移动到...</span>
+                                <span class="material-symbols-rounded dropdown-chevron" style="font-size:16px;">expand_more</span>
+                            </button>
+                            <div class="md3-dropdown-menu">
+                                ${customBooks.map(cb => `
+                                    <div class="md3-dropdown-item" onclick="selectMoveTrashWordOption('${item.id}', '${cb.id}')">
+                                        <span class="material-symbols-rounded">menu_book</span>
+                                        <span>${escapeHtml((cb.rawName || cb.name).replace(/^[📂📁\s]+/, ''))}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <button type="button" class="btn btn-danger btn-sm" style="padding:0 10px; height:34px;" onclick="permanentlyDeleteTrashWord('${item.id}')" title="彻底删除">
+                            <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* 渲染回收站完整列表 */
+        function renderTrashWordsInSettings() {
+            const container = document.getElementById('settings-trash-container');
+            const countEl = document.getElementById('settings-trash-count');
+            if (!container) return;
+
+            const trash = getTrashWords();
+            if (countEl) countEl.innerText = `共 ${trash.length} 词`;
+
+            if (trash.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
+                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">delete</span>
+                        <p style="margin-top:8px; font-size:0.92rem;">回收站为空</p>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">从本地自定义词书中删除的单词将保存在回收站中，支持随时恢复或移动至其他本地词书。</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const customBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_'));
+            container.innerHTML = trash.map(item => renderTrashWordRow(item, customBooks)).join('');
+        }
+
+        /* 搜索过滤回收站词汇（完美同步一致模板） */
+        function filterTrashWordsDisplay() {
+            const query = (document.getElementById('settings-trash-search')?.value || '').trim().toLowerCase();
+            const container = document.getElementById('settings-trash-container');
+            if (!container) return;
+
+            const trash = getTrashWords();
+            if (!query) {
+                renderTrashWordsInSettings();
+                return;
+            }
+
+            const filtered = trash.filter(item => {
+                const w = (item.word || '').toLowerCase();
+                const m = (item.meaning || '').toLowerCase();
+                const b = (item.originalBookName || '').toLowerCase();
+                return w.includes(query) || m.includes(query) || b.includes(query);
+            });
+
+            const countEl = document.getElementById('settings-trash-count');
+            if (countEl) countEl.innerText = `显示 ${filtered.length} / ${trash.length} 词`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:32px; color:var(--md-sys-color-outline);">未找到匹配的已删词汇</div>`;
+                return;
+            }
+
+            const customBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_'));
+            container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
+        }
+
+        
 
         const APP_VERSION = '1.8.0';
         const APP_CHANGELOG = [
             {
                 version: 'v1.8.0',
                 date: '2026-09-12',
-                badge: '当前最新',
+                badge: '当前版本',
                 items: [
-                    '词书获取：支持动态从 GitHub 仓库 books/ 目录加载全量词书（Doris、考纲、其他等分类）。',
-                    '更新日志：支持从 GitHub Releases 动态获取更新日志，并一键下载最新版本。',
-                    '词组背诵：优化固定语法词元（"..."、"sb."、"sth."、"one\'s" 等自动预填，不进入候选词块）。',
-                    '人机对战：下调人机词组回答速度，每多一个词槽延长答题时间。',
-                    'UI 交互：所有“开启/关闭”设置全面升级为 MD3 拟物滑动开关。',
-                    '默写模式：虚拟键盘开关移入默写设置弹窗，听音写词模式隐藏音标。',
-                    '即时复习：优化组末重测机制，单次复习只在末尾追问一次。',
-                    'Wordle 填词：支持电脑实体键盘直接输入字母及回车/退格。',
-                    '联机对战：P2 同步界面优化，解决双方本地词书不一致时的选择与显示问题。',
-                    '关于页面：添加 GitHub 开源仓库主页直达链接。'
+                    '更新词汇卡片工具栏：支持播放发音、标注熟词、删除词汇功能。',
+                    '从 GitHub 加载词书。',
+                    '从GitHub Releases 获取更新日志，并一键下载最新版本。',
+                    '优化即时复习，如果多次答错，不用再在组末多问一遍。',
+                    '优化联机对战：解决双方本地词书不一致时的显示问题。',
+                    '优化词书管理。',
+                    '优化词组背诵："..."、"sb."、"sth."、"one’s"等自动预填。',
+                    '优化人机对战。',
+                    '所有“开启/关闭”设置改为滑动开关。',
+                    '听音写词模式隐藏音标。',
+                    '单人模式答完词组不会自动跳到下一题。',
+                    '添加 GitHub 开源仓库链接。',
+                    '修复Wordle 填词无法使用实体键盘输入的问题。',
+                    '修复无人在线房间意外显示的问题。',
+                    '优化UI。'
                 ]
             },
             {
@@ -12269,7 +13760,7 @@
                     '支持自动更新版本。',
                     '优化联机体验。',
                     '默写模式添加键盘。',
-                    '修复单人模式拼出正确词组后卡住的bug。',
+                    '修复学习模式拼出正确词组后卡住的bug。',
                     '优化UI：添加左侧导航栏。'
                 ]
             },
@@ -12289,16 +13780,53 @@
             },
             {
                 version: 'v1.4.0',
-                date: '2026-08-20',
+                date: '2026-08-31',
                 badge: '历史版本',
                 items: [
                     '更新同屏对战、即时复习功能。',
+                    '远程联机、同屏对决的错题将自动放入错题本中。',
                     '优化词组划分和易错项抽取。',
-                    '优化、美化UI。',
                     '更新网页、app图标。',
                     '更新World riddle切换大小写功能。',
                     '修复World riddle的若干bug。',
-                    '远程联机、同屏对决的错题将自动放入错题本中。'
+                    '优化、美化UI。'
+                ]
+            },
+            {
+                version: 'v1.3.0',
+                date: '2026-08-30',
+                badge: '历史版本',
+                items: [
+                    '加入更多词书。',
+                    'World riddle更新提示功能。'
+                ]
+            },
+            {
+                version: 'v1.2.0',
+                date: '2026-08-29',
+                badge: '历史版本',
+                items: [
+                    '加入Wordle小游戏。',
+                    '优化背词功能。'
+                ]
+            },
+            {
+                version: 'v1.1.0',
+                date: '2026-08-28',
+                badge: '历史版本',
+                items: [
+                    '更新导入本地词库功能。',
+                    '添加词组支持。',
+                    '优化单人模式UI。'
+                ]
+            },
+            {
+                version: 'v1.0.0',
+                date: '2026-08-27',
+                badge: '历史版本',
+                items: [
+                    '完成联机功能。',
+                    '完成UI适配。'
                 ]
             }
         ];
@@ -12636,6 +14164,20 @@
                     syncGlobalPresenceState();
                     fetchOnlineRoomsList();
                 })
+                .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+                    // 当有玩家离线，检查其是否为房主，是则立刻从本地移除并刷新视图
+                    if (Array.isArray(leftPresences)) {
+                        leftPresences.forEach(p => {
+                            const leftUser = p.key;
+                            // 从内存发现列表中剔除该离线用户开设的房间
+                            discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.host !== leftUser);
+                            // 同步清理云端数据
+                            sbClient.from('rooms').delete().eq('host', leftUser).then(() => {});
+                        });
+                    }
+                    syncGlobalPresenceState();
+                    fetchOnlineRoomsList();
+                })
                 .on('broadcast', { event: 'invite_match' }, ({ payload }) => {
                     handleReceivedMatchInvite(payload);
                 })
@@ -12869,7 +14411,8 @@
                 name: finalRoomName,
                 host: currentUser,
                 capacity: selectedRoomCapacity || 2,
-                playerCount: 1,
+                player_count: 1,
+                status: 'waiting',
                 createdAt: Date.now()
             };
 
@@ -12878,6 +14421,7 @@
                 localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
             }
 
+            // 写入云端数据库
             try {
                 await sbClient.from('rooms').upsert({
                     code: roomCode,
@@ -12887,19 +14431,21 @@
                     player_count: 1,
                     status: 'waiting',
                     created_at: new Date().toISOString()
-                });
+                }, { onConflict: 'code' });
             } catch (e) { }
 
+            setupRoomLobbyUI(roomCode, finalRoomName);
+            connectSupabaseChannel(roomCode);
+
+            // 广播给大厅全网
             if (globalLobbyChannel) {
                 globalLobbyChannel.send({
                     type: 'broadcast',
                     event: 'room_state_change',
-                    payload: { action: 'create', room: roomMeta }
+                    payload: { action: 'ready', room: roomMeta }
                 });
             }
 
-            setupRoomLobbyUI(roomCode, finalRoomName);
-            connectSupabaseChannel(roomCode);
             showToast(`创建成功！房间码：${roomCode}`);
         }
 
@@ -12948,13 +14494,22 @@
 
         function handleRoomStateBroadcast(payload) {
             if (!payload) return;
-            if (payload.action === 'create' && payload.room) {
-                if (!discoveredLobbyRooms.some(r => r.code === payload.room.code)) {
-                    discoveredLobbyRooms.push(payload.room);
+            
+            // 收到房主就绪/创建广播：直接把该房间存入发现列表，并重新刷新
+            if ((payload.action === 'ready' || payload.action === 'create') && payload.room) {
+                const room = payload.room;
+                const idx = discoveredLobbyRooms.findIndex(r => r.code === room.code);
+                if (idx >= 0) {
+                    discoveredLobbyRooms[idx] = { ...discoveredLobbyRooms[idx], ...room, status: 'waiting' };
+                } else {
+                    discoveredLobbyRooms.unshift({ ...room, status: 'waiting' });
                 }
-            } else if (payload.action === 'delete' && payload.code) {
+            } else if ((payload.action === 'hide' || payload.action === 'delete') && payload.code) {
+                // 房主离房：立刻在列表中剔除
                 discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.code !== payload.code);
             }
+            
+            // 立即重新执行渲染
             fetchOnlineRoomsList();
         }
 
@@ -12963,19 +14518,17 @@
             const container = document.getElementById('online-rooms-container');
             if (!container) return;
 
-            const now = Date.now();
-            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            // 1. 获取大厅当前在线用户
+            const presenceState = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
+            const onlineUserSet = new Set(Object.keys(presenceState));
+            if (currentUser) onlineUserSet.add(currentUser);
 
-            // 1. 清理本地保存超过1天的房间
-            myCreatedRooms = myCreatedRooms.filter(r => (now - (r.createdAt || now)) < ONE_DAY_MS);
-            localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
-
+            // 2. 获取云端所有房间
             let dbRooms = [];
             try {
                 const { data, error } = await sbClient
                     .from('rooms')
                     .select('*')
-                    .eq('status', 'waiting')
                     .order('created_at', { ascending: false })
                     .limit(30);
                 if (!error && Array.isArray(data)) {
@@ -12985,26 +14538,36 @@
                         host: r.host,
                         capacity: r.capacity || 2,
                         playerCount: r.player_count || 1,
+                        status: r.status || 'closed',
                         createdAt: new Date(r.created_at).getTime()
                     }));
                 }
             } catch (e) { }
 
+            // 3. 整合广播发现的房间与数据库房间
             const roomMap = new Map();
-            discoveredLobbyRooms.forEach(r => roomMap.set(r.code, r));
             dbRooms.forEach(r => roomMap.set(r.code, r));
-            myCreatedRooms.forEach(r => roomMap.set(r.code, r));
+            discoveredLobbyRooms.forEach(r => {
+                if (r.status === 'waiting') roomMap.set(r.code, { ...roomMap.get(r.code), ...r });
+            });
 
-            // 2. 获取当前在线用户集合，判断房主是否在线
-            const presenceState = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
-            const onlineUserSet = new Set(Object.keys(presenceState));
-            if (currentUser) onlineUserSet.add(currentUser);
+            // 房主自己本地创建的房间始终对房主保留
+            myCreatedRooms.forEach(r => {
+                if (!roomMap.has(r.code)) {
+                    roomMap.set(r.code, { ...r, status: 'closed' });
+                }
+            });
 
-            // 3. 严格过滤：必须属于 24 小时以内，且房主当前在全局大厅处于在线状态
+            // 4. 精准过滤：
+            // - 房主本人：永远能看到自己的房间卡片
+            // - 其他人：房主必须在线，且房间状态必须处于 'waiting'（即房主在房内等待对手）
             const activeRoomsList = Array.from(roomMap.values()).filter(r => {
-                const isUnder1Day = (now - (r.createdAt || now)) < ONE_DAY_MS;
-                const isHostOnline = onlineUserSet.has(r.host) || r.host === currentUser;
-                return isUnder1Day && isHostOnline;
+                const isMine = r.host === currentUser;
+                if (isMine) return true;
+
+                const isHostOnline = onlineUserSet.has(r.host);
+                const isWaiting = (r.status === 'waiting');
+                return isHostOnline && isWaiting;
             });
 
             if (activeRoomsList.length === 0) {
@@ -13018,14 +14581,22 @@
                 return;
             }
 
+            // 当前房主是否真正处于房间内页面
+            const isCurrentlyInRoomView = (isHost && roomCode && document.getElementById('online-in-room')?.style.display !== 'none');
+
             container.innerHTML = activeRoomsList.map(r => {
                 const isMine = r.host === currentUser;
                 const isFull = (r.playerCount || 1) >= (r.capacity || 2);
+                const isHostInRoom = isMine ? isCurrentlyInRoomView : (r.status === 'waiting');
+
                 return `
                 <div class="online-room-card">
                     <div class="online-room-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-on-surface); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>
-                        <span class="badge ${isFull ? 'badge-p1' : 'badge-online'}" style="font-size:0.75rem;">${r.playerCount || 1} / ${r.capacity || 2} 人</span>
+                        <span class="badge ${isMine ? (isHostInRoom ? 'badge-online' : '') : (isFull ? 'badge-p1' : 'badge-online')}" 
+                              style="font-size:0.75rem; ${isMine && !isHostInRoom ? 'background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline);' : ''}">
+                            ${isMine ? (isHostInRoom ? '在线' : '无人') : `${r.playerCount} / ${r.capacity || 2} 人`}
+                        </span>
                     </div>
                     <div class="online-room-body" style="display:flex; justify-content:space-between; align-items:center; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant);">
                         <div style="display:flex; align-items:center; gap:5px;">
@@ -13035,11 +14606,11 @@
                     </div>
                     <div class="online-room-actions" style="display:flex; gap:8px; margin-top:4px;">
                         ${isMine ? `
-                            <button type="button" class="btn btn-outlined btn-sm" style="flex:1;" onclick="quickEnterMyRoom('${r.code}', '${escapeHtml(r.name)}')">
+                            <button type="button" class="btn btn-filled btn-sm" style="flex:1;" onclick="quickEnterMyRoom('${r.code}', '${escapeHtml(r.name)}')">
                                 <span class="material-symbols-rounded" style="font-size:15px;">meeting_room</span>
                                 <span>进入房间</span>
                             </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="handleHostDeleteRoom('${r.code}')" title="删除房间">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="handleHostDeleteRoom('${r.code}')" title="彻底删除房间">
                                 <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
                             </button>
                         ` : `
@@ -13052,8 +14623,6 @@
                 </div>
             `;
             }).join('');
-
-            if (manual) showToast('在线房间列表已刷新');
         }
 
         function quickJoinLobbyRoom(code) {
@@ -13062,15 +14631,88 @@
             joinOnlineRoom();
         }
 
-        function quickEnterMyRoom(code, name) {
+        async function quickEnterMyRoom(code, name) {
             roomCode = code;
             isHost = true;
             hostName = currentUser;
             guestName = '';
             customRoomName = name;
+
+            // 1. 切换到具体房间等待页面
             setupRoomLobbyUI(roomCode, name);
             connectSupabaseChannel(roomCode);
+
+            const roomData = {
+                code: code,
+                name: name,
+                host: currentUser,
+                capacity: 2,
+                player_count: 1,
+                status: 'waiting' // 标记为等待对手加入（即房主在房内就绪）
+            };
+
+            // 2. 将房间状态 upsert 写入云端数据库
+            try {
+                await sbClient.from('rooms').upsert(roomData, { onConflict: 'code' });
+            } catch (e) {
+                console.warn('[Rooms] Upsert failed:', e);
+            }
+
+            // 3. 广播给大厅里的所有其他人：房主已就绪，通知其他人立即添加该房间
+            if (globalLobbyChannel) {
+                globalLobbyChannel.send({
+                    type: 'broadcast',
+                    event: 'room_state_change',
+                    payload: { 
+                        action: 'ready', 
+                        room: roomData 
+                    }
+                });
+            }
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (isHost && roomCode) {
+                // 1. 立即向房间内的对手发送强制踢人广播
+                if (realtimeChannel) {
+                    try {
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'host_closed_and_kick',
+                            payload: { roomCode: roomCode }
+                        });
+                    } catch (e) { }
+                }
+
+                // 2. 广播通知大厅其他人隐藏该房间
+                if (globalLobbyChannel) {
+                    try {
+                        globalLobbyChannel.send({
+                            type: 'broadcast',
+                            event: 'room_state_change',
+                            payload: { action: 'hide', code: roomCode }
+                        });
+                    } catch (e) { }
+                }
+
+                // 3. 将云端数据库房间状态设为 'closed'（关闭），防止其他端再进入
+                const updateUrl = `${SUPABASE_URL}/rest/v1/rooms?code=eq.${roomCode}`;
+                const headers = {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                };
+                try {
+                    fetch(updateUrl, {
+                        method: 'PATCH',
+                        headers: headers,
+                        body: JSON.stringify({ status: 'closed', player_count: 0 }),
+                        keepalive: true // 保证网页关闭后请求依然能发出
+                    });
+                } catch (e) { }
+            }
+        });
 
         /* ==========================================================================
            14. 系统初始化启动逻辑
