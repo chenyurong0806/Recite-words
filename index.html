@@ -5012,7 +5012,7 @@
                         style="padding:14px 20px; background:var(--md-sys-color-surface-container-low); border-top:1px solid var(--md-sys-color-surface-container-high);">
                         <div
                             style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px;">
-                            快速切换账号：</div>
+                            切换账号：</div>
                         <div id="settings-quick-users-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                         <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
                             <input type="text" id="settings-new-user-input" class="input-field"
@@ -5153,7 +5153,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>更新日志</h4>
-                                <p>查阅历史版本与新功能特性</p>
+                                <p>查阅历史版本与新功能</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded"
@@ -5272,7 +5272,7 @@
                     </div>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllMasteredWords()">
                         <span class="material-symbols-rounded" style="font-size:16px;">delete_sweep</span>
-                        <span class="btn-label-text">清空全部熟词</span>
+                        <span class="btn-label-text">清空熟词</span>
                     </button>
                 </div>
 
@@ -5296,13 +5296,13 @@
                             <span class="btn-label-text">返回设置</span>
                         </button>
                         <div>
-                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">本地词书回收站</h3>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">已删除词汇</h3>
                             <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-trash-count">共 0 词</span>
                         </div>
                     </div>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllTrashWords()">
                         <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
-                        <span class="btn-label-text">清空回收站</span>
+                        <span class="btn-label-text">永久删除</span>
                     </button>
                 </div>
 
@@ -8136,7 +8136,7 @@
                 showToast('回收站为空');
                 return;
             }
-            if (!confirm(`确定要清空回收站吗？`)) return;
+            if (!confirm(`确定要永久删除所有回收站中的单词吗？此操作无法撤销。`)) return;
             saveTrashWords([]);
             showToast(`已彻底删除${trash.length}个单词`);
             renderTrashWordsInSettings();
@@ -13672,7 +13672,6 @@
                     <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
                         <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">delete</span>
                         <p style="margin-top:8px; font-size:0.92rem;">回收站为空</p>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">从本地自定义词书中删除的单词将保存在回收站中，支持随时恢复或移动至其他本地词书。</p>
                     </div>
                 `;
                 return;
@@ -13715,10 +13714,10 @@
 
         
 
-        const APP_VERSION = '1.8.0';
+        const APP_VERSION = '1.8.1';
         const APP_CHANGELOG = [
             {
-                version: 'v1.8.0',
+                version: 'v1.8.1',
                 date: '2026-09-12',
                 badge: '当前版本',
                 items: [
@@ -13932,7 +13931,7 @@
                     const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest');
                     if (ghRes.ok) {
                         const ghData = await ghRes.json();
-                        const tag = (ghData.tag_name || 'v1.8.0').replace(/^v/, '');
+                        const tag = (ghData.tag_name || '正在获取...').replace(/^v/, '');
                         const releaseDate = (ghData.published_at || '').substring(0, 10) || new Date().toISOString().substring(0, 10);
                         let changelogItems = [];
                         if (ghData.body) {
