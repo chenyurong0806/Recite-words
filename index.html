@@ -14957,18 +14957,29 @@
             const actionText = document.getElementById('btn-changelog-action-text');
             if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
 
-            // 1. 先用本地 APP_CHANGELOG 立即渲染，保证无白屏无等待
+            // 1. 先用本地 APP_CHANGELOG 立即秒级渲染，杜绝白屏
             renderChangelogItems(container, APP_CHANGELOG);
 
-            // 2. 异步从 GitHub Releases 获取全量更新日志
+            // 2. 异步获取全量历史日志 (优先走 Worker 代理，避免大陆直连 GitHub 失败)
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                
+                // 关键改动：优先从自己的 Worker API 获取，Worker 连 GitHub 无论在何处都不受墙影响
+                let ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
                     signal: controller.signal
-                });
+                }).catch(() => null);
+
+                // 如果 Worker 没有这个接口，则降级尝试走 GitHub 直连（针对海外网络）
+                if (!ghRes || !ghRes.ok) {
+                    ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
+                        signal: controller.signal
+                    }).catch(() => null);
+                }
+
                 clearTimeout(timeoutId);
-                if (ghRes.ok) {
+
+                if (ghRes && ghRes.ok) {
                     const releases = await ghRes.json();
                     if (Array.isArray(releases) && releases.length > 0) {
                         const dynamicLogs = releases.map((rel, idx) => {
@@ -14979,7 +14990,7 @@
                             const date = (rel.published_at || '').substring(0, 10);
                             let items = [];
                             if (rel.body) {
-                                items = rel.body.split('\n')
+                                items = rel.body.replace(/\r\n/g, '\n').split('\n')
                                     .map(l => l.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
                                     .filter(l => l.length > 0 && !l.startsWith('#'));
                             }
@@ -14997,7 +15008,7 @@
                     }
                 }
             } catch (err) {
-                console.warn('Failed to load changelog from GitHub Releases:', err);
+                console.warn('Failed to load changelog:', err);
             }
         }
 
@@ -15038,31 +15049,37 @@
 
         async function checkCloudVersion(manual = false) {
             let data = null;
-            // 1. 优先从 Worker 获取 (其内部亦优先从 GitHub Releases 提取)
+            
+            // 1. 优先从 Worker 获取 (不走任何浏览器本地缓存)
             try {
-                const res = await fetch(`${BookManager.API_BASE}/api/version`, { cache: 'no-cache' });
+                const res = await fetch(`${BookManager.API_BASE}/api/version?t=${Date.now()}`, { 
+                    cache: 'no-store' 
+                });
                 if (res.ok) data = await res.json();
-            } catch (e) { }
+            } catch (e) {
+                console.warn('Worker version check failed:', e);
+            }
 
-            // 2. 备选：直接从 GitHub Releases API 获取
+            // 2. 备选：Worker 不可用时尝试直连
             if (!data) {
                 try {
                     const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest');
                     if (ghRes.ok) {
                         const ghData = await ghRes.json();
-                        const tag = (ghData.tag_name || '正在获取...').replace(/^v/, '');
-                        const releaseDate = (ghData.published_at || '').substring(0, 10) || new Date().toISOString().substring(0, 10);
+                        const tag = (ghData.tag_name || '').replace(/^v/i, '');
+                        const releaseDate = (ghData.published_at || '').substring(0, 10);
                         let changelogItems = [];
                         if (ghData.body) {
-                            changelogItems = ghData.body.split('\n')
+                            changelogItems = ghData.body.replace(/\r\n/g, '\n').split('\n')
                                 .map(line => line.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
                                 .filter(line => line.length > 0 && !line.startsWith('#'));
                         }
                         data = {
                             version: tag,
                             releaseDate: releaseDate,
-                            changelog: changelogItems.length > 0 ? changelogItems : ['更新版本并优化体验'],
-                            downloadUrl: 'https://github.com/chenyurong0806/Recite-words/releases/latest/download/index.html'
+                            changelog: changelogItems.length > 0 ? changelogItems : ['常规优化更新'],
+                            // 自动加上 ghfast.top 镜像前缀，确保即使走备选，大陆下载也是满速
+                            downloadUrl: `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/releases/download/${ghData.tag_name}/index.html`
                         };
                     }
                 } catch (e) { }
@@ -15075,14 +15092,10 @@
                 if (hasNewer) {
                     showVersionUpdateCard(data, isLocal);
                 } else {
-                    if (manual) {
-                        showToast(`当前已是最新版本 v${APP_VERSION}`);
-                    }
+                    if (manual) showToast(`当前已是最新版本 v${APP_VERSION}`);
                 }
             } else {
-                if (manual) {
-                    showToast(`当前已是最新离线版本 v${APP_VERSION}`);
-                }
+                if (manual) showToast(`当前已是最新离线版本 v${APP_VERSION}`);
             }
         }
 
@@ -15131,15 +15144,15 @@
         }
 
         function handleDownloadLatestHtml(downloadUrl) {
-            const targetUrl = downloadUrl || 'https://github.com/chenyurong0806/Recite-words/releases/latest/download/index.html';
+            if (!downloadUrl) return;
+            showToast('正在启动下载，请稍候...');
+            
             const a = document.createElement('a');
-            a.href = targetUrl;
+            a.href = downloadUrl;
             a.download = 'index.html';
-            a.target = '_blank';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            showToast('已开始从 GitHub Releases 下载最新版 index.html 文件');
         }
 
         function handleVersionUpdateAction() {

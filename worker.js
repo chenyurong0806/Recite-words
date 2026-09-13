@@ -1,8 +1,9 @@
+// worker.js
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 设置跨域 CORS 响应头，允许任何网页前端读取
+    // 跨域响应头
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -10,19 +11,31 @@ export default {
       'Content-Type': 'application/json; charset=utf-8'
     };
 
-    // 处理预检请求
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // 路由 1: 获取词书目录 (优先从 GitHub 代码库 books 目录动态抓取)
+    const REPO = 'chenyurong0806/Recite-words';
+
+    // 统一 GitHub API 请求头
+    const ghHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Recite-Words-Worker',
+      'Accept': 'application/vnd.github.v3+json'
+    };
+    if (env.GITHUB_TOKEN) {
+      ghHeaders['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
+    }
+
+    // ==========================================
+    // 路由 1: 获取词书目录 (增强边缘缓存)
+    // ==========================================
     if (url.pathname === '/api/books') {
       try {
-        const ghTreeRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/git/trees/main?recursive=1', {
-          headers: {
-            'User-Agent': 'Recite-Words-Cloudflare-Worker'
-          }
+        const ghTreeRes = await fetch(`https://api.github.com/repos/${REPO}/git/trees/main?recursive=1`, {
+          headers: ghHeaders,
+          cf: { cacheTtl: 600, cacheEverything: true } // 边缘缓存 10 分钟
         });
+
         if (ghTreeRes.ok) {
           const treeData = await ghTreeRes.json();
           if (Array.isArray(treeData.tree)) {
@@ -39,18 +52,15 @@ export default {
                   category: category,
                   path: item.path,
                   size: item.size,
-                  downloadUrl: `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(item.path)}`,
-                  cdnUrl: `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(item.path)}`,
+                  // 词书优先通过当前 Worker 自带的代理接口下载，避免直连 GitHub 失败
+                  downloadUrl: `${url.origin}/api/book?path=${encodeURIComponent(item.path)}`,
                   isCloud: true
                 };
               });
 
             if (books.length > 0) {
               return new Response(JSON.stringify(books), {
-                headers: {
-                  ...corsHeaders,
-                  'Cache-Control': 'public, max-age=300' // 缓存 5 分钟
-                }
+                headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=600' }
               });
             }
           }
@@ -59,7 +69,7 @@ export default {
         console.warn('Failed to fetch books from GitHub API:', err);
       }
 
-      // 静态已知词书备用目录 (与 GitHub 仓库 books/ 目录完全对齐)
+      // 静态备用目录
       const defaultBooks = [
         { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 68, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
         { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 58, path: 'books/Doris/翻译.json', isCloud: true },
@@ -75,14 +85,15 @@ export default {
       return new Response(JSON.stringify(defaultBooks), { headers: corsHeaders });
     }
 
-    // 路由 2: 获取单本词书数据 (优先从 GitHub 获取，支持 CDN 与 KV 降级)
+    // ==========================================
+    // 路由 2: 获取词书内容 (多镜像 + 边缘强缓存)
+    // ==========================================
     if (url.pathname === '/api/book') {
       const id = url.searchParams.get('id') || url.searchParams.get('path');
       if (!id) {
         return new Response(JSON.stringify({ error: 'Missing book id' }), { status: 400, headers: corsHeaders });
       }
 
-      // 规范化文件路径
       let bookPath = id.trim();
       if (!bookPath.startsWith('books/') && !bookPath.includes('/')) {
         const idLower = bookPath.toLowerCase();
@@ -96,114 +107,192 @@ export default {
       }
       if (!bookPath.endsWith('.json')) bookPath += '.json';
 
-      // 1. 优先从 GitHub Raw / jsdelivr CDN 获取
-      const ghRawUrl = `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(bookPath)}`;
-      const cdnUrl = `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(bookPath)}`;
+      // 依次尝试：GitHub Raw -> 国内 FastGit/GHProxy 镜像 -> jsDelivr
+      const candidateUrls = [
+        `https://raw.githubusercontent.com/${REPO}/main/${encodeURI(bookPath)}`,
+        `https://ghfast.top/https://raw.githubusercontent.com/${REPO}/main/${encodeURI(bookPath)}`,
+        `https://cdn.jsdelivr.net/gh/${REPO}@main/${encodeURI(bookPath)}`
+      ];
 
-      try {
-        let fetchRes = await fetch(ghRawUrl, {
-          headers: { 'User-Agent': 'Recite-Words-Cloudflare-Worker' }
-        });
-        if (!fetchRes.ok) {
-          fetchRes = await fetch(cdnUrl, {
-            headers: { 'User-Agent': 'Recite-Words-Cloudflare-Worker' }
+      for (const targetUrl of candidateUrls) {
+        try {
+          const fetchRes = await fetch(targetUrl, {
+            headers: { 'User-Agent': 'Recite-Words-Worker' },
+            cf: { cacheTtl: 86400, cacheEverything: true } // CF 边缘直接缓存 24 小时
           });
+          if (fetchRes.ok) {
+            const bookData = await fetchRes.text();
+            return new Response(bookData, {
+              headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=86400' }
+            });
+          }
+        } catch (e) {
+          // 尝试下一个候选地址
         }
-        if (fetchRes.ok) {
-          const bookData = await fetchRes.text();
-          return new Response(bookData, {
-            headers: {
-              ...corsHeaders,
-              'Cache-Control': 'public, max-age=86400' // 缓存 24 小时
-            }
-          });
-        }
-      } catch (err) {
-        console.warn('Failed to fetch book content from GitHub:', err);
       }
 
-      // 2. 降级：从 KV 中尝试读取
+      // KV 降级
       const kvData = (await env.VOCAB_BOOKS?.get(id)) || (await env.VOCAB_BOOKS?.get(bookPath));
       if (kvData) {
-        return new Response(kvData, {
-          headers: {
-            ...corsHeaders,
-            'Cache-Control': 'public, max-age=86400'
-          }
-        });
+        return new Response(kvData, { headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=86400' } });
       }
 
       return new Response(JSON.stringify({ error: 'Book not found' }), { status: 404, headers: corsHeaders });
     }
 
-    // 路由 3: 版本与更新日志接口 (优先从 GitHub Releases 获取)
+    // ==========================================
+    // 路由 3: 版本与更新日志接口
+    // ==========================================
     if (url.pathname === '/api/version') {
+      let versionData = null;
+
+      // 通道 1: GitHub API
       try {
-        const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest', {
-          headers: {
-            'User-Agent': 'Recite-Words-Cloudflare-Worker'
-          }
+        const ghRes = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=1`, {
+          headers: ghHeaders
         });
-
         if (ghRes.ok) {
-          const ghData = await ghRes.json();
-          const tag = (ghData.tag_name || 'v1.8.0').replace(/^v/, '');
-          const releaseDate = (ghData.published_at || '').substring(0, 10) || new Date().toISOString().substring(0, 10);
-          
-          let changelogItems = [];
-          if (ghData.body) {
-            changelogItems = ghData.body
+          const releases = await ghRes.json();
+          if (Array.isArray(releases) && releases.length > 0) {
+            const latest = releases[0];
+            const tag = (latest.tag_name || '').replace(/^v/i, '');
+            const body = latest.body || '';
+
+            const changelog = body
+              .replace(/\r\n/g, '\n')
               .split('\n')
-              .map(line => line.trim())
-              .filter(line => line && !line.startsWith('#'))
-              .map(line => line.replace(/^[-*•\d.]+\s*/, ''));
-          }
+              .map(l => l.trim())
+              .filter(l => l && !l.startsWith('#'))
+              .map(l => l.replace(/^[-*•\d.]+\s*/, ''));
 
-          let downloadUrl = `https://github.com/chenyurong0806/Recite-words/releases/download/${ghData.tag_name}/index.html`;
-          if (Array.isArray(ghData.assets)) {
-            const htmlAsset = ghData.assets.find(a => a.name === 'index.html' || a.name.endsWith('.html'));
-            if (htmlAsset && htmlAsset.browser_download_url) {
-              downloadUrl = htmlAsset.browser_download_url;
-            }
+            // 核心：把下载链接指向 Worker 自身的代理加速下载接口
+            versionData = {
+              version: tag,
+              releaseDate: (latest.published_at || '').substring(0, 10),
+              changelog: changelog.length > 0 ? changelog : ['常规更新及性能优化'],
+              downloadUrl: `${url.origin}/api/download-latest?tag=${latest.tag_name}`, // 走 Worker 代理下载
+              mirrorDownloadUrl: `https://ghfast.top/https://github.com/${REPO}/releases/download/${latest.tag_name}/index.html`, // 备用国内镜像
+              githubReleaseUrl: latest.html_url
+            };
           }
-
-          return new Response(JSON.stringify({
-            version: tag,
-            releaseDate: releaseDate,
-            changelog: changelogItems.length > 0 ? changelogItems : [ghData.name || '最新功能发布与稳定性修复'],
-            downloadUrl: downloadUrl,
-            githubReleaseUrl: ghData.html_url
-          }), { headers: corsHeaders });
         }
       } catch (err) {
-        console.warn('Failed to fetch from GitHub API:', err);
+        console.warn('API error:', err);
       }
 
-      // 降级备用数据 (当 GitHub API 超频或故障时)
-      const fallbackVersionInfo = {
-        version: '1.8.0',
-        releaseDate: '2026-09-12',
-        changelog: [
-          '1. 重构更新日志与版本下载功能，直连 GitHub Releases；',
-          '2. 全面优化词组背诵：固定虚词词块直接给出，不占用备选词框；',
-          '3. 修复开局残留上局提示框与冷却遮罩的 Bug；',
-          '4. Wordle 单词解谜全面支持实体键盘直接输入、退格与提交；',
-          '5. 降低人机对决中词组回答速度，按词块数量梯度增加延时；',
-          '6. 所有系统“开启/关闭”选项升级为 MD3 原生平滑滑动开关；',
-          '7. 远程联机 P2 页面仅展示房主已选定的词书，彻底避免选词不同步；',
-          '8. 听音写词模式隐藏音标显示；',
-          '9. 优化即时复习机制，多次答错不再在组末重复提问。'
-        ],
-        downloadUrl: 'https://github.com/chenyurong0806/Recite-words/releases/latest/download/index.html',
-        githubReleaseUrl: 'https://github.com/chenyurong0806/Recite-words/releases/latest'
-      };
-      return new Response(JSON.stringify(fallbackVersionInfo), { headers: corsHeaders });
+      // 通道 2: Atom Feed (免限流保底)
+      if (!versionData) {
+        try {
+          const feedRes = await fetch(`https://github.com/${REPO}/releases.atom`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (feedRes.ok) {
+            const feedXml = await feedRes.text();
+            const entryMatch = feedXml.match(/<entry>([\s\S]*?)<\/entry>/);
+            if (entryMatch) {
+              const entry = entryMatch[1];
+              const tagMatch = entry.match(/<id>.*?\/releases\/tag\/(.*?)<\/id>/);
+              const tagRaw = tagMatch ? tagMatch[1] : '1.9.0';
+              const tag = tagRaw.replace(/^v/i, '');
+
+              const contentMatch = entry.match(/<content type="html">([\s\S]*?)<\/content>/);
+              let changelog = [];
+              if (contentMatch) {
+                let html = contentMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+                changelog = html
+                  .replace(/<li>/gi, '\n* ')
+                  .replace(/<[^>]+>/g, '')
+                  .split('\n')
+                  .map(l => l.trim())
+                  .filter(l => l && !l.startsWith('#'))
+                  .map(l => l.replace(/^[-*•\d.]+\s*/, ''));
+              }
+
+              versionData = {
+                version: tag,
+                releaseDate: new Date().toISOString().substring(0, 10),
+                changelog: changelog.length > 0 ? changelog : ['常规更新及性能优化'],
+                downloadUrl: `${url.origin}/api/download-latest?tag=${tagRaw}`,
+                mirrorDownloadUrl: `https://ghfast.top/https://github.com/${REPO}/releases/download/${tagRaw}/index.html`,
+                githubReleaseUrl: `https://github.com/${REPO}/releases/tag/${tagRaw}`
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('Feed error:', err);
+        }
+      }
+
+      if (!versionData) {
+        versionData = {
+          version: '1.9.0',
+          releaseDate: new Date().toISOString().substring(0, 10),
+          changelog: ['常规优化更新'],
+          downloadUrl: `${url.origin}/api/download-latest?tag=v1.9.0`,
+          githubReleaseUrl: `https://github.com/${REPO}/releases/latest`
+        };
+      }
+
+      return new Response(JSON.stringify(versionData), {
+        headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      });
     }
 
-    // 路由 4: 下载最新版 HTML 文件 (直接重定向至 GitHub Releases 下载)
+
+    // ==========================================
+    // 路由：代理全量 Releases 列表（解决前端直连 GitHub 失败）
+    // ==========================================
+    if (url.pathname === '/api/releases') {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=15`, {
+          headers: ghHeaders,
+          cf: { cacheTtl: 1800, cacheEverything: true } // CF 边缘缓存 30 分钟
+        });
+        if (res.ok) {
+          const data = await res.text();
+          return new Response(data, {
+            headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=1800' }
+          });
+        }
+      } catch (err) {}
+      return new Response('[]', { headers: corsHeaders });
+    }
+
+    // ==========================================
+    // 路由 4: 下载最新版 HTML (关键优化：Worker 代下中转，免翻墙满速)
+    // ==========================================
     if (url.pathname === '/api/download-latest') {
-      const targetDownloadUrl = 'https://github.com/chenyurong0806/Recite-words/releases/latest/download/index.html';
-      return Response.redirect(targetDownloadUrl, 302);
+      const tag = url.searchParams.get('tag') || 'latest';
+      const fileUrl = tag === 'latest' 
+        ? `https://github.com/${REPO}/releases/latest/download/index.html`
+        : `https://github.com/${REPO}/releases/download/${tag}/index.html`;
+
+      try {
+        // Worker 在海外高速拉取 GitHub 文件流，然后直接 pipe 传输给大陆用户
+        const upstreamRes = await fetch(fileUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          redirect: 'follow'
+        });
+
+        if (upstreamRes.ok) {
+          const downloadHeaders = new Headers(upstreamRes.headers);
+          downloadHeaders.set('Access-Control-Allow-Origin', '*');
+          downloadHeaders.set('Content-Disposition', 'attachment; filename="index.html"');
+          downloadHeaders.set('Content-Type', 'text/html; charset=utf-8');
+          // 移除 GitHub 的防盗链阻断头
+          downloadHeaders.delete('x-frame-options');
+
+          return new Response(upstreamRes.body, {
+            status: 200,
+            headers: downloadHeaders
+          });
+        }
+      } catch (err) {
+        console.warn('Worker direct download failed, redirecting to mirror...', err);
+      }
+
+      // 如果 Worker 下载失败，302 跳转到国内开源镜像节点
+      return Response.redirect(`https://ghfast.top/${fileUrl}`, 302);
     }
 
     return new Response('Not Found', { status: 404 });
