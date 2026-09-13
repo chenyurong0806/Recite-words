@@ -4318,6 +4318,445 @@
             border-color: var(--md-sys-color-primary);
             box-shadow: var(--md-elevation-2);
         }
+
+        /* ==========================================================================
+           Google MD3: 背实词模式 (Classical Chinese Words) 专有样式
+           ========================================================================== */
+        .shici-container {
+            width: 100%;
+            max-width: 780px;
+            margin: 0 auto;
+        }
+
+        .shici-quiz-card {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-xl);
+            padding: 24px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            box-shadow: var(--md-elevation-1);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .shici-top-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .shici-word-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 14px;
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-radius: var(--md-shape-full);
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .shici-mode-tag {
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: var(--md-shape-full);
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+
+        .shici-sentence-box {
+            background: var(--md-sys-color-surface-container-low);
+            border: 1.5px solid var(--md-sys-color-surface-container-high);
+            border-radius: var(--md-shape-l);
+            padding: 22px 24px;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: border-color var(--md-motion-standard);
+        }
+
+        .shici-sentence-text {
+            font-family: 'Noto Sans SC', 'Songti SC', 'Source Han Serif CN', serif, sans-serif;
+            font-size: 1.35rem;
+            line-height: 1.85;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+            letter-spacing: 0.02em;
+        }
+
+        .shici-word-highlight {
+            font-weight: 800;
+            color: #006874;
+            background: rgba(0, 104, 116, 0.12);
+            padding: 2px 6px;
+            border-radius: 6px;
+            border-bottom: 2.5px solid #006874;
+            display: inline-block;
+            margin: 0 1px;
+        }
+
+        .shici-source-tag {
+            text-align: right;
+            margin-top: 10px;
+            font-size: 0.88rem;
+            color: var(--md-sys-color-outline);
+            font-weight: 600;
+        }
+
+        .shici-options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        @media (min-width: 600px) {
+            .shici-options-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .shici-opt-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 58px;
+            padding: 12px 18px;
+            background: var(--md-sys-color-surface-container-lowest);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
+            color: var(--md-sys-color-on-surface);
+            font-size: 0.96rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: left;
+            transition: all var(--md-motion-standard);
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            user-select: none;
+        }
+
+        .shici-opt-btn:hover:not(:disabled) {
+            background: var(--md-sys-color-surface-container-low);
+            border-color: #006874;
+            box-shadow: 0 3px 8px rgba(0, 104, 116, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .shici-opt-btn:active:not(:disabled) {
+            transform: scale(0.99);
+        }
+
+        .shici-opt-btn .opt-prefix {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            transition: all var(--md-motion-standard);
+        }
+
+        .shici-opt-btn .opt-pos-tag {
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: var(--md-sys-color-surface-container);
+            color: var(--md-sys-color-outline);
+            flex-shrink: 0;
+        }
+
+        .shici-opt-btn .opt-meaning-text {
+            flex: 1;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .shici-opt-btn.correct {
+            background: #E8F5E9 !important;
+            border-color: #2E7D32 !important;
+            color: #1B5E20 !important;
+        }
+
+        .shici-opt-btn.correct .opt-prefix {
+            background: #2E7D32 !important;
+            color: #FFFFFF !important;
+        }
+
+        .shici-opt-btn.wrong {
+            background: #FFEBEE !important;
+            border-color: #C62828 !important;
+            color: #B71C1C !important;
+        }
+
+        .shici-opt-btn.wrong .opt-prefix {
+            background: #C62828 !important;
+            color: #FFFFFF !important;
+        }
+
+        .shici-explanation-card {
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
+            padding: 18px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        .shici-feedback-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .shici-feedback-banner.correct {
+            color: var(--md-sys-color-success);
+        }
+
+        .shici-feedback-banner.wrong {
+            color: var(--md-sys-color-error);
+        }
+
+        .shici-annotation-box {
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: var(--md-shape-m);
+            padding: 12px 16px;
+            border: 1px solid var(--md-sys-color-surface-container-high);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .shici-senses-preview {
+            margin-top: 4px;
+            font-size: 0.86rem;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .shici-senses-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .shici-sense-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--md-sys-color-surface-container-lowest);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .shici-sense-item.active-sense {
+            background: rgba(0, 104, 116, 0.08);
+            border-left: 3px solid #006874;
+            font-weight: 600;
+        }
+
+        /* ==========================================================================
+           Google MD3: 结算页面小结 (Settlement Group Summary) 样式
+           ========================================================================== */
+        .settlement-summary-card {
+            background: var(--md-sys-color-surface-container-low);
+            border-radius: var(--md-shape-xl);
+            padding: 20px;
+            border: 1px solid var(--md-sys-color-surface-container-high);
+            margin-top: 16px;
+            text-align: left;
+        }
+
+        .settlement-summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .settlement-filter-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .settlement-filter-btn {
+            border: none;
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: var(--md-shape-full);
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+        }
+
+        .settlement-filter-btn.active {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+
+        .settlement-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 480px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .settlement-item {
+            background: var(--md-sys-color-surface-container-lowest);
+            border: 1.5px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-shape-l);
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all var(--md-motion-standard);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .settlement-item:hover {
+            border-color: var(--md-sys-color-primary);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .settlement-item.item-mistake {
+            background: #FFF8F7;
+            border-color: rgba(186, 26, 26, 0.35);
+        }
+
+        .settlement-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .settlement-item-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .settlement-status-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .settlement-status-icon.correct {
+            color: var(--md-sys-color-success);
+        }
+
+        .settlement-status-icon.wrong {
+            color: var(--md-sys-color-error);
+        }
+
+        .settlement-word-text {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+            word-break: break-word;
+        }
+
+        /* 错词加粗规范 */
+        .settlement-word-text.mistake-word-bold {
+            font-weight: 800 !important;
+            color: var(--md-sys-color-error) !important;
+        }
+
+        /* 词组错误位置加粗规范 */
+        .phrase-wrong-token-bold {
+            font-weight: 800 !important;
+            color: var(--md-sys-color-error) !important;
+            text-decoration: underline;
+            text-decoration-thickness: 2px;
+        }
+
+        .settlement-trans-text {
+            font-size: 0.9rem;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .settlement-item-chevron {
+            font-size: 20px;
+            color: var(--md-sys-color-outline);
+            transition: transform var(--md-motion-standard);
+            flex-shrink: 0;
+        }
+
+        .settlement-item.open .settlement-item-chevron {
+            transform: rotate(180deg);
+        }
+
+        .settlement-item-drawer {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--md-sys-color-outline-variant);
+            font-size: 0.88rem;
+        }
+
+        .settlement-item.open .settlement-item-drawer {
+            display: block;
+        }
+
+        .distractor-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .distractor-row {
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: var(--md-sys-color-surface-container);
+            color: var(--md-sys-color-on-surface);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        /* 选错的辨析项加粗规范 */
+        .distractor-row.chosen-mistake-bold {
+            background: #FFDAD6 !important;
+            color: #410002 !important;
+            border: 1px solid var(--md-sys-color-error);
+        }
+
+        .distractor-row.chosen-mistake-bold .distractor-text {
+            font-weight: 800 !important;
+            color: #BA1A1A !important;
+        }
+
+        .distractor-row.correct-target-meaning {
+            background: #C8E6C9 !important;
+            color: #003314 !important;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -4581,6 +5020,30 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 模式 5: 文言背实词 -->
+                <div class="mode-card" style="border-color: #B4E6EE;">
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="material-symbols-rounded filled"
+                                style="font-size:32px; width:32px; height:32px; color:#006874;">history_edu</span>
+                            <span class="badge" id="hub-shici-badge"
+                                style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); font-size: 0.76rem; font-weight: 600;">300 词</span>
+                        </div>
+                        <h3>背实词</h3>
+                    </div>
+                    <div class="mode-card-btn-row" style="margin-top: 16px;">
+                        <button class="btn btn-filled" style="background: #006874;" onclick="startShiCiLearning();">
+                            <span class="material-symbols-rounded">menu_book</span>
+                            <span class="btn-label-text" id="btn-hub-shici-text">开始背诵</span>
+                        </button>
+                        <button class="btn btn-outlined" onclick="openShiCiSettings();">
+                            <span class="material-symbols-rounded">tune</span>
+                            <span class="btn-label-text">设置</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- 实时在线玩家卡片 (MD3 规范，彻底修复文字竖排/挤压问题) -->
@@ -4652,7 +5115,7 @@
                         <button class="btn btn-outlined btn-sm" onclick="goToManageBooksInSettings()"
                             style="border-color:var(--md-sys-color-outline-variant);">
                             <span class="material-symbols-rounded">folder_managed</span>
-                            <span class="btn-label-text">词书与分类管理</span>
+                            <span class="btn-label-text">管理词书</span>
                         </button>
                         <button class="btn btn-tonal btn-sm" onclick="openMistakesView()">
                             <span class="material-symbols-rounded">bookmark</span>
@@ -5409,6 +5872,98 @@
             </div>
         </div>
 
+        <!-- VIEW 9: 背实词模式 (文言实词) -->
+        <div id="view-shici" class="view">
+            <div class="shici-container">
+                <div class="riddle-top-bar" style="margin-bottom: 14px;">
+                    <div class="riddle-top-left">
+                        <button class="md3-icon-btn" onclick="confirmExitShiCi()" title="返回主页">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div class="riddle-title-group">
+                            <h2 class="riddle-top-title" id="shici-mode-title">背实词</h2>
+                        </div>
+                    </div>
+                    <div class="riddle-top-actions">
+                        <button class="btn btn-outlined btn-sm" onclick="openShiCiSettings()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
+                            <span class="btn-label-text">设置</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="shici-quiz-card">
+                    <!-- 顶部信息行：进度、字词与拼音胶囊、模式徽标 -->
+                    <div class="shici-top-header-row">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="card-progress-counter" id="shici-progress-text">1 / 15</span>
+                            <span class="shici-word-badge" id="shici-word-badge">
+                                <span class="material-symbols-rounded" style="font-size:16px;">history_edu</span>
+                                <span id="shici-current-word-title">哀 āi</span>
+                            </span>
+                            <span class="shici-mode-tag" id="shici-mode-badge">顺序学习</span>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-tonal btn-sm" style="height:32px; padding:0 12px; font-size:0.8rem;" onclick="toggleCurrentShiCiMastered()" id="btn-shici-master" title="标记为已掌握">
+                                <span class="material-symbols-rounded" style="font-size:16px;">check_circle</span>
+                                <span class="btn-label-text" id="shici-master-btn-text">熟词</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MD3 平滑细线进度条 -->
+                    <div class="single-progress-bar-only">
+                        <div class="md3-progress-track">
+                            <div class="md3-progress-indicator" id="shici-progress-fill" style="width: 7%; background: linear-gradient(90deg, #006874, #4DD0E1);"></div>
+                        </div>
+                    </div>
+
+                    <!-- 文言例句展示区（考察词自动加粗，右下方出处） -->
+                    <div class="shici-sentence-box">
+                        <div class="shici-sentence-text" id="shici-sentence-display">
+                            有妇人哭于墓者而<strong class="shici-word-highlight">哀</strong>
+                        </div>
+                        <div class="shici-source-tag" id="shici-source-display">—— 《礼记》</div>
+                    </div>
+
+                    <!-- 4 个义项选项（抽取自该词其他释义） -->
+                    <div class="shici-options-grid" id="shici-options-container"></div>
+
+                    <!-- 答完后展示的例句释义与一词多义便览卡片 -->
+                    <div class="shici-explanation-card" id="shici-explanation-card" style="display:none;">
+                        <div class="shici-feedback-banner" id="shici-feedback-banner">
+                            <span class="material-symbols-rounded" id="shici-feedback-icon">check_circle</span>
+                            <span id="shici-feedback-text">回答正确</span>
+                        </div>
+                        <div class="shici-annotation-box">
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">menu_book</span>
+                                <strong style="color:var(--md-sys-color-primary);">语境义项：</strong>
+                                <span id="shici-correct-meaning-full" style="font-weight:700;">[形容词] 悲哀，悲伤</span>
+                            </div>
+                            <div id="shici-annotation-row" style="color:var(--md-sys-color-on-surface-variant); font-size:0.92rem; margin-top:4px;">
+                                💡 <strong>例句释义：</strong><span id="shici-annotation-content">句意：...</span>
+                            </div>
+                        </div>
+                        <div class="shici-senses-preview" id="shici-senses-preview">
+                            <div style="font-weight:700; color:var(--md-sys-color-on-surface); font-size:0.86rem; margin-bottom:4px;">
+                                📖 【<span id="shici-preview-word">哀</span>】的一词多义便览：
+                            </div>
+                            <div class="shici-senses-list" id="shici-all-senses-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- 底部动作栏：作答前为“看答案”，作答后切换为“下一题” -->
+                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:8px;">
+                        <button class="single-next-btn show-answer-mode" id="btn-shici-action" onclick="handleShiCiActionClick()" style="display:flex;">
+                            <span class="material-symbols-rounded" style="font-size:20px;">skip_next</span>
+                            <span class="btn-label-text" id="btn-shici-action-text">看答案</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- VIEW 10: MD3 系统设置与子页面架构 -->
         <div id="view-settings" class="view">
             <!-- 子页面 1: 主设置页 -->
@@ -5643,7 +6198,7 @@
                             <span class="material-symbols-rounded">arrow_back</span>
                             <span class="btn-label-text">返回设置</span>
                         </button>
-                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">词书与分类管理</h3>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">管理词书</h3>
                     </div>
                 </div>
 
@@ -5931,6 +6486,70 @@
                 <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveDictationSettings()">
                     <span class="material-symbols-rounded">check</span>
                     <span class="btn-label-text">保存设置</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MD3: 背实词设置弹窗 -->
+    <div id="modal-shici-settings" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700;">背实词设置</h3>
+                    <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">自定义文言实词学习方式与每组题数</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeShiCiSettings()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="rule-group">
+                    <span class="rule-label">学习顺序</span>
+                    <div class="chip-group" id="chips-shici-order">
+                        <div class="md3-chip selected" id="chip-shici-seq" onclick="selectShiCiOrderMode('sequential')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">format_list_numbered</span>
+                            <span>顺序学习 (字表1~300)</span>
+                        </div>
+                        <div class="md3-chip" id="chip-shici-rand" onclick="selectShiCiOrderMode('random')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">shuffle</span>
+                            <span>乱序学习 (全库随机)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">每组题数</span>
+                    <div class="chip-group" id="chips-shici-batch">
+                        <div class="md3-chip" data-val="10" onclick="selectShiCiBatch(10)">10 题</div>
+                        <div class="md3-chip selected" data-val="15" onclick="selectShiCiBatch(15)">15 题</div>
+                        <div class="md3-chip" data-val="20" onclick="selectShiCiBatch(20)">20 题</div>
+                        <div class="md3-chip" data-val="30" onclick="selectShiCiBatch(30)">30 题</div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">实词掌握统计</span>
+                    <div style="background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.85rem; color:var(--md-sys-color-outline);">总词库：300 核心实词 (2304例句)</div>
+                            <div style="font-size:1.05rem; font-weight:700; color:var(--md-sys-color-primary); margin-top:2px;">
+                                已学词数：<span id="shici-stat-learned">0</span> / 300
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="confirmResetShiCiProgress()" style="color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);">
+                            <span class="material-symbols-rounded" style="font-size:16px;">restart_alt</span>
+                            <span class="btn-label-text">重置进度</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveShiCiSettings()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">确定</span>
                 </button>
             </div>
         </div>
@@ -6676,7 +7295,8 @@
                 { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1039, path: 'books/Doris/高一高二笔记.json', isCloud: true },
                 { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 31, path: 'books/Doris/高三笔记.json', isCloud: true },
                 { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
-                { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true }
+                { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true },
+                { id: 'books/实词/实词.json', name: '实词', category: '实词', count: 300, path: 'books/实词/实词.json', isCloud: true }
             ],
 
             async init() {
@@ -7157,7 +7777,7 @@
             if (typeof resetAllGameAlertsAndFeedback === 'function') {
                 resetAllGameAlertsAndFeedback();
             }
-            const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle'];
+            const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici'];
             const railNav = document.getElementById('app-nav-rail');
             const bottomNav = document.getElementById('app-bottom-nav');
 
@@ -7475,6 +8095,9 @@
             }
             if (window.DailyStudyTracker) {
                 window.DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
+            }
+            if (typeof updateHubShiCiBadge === 'function') {
+                updateHubShiCiBadge();
             }
         }
 
@@ -9459,10 +10082,15 @@
             const q = singlePhraseState.q;
             userStats.total++;
             singleState.total++;
+            q.isPhrase = true;
+            q.targetWords = singlePhraseState.targetWords;
+            q.userPlacedTokens = placedWords;
 
             if (isRight) {
                 userStats.correct++;
                 singleState.score++;
+                q.isCorrect = true;
+                q.wrongSlotIndices = [];
 
                 // 槽位高亮为正确绿色
                 singlePhraseState.placed.forEach((cid, i) => {
@@ -9514,6 +10142,14 @@
                     singlePhraseTimer = null;
                 }
             } else {
+                q.isCorrect = false;
+                q.wrongSlotIndices = singlePhraseState.targetWords.map((tw, i) => {
+                    if (isFixedPhraseToken(tw)) return -1;
+                    const cid = singlePhraseState.placed[i];
+                    const chip = cid ? singlePhraseState.chips.find(c => c.id === cid) : null;
+                    const uWord = chip ? chip.text.toLowerCase() : '';
+                    return (uWord === tw.toLowerCase()) ? -1 : i;
+                }).filter(idx => idx !== -1);
                 recordUserMistake(currentUser, q.word, q.meaning, q.phone);
                 scheduleRetestForCurrentQuestion();
 
@@ -9558,6 +10194,10 @@
             if (singleState.answered) return;
             singleState.answered = true;
             const q = singleState.pool[singleState.currentIdx];
+            q.userAnswerIdx = -1;
+            q.isCorrect = false;
+            q.skipped = true;
+            q.answered = true;
 
             userStats.total++;
             singleState.total++;
@@ -9568,6 +10208,9 @@
 
             const isPhrase = q.word && q.word.trim().includes(' ');
             if (isPhrase) {
+                q.isPhrase = true;
+                q.targetWords = singlePhraseState.targetWords;
+                q.wrongSlotIndices = singlePhraseState.targetWords.map((tw, i) => isFixedPhraseToken(tw) ? -1 : i).filter(i => i !== -1);
                 singlePhraseState.targetWords.forEach((tw, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
                     if (!slotEl || isFixedPhraseToken(tw)) return;
@@ -9655,6 +10298,9 @@
 
             const q = singleState.pool[singleState.currentIdx];
             const isRight = (idx === q.correctIdx);
+            q.userAnswerIdx = idx;
+            q.isCorrect = isRight;
+            q.answered = true;
 
             userStats.total++;
             singleState.total++;
@@ -9731,7 +10377,9 @@
                 mode: 'single',
                 msg: `已完成本组练习！`,
                 p1Score: singleState.score,
-                p2Score: 0
+                p2Score: 0,
+                pool: singleState.pool,
+                total: singleState.total || (singleState.pool ? singleState.pool.length : 0)
             };
             renderResult();
             switchView('view-result');
@@ -11228,6 +11876,11 @@
             const btnBackRoom = document.getElementById('btn-back-room');
             const btnResultHub = document.getElementById('btn-result-hub');
 
+            const resultCard = document.querySelector('#view-result .card');
+            if (resultCard) {
+                resultCard.style.maxWidth = (gameResult.mode === 'single' || gameResult.mode === 'shici') ? '720px' : '500px';
+            }
+
             if (gameResult.mode === 'single') {
                 btnBackRoom.style.display = 'inline-flex';
                 btnBackRoom.innerText = '再练一组';
@@ -11235,8 +11888,9 @@
                 btnBackRoom.onclick = () => startSinglePlayerFromSelectedBooks();
                 if (btnResultHub) btnResultHub.innerText = '返回主页';
 
-                const totalCount = singleState.total || 0;
-                const correctCount = singleState.score || 0;
+                const pool = gameResult.pool || singleState.pool || [];
+                const totalCount = pool.length || singleState.total || 0;
+                const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : (singleState.score || 0);
                 const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
                 details.innerHTML = `
@@ -11250,6 +11904,32 @@
                         <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
                     </div>
                 </div>
+                ${renderSingleSummaryHtml(pool)}
+            `;
+            } else if (gameResult.mode === 'shici') {
+                btnBackRoom.style.display = 'inline-flex';
+                btnBackRoom.innerText = '再练一组';
+                btnBackRoom.disabled = false;
+                btnBackRoom.onclick = () => startShiCiLearning();
+                if (btnResultHub) btnResultHub.innerText = '返回主页';
+
+                const pool = gameResult.pool || [];
+                const totalCount = pool.length;
+                const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : 0;
+                const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+                details.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">本次实词</span>
+                        <span class="stat-value">${totalCount}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">正确率</span>
+                        <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
+                    </div>
+                </div>
+                ${renderShiCiSummaryHtml(pool)}
             `;
             } else if (gameResult.mode === 'ai_duel') {
                 btnBackRoom.style.display = 'inline-flex';
@@ -13970,6 +14650,798 @@
         }
 
         /* ==========================================================================
+           11.5 背实词模块 (ShiCiManager) & 结算小结生成引擎
+           ========================================================================== */
+        function escapeRegex(str) {
+            if (!str) return '';
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // ========================
+        // 结算页面小结渲染函数
+        // ========================
+        function toggleSettlementDrawer(el) {
+            if (!el) return;
+            el.classList.toggle('open');
+        }
+
+        function filterSettlementList(filter, btn) {
+            if (btn && btn.parentElement) {
+                btn.parentElement.querySelectorAll('.settlement-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            const container = document.getElementById('settlement-list-container');
+            if (!container) return;
+            const items = container.querySelectorAll('.settlement-item');
+            items.forEach(item => {
+                if (filter === 'all') {
+                    item.style.display = 'block';
+                } else if (filter === 'mistakes') {
+                    item.style.display = (item.getAttribute('data-mistake') === '1') ? 'block' : 'none';
+                }
+            });
+        }
+
+        function renderSingleSummaryHtml(pool) {
+            if (!Array.isArray(pool) || pool.length === 0) return '';
+            let mistakeCount = pool.filter(q => !q.isCorrect).length;
+
+            let itemsHtml = pool.map((q, idx) => {
+                const isMistake = !q.isCorrect;
+                const isPhrase = !!(q.isPhrase || (q.word && q.word.trim().includes(' ')));
+                const targetMeaning = escapeHtml(q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : ''));
+
+                let titleDisplay = '';
+                let drawerContent = '';
+
+                if (isPhrase) {
+                    // 词组规则：词组则将错的地方加粗
+                    const targetWords = q.targetWords || (typeof extractPhraseTargetWords === 'function' ? extractPhraseTargetWords(q.word) : q.word.split(' '));
+                    const wrongSlots = Array.isArray(q.wrongSlotIndices) ? q.wrongSlotIndices : [];
+
+                    if (isMistake) {
+                        titleDisplay = targetWords.map((w, i) => {
+                            if (typeof isFixedPhraseToken === 'function' && isFixedPhraseToken(w)) return escapeHtml(w);
+                            const isSlotWrong = wrongSlots.length === 0 || wrongSlots.includes(i);
+                            return isSlotWrong
+                                ? `<strong class="phrase-wrong-token-bold">${escapeHtml(w)}</strong>`
+                                : escapeHtml(w);
+                        }).join(' ');
+                    } else {
+                        titleDisplay = escapeHtml(q.word);
+                    }
+
+                    drawerContent = `
+                        <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:6px; font-size:0.86rem;">
+                            词组搭配与释义：
+                        </div>
+                        <div style="font-size:0.92rem; line-height:1.6;">
+                            完整词组：<strong>${escapeHtml(q.word)}</strong><br>
+                            标准释义：<span style="color:var(--md-sys-color-on-surface-variant);">${targetMeaning}</span>
+                        </div>
+                    `;
+                } else {
+                    // 单词规则：点击一个单词可以展示抽取的其他三个辨析项。将错词和选错的那个辨析项加粗
+                    const phoneDisplay = q.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(q.phone)}/</span>` : '';
+                    if (isMistake) {
+                        titleDisplay = `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong>${phoneDisplay}`;
+                    } else {
+                        titleDisplay = `<span class="settlement-word-text">${escapeHtml(q.word)}</span>${phoneDisplay}`;
+                    }
+
+                    // 抽取的其他 3 个辨析项
+                    let distractorsHtml = '';
+                    if (Array.isArray(q.options) && q.options.length > 0) {
+                        distractorsHtml = q.options.map((opt, optIdx) => {
+                            const isCorrectOpt = (optIdx === q.correctIdx);
+                            const isUserChosen = (optIdx === q.userAnswerIdx);
+
+                            if (isCorrectOpt) {
+                                return `
+                                    <div class="distractor-row correct-target-meaning">
+                                        <span class="distractor-text">✓ ${escapeHtml(opt.meaning || '')}</span>
+                                        <span class="badge" style="background:#2E7D32; color:#fff; font-size:0.72rem; padding:1px 6px;">正确释义</span>
+                                    </div>
+                                `;
+                            } else {
+                                const isChosenWrong = isMistake && isUserChosen;
+                                return `
+                                    <div class="distractor-row ${isChosenWrong ? 'chosen-mistake-bold' : ''}">
+                                        <span class="distractor-text">${isChosenWrong ? `<strong>${escapeHtml(opt.meaning || '')}</strong>` : escapeHtml(opt.meaning || '')}</span>
+                                        ${isChosenWrong ? '<span class="badge" style="background:#BA1A1A; color:#fff; font-size:0.72rem; padding:1px 6px; font-weight:700;">选错的辨析项</span>' : '<span style="font-size:0.75rem; color:var(--md-sys-color-outline);">干扰辨析</span>'}
+                                    </div>
+                                `;
+                            }
+                        }).join('');
+                    } else {
+                        distractorsHtml = '<div style="color:var(--md-sys-color-outline); font-size:0.84rem;">暂无选项数据</div>';
+                    }
+
+                    drawerContent = `
+                        <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:6px; font-size:0.86rem;">
+                            抽取的 3 个辨析项（已标注选错项与正确项）：
+                        </div>
+                        <div class="distractor-list">
+                            ${distractorsHtml}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}">
+                        <div class="settlement-item-header">
+                            <div class="settlement-item-main">
+                                <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
+                                    ${isMistake ? 'cancel' : 'check_circle'}
+                                </span>
+                                <div>
+                                    <div>${titleDisplay}</div>
+                                    <div class="settlement-trans-text">${targetMeaning}</div>
+                                </div>
+                            </div>
+                            <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
+                        </div>
+                        <div class="settlement-item-drawer">
+                            ${drawerContent}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="settlement-summary-card">
+                    <div class="settlement-summary-header">
+                        <div>
+                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组题目小结</h3>
+                            <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词或词组可展开查看选项辨析与干扰项</p>
+                        </div>
+                        <div class="settlement-filter-group">
+                            <button type="button" class="settlement-filter-btn active" onclick="filterSettlementList('all', this)">全部 (${pool.length})</button>
+                            <button type="button" class="settlement-filter-btn" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
+                        </div>
+                    </div>
+                    <div class="settlement-list md3-scroll-view" id="settlement-list-container">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderShiCiSummaryHtml(pool) {
+            if (!Array.isArray(pool) || pool.length === 0) return '';
+            let mistakeCount = pool.filter(q => !q.isCorrect).length;
+
+            let itemsHtml = pool.map((q, idx) => {
+                const isMistake = !q.isCorrect;
+                const wordTitle = isMistake
+                    ? `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong> <span style="font-size:0.85rem; color:var(--md-sys-color-outline); font-weight:normal;">${escapeHtml(q.pinyin || '')}</span>`
+                    : `<span class="settlement-word-text">${escapeHtml(q.word)}</span> <span style="font-size:0.85rem; color:var(--md-sys-color-outline); font-weight:normal;">${escapeHtml(q.pinyin || '')}</span>`;
+
+                const correctSenseText = `【${escapeHtml(q.sense?.part_of_speech || '')}】 ${escapeHtml((q.sense?.meaning || '').replace(/★/g, ''))}`;
+
+                let optionsHtml = '';
+                if (Array.isArray(q.options)) {
+                    optionsHtml = q.options.map((opt, optIdx) => {
+                        const isCorrect = (optIdx === q.correctIdx);
+                        const isUserChosen = (optIdx === q.userAnswerIdx);
+                        const isChosenWrong = isMistake && isUserChosen;
+
+                        if (isCorrect) {
+                            return `
+                                <div class="distractor-row correct-target-meaning">
+                                    <span class="distractor-text">✓ [${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}</span>
+                                    <span class="badge" style="background:#2E7D32; color:#fff; font-size:0.72rem; padding:1px 6px;">例句对应释义</span>
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <div class="distractor-row ${isChosenWrong ? 'chosen-mistake-bold' : ''}">
+                                    <span class="distractor-text">${isChosenWrong ? `<strong>[${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}</strong>` : `[${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}`}</span>
+                                    ${isChosenWrong ? '<span class="badge" style="background:#BA1A1A; color:#fff; font-size:0.72rem; padding:1px 6px; font-weight:700;">选错的释义</span>' : '<span style="font-size:0.74rem; color:var(--md-sys-color-outline);">该词其他义项</span>'}
+                                </div>
+                            `;
+                        }
+                    }).join('');
+                }
+
+                const annotationHtml = q.example?.annotation
+                    ? `<div style="font-size:0.88rem; color:var(--md-sys-color-on-surface-variant); margin-top:6px; background:rgba(0,104,116,0.06); padding:6px 10px; border-radius:6px;">💡 <strong>句意释义：</strong>${escapeHtml(q.example.annotation)}</div>`
+                    : '';
+
+                return `
+                    <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}">
+                        <div class="settlement-item-header">
+                            <div class="settlement-item-main">
+                                <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
+                                    ${isMistake ? 'cancel' : 'check_circle'}
+                                </span>
+                                <div style="flex:1;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <div>${wordTitle}</div>
+                                        <span class="badge" style="background:var(--md-sys-color-surface-container); color:var(--md-sys-color-on-surface); font-size:0.74rem;">${escapeHtml(q.example?.source || '文言例句')}</span>
+                                    </div>
+                                    <div style="font-size:0.95rem; margin-top:4px; line-height:1.5;">
+                                        ${q.highlightedSentence || escapeHtml(q.example?.sentence || '')}
+                                    </div>
+                                    <div class="settlement-trans-text" style="color:var(--md-sys-color-primary); font-weight:600; margin-top:4px;">
+                                        例句释义：${correctSenseText}
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
+                        </div>
+                        <div class="settlement-item-drawer">
+                            ${annotationHtml}
+                            <div style="font-weight:700; color:var(--md-sys-color-primary); margin:8px 0 4px 0; font-size:0.86rem;">
+                                抽取的释义辨析项（该词其他释义）：
+                            </div>
+                            <div class="distractor-list">
+                                ${optionsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="settlement-summary-card">
+                    <div class="settlement-summary-header">
+                        <div>
+                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组实词小结</h3>
+                            <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">列举本组所有实词及其在对应例句下的释义</p>
+                        </div>
+                        <div class="settlement-filter-group">
+                            <button type="button" class="settlement-filter-btn active" onclick="filterSettlementList('all', this)">全部 (${pool.length})</button>
+                            <button type="button" class="settlement-filter-btn" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
+                        </div>
+                    </div>
+                    <div class="settlement-list md3-scroll-view" id="settlement-list-container">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ========================
+        // 背实词数据与控制器 (ShiCiManager)
+        // ========================
+        let shiciConfig = {
+            order: 'sequential', // 'sequential' or 'random'
+            batchSize: 15
+        };
+
+        let shiciProgress = {
+            currentIndex: 0,
+            learnedWords: {},
+            masteredWords: {}
+        };
+
+        let shiciState = {
+            pool: [],
+            currentIdx: 0,
+            score: 0,
+            total: 0,
+            answered: false
+        };
+
+        function loadShiCiSettings() {
+            try {
+                const cfg = localStorage.getItem('shici_config_' + (currentUser || 'default'));
+                if (cfg) Object.assign(shiciConfig, JSON.parse(cfg));
+            } catch (e) { }
+            try {
+                const prog = localStorage.getItem('shici_progress_' + (currentUser || 'default'));
+                if (prog) Object.assign(shiciProgress, JSON.parse(prog));
+            } catch (e) { }
+        }
+
+        function saveShiCiState() {
+            try {
+                localStorage.setItem('shici_config_' + (currentUser || 'default'), JSON.stringify(shiciConfig));
+                localStorage.setItem('shici_progress_' + (currentUser || 'default'), JSON.stringify(shiciProgress));
+            } catch (e) { }
+        }
+
+        const ShiCiManager = {
+            data: null,
+            loading: false,
+
+            async loadData() {
+                if (this.data && Array.isArray(this.data) && this.data.length > 0) {
+                    return this.data;
+                }
+                this.loading = true;
+
+                // 1. 本地缓存读取
+                try {
+                    const cached = localStorage.getItem('vocab_shici_cache');
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        if (Array.isArray(parsed) && parsed.length >= 300) {
+                            this.data = parsed;
+                            this.loading = false;
+                            return this.data;
+                        }
+                    }
+                } catch (e) { }
+
+                // 2. 候选加载路径
+                const urls = [
+                    './books/实词/实词.json',
+                    'books/实词/实词.json',
+                    `${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`,
+                    'https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json',
+                    'https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json'
+                ];
+
+                for (const u of urls) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 6000);
+                        const res = await fetch(u, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (Array.isArray(json) && json.length > 0) {
+                                this.data = json;
+                                try {
+                                    localStorage.setItem('vocab_shici_cache', JSON.stringify(json));
+                                } catch (e) { }
+                                this.loading = false;
+                                return this.data;
+                            }
+                        }
+                    } catch (err) { }
+                }
+
+                this.loading = false;
+                throw new Error('未能加载实词库文件，请确保 books/实词/实词.json 存在或网络正常！');
+            }
+        };
+
+        function generateShiCiQuestion(wordItem, allWords) {
+            const senses = wordItem.senses || [];
+            if (senses.length === 0) return null;
+
+            // 优先抽取考点★义项或随机义项
+            const starredSenses = senses.filter(s => (s.meaning || '').includes('★'));
+            const sense = (starredSenses.length > 0 && Math.random() < 0.6)
+                ? starredSenses[Math.floor(Math.random() * starredSenses.length)]
+                : senses[Math.floor(Math.random() * senses.length)];
+
+            const examples = sense.examples || [{ sentence: wordItem.word, source: '《文言》' }];
+            const example = examples[Math.floor(Math.random() * examples.length)];
+
+            // 例句考察词加粗
+            let sentence = example.sentence || '';
+            let highlightedSentence = escapeHtml(sentence);
+
+            if (sentence.includes(wordItem.word)) {
+                const reg = new RegExp(escapeRegex(wordItem.word), 'g');
+                highlightedSentence = escapeHtml(sentence).replace(reg, `<strong class="shici-word-highlight">${escapeHtml(wordItem.word)}</strong>`);
+            } else {
+                highlightedSentence = `<strong class="shici-word-highlight">${escapeHtml(wordItem.word)}</strong> · ${escapeHtml(sentence)}`;
+            }
+
+            // 易错项抽取该词的其他释义
+            const otherSenses = senses.filter(s => s !== sense);
+            const pickedDistractors = [];
+
+            const shuffledOther = [...otherSenses].sort(() => 0.5 - Math.random());
+            for (const os of shuffledOther) {
+                if (pickedDistractors.length >= 3) break;
+                pickedDistractors.push(os);
+            }
+
+            // 若该词释义少于4个，库内平滑补全其余选项
+            if (pickedDistractors.length < 3 && Array.isArray(allWords)) {
+                const otherWords = allWords.filter(w => w.word !== wordItem.word).sort(() => 0.5 - Math.random());
+                for (const ow of otherWords) {
+                    if (pickedDistractors.length >= 3) break;
+                    if (ow.senses && ow.senses.length > 0) {
+                        const rs = ow.senses[Math.floor(Math.random() * ow.senses.length)];
+                        const cleanM = (rs.meaning || '').replace(/★/g, '').trim();
+                        const existingMeanings = [
+                            sense.meaning.replace(/★/g, '').trim(),
+                            ...pickedDistractors.map(d => (d.meaning || '').replace(/★/g, '').trim())
+                        ];
+                        if (!existingMeanings.includes(cleanM)) {
+                            pickedDistractors.push(rs);
+                        }
+                    }
+                }
+            }
+
+            const cleanTargetMeaning = (sense.meaning || '').replace(/★/g, '').trim();
+            const correctOption = {
+                pos: sense.part_of_speech || '',
+                meaning: cleanTargetMeaning,
+                isCorrect: true
+            };
+
+            const distractorOptions = pickedDistractors.map(ds => ({
+                pos: ds.part_of_speech || '',
+                meaning: (ds.meaning || '').replace(/★/g, '').trim(),
+                isCorrect: false
+            }));
+
+            const options = [correctOption, ...distractorOptions].sort(() => 0.5 - Math.random());
+            const correctIdx = options.findIndex(o => o.isCorrect);
+
+            return {
+                word: wordItem.word,
+                pinyin: wordItem.pinyin || '',
+                example: example,
+                sentence: sentence,
+                highlightedSentence: highlightedSentence,
+                source: example.source || '文言典籍',
+                sense: sense,
+                options: options,
+                correctIdx: correctIdx,
+                allSenses: senses
+            };
+        }
+
+        async function startShiCiLearning() {
+            loadShiCiSettings();
+            try {
+                showToast('正在加载实词题库...');
+                const allWords = await ShiCiManager.loadData();
+                if (!allWords || allWords.length === 0) {
+                    alert('未获取到实词库数据！');
+                    return;
+                }
+
+                const batchSize = shiciConfig.batchSize || 15;
+                let targetWords = [];
+
+                if (shiciConfig.order === 'sequential') {
+                    let startIdx = shiciProgress.currentIndex || 0;
+                    if (startIdx >= allWords.length) startIdx = 0;
+                    for (let i = 0; i < batchSize; i++) {
+                        const idx = (startIdx + i) % allWords.length;
+                        targetWords.push(allWords[idx]);
+                    }
+                } else {
+                    const unmastered = allWords.filter(w => !shiciProgress.masteredWords || !shiciProgress.masteredWords[w.word]);
+                    const poolSource = unmastered.length >= batchSize ? unmastered : allWords;
+                    targetWords = [...poolSource].sort(() => 0.5 - Math.random()).slice(0, batchSize);
+                }
+
+                const questions = targetWords.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+
+                shiciState = {
+                    pool: questions,
+                    currentIdx: 0,
+                    score: 0,
+                    total: questions.length,
+                    answered: false
+                };
+
+                updateShiCiSettingsModalUi();
+                updateHubShiCiBadge();
+                renderShiCiQuestion();
+                switchView('view-shici');
+            } catch (err) {
+                alert('启动实词学习失败：' + err.message);
+            }
+        }
+
+        function renderShiCiQuestion() {
+            if (!shiciState || shiciState.currentIdx >= shiciState.pool.length) {
+                endShiCiGame();
+                return;
+            }
+
+            const q = shiciState.pool[shiciState.currentIdx];
+            shiciState.answered = false;
+
+            const progressEl = document.getElementById('shici-progress-text');
+            if (progressEl) progressEl.innerText = `${shiciState.currentIdx + 1} / ${shiciState.pool.length}`;
+
+            const fillEl = document.getElementById('shici-progress-fill');
+            if (fillEl) fillEl.style.width = Math.round(((shiciState.currentIdx + 1) / shiciState.pool.length) * 100) + '%';
+
+            const wordTitleEl = document.getElementById('shici-current-word-title');
+            if (wordTitleEl) wordTitleEl.innerText = `${q.word} ${q.pinyin}`;
+
+            const modeBadge = document.getElementById('shici-mode-badge');
+            if (modeBadge) modeBadge.innerText = (shiciConfig.order === 'sequential') ? '顺序学习' : '乱序学习';
+
+            updateShiCiMasterBtn(!!(shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]));
+
+            const sentenceEl = document.getElementById('shici-sentence-display');
+            if (sentenceEl) sentenceEl.innerHTML = q.highlightedSentence;
+
+            const sourceEl = document.getElementById('shici-source-display');
+            if (sourceEl) sourceEl.innerText = `—— ${q.source || '《古文》'}`;
+
+            const optContainer = document.getElementById('shici-options-container');
+            if (optContainer) {
+                const letters = ['A', 'B', 'C', 'D'];
+                optContainer.innerHTML = q.options.map((opt, idx) => `
+                    <button class="shici-opt-btn" id="shici-opt-${idx}" onclick="handleShiCiAnswer(${idx})">
+                        <span class="opt-prefix">${letters[idx]}</span>
+                        ${opt.pos ? `<span class="opt-pos-tag">${escapeHtml(opt.pos)}</span>` : ''}
+                        <span class="opt-meaning-text">${escapeHtml(opt.meaning)}</span>
+                    </button>
+                `).join('');
+            }
+
+            const expCard = document.getElementById('shici-explanation-card');
+            if (expCard) expCard.style.display = 'none';
+
+            const actionBtn = document.getElementById('btn-shici-action');
+            const actionText = document.getElementById('btn-shici-action-text');
+            if (actionBtn) {
+                actionBtn.className = 'single-next-btn show-answer-mode';
+                actionBtn.style.display = 'flex';
+            }
+            if (actionText) actionText.innerText = '看答案';
+        }
+
+        function handleShiCiAnswer(idx) {
+            if (shiciState.answered) return;
+            shiciState.answered = true;
+            const q = shiciState.pool[shiciState.currentIdx];
+            q.userAnswerIdx = idx;
+            q.answered = true;
+
+            const isRight = (idx === q.correctIdx);
+            q.isCorrect = isRight;
+
+            if (isRight) {
+                shiciState.score++;
+                if (!shiciProgress.learnedWords) shiciProgress.learnedWords = {};
+                shiciProgress.learnedWords[q.word] = (shiciProgress.learnedWords[q.word] || 0) + 1;
+            }
+
+            q.options.forEach((opt, i) => {
+                const btn = document.getElementById(`shici-opt-${i}`);
+                if (!btn) return;
+                btn.disabled = true;
+                if (i === q.correctIdx) {
+                    btn.classList.add('correct');
+                }
+            });
+
+            if (!isRight) {
+                const wrongBtn = document.getElementById(`shici-opt-${idx}`);
+                if (wrongBtn) wrongBtn.classList.add('wrong');
+            }
+
+            displayShiCiExplanation(q, isRight);
+
+            const actionBtn = document.getElementById('btn-shici-action');
+            const actionText = document.getElementById('btn-shici-action-text');
+            const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+            if (actionBtn) actionBtn.className = 'single-next-btn';
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        }
+
+        function revealShiCiAnswer() {
+            if (shiciState.answered) return;
+            shiciState.answered = true;
+            const q = shiciState.pool[shiciState.currentIdx];
+            q.userAnswerIdx = -1;
+            q.isCorrect = false;
+            q.skipped = true;
+            q.answered = true;
+
+            q.options.forEach((opt, i) => {
+                const btn = document.getElementById(`shici-opt-${i}`);
+                if (!btn) return;
+                btn.disabled = true;
+                if (i === q.correctIdx) btn.classList.add('correct');
+            });
+
+            displayShiCiExplanation(q, false);
+
+            const actionBtn = document.getElementById('btn-shici-action');
+            const actionText = document.getElementById('btn-shici-action-text');
+            const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+            if (actionBtn) actionBtn.className = 'single-next-btn';
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        }
+
+        function handleShiCiActionClick() {
+            if (!shiciState.answered) {
+                revealShiCiAnswer();
+            } else {
+                nextShiCiQuestion();
+            }
+        }
+
+        function nextShiCiQuestion() {
+            shiciState.currentIdx++;
+            renderShiCiQuestion();
+        }
+
+        function displayShiCiExplanation(q, isRight) {
+            const expCard = document.getElementById('shici-explanation-card');
+            if (!expCard) return;
+            expCard.style.display = 'flex';
+
+            const bannerEl = document.getElementById('shici-feedback-banner');
+            const iconEl = document.getElementById('shici-feedback-icon');
+            const textEl = document.getElementById('shici-feedback-text');
+
+            if (bannerEl) {
+                bannerEl.className = `shici-feedback-banner ${isRight ? 'correct' : 'wrong'}`;
+            }
+            if (iconEl) iconEl.innerText = isRight ? 'check_circle' : 'cancel';
+            if (textEl) textEl.innerText = isRight ? '回答正确！' : (q.skipped ? '已揭晓答案' : '回答错误！');
+
+            const fullMeaningEl = document.getElementById('shici-correct-meaning-full');
+            if (fullMeaningEl) {
+                fullMeaningEl.innerText = `[${q.sense.part_of_speech || ''}] ${q.sense.meaning || ''}`;
+            }
+
+            const annotRow = document.getElementById('shici-annotation-row');
+            const annotContent = document.getElementById('shici-annotation-content');
+            if (q.example && q.example.annotation) {
+                if (annotRow) annotRow.style.display = 'block';
+                if (annotContent) annotContent.innerText = q.example.annotation;
+            } else {
+                if (annotRow) annotRow.style.display = 'block';
+                if (annotContent) annotContent.innerText = `在《${q.source || ''}》中作${q.sense.part_of_speech || '实词'}，意为“${(q.sense.meaning || '').replace(/★/g, '')}”。`;
+            }
+
+            const previewWordEl = document.getElementById('shici-preview-word');
+            if (previewWordEl) previewWordEl.innerText = q.word;
+
+            const allSensesList = document.getElementById('shici-all-senses-list');
+            if (allSensesList && Array.isArray(q.allSenses)) {
+                allSensesList.innerHTML = q.allSenses.map(s => {
+                    const isActive = (s === q.sense);
+                    return `
+                        <div class="shici-sense-item ${isActive ? 'active-sense' : ''}">
+                            <span class="opt-pos-tag">${escapeHtml(s.part_of_speech || '')}</span>
+                            <span style="flex:1; color:${isActive ? '#006874' : 'var(--md-sys-color-on-surface)'};">
+                                ${escapeHtml(s.meaning || '')}
+                            </span>
+                            ${isActive ? '<span class="badge" style="background:#006874; color:#fff; font-size:0.7rem;">当前例句</span>' : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function endShiCiGame() {
+            if (shiciConfig.order === 'sequential') {
+                shiciProgress.currentIndex = ((shiciProgress.currentIndex || 0) + (shiciConfig.batchSize || 15)) % 300;
+            }
+            saveShiCiState();
+            updateHubShiCiBadge();
+
+            gameResult = {
+                mode: 'shici',
+                msg: '已完成本组实词背诵！',
+                p1Score: shiciState.score,
+                p2Score: 0,
+                pool: shiciState.pool,
+                total: shiciState.pool.length
+            };
+            renderResult();
+            switchView('view-result');
+        }
+
+        function confirmExitShiCi() {
+            saveShiCiState();
+            updateHubShiCiBadge();
+            switchView('view-hub');
+        }
+
+        function toggleCurrentShiCiMastered() {
+            if (!shiciState || !shiciState.pool || !shiciState.pool[shiciState.currentIdx]) return;
+            const w = shiciState.pool[shiciState.currentIdx].word;
+            if (!shiciProgress.masteredWords) shiciProgress.masteredWords = {};
+            const isNow = !shiciProgress.masteredWords[w];
+            if (isNow) {
+                shiciProgress.masteredWords[w] = true;
+                showToast(`已将【${w}】标记为熟词`);
+            } else {
+                delete shiciProgress.masteredWords[w];
+                showToast(`已取消【${w}】的熟词标记`);
+            }
+            saveShiCiState();
+            updateShiCiMasterBtn(isNow);
+        }
+
+        function updateShiCiMasterBtn(isMastered) {
+            const btn = document.getElementById('btn-shici-master');
+            const text = document.getElementById('shici-master-btn-text');
+            if (!btn) return;
+            if (isMastered) {
+                btn.className = 'btn btn-filled btn-sm';
+                btn.style.background = 'var(--md-sys-color-success)';
+                btn.style.color = '#fff';
+                if (text) text.innerText = '已掌握';
+            } else {
+                btn.className = 'btn btn-tonal btn-sm';
+                btn.style.background = '';
+                btn.style.color = '';
+                if (text) text.innerText = '熟词';
+            }
+        }
+
+        function openShiCiSettings() {
+            loadShiCiSettings();
+            updateShiCiSettingsModalUi();
+            const modal = document.getElementById('modal-shici-settings');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeShiCiSettings() {
+            const modal = document.getElementById('modal-shici-settings');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function saveShiCiSettings() {
+            saveShiCiState();
+            updateHubShiCiBadge();
+            closeShiCiSettings();
+            showToast('实词设置已保存');
+        }
+
+        function selectShiCiOrderMode(mode) {
+            shiciConfig.order = mode;
+            const seqEl = document.getElementById('chip-shici-seq');
+            const randEl = document.getElementById('chip-shici-rand');
+            if (seqEl) seqEl.classList.toggle('selected', mode === 'sequential');
+            if (randEl) randEl.classList.toggle('selected', mode === 'random');
+            saveShiCiState();
+        }
+
+        function selectShiCiBatch(batch) {
+            shiciConfig.batchSize = batch;
+            document.querySelectorAll('#chips-shici-batch .md3-chip').forEach(c => {
+                c.classList.toggle('selected', parseInt(c.getAttribute('data-val')) === batch);
+            });
+            saveShiCiState();
+        }
+
+        function confirmResetShiCiProgress() {
+            if (confirm('确定要重置背实词的学习进度吗？已学记录和掌握标记将被清除。')) {
+                shiciProgress = {
+                    currentIndex: 0,
+                    learnedWords: {},
+                    masteredWords: {}
+                };
+                saveShiCiState();
+                updateShiCiSettingsModalUi();
+                updateHubShiCiBadge();
+                showToast('实词进度已重置');
+            }
+        }
+
+        function updateShiCiSettingsModalUi() {
+            const seqEl = document.getElementById('chip-shici-seq');
+            const randEl = document.getElementById('chip-shici-rand');
+            if (seqEl) seqEl.classList.toggle('selected', shiciConfig.order === 'sequential');
+            if (randEl) randEl.classList.toggle('selected', shiciConfig.order === 'random');
+
+            document.querySelectorAll('#chips-shici-batch .md3-chip').forEach(c => {
+                c.classList.toggle('selected', parseInt(c.getAttribute('data-val')) === shiciConfig.batchSize);
+            });
+
+            const statEl = document.getElementById('shici-stat-learned');
+            if (statEl) {
+                const count = shiciProgress.learnedWords ? Object.keys(shiciProgress.learnedWords).length : 0;
+                statEl.innerText = count;
+            }
+        }
+
+        function updateHubShiCiBadge() {
+            const badge = document.getElementById('hub-shici-badge');
+            if (badge) {
+                loadShiCiSettings();
+                const count = shiciProgress.learnedWords ? Object.keys(shiciProgress.learnedWords).length : 0;
+                badge.innerText = `已学 ${count} / 300`;
+            }
+        }
+
+        /* ==========================================================================
            12. MD3 系统设置与子页面管理
            ========================================================================== */
         function handleNavClick(dest) {
@@ -14218,7 +15690,7 @@
                         <div class="settings-book-group-header">
                             <div class="settings-book-group-title">
                                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-secondary); font-size:22px;">folder_open</span>
-                                <span>本地词书 · 未归类</span>
+                                <span>未归类</span>
                             </div>
                             <span class="badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface); font-weight:700;">${uncatBooks.length} 本</span>
                         </div>
