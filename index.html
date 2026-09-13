@@ -4988,7 +4988,7 @@
                     <button class="single-next-btn show-answer-mode" id="single-next-btn" onclick="nextSingleQuestion()"
                         style="display: flex;">
                         <span class="material-symbols-rounded" style="font-size:20px;">skip_next</span>
-                        <span class="btn-label-text">跳过</span>
+                        <span class="btn-label-text">看答案</span>
                     </button>
                 </div>
             </div>
@@ -5396,7 +5396,7 @@
                             <button class="btn btn-tonal btn-sm" id="btn-dictation-skip"
                                 onclick="skipDictationQuestion()">
                                 <span class="material-symbols-rounded" style="font-size:18px;">skip_next</span>
-                                <span class="btn-label-text">跳过</span>
+                                <span class="btn-label-text">看答案</span>
                             </button>
                             <button class="btn btn-filled btn-sm" id="btn-dictation-submit"
                                 onclick="submitDictationAnswer()">
@@ -9265,7 +9265,7 @@
             if (nextBtn) {
                 nextBtn.style.display = 'flex';
                 nextBtn.className = 'single-next-btn show-answer-mode';
-                nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">skip_next</span><span class="btn-label-text">跳过</span>';
+                nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">skip_next</span><span class="btn-label-text">看答案</span>';
             }
 
             if (isPhrase) {
@@ -9312,19 +9312,16 @@
 
             updateSingleCardToolbar(q);
 
-            // 显示顶部的英文词组原型大字（粗体绿色）
+            // 【核心修复】：未作答前严禁提前剧透英文，必须隐藏！
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
             if (wordEl) {
-                wordEl.style.display = 'block';
-                wordEl.innerText = q.word;
-                wordEl.style.color = '#15803d'; // 贴合图 2 的墨绿色
-                wordEl.style.fontSize = '2.1rem';
-                wordEl.style.fontWeight = '800';
+                wordEl.style.display = 'none';
+                wordEl.innerText = '';
             }
             if (phoneEl) {
-                phoneEl.innerText = '';
                 phoneEl.style.display = 'none';
+                phoneEl.innerText = '';
             }
 
             const optionsContainer = document.getElementById('single-options');
@@ -9334,14 +9331,14 @@
 
             optionsContainer.innerHTML = `
             <div class="phrase-container">
-                <!-- 释义展示框：完全贴合图 2 的浅灰底圆角框 -->
+                <!-- 仅展示中文释义 -->
                 <div class="phrase-trans-card" style="background:#f1f4f9; border-radius:14px; padding:16px 20px; border:1.5px solid #dce2eb;">
                     <div class="phrase-trans-title" style="font-size:1.45rem; font-weight:800; color:#1e293b;">
                         ${escapeHtml(correctMeaning)}
                     </div>
                 </div>
                 
-                <!-- 拼装槽位行：贴合图 2 的绿底带绿色下划线槽位 -->
+                <!-- 待拼装槽位行 -->
                 <div class="phrase-slots-row" id="single-phrase-slots" style="border:1.5px dashed #cbd5e1; border-radius:16px; padding:12px 10px; background:#fff;">
                     ${targetWords.map((tw, i) => {
                         if (isFixedPhraseToken(tw)) {
@@ -9353,7 +9350,7 @@
                 
                 <div id="single-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
 
-                <!-- 备选词网格卡片 -->
+                <!-- 备选词网格框 -->
                 <div class="phrase-bank-card" style="background:#f8faff; border:1.5px solid #e2e8f0; border-radius:20px; padding:16px;">
                     <div class="phrase-bank-header" style="margin-bottom:14px;">
                         <span style="font-weight:700; color:#475569; font-size:0.9rem;">备选词框：</span>
@@ -9467,26 +9464,7 @@
                 userStats.correct++;
                 singleState.score++;
 
-                const correctMeaning = q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : '');
-                const transTitle = document.querySelector('.phrase-trans-title');
-                if (transTitle) {
-                    transTitle.innerHTML = `<span>${escapeHtml(correctMeaning)}</span>`;
-                }
-                // 仅当开启自动发音时才自动朗读
-                if (singleConfig.autoPlayAudio && navigator.onLine) {
-                    playWordAudio(q.word);
-                }
-
-                if (userStats.mistakes && userStats.mistakes[q.word]) {
-                    delete userStats.mistakes[q.word];
-                }
-                saveCurrentUserData();
-                EbbinghausEngine.recordWord(q.word, q.meaning, q.phone, true);
-                renderCardMasteryDiamonds(q.word, 'gain');
-                if (window.DailyStudyTracker) {
-                    DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
-                }
-
+                // 槽位高亮为正确绿色
                 singlePhraseState.placed.forEach((cid, i) => {
                     const slotEl = document.getElementById(`single-slot-${i}`);
                     if (slotEl && !String(cid).startsWith('__fixed__')) {
@@ -9495,28 +9473,21 @@
                     }
                 });
 
+                // 【核心】：回答正确后，才在顶部展示墨绿色英文完整句
                 const wordEl = document.getElementById('single-word');
-                const phoneEl = document.getElementById('single-phone');
                 if (wordEl) {
                     wordEl.style.display = 'block';
                     wordEl.innerText = q.word;
-                    wordEl.style.color = 'var(--md-sys-color-success)';
-                }
-                if (phoneEl) {
-                    phoneEl.style.display = 'block';
-                    phoneEl.innerText = q.phone || '';
+                    wordEl.style.color = '#15803d';
+                    wordEl.style.fontSize = '2.1rem';
+                    wordEl.style.fontWeight = '800';
                 }
 
                 singleState.answered = true;
                 saveSingleProgress();
-                updateSingleCardToolbar(q); // 解禁发音按钮
+                updateSingleCardToolbar(q); // 解禁发音与熟词按钮
 
-                // 核心：若开启自动发音，在词组拼对后自动朗读发音
-                if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word) {
-                    playWordAudio(q.word);
-                }
-
-
+                // 备选词按钮全部灰显锁定
                 singlePhraseState.chips.forEach(c => {
                     const chipEl = document.getElementById(`single-chip-${c.id}`);
                     if (chipEl) {
@@ -9527,6 +9498,7 @@
                 const clearBtn = document.getElementById('btn-clear-single-phrase');
                 if (clearBtn) clearBtn.disabled = true;
 
+                // 按钮变成蓝色的【下一题 ->】
                 const nextBtn = document.getElementById('single-next-btn');
                 if (nextBtn) {
                     nextBtn.className = 'single-next-btn';
@@ -9624,9 +9596,6 @@
                     <div class="phrase-compare-row" style="display:flex; align-items:center; justify-content:center; gap:8px;">
                         <span class="phrase-compare-badge correct">✓ 正确词组</span>
                         <span class="phrase-compare-text correct">${q.word}</span>
-                        <button type="button" class="btn-audio-speak" onclick="playWordAudio('${escapeHtml(q.word)}')" title="朗读发音">
-                            <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                        </button>
                     </div>
                 `;
                 }
