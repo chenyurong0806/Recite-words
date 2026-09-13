@@ -16,7 +16,7 @@
     "trans": ["作为永恒的见证"]
   },
   {
-    "name": "in the middle of something",
+    "name": "in the middle of sth.",
     "trans": ["中途忙于做某事"]
   },
   {
@@ -324,11 +324,11 @@
     "trans": ["重新走上正轨", "恢复正常，康复"]
   },
   {
-    "name": "throw (someone) a curveball",
+    "name": "throw (sb.) a curveball",
     "trans": ["抛出一个难题/意外障碍"]
   },
   {
-    "name": "take a page from (someone's) book",
+    "name": "take a page from (sb.'s) book",
     "trans": ["借鉴/效仿 (某人的) 方法"]
   },
   {
@@ -344,11 +344,11 @@
     "trans": ["对…感兴趣"]
   },
   {
-    "name": "market (something) as",
-    "trans": ["用作，充当"]
+    "name": "market (sth.) as",
+    "trans": ["将某物作为……来推广/推销"]
   },
   {
-    "name": "keep (someone) on their toes",
+    "name": "keep (sb.) on their toes",
     "trans": ["保持警觉，随时准备"]
   },
   {
@@ -464,7 +464,7 @@
     "trans": ["履行诺言"]
   },
   {
-    "name": "sit on one's hand",
+    "name": "sit on one's hands",
     "trans": ["坐以待毙，袖手旁观，不采取行动"]
   },
   {
@@ -1236,7 +1236,7 @@
     "trans": ["导体"]
   },
   {
-    "beat": "beat",
+    "name": "beat",
     "trans": ["v. （连续地/有节奏地）敲打"]
   },
   {
@@ -1924,7 +1924,7 @@
     "trans": ["进行实验"]
   },
   {
-    "name": "leave something hanging over one's head",
+    "name": "leave sth. hanging over one's head",
     "trans": ["悬而未决"]
   },
   {
@@ -2148,7 +2148,7 @@
     "trans": ["不情愿, 勉强做 ... "]
   },
   {
-    "name": "urge someone to do ... ",
+    "name": "urge sb. to do ... ",
     "trans": ["敦促某人做 ... "]
   },
   {
@@ -2208,7 +2208,7 @@
     "trans": ["历史与文化的交融"]
   },
   {
-    "name": "conduct a research",
+    "name": "conduct research",
     "trans": ["做研究"]
   },
   {
@@ -2240,7 +2240,7 @@
     "trans": ["相反地"]
   },
   {
-    "name": "in comparision with",
+    "name": "in comparison with",
     "trans": ["与 ... 相比"]
   },
   {
@@ -2332,7 +2332,7 @@
     "trans": ["允许做"]
   },
   {
-    "name": "provide guidence on",
+    "name": "provide guidance on",
     "trans": ["提供关于某事的指导或建议"]
   },
   {
@@ -2712,7 +2712,7 @@
     "trans": ["解除某人的负担/责任", "拿走某人携带的东西"]
   },
   {
-    "name": "societal norms",
+    "name": "social norm",
     "trans": ["社会规范"]
   },
   {
@@ -2732,7 +2732,7 @@
     "trans": ["乍一看，初看起来"]
   },
   {
-    "name": "be commited to",
+    "name": "be committed to",
     "trans": ["致力于"]
   },
   {
@@ -2888,8 +2888,8 @@
     "trans": ["试图/设法做 ... "]
   },
   {
-    "name": "relieve Doris of getting mad",
-    "trans": ["使Doris免于生气"]
+    "name": "relieve sb. of sth.",
+    "trans": ["解除某人的负担/职务"]
   },
   {
     "name": "plain citizens",
@@ -3104,8 +3104,8 @@
     "trans": ["自动驾驶汽车"]
   },
   {
-    "name": "entitle this right to Doris",
-    "trans": ["赋予Doris这个权力"]
+    "name": "entitle sb. to this right",
+    "trans": ["赋予某人这个权力"]
   },
   {
     "name": "clearly identifiable",
@@ -3744,7 +3744,7 @@
     "trans": ["adj. 忙个不停的；活跃的"]
   },
   {
-    "name": "a major drives for",
+    "name": "a major drive for",
     "trans": [" ... 的主要驱动力"]
   },
   {
@@ -3760,7 +3760,7 @@
     "trans": ["强烈反抗"]
   },
   {
-    "name": "accuse someone of doing something",
+    "name": "accuse sb. of doing sth.",
     "trans": ["指控某人做某事"]
   },
   {
@@ -3772,7 +3772,7 @@
     "trans": ["澄清"]
   },
   {
-    "name": "deceive someone about something",
+    "name": "deceive sb. about sth.",
     "trans": ["关于某事欺骗某人"]
   },
   {
@@ -3812,7 +3812,7 @@
     "trans": ["依赖；指望"]
   },
   {
-    "name": "award something to someone",
+    "name": "award sth. to sb.",
     "trans": ["将某物授予某人"]
   },
   {
@@ -3828,11 +3828,11 @@
     "trans": ["货币价值"]
   },
   {
-    "name": "prohibit sb. from doing something",
+    "name": "prohibit sb. from doing sth.",
     "trans": ["禁止某人做某事"]
   },
   {
-    "name": "attribute something to something",
+    "name": "attribute sth. to sth.",
     "trans": ["将某事归因于某事"]
   },
   {
@@ -3840,7 +3840,7 @@
     "trans": ["代替"]
   },
   {
-    "name": "assign something to something",
+    "name": "assign sth. to sth.",
     "trans": ["将某物分配给某物；将某事物归因于某事物"]
   },
   {
@@ -4028,7 +4028,7 @@
     "trans": ["陷入；卡在；开始积极做某事"]
   },
   {
-    "name": "integrate something into",
+    "name": "integrate sth. into",
     "trans": ["将某物融入/整合进 ... "]
   },
   {
@@ -4109,11 +4109,11 @@
   },
   {
     "name": "in aid of sb.",
-    "trans": ["为了帮助 ... ."]
+    "trans": ["为了帮助..."]
   },
   {
     "name": "take aim at",
-    "trans": ["对 ... ..瞄准"]
+    "trans": ["对...瞄准"]
   },
   {
     "name": "put on airs",

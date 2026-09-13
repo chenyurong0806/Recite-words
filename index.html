@@ -9360,7 +9360,7 @@
                     </div>
                     <div class="phrase-chips-grid" id="single-phrase-bank" style="gap:10px;">
                         ${singlePhraseState.chips.map(c => `
-                            <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')" style="background:#fff; border-radius:9999px; border:1.5px solid #dce2eb; padding:8px 16px; font-weight:600; font-size:0.95rem;">
+                            <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')">
                                 ${escapeHtml(c.text)}
                             </button>
                         `).join('')}

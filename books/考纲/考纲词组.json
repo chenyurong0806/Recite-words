@@ -684,7 +684,7 @@
     "trans": [ "停止运行", "歇业", "倒闭" ]
   },
   {
-    "name": "have something in common",
+    "name": "have sth. in common",
     "trans": [ "有共同之处" ]
   },
   {
@@ -764,7 +764,7 @@
     "trans": [ "决不" ]
   },
   {
-    "name": "be in (a) good condition",
+    "name": "in good condition",
     "trans": [ "处于好的状态" ]
   },
   {
@@ -1156,7 +1156,11 @@
     "trans": [ "说比做容易" ]
   },
   {
-    "name": "make every effort to do sth. = spare no effort to do sth.",
+    "name": "spare no effort to do sth.",
+    "trans": [ "不遗余力做某事" ]
+  },
+  {
+    "name": "make every effort to do sth.",
     "trans": [ "不遗余力做某事" ]
   },
   {
@@ -1546,10 +1550,6 @@
   {
     "name": "He who does not gain, loses.",
     "trans": [ "逆水行舟，不进则退" ]
-  },
-  {
-    "name": "narrow the gap",
-    "trans": [ "缩小差距" ]
   },
   {
     "name": "bridge the gap",
@@ -3404,7 +3404,7 @@
     "trans": [ "为…打下扎实基础" ]
   },
   {
-    "name": "have something to do with",
+    "name": "have sth. to do with",
     "trans": [ "与…有关" ]
   },
   {
@@ -3862,10 +3862,6 @@
   {
     "name": "threaten sb. with sth.",
     "trans": [ "用某事威胁某人" ]
-  },
-  {
-    "name": "ahead of time",
-    "trans": [ "提前" ]
   },
   {
     "name": "at one time",
@@ -4652,8 +4648,8 @@
     "trans": [ "与某人说句话", "交谈" ]
   },
   {
-    "name": "have words with sb. about sth.",
-    "trans": [ "就某事与某人交谈" ]
+    "name": "have words with sb.",
+    "trans": [ "与某人发生争吵/口角" ]
   },
   {
     "name": "exchange words with sb. about sth.",
