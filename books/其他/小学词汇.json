@@ -1,6 +1,6 @@
 [
     {
-        "name": "a/an",
+        "name": "a  /  an",
         "trans": [
             "一个"
         ]
@@ -38,7 +38,7 @@
     {
         "name": "above",
         "trans": [
-            "在...上面"
+            "在 ... 上面"
         ]
     },
     {
@@ -198,9 +198,9 @@
         ]
     },
     {
-        "name": "actor/actress",
+        "name": "actor  /  actress",
         "trans": [
-            "男演员/女演员"
+            "男演员 / 女演员"
         ]
     },
     {
@@ -306,7 +306,7 @@
         ]
     },
     {
-        "name": "advertisement/ad",
+        "name": "advertisement  /  ad",
         "trans": [
             "广告"
         ]
@@ -426,7 +426,7 @@
         ]
     },
     {
-        "name": "AI/artificial intelligence",
+        "name": "AI  /  artificial intelligence",
         "trans": [
             "人工智能"
         ]
@@ -620,7 +620,7 @@
     {
         "name": "among",
         "trans": [
-            "在...之间"
+            "在 ... 之间"
         ]
     },
     {
@@ -744,7 +744,7 @@
         ]
     },
     {
-        "name": "anybody/anyone",
+        "name": "anybody  /  anyone",
         "trans": [
             "任何人"
         ]
@@ -1068,7 +1068,7 @@
         ]
     },
     {
-        "name": "ATM/Automatic Teller Machine",
+        "name": "ATM  /  Automatic Teller Machine",
         "trans": [
             "自动取款机"
         ]
@@ -1152,9 +1152,9 @@
         ]
     },
     {
-        "name": "auto/automobile",
+        "name": "auto  /  automobile",
         "trans": [
-            "汽车/机动车"
+            "汽车 / 机动车"
         ]
     },
     {
@@ -1170,9 +1170,9 @@
         ]
     },
     {
-        "name": "autumn/fall",
+        "name": "autumn / fall",
         "trans": [
-            "秋天/秋季"
+            "秋天 / 秋季"
         ]
     },
     {
@@ -1562,7 +1562,7 @@
     {
         "name": "before",
         "trans": [
-            "在...之前"
+            "在 ... 之前"
         ]
     },
     {
@@ -1592,7 +1592,7 @@
     {
         "name": "behind",
         "trans": [
-            "在...后面"
+            "在 ... 后面"
         ]
     },
     {
@@ -1628,7 +1628,7 @@
     {
         "name": "below",
         "trans": [
-            "在...下面"
+            "在 ... 下面"
         ]
     },
     {
@@ -1646,7 +1646,7 @@
     {
         "name": "beneath",
         "trans": [
-            "在...下面"
+            "在 ... 下面"
         ]
     },
     {
@@ -1658,13 +1658,13 @@
     {
         "name": "beside",
         "trans": [
-            "在...旁边"
+            "在 ... 旁边"
         ]
     },
     {
         "name": "besides",
         "trans": [
-            "除...之外"
+            "除 ... 之外"
         ]
     },
     {
@@ -1688,7 +1688,7 @@
     {
         "name": "between",
         "trans": [
-            "在...之间"
+            "在 ... 之间"
         ]
     },
     {
@@ -1704,7 +1704,7 @@
         ]
     },
     {
-        "name": "bike/bicycle",
+        "name": "bike / bicycle",
         "trans": [
             "自行车"
         ]
@@ -2100,9 +2100,9 @@
         ]
     },
     {
-        "name": "bride/bridegroom",
+        "name": "bride / bridegroom",
         "trans": [
-            "新娘/新郎"
+            "新娘 / 新郎"
         ]
     },
     {
@@ -2706,9 +2706,9 @@
         ]
     },
     {
-        "name": "chairman/chairwoman",
+        "name": "chairman / chairwoman",
         "trans": [
-            "主席/女主席"
+            "主席 / 女主席"
         ]
     },
     {
@@ -3602,7 +3602,7 @@
     {
         "name": "consist",
         "trans": [
-            "由...组成"
+            "由 ... 组成"
         ]
     },
     {
@@ -4854,13 +4854,13 @@
         ]
     },
     {
-        "name": "do/does",
+        "name": "do / does",
         "trans": [
             "做"
         ]
     },
     {
-        "name": "doctor/Dr.",
+        "name": "doctor / Dr.",
         "trans": [
             "医生"
         ]
@@ -4926,7 +4926,7 @@
         ]
     },
     {
-        "name": "dorm/dormitory",
+        "name": "dorm / dormitory",
         "trans": [
             "宿舍"
         ]
@@ -5108,7 +5108,7 @@
     {
         "name": "during",
         "trans": [
-            "在...期间"
+            "在 ... 期间"
         ]
     },
     {
@@ -5712,9 +5712,9 @@
         ]
     },
     {
-        "name": "everyone/everybody",
+        "name": "everyone / everybody",
         "trans": [
-            "每个人/每个人"
+            "每个人 / 每个人"
         ]
     },
     {
@@ -5742,7 +5742,7 @@
         ]
     },
     {
-        "name": "exam/examination",
+        "name": "exam / examination",
         "trans": [
             "考试"
         ]
@@ -6678,7 +6678,7 @@
         ]
     },
     {
-        "name": "fridge/refrigerator",
+        "name": "fridge / refrigerator",
         "trans": [
             "冰箱"
         ]
@@ -7116,15 +7116,15 @@
         ]
     },
     {
-        "name": "grandchild/grandson/granddaughter",
+        "name": "grandchild / grandson / granddaughter",
         "trans": [
-            "孙子/孙女/外孙女"
+            "孙子 / 孙女 / 外孙女"
         ]
     },
     {
-        "name": "grandfather/grandad/grandpa/grandmother/grandma",
+        "name": "grandfather / grandad / grandpa / grandmother / grandma",
         "trans": [
-            "祖父/爷爷/外公/外婆/奶奶"
+            "祖父 / 爷爷 / 外公 / 外婆 / 奶奶"
         ]
     },
     {
@@ -7302,7 +7302,7 @@
         ]
     },
     {
-        "name": "gym/gymnasium",
+        "name": "gym / gymnasium",
         "trans": [
             "健身房"
         ]
@@ -7494,7 +7494,7 @@
         ]
     },
     {
-        "name": "have/has",
+        "name": "have / has",
         "trans": [
             "有"
         ]
@@ -7842,9 +7842,9 @@
         ]
     },
     {
-        "name": "host/hostess",
+        "name": "host / hostess",
         "trans": [
-            "主人/女主人"
+            "主人 / 女主人"
         ]
     },
     {
@@ -8520,7 +8520,7 @@
         ]
     },
     {
-        "name": "IOT/Internet of things",
+        "name": "IOT / Internet of things",
         "trans": [
             "物联网"
         ]
@@ -8550,7 +8550,7 @@
         ]
     },
     {
-        "name": "IT/information technology",
+        "name": "IT / information technology",
         "trans": [
             "信息技术"
         ]
@@ -8714,7 +8714,7 @@
     {
         "name": "justify",
         "trans": [
-            "证明...的合理性"
+            "证明 ... 的合理性"
         ]
     },
     {
@@ -8772,9 +8772,9 @@
         ]
     },
     {
-        "name": "kilo/kilogramme",
+        "name": "kilo / kilogramme",
         "trans": [
-            "千克/公斤"
+            "千克 / 公斤"
         ]
     },
     {
@@ -8856,7 +8856,7 @@
         ]
     },
     {
-        "name": "lab/laboratory",
+        "name": "lab / laboratory",
         "trans": [
             "实验室"
         ]
@@ -9654,7 +9654,7 @@
         ]
     },
     {
-        "name": "maths/mathematics",
+        "name": "maths / mathematics",
         "trans": [
             "数学"
         ]
@@ -10176,7 +10176,7 @@
         ]
     },
     {
-        "name": "mother/mum",
+        "name": "mother / mum",
         "trans": [
             "母亲"
         ]
@@ -10260,9 +10260,9 @@
         ]
     },
     {
-        "name": "Mr/Mrs/Ms",
+        "name": "Mr / Mrs / Ms",
         "trans": [
-            "先生/夫人"
+            "先生 / 夫人"
         ]
     },
     {
@@ -10928,7 +10928,7 @@
     {
         "name": "onto ",
         "trans": [
-            "到...上面"
+            "到 ... 上面"
         ]
     },
     {
@@ -11430,13 +11430,13 @@
         ]
     },
     {
-        "name": "PC/personal computer",
+        "name": "PC / personal computer",
         "trans": [
             "个人电脑"
         ]
     },
     {
-        "name": "PE/physical education",
+        "name": "PE / physical education",
         "trans": [
             "体育教育"
         ]
@@ -11616,7 +11616,7 @@
         ]
     },
     {
-        "name": "phone/telephone",
+        "name": "phone / telephone",
         "trans": [
             "电话"
         ]
@@ -11766,7 +11766,7 @@
         ]
     },
     {
-        "name": "plane/aeroplane",
+        "name": "plane / aeroplane",
         "trans": [
             "飞机"
         ]
@@ -13650,7 +13650,7 @@
         ]
     },
     {
-        "name": "salesman/saleswoman/salesperson",
+        "name": "salesman / saleswoman / salesperson",
         "trans": [
             "推销员"
         ]
@@ -14682,9 +14682,9 @@
         ]
     },
     {
-        "name": "somebody/someone",
+        "name": "somebody / someone",
         "trans": [
-            "某人/有人"
+            "某人 / 有人"
         ]
     },
     {
@@ -15846,7 +15846,7 @@
         ]
     },
     {
-        "name": "television/TV",
+        "name": "television / TV",
         "trans": [
             "电视"
         ]
@@ -16748,7 +16748,7 @@
     {
         "name": "under",
         "trans": [
-            "在...下"
+            "在 ... 下"
         ]
     },
     {
@@ -16854,7 +16854,7 @@
         ]
     },
     {
-        "name": "until/till",
+        "name": "until / till",
         "trans": [
             "直到"
         ]
@@ -16880,7 +16880,7 @@
     {
         "name": "upon",
         "trans": [
-            "在...上面"
+            "在 ... 上面"
         ]
     },
     {

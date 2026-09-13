@@ -1,15 +1,15 @@
 [
   {
     "name": "a great drain on sth.",
-    "trans": ["对...巨大的消耗"]
+    "trans": ["对 ... 巨大的消耗"]
   },
   {
     "name": "account for",
     "trans": ["说明", "解释"]
   },
   {
-    "name": "accuse ... of ...",
-    "trans": ["指控...", "谴责..."]
+    "name": "accuse ... of ... ",
+    "trans": ["指控 ... ", "谴责 ... "]
   },
   {
     "name": "act as",
@@ -33,23 +33,23 @@
   },
   {
     "name": "admit ... to",
-    "trans": ["准许...进入"]
+    "trans": ["准许 ... 进入"]
   },
   {
     "name": "admit ... into",
-    "trans": ["准许...进入"]
+    "trans": ["准许 ... 进入"]
   },
   {
     "name": "agree on",
-    "trans": ["就...取得一致"]
+    "trans": ["就 ... 取得一致"]
   },
   {
     "name": "agree to",
     "trans": ["同意某人观点、意见"]
   },
   {
-    "name": "agree with ...",
-    "trans": ["同意...的意见", "适合"]
+    "name": "agree with ... ",
+    "trans": ["同意 ... 的意见", "适合"]
   },
   {
     "name": "ahead of time",
@@ -68,8 +68,8 @@
     "trans": ["呼吁", "吸引"]
   },
   {
-    "name": "apply ... to ...",
-    "trans": ["把...应用于..."]
+    "name": "apply ... to ... ",
+    "trans": ["把 ... 应用于 ... "]
   },
   {
     "name": "apply for",
@@ -93,7 +93,7 @@
   },
   {
     "name": "as far as",
-    "trans": ["就...而言", "远到...", "到...程度(表示程度,范围)"]
+    "trans": ["就 ... 而言", "远到 ... ", "到 ... 程度(表示程度,范围)"]
   },
   {
     "name": "as usual",
@@ -101,7 +101,7 @@
   },
   {
     "name": "ask a favor of",
-    "trans": ["请...帮个忙"]
+    "trans": ["请 ... 帮个忙"]
   },
   {
     "name": "ask about",
@@ -117,7 +117,7 @@
   },
   {
     "name": "assure ... of",
-    "trans": ["向...保证"]
+    "trans": ["向 ... 保证"]
   },
   {
     "name": "at a loss",
@@ -145,11 +145,11 @@
   },
   {
     "name": "at the cost of",
-    "trans": ["以...为代价"]
+    "trans": ["以 ... 为代价"]
   },
   {
     "name": "at the mercy of",
-    "trans": ["任由...摆布"]
+    "trans": ["任由 ... 摆布"]
   },
   {
     "name": "at the moment",
@@ -165,7 +165,7 @@
   },
   {
     "name": "attach to",
-    "trans": ["把...依附于"]
+    "trans": ["把 ... 依附于"]
   },
   {
     "name": "attach importance to",
@@ -176,16 +176,16 @@
     "trans": ["授予某人某物"]
   },
   {
-    "name": "base ... on ...",
-    "trans": ["把...放在...的基础上"]
+    "name": "base ... on ... ",
+    "trans": ["把 ... 放在 ... 的基础上"]
   },
   {
     "name": "be absent from",
     "trans": ["缺席"]
   },
   {
-    "name": "be absorbed in ...",
-    "trans": ["全神贯注于..."]
+    "name": "be absorbed in ... ",
+    "trans": ["全神贯注于 ... "]
   },
   {
     "name": "be accustomed to doing",
@@ -204,8 +204,8 @@
     "trans": ["有能力"]
   },
   {
-    "name": "be composed of ...",
-    "trans": ["由...组成"]
+    "name": "be composed of ... ",
+    "trans": ["由 ... 组成"]
   },
   {
     "name": "be concerned about",
@@ -213,7 +213,7 @@
   },
   {
     "name": "be confident of",
-    "trans": ["对...有信心"]
+    "trans": ["对 ... 有信心"]
   },
   {
     "name": "be considerate of sb. to do sth.",
@@ -221,11 +221,11 @@
   },
   {
     "name": "be contrary to",
-    "trans": ["与...相反"]
+    "trans": ["与 ... 相反"]
   },
   {
     "name": "be curious about",
-    "trans": ["对...好奇"]
+    "trans": ["对 ... 好奇"]
   },
   {
     "name": "be determined to do",
@@ -233,7 +233,7 @@
   },
   {
     "name": "be down with",
-    "trans": ["由于...病倒了"]
+    "trans": ["由于 ... 病倒了"]
   },
   {
     "name": "be engaged in",
@@ -241,7 +241,7 @@
   },
   {
     "name": "be equal to",
-    "trans": ["与...相等"]
+    "trans": ["与 ... 相等"]
   },
   {
     "name": "be exposed to",
@@ -249,23 +249,23 @@
   },
   {
     "name": "be faced with sth.",
-    "trans": ["面对..."]
+    "trans": ["面对 ... "]
   },
   {
     "name": "be familiar with",
-    "trans": ["对...熟悉"]
+    "trans": ["对 ... 熟悉"]
   },
   {
     "name": "be fed up with",
-    "trans": ["对...厌烦"]
+    "trans": ["对 ... 厌烦"]
   },
   {
     "name": "be fit for",
-    "trans": ["适合..."]
+    "trans": ["适合 ... "]
   },
   {
     "name": "be free from",
-    "trans": ["没有...的"]
+    "trans": ["没有 ... 的"]
   },
   {
     "name": "be grateful to sb. for sth.",
@@ -281,7 +281,7 @@
   },
   {
     "name": "be in favour of",
-    "trans": ["支持(赞成)..."]
+    "trans": ["支持(赞成) ... "]
   },
   {
     "name": "be independent of",
@@ -293,7 +293,7 @@
   },
   {
     "name": "be inferior to",
-    "trans": ["较低于,与...相比不如"]
+    "trans": ["较低于,与 ... 相比不如"]
   },
   {
     "name": "be involved in",
@@ -325,7 +325,7 @@
   },
   {
     "name": "be particular about",
-    "trans": ["对...挑剔"]
+    "trans": ["对 ... 挑剔"]
   },
   {
     "name": "be popular with",
@@ -341,23 +341,23 @@
   },
   {
     "name": "be qualified for",
-    "trans": ["可胜任..."]
+    "trans": ["可胜任 ... "]
   },
   {
     "name": "be related to",
-    "trans": ["与...相关"]
+    "trans": ["与 ... 相关"]
   },
   {
-    "name": "be resistant to ...",
-    "trans": ["对...有抵抗能力"]
+    "name": "be resistant to ... ",
+    "trans": ["对 ... 有抵抗能力"]
   },
   {
     "name": "be responsible for",
-    "trans": ["对...负责任"]
+    "trans": ["对 ... 负责任"]
   },
   {
     "name": "be satisfied with",
-    "trans": ["对...感到满意"]
+    "trans": ["对 ... 感到满意"]
   },
   {
     "name": "be second to none",
@@ -369,19 +369,19 @@
   },
   {
     "name": "be similar to",
-    "trans": ["与...相似"]
+    "trans": ["与 ... 相似"]
   },
   {
     "name": "be strict with",
-    "trans": ["对...严格"]
+    "trans": ["对 ... 严格"]
   },
   {
     "name": "be suitable for",
-    "trans": ["适合..."]
+    "trans": ["适合 ... "]
   },
   {
     "name": "be superior to",
-    "trans": ["优于..."]
+    "trans": ["优于 ... "]
   },
   {
     "name": "be sure of",
@@ -389,23 +389,23 @@
   },
   {
     "name": "be worried about",
-    "trans": ["为...担心"]
+    "trans": ["为 ... 担心"]
   },
   {
     "name": "be used to",
-    "trans": ["习惯于..."]
+    "trans": ["习惯于 ... "]
   },
   {
     "name": "get used to",
-    "trans": ["习惯于..."]
+    "trans": ["习惯于 ... "]
   },
   {
     "name": "bear ... in mind",
-    "trans": ["把...牢记在心"]
+    "trans": ["把 ... 牢记在心"]
   },
   {
     "name": "begin with",
-    "trans": ["由...开始"]
+    "trans": ["由 ... 开始"]
   },
   {
     "name": "behave oneself",
@@ -413,7 +413,7 @@
   },
   {
     "name": "believe in",
-    "trans": ["信仰", "对...有信心"]
+    "trans": ["信仰", "对 ... 有信心"]
   },
   {
     "name": "believe it or not",
@@ -437,7 +437,7 @@
   },
   {
     "name": "blame ... for",
-    "trans": ["因...责备某人"]
+    "trans": ["因 ... 责备某人"]
   },
   {
     "name": "break away from",
@@ -465,7 +465,7 @@
   },
   {
     "name": "bring ... to life",
-    "trans": ["使...苏醒"]
+    "trans": ["使 ... 苏醒"]
   },
   {
     "name": "bring about",
@@ -485,7 +485,7 @@
   },
   {
     "name": "burst into",
-    "trans": ["突然发作", "突然...起来"]
+    "trans": ["突然发作", "突然 ... 起来"]
   },
   {
     "name": "by accident",
@@ -604,8 +604,8 @@
     "trans": ["澄清", "(天气)变晴"]
   },
   {
-    "name": "combine ... with ...",
-    "trans": ["把...和...结合起来"]
+    "name": "combine ... with ... ",
+    "trans": ["把 ... 和 ... 结合起来"]
   },
   {
     "name": "come across",
@@ -677,11 +677,11 @@
   },
   {
     "name": "compete with",
-    "trans": ["与...相竞争"]
+    "trans": ["与 ... 相竞争"]
   },
   {
     "name": "concentrate on",
-    "trans": ["集中精力在..."]
+    "trans": ["集中精力在 ... "]
   },
   {
     "name": "conduct a survey",
@@ -697,15 +697,15 @@
   },
   {
     "name": "consider ... as",
-    "trans": ["把...看作"]
+    "trans": ["把 ... 看作"]
   },
   {
     "name": "consider ... to be",
-    "trans": ["把...看作"]
+    "trans": ["把 ... 看作"]
   },
   {
     "name": "consist of",
-    "trans": ["由...组成"]
+    "trans": ["由 ... 组成"]
   },
   {
     "name": "contribute to",
@@ -757,27 +757,27 @@
   },
   {
     "name": "differ from",
-    "trans": ["与...不同"]
+    "trans": ["与 ... 不同"]
   },
   {
-    "name": "distinguish ... from...",
-    "trans": ["把...区别于..."]
+    "name": "distinguish ... from ... ",
+    "trans": ["把 ... 区别于 ... "]
   },
   {
     "name": "divide ... into",
-    "trans": ["把...分成"]
+    "trans": ["把 ... 分成"]
   },
   {
     "name": "do harm to",
-    "trans": ["对...有害处"]
+    "trans": ["对 ... 有害处"]
   },
   {
     "name": "do good to",
-    "trans": ["对...有好处"]
+    "trans": ["对 ... 有好处"]
   },
   {
     "name": "do nothing but do",
-    "trans": ["除了...什么也不做"]
+    "trans": ["除了 ... 什么也不做"]
   },
   {
     "name": "draw a conclusion",
@@ -821,7 +821,7 @@
   },
   {
     "name": "end up with",
-    "trans": ["以...告终"]
+    "trans": ["以 ... 告终"]
   },
   {
     "name": "enter for",
@@ -833,15 +833,15 @@
   },
   {
     "name": "entertain sb. with sth.",
-    "trans": ["用...来招待某人"]
+    "trans": ["用 ... 来招待某人"]
   },
   {
     "name": "equip sb. with sth.",
-    "trans": ["用...来装备某人"]
+    "trans": ["用 ... 来装备某人"]
   },
   {
     "name": "escape from",
-    "trans": ["从...逃离"]
+    "trans": ["从 ... 逃离"]
   },
   {
     "name": "ever since",
@@ -856,7 +856,7 @@
     "trans": ["勇敢面对"]
   },
   {
-    "name": "fall in love with ...",
+    "name": "fall in love with ... ",
     "trans": ["爱上某人"]
   },
   {
@@ -873,7 +873,7 @@
   },
   {
     "name": "fight against",
-    "trans": ["与...斗争"]
+    "trans": ["与 ... 斗争"]
   },
   {
     "name": "figure out",
@@ -881,7 +881,7 @@
   },
   {
     "name": "fill ... with",
-    "trans": ["用...充满"]
+    "trans": ["用 ... 充满"]
   },
   {
     "name": "find an excuse",
@@ -889,7 +889,7 @@
   },
   {
     "name": "find fault with",
-    "trans": ["挑...毛病"]
+    "trans": ["挑 ... 毛病"]
   },
   {
     "name": "fit in with",
@@ -913,11 +913,11 @@
   },
   {
     "name": "for the sake of",
-    "trans": ["为了...利益"]
+    "trans": ["为了 ... 利益"]
   },
   {
     "name": "forgive sb. for",
-    "trans": ["因...而原谅某人"]
+    "trans": ["因 ... 而原谅某人"]
   },
   {
     "name": "form the habit of",
@@ -949,7 +949,7 @@
   },
   {
     "name": "get over",
-    "trans": ["克服", "从...恢复过来"]
+    "trans": ["克服", "从 ... 恢复过来"]
   },
   {
     "name": "get through with",
@@ -957,7 +957,7 @@
   },
   {
     "name": "give ... a lift",
-    "trans": ["给...搭便车"]
+    "trans": ["给 ... 搭便车"]
   },
   {
     "name": "give away",
@@ -981,7 +981,7 @@
   },
   {
     "name": "give way to",
-    "trans": ["让位于,对...让步"]
+    "trans": ["让位于,对 ... 让步"]
   },
   {
     "name": "glance at",
@@ -1005,11 +1005,11 @@
   },
   {
     "name": "go with",
-    "trans": ["伴随", "与...协调"]
+    "trans": ["伴随", "与 ... 协调"]
   },
   {
     "name": "graduate from",
-    "trans": ["从...毕业"]
+    "trans": ["从 ... 毕业"]
   },
   {
     "name": "hand out",
@@ -1021,23 +1021,23 @@
   },
   {
     "name": "have a gift for",
-    "trans": ["有...的天赋"]
+    "trans": ["有 ... 的天赋"]
   },
   {
     "name": "have a talent for",
-    "trans": ["有...的天赋"]
+    "trans": ["有 ... 的天赋"]
   },
   {
     "name": "have a genius for",
-    "trans": ["有...的天赋"]
+    "trans": ["有 ... 的天赋"]
   },
   {
     "name": "have a good opinion of",
-    "trans": ["对...评价高"]
+    "trans": ["对 ... 评价高"]
   },
   {
     "name": "have a poor opinion of",
-    "trans": ["对...评价低"]
+    "trans": ["对 ... 评价低"]
   },
   {
     "name": "have a good command of",
@@ -1053,7 +1053,7 @@
   },
   {
     "name": "have a word with sb.",
-    "trans": ["和...说话"]
+    "trans": ["和 ... 说话"]
   },
   {
     "name": "have access to",
@@ -1061,19 +1061,19 @@
   },
   {
     "name": "have an effect on",
-    "trans": ["对...有影响、效果"]
+    "trans": ["对 ... 有影响、效果"]
   },
   {
     "name": "have faith in",
-    "trans": ["对...有信心"]
+    "trans": ["对 ... 有信心"]
   },
   {
     "name": "have confidence in",
-    "trans": ["对...有信心"]
+    "trans": ["对 ... 有信心"]
   },
   {
     "name": "have influence on",
-    "trans": ["对...有影响"]
+    "trans": ["对 ... 有影响"]
   },
   {
     "name": "have no choice but to do",
@@ -1089,7 +1089,7 @@
   },
   {
     "name": "have trouble with",
-    "trans": ["...有困难"]
+    "trans": [" ... 有困难"]
   },
   {
     "name": "head for",
@@ -1117,11 +1117,11 @@
   },
   {
     "name": "in (the) presence of",
-    "trans": ["当着...的面"]
+    "trans": ["当着 ... 的面"]
   },
   {
     "name": "in (the) face of",
-    "trans": ["当着...的面"]
+    "trans": ["当着 ... 的面"]
   },
   {
     "name": "in a loud voice",
@@ -1161,11 +1161,11 @@
   },
   {
     "name": "in common with",
-    "trans": ["和...有共同之处"]
+    "trans": ["和 ... 有共同之处"]
   },
   {
     "name": "in danger of",
-    "trans": ["处于...的危险中"]
+    "trans": ["处于 ... 的危险中"]
   },
   {
     "name": "in detail",
@@ -1177,7 +1177,7 @@
   },
   {
     "name": "in honour of",
-    "trans": ["向...表示敬意", "为纪念..."]
+    "trans": ["向 ... 表示敬意", "为纪念 ... "]
   },
   {
     "name": "in line",
@@ -1237,7 +1237,7 @@
   },
   {
     "name": "in search of",
-    "trans": ["对...的搜寻"]
+    "trans": ["对 ... 的搜寻"]
   },
   {
     "name": "in short",
@@ -1249,15 +1249,15 @@
   },
   {
     "name": "in terms of",
-    "trans": ["在...方面,就...而言,用...的字眼"]
+    "trans": ["在 ... 方面,就 ... 而言,用 ... 的字眼"]
   },
   {
     "name": "in the course of",
-    "trans": ["在...的过程中"]
+    "trans": ["在 ... 的过程中"]
   },
   {
     "name": "in the form of",
-    "trans": ["以...的形式"]
+    "trans": ["以 ... 的形式"]
   },
   {
     "name": "in the meantime",
@@ -1268,7 +1268,7 @@
     "trans": ["使用着"]
   },
   {
-    "name": "inform ... of ...",
+    "name": "inform ... of ... ",
     "trans": ["通知某人某事"]
   },
   {
@@ -1281,11 +1281,11 @@
   },
   {
     "name": "judge from",
-    "trans": ["从...判断"]
+    "trans": ["从 ... 判断"]
   },
   {
     "name": "keep ... at a distance",
-    "trans": ["与...保持距离"]
+    "trans": ["与 ... 保持距离"]
   },
   {
     "name": "keep ... doing",
@@ -1301,7 +1301,7 @@
   },
   {
     "name": "keep in contact with",
-    "trans": ["与...保持联系"]
+    "trans": ["与 ... 保持联系"]
   },
   {
     "name": "keep off",
@@ -1317,7 +1317,7 @@
   },
   {
     "name": "keep pace with",
-    "trans": ["跟上...的步伐,与...齐头并进"]
+    "trans": ["跟上 ... 的步伐,与 ... 齐头并进"]
   },
   {
     "name": "keep sb. company",
@@ -1353,7 +1353,7 @@
   },
   {
     "name": "lay a foundation for",
-    "trans": ["为...奠定基础"]
+    "trans": ["为 ... 奠定基础"]
   },
   {
     "name": "lay emphasis on",
@@ -1389,11 +1389,11 @@
   },
   {
     "name": "learn a lesson from",
-    "trans": ["从...中吸取教训"]
+    "trans": ["从 ... 中吸取教训"]
   },
   {
     "name": "draw a lesson from",
-    "trans": ["从...中吸取教训"]
+    "trans": ["从 ... 中吸取教训"]
   },
   {
     "name": "leave ... alone",
@@ -1513,7 +1513,7 @@
   },
   {
     "name": "make arrangements for",
-    "trans": ["为...安排"]
+    "trans": ["为 ... 安排"]
   },
   {
     "name": "make comments on",
@@ -1525,11 +1525,11 @@
   },
   {
     "name": "make contact with",
-    "trans": ["与...取得联系"]
+    "trans": ["与 ... 取得联系"]
   },
   {
     "name": "make contributions to",
-    "trans": ["对...作贡献"]
+    "trans": ["对 ... 作贡献"]
   },
   {
     "name": "make out",
@@ -1604,7 +1604,7 @@
     "trans": ["迫使某人做某事"]
   },
   {
-    "name": "observe the regulations/rules",
+    "name": "observe the regulations / rules",
     "trans": ["遵守规则"]
   },
   {
@@ -1665,7 +1665,7 @@
   },
   {
     "name": "on the way to",
-    "trans": ["在去...的路上"]
+    "trans": ["在去 ... 的路上"]
   },
   {
     "name": "on the whole",
@@ -1765,7 +1765,7 @@
   },
   {
     "name": "play a part(in)",
-    "trans": ["(在...中)起作用"]
+    "trans": ["(在 ... 中)起作用"]
   },
   {
     "name": "point at",
@@ -1785,15 +1785,15 @@
   },
   {
     "name": "put ... into practice",
-    "trans": ["将...付诸实施"]
+    "trans": ["将 ... 付诸实施"]
   },
   {
     "name": "put ... into words",
-    "trans": ["用言辞表达..."]
+    "trans": ["用言辞表达 ... "]
   },
   {
     "name": "put away",
-    "trans": ["把...收起", "放好"]
+    "trans": ["把 ... 收起", "放好"]
   },
   {
     "name": "put down",
@@ -1809,7 +1809,7 @@
   },
   {
     "name": "put pressure on",
-    "trans": ["对...施加压力"]
+    "trans": ["对 ... 施加压力"]
   },
   {
     "name": "put through",
@@ -1825,7 +1825,7 @@
   },
   {
     "name": "range (in) ... from ... to",
-    "trans": ["(在某方面)从...到...不等"]
+    "trans": ["(在某方面)从 ... 到 ... 不等"]
   },
   {
     "name": "rather than",
@@ -1833,11 +1833,11 @@
   },
   {
     "name": "reach out for",
-    "trans": ["伸出手拿..."]
+    "trans": ["伸出手拿 ... "]
   },
   {
     "name": "recover from",
-    "trans": ["从...中恢复"]
+    "trans": ["从 ... 中恢复"]
   },
   {
     "name": "refer to",
@@ -1845,7 +1845,7 @@
   },
   {
     "name": "regard ... as",
-    "trans": ["把...看作"]
+    "trans": ["把 ... 看作"]
   },
   {
     "name": "regardless of",
@@ -1853,7 +1853,7 @@
   },
   {
     "name": "remind sb. of sth.",
-    "trans": ["提醒某人..."]
+    "trans": ["提醒某人 ... "]
   },
   {
     "name": "replace A with B",
@@ -1861,7 +1861,7 @@
   },
   {
     "name": "respond to",
-    "trans": ["对...作反应"]
+    "trans": ["对 ... 作反应"]
   },
   {
     "name": "result from",
@@ -1872,7 +1872,7 @@
     "trans": ["导致、引起"]
   },
   {
-    "name": "reward ... with ...",
+    "name": "reward ... with ... ",
     "trans": ["用某物回报某人"]
   },
   {
@@ -1905,7 +1905,7 @@
   },
   {
     "name": "serve as",
-    "trans": ["充当,起...作用"]
+    "trans": ["充当,起 ... 作用"]
   },
   {
     "name": "set ... free",
@@ -1921,7 +1921,7 @@
   },
   {
     "name": "set aside",
-    "trans": ["留出,拨出", "把...置于一旁"]
+    "trans": ["留出,拨出", "把 ... 置于一旁"]
   },
   {
     "name": "set off",
@@ -1941,11 +1941,11 @@
   },
   {
     "name": "shortly after",
-    "trans": ["在...后不久"]
+    "trans": ["在 ... 后不久"]
   },
   {
     "name": "soon after",
-    "trans": ["在...后不久"]
+    "trans": ["在 ... 后不久"]
   },
   {
     "name": "show up",
@@ -2009,11 +2009,11 @@
   },
   {
     "name": "succeed in",
-    "trans": ["在...上成功"]
+    "trans": ["在 ... 上成功"]
   },
   {
     "name": "suffer from",
-    "trans": ["承受...之苦", "患病"]
+    "trans": ["承受 ... 之苦", "患病"]
   },
   {
     "name": "supply sb. with sth.",
@@ -2037,7 +2037,7 @@
   },
   {
     "name": "take ... as an example",
-    "trans": ["举...为例"]
+    "trans": ["举 ... 为例"]
   },
   {
     "name": "take ... for granted",
@@ -2093,7 +2093,7 @@
   },
   {
     "name": "take pride in",
-    "trans": ["以...为荣"]
+    "trans": ["以 ... 为荣"]
   },
   {
     "name": "take shape",
@@ -2137,7 +2137,7 @@
   },
   {
     "name": "thank ... for",
-    "trans": ["因...而感谢"]
+    "trans": ["因 ... 而感谢"]
   },
   {
     "name": "thanks to",
@@ -2145,7 +2145,7 @@
   },
   {
     "name": "think of ... as",
-    "trans": ["把...看作"]
+    "trans": ["把 ... 看作"]
   },
   {
     "name": "throw light on",
@@ -2169,7 +2169,7 @@
   },
   {
     "name": "treat ... as",
-    "trans": ["把...看作"]
+    "trans": ["把 ... 看作"]
   },
   {
     "name": "try out",
@@ -2177,7 +2177,7 @@
   },
   {
     "name": "turn a blind eye to",
-    "trans": ["对...熟视无睹"]
+    "trans": ["对 ... 熟视无睹"]
   },
   {
     "name": "turn down",
@@ -2261,7 +2261,7 @@
   },
   {
     "name": "with the rise of",
-    "trans": ["随着...的兴起/提高"]
+    "trans": ["随着 ... 的兴起/提高"]
   },
   {
     "name": "within one's reach",

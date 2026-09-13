@@ -640,18 +640,6 @@
             font-size: 16px;
         }
         /* 词汇掌握度 5 颗菱形：无外框、无背景、纯净胶囊内嵌排版 */
-        .mastery-stars-bar {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-            margin: 0 0 0 2px !important;
-            user-select: none;
-        }
-
         .mastery-diamond {
             font-size: 14px;
             line-height: 1;
@@ -662,6 +650,27 @@
 
         .mastery-diamond.filled {
             color: #EAA000; /* 闪耀金黄色 */
+        }
+
+        /* 为单个菱形定制逐帧跳动 */
+        .mastery-diamond.anim-gain {
+            animation: singleDiamondPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .mastery-diamond.anim-loss {
+            animation: singleDiamondDrop 0.35s ease-out forwards;
+        }
+
+        @keyframes singleDiamondPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); color: #FFB300; }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes singleDiamondDrop {
+            0%, 100% { transform: translateX(0); }
+            30% { transform: translateX(-3px); }
+            70% { transform: translateX(3px); }
         }
 
         /* 减弱加星动画效果（微量缩放，温和不晃眼） */
@@ -3942,12 +3951,12 @@
         .settings-book-item-card {
             display: flex;
             flex-direction: column;
-            padding: 16px 20px;
+            padding: 14px 16px;
             background: #f8faff;
             border: 1.5px solid #e2e8f0;
             border-radius: 16px;
             margin-bottom: 12px;
-            transition: all 0.2s ease;
+            box-sizing: border-box;
         }
 
         .settings-book-item-card:last-child {
@@ -3961,20 +3970,49 @@
             gap: 12px;
         }
 
+        .settings-book-item-info {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
         .settings-book-item-title-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
             margin-bottom: 6px;
         }
 
         .settings-book-item-name {
-            font-size: 1.02rem;
+            font-size: 0.98rem;
             font-weight: 700;
             color: #1e293b;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            word-break: break-word;
+            white-space: normal; /* 允许正常按单词换行，禁止强制单字竖排 */
+        }
+
+        @media (max-width: 600px) {
+            .settings-book-item-main {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .settings-book-item-actions {
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                width: 100%;
+                gap: 8px;
+            }
+
+            .settings-book-item-actions .settings-book-item-btn {
+                flex: 1;
+                justify-content: center;
+                padding: 0 10px;
+                height: 34px;
+                font-size: 0.82rem;
+            }
         }
 
         .settings-book-item-tag {
@@ -5908,7 +5946,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v1.9.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v1.9.2</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -8251,41 +8289,48 @@
             const bar = document.getElementById('single-mastery-stars');
             if (!bar) return;
 
-            let stage = 0;
+            let targetStage = 0;
             if (word) {
                 if (isWordMastered(word)) {
-                    stage = 5;
+                    targetStage = 5;
                 } else {
                     const records = EbbinghausEngine.getRecords();
                     const rec = records[word.trim().toLowerCase()];
                     if (rec && typeof rec.stage === 'number') {
-                        stage = rec.stage;
+                        targetStage = rec.stage;
                     }
                 }
             }
 
-            // 设置 5 颗菱形的填充状态
             for (let i = 1; i <= 5; i++) {
                 const star = document.getElementById(`mastery-star-${i}`);
-                if (star) {
-                    if (i <= stage) {
-                        star.innerText = '◆';
-                        star.classList.add('filled');
-                    } else {
-                        star.innerText = '◇';
-                        star.classList.remove('filled');
-                    }
-                }
-            }
+                if (!star) continue;
 
-            // 触发平缓的动画效果
-            bar.classList.remove('star-gain-anim', 'star-loss-anim');
-            if (animType === 'gain') {
-                void bar.offsetWidth;
-                bar.classList.add('star-gain-anim');
-            } else if (animType === 'loss') {
-                void bar.offsetWidth;
-                bar.classList.add('star-loss-anim');
+                star.classList.remove('anim-gain', 'anim-loss');
+
+                const wasFilled = star.classList.contains('filled');
+                const willFill = i <= targetStage;
+
+                if (willFill) {
+                    star.innerText = '◆';
+                    star.classList.add('filled');
+                } else {
+                    star.innerText = '◇';
+                    star.classList.remove('filled');
+                }
+
+                // 仅对产生变化的菱形添加动画，若多颗连增则加入渐进 delay
+                if (animType === 'gain' && willFill && !wasFilled) {
+                    void star.offsetWidth; // 触发 reflow 重置动画
+                    star.style.animationDelay = `${(i - 1) * 80}ms`;
+                    star.classList.add('anim-gain');
+                } else if (animType === 'loss' && !willFill && wasFilled) {
+                    void star.offsetWidth;
+                    star.style.animationDelay = `${(5 - i) * 60}ms`;
+                    star.classList.add('anim-loss');
+                } else {
+                    star.style.animationDelay = '0ms';
+                }
             }
         }
 
@@ -8479,11 +8524,14 @@
             try {
                 const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
                 const learnedMap = EbbinghausEngine.getRecords();
+                
+                // 核心修改：严格排除已经学过的词（已在记忆库中且 stage >= 1）以及熟词
                 const candidateWords = words.filter(w => {
                     if (!w || !w.word) return false;
                     const k = w.word.trim().toLowerCase();
                     if (isWordMastered(k)) return false;
                     const rec = learnedMap[k];
+                    // stage >= 1 代表已经学过进入复习阶段，新学模式中不再抽取
                     if (rec && rec.stage >= 1) return false;
                     return true;
                 });
@@ -8723,50 +8771,38 @@
 
         function isFixedPhraseToken(token) {
             if (!token || typeof token !== 'string') return false;
-            const clean = token.toLowerCase().trim().replace(/^[（(]|[）)]$/g, '');
+            const clean = token.toLowerCase().trim();
+            // 带有括号、以括号开头结尾的说明词（如 (someone)、(sb.)、(sth.)、(...) 等）
+            if (/^[（(].*[）)]$/.test(clean)) return true;
+            // 纯符号或常见连接符
+            if (/^[\/\\=,，~…\.\-]+$/.test(clean)) return true;
+            // 常见语法占位固定项
             const fixedSet = new Set([
-                '...', '…', '……', '(...)', '（...）',
+                '...', '…', '……',
                 'sb.', 'sb', "sb's", 'sbs',
                 'sth.', 'sth',
-                "one's", 'ones',
-                'a', 'an'
+                "one's", "one’s", 'ones'
             ]);
             return fixedSet.has(clean) || clean.startsWith('...');
         }
 
         function extractPhraseTargetWords(rawWord) {
             if (!rawWord) return [];
-            let primary = rawWord.split(/[\/;]/)[0].trim();
-            // 规范化省略号为独立 token
-            primary = primary.replace(/（\s*(\.{3,}|…+)\s*）|\(\s*(\.{3,}|…+)\s*\)|(\.{3,}|…+)/g, ' ... ');
-            // 过滤括号说明，保留 ...
-            primary = primary
-                .replace(/\((?!\.\.\.)[^)]*\)/g, '')
-                .replace(/（(?!\.\.\.)[^）]*）/g, '')
-                .replace(/\[.*?\]/g, '')
-                .replace(/【.*?】/g, '');
+            let str = rawWord.trim();
 
-            const rawTokens = primary.split(/\s+/).filter(Boolean);
+            // 将连在一起的标点、括号与词语之间留出空格，便于正确拆词，但保护内部内容
+            // 将括号独立拆出：如 keep (someone) -> keep (someone)
+            str = str.replace(/([\/=,，])/g, ' $1 ');
+            str = str.replace(/（/g, ' (').replace(/）/g, ') ');
+            
+            // 拆分为独立的 token 单元
             const tokens = [];
-            rawTokens.forEach(token => {
-                let t = token.trim();
-                if (t === '...' || t === '…') {
-                    tokens.push('...');
-                    return;
-                }
-                // 清洗边缘标点，保留缩写点和所有格撇号
-                t = t.replace(/^[,，!！?？:："“'‘]+|[,，!！?？:："”]+$/g, '');
-                if (/^(sb\.|sth\.|sb's|one's|\.\.\.)$/i.test(t)) {
-                    tokens.push(t.toLowerCase());
-                    return;
-                }
-                if (t.endsWith('.') && !/^(sb\.|sth\.)$/i.test(t)) {
-                    t = t.slice(0, -1);
-                }
-                if (/^[a-zA-Z'’-]+$/.test(t) || t === '...') {
-                    tokens.push(t);
-                }
-            });
+            const regex = /(\([^)]+\)|[^\s()]+)/g;
+            let match;
+            while ((match = regex.exec(str)) !== null) {
+                const item = match[1].trim();
+                if (item) tokens.push(item);
+            }
 
             return tokens.length > 0 ? tokens : rawWord.trim().split(/\s+/).filter(Boolean);
         }
@@ -9276,12 +9312,16 @@
 
             updateSingleCardToolbar(q);
 
-            const singleAudioBtn = document.getElementById('btn-single-audio');
-            if (singleAudioBtn) singleAudioBtn.style.display = 'none';
-
+            // 显示顶部的英文词组原型大字（粗体绿色）
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
-            if (wordEl) wordEl.style.display = 'none';
+            if (wordEl) {
+                wordEl.style.display = 'block';
+                wordEl.innerText = q.word;
+                wordEl.style.color = '#15803d'; // 贴合图 2 的墨绿色
+                wordEl.style.fontSize = '2.1rem';
+                wordEl.style.fontWeight = '800';
+            }
             if (phoneEl) {
                 phoneEl.innerText = '';
                 phoneEl.style.display = 'none';
@@ -9294,37 +9334,43 @@
 
             optionsContainer.innerHTML = `
             <div class="phrase-container">
-                <div class="phrase-trans-card">
-                    <div class="phrase-trans-title" style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                        <span>${escapeHtml(correctMeaning)}</span>
+                <!-- 释义展示框：完全贴合图 2 的浅灰底圆角框 -->
+                <div class="phrase-trans-card" style="background:#f1f4f9; border-radius:14px; padding:16px 20px; border:1.5px solid #dce2eb;">
+                    <div class="phrase-trans-title" style="font-size:1.45rem; font-weight:800; color:#1e293b;">
+                        ${escapeHtml(correctMeaning)}
                     </div>
                 </div>
-                <div class="phrase-slots-row" id="single-phrase-slots">
+                
+                <!-- 拼装槽位行：贴合图 2 的绿底带绿色下划线槽位 -->
+                <div class="phrase-slots-row" id="single-phrase-slots" style="border:1.5px dashed #cbd5e1; border-radius:16px; padding:12px 10px; background:#fff;">
                     ${targetWords.map((tw, i) => {
                         if (isFixedPhraseToken(tw)) {
-                            return `<div class="phrase-slot fixed" id="single-slot-${i}">${escapeHtml(tw)}</div>`;
+                            return `<div class="phrase-slot fixed" style="background:#dcfce7; color:#15803d; border-bottom:3px solid #16a34a; font-weight:700;" id="single-slot-${i}">${escapeHtml(tw)}</div>`;
                         }
                         return `<div class="phrase-slot empty" id="single-slot-${i}" onclick="handleSinglePhraseSlotClick(${i})"></div>`;
                     }).join('')}
                 </div>
+                
                 <div id="single-phrase-compare" class="phrase-comparison-card" style="display: none;"></div>
-                <div class="phrase-bank-card">
-                    <div class="phrase-bank-header">
-                        <span>备选词框：</span>
-                        <button type="button" class="btn-clear-phrase" id="btn-clear-single-phrase" onclick="clearSinglePhraseSlots()">
+
+                <!-- 备选词网格卡片 -->
+                <div class="phrase-bank-card" style="background:#f8faff; border:1.5px solid #e2e8f0; border-radius:20px; padding:16px;">
+                    <div class="phrase-bank-header" style="margin-bottom:14px;">
+                        <span style="font-weight:700; color:#475569; font-size:0.9rem;">备选词框：</span>
+                        <button type="button" class="btn-clear-phrase" id="btn-clear-single-phrase" onclick="clearSinglePhraseSlots()" style="background:#f1f5f9; border:1.5px solid #cbd5e1; border-radius:9999px; padding:4px 12px; font-weight:600;">
                             清空已选
                         </button>
                     </div>
-                    <div class="phrase-chips-grid" id="single-phrase-bank">
+                    <div class="phrase-chips-grid" id="single-phrase-bank" style="gap:10px;">
                         ${singlePhraseState.chips.map(c => `
-                            <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')">
+                            <button class="phrase-word-chip" id="single-chip-${c.id}" onclick="handleSinglePhraseChipClick('${c.id}')" style="background:#fff; border-radius:9999px; border:1.5px solid #dce2eb; padding:8px 16px; font-weight:600; font-size:0.95rem;">
                                 ${escapeHtml(c.text)}
                             </button>
                         `).join('')}
                     </div>
                 </div>
             </div>
-        `;
+            `;
         }
 
         function clearSinglePhraseSlots() {
@@ -14228,12 +14274,11 @@
 
             return `
             <div class="settings-book-item-card">
-                <!-- 上半部分：词书信息与操作按钮 -->
                 <div class="settings-book-item-main">
-                    <div>
+                    <div class="settings-book-item-info">
                         <div class="settings-book-item-title-row">
                             <span class="settings-book-item-name">
-                                <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">${isCloud ? 'cloud' : 'folder'}</span>
+                                <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); vertical-align:middle;">${isCloud ? 'cloud' : 'folder'}</span>
                                 ${displayName}
                             </span>
                             <span class="settings-book-item-tag">${escapeHtml(tag)}</span>
@@ -14259,7 +14304,6 @@
                     </div>
                 </div>
 
-                <!-- 下半部分：补回平滑进度条与右侧百分比对齐 (MD3 规范) -->
                 <div style="display: flex; align-items: center; gap: 14px; margin-top: 10px;">
                     <div class="book-progress-mini" style="flex: 1; height: 6px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; margin: 0;">
                         <div class="book-progress-mini-fill" style="width: ${prog.progressPercent}%; height: 100%; background: linear-gradient(90deg, var(--md-sys-color-primary, #0061a4), #38bdf8); border-radius: 9999px; transition: width 0.3s ease;"></div>
@@ -14820,8 +14864,27 @@
 
         
 
-        const APP_VERSION = '1.9.0';
+        const APP_VERSION = '1.9.2';
         const APP_CHANGELOG = [
+            {
+                version: 'v1.9.2',
+                date: '2026-09-13',
+                badge: '当前版本',
+                items: [
+                    '优化词书。',
+                    '优化抽词："/"、"="、"( )"、","、"one’s"等自动预填。',
+                    '优化◇◇◇◇◇动画。',
+                    '优化窄屏UI。'
+                ]
+            },
+            {
+                version: 'v1.9.1',
+                date: '2026-09-13',
+                badge: '当前版本',
+                items: [
+                    '优化版本更新。',
+                ]
+            },
             {
                 version: 'v1.9.0',
                 date: '2026-09-12',

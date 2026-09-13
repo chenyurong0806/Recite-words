@@ -192,7 +192,7 @@ export default {
             if (entryMatch) {
               const entry = entryMatch[1];
               const tagMatch = entry.match(/<id>.*?\/releases\/tag\/(.*?)<\/id>/);
-              const tagRaw = tagMatch ? tagMatch[1] : '1.9.0';
+              const tagRaw = tagMatch ? tagMatch[1] : '1.9.2';
               const tag = tagRaw.replace(/^v/i, '');
 
               const contentMatch = entry.match(/<content type="html">([\s\S]*?)<\/content>/);
@@ -225,10 +225,10 @@ export default {
 
       if (!versionData) {
         versionData = {
-          version: '1.9.0',
+          version: '1.9.2',
           releaseDate: new Date().toISOString().substring(0, 10),
           changelog: ['常规优化更新'],
-          downloadUrl: `${url.origin}/api/download-latest?tag=v1.9.0`,
+          downloadUrl: `${url.origin}/api/download-latest?tag=1.9.2`,
           githubReleaseUrl: `https://github.com/${REPO}/releases/latest`
         };
       }
