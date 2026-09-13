@@ -1758,17 +1758,53 @@
             margin-bottom: 12px;
         }
 
-        /* 统一的高考3500容器高度与样式 */
-        .single-book-badge {
+        /* 统一的高考3500及对决词库徽标样式，与账号、实词胶囊尺寸一致 */
+        .single-book-badge,
+        .arena-book-badge,
+        #arena-book-badge,
+        #local-book-badge-p1,
+        #local-book-badge-p2 {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             height: 30px !important;
-            padding: 0 14px;
-            background-color: #ffeedb;
-            color: #c45716;
+            min-height: 30px !important;
+            padding: 0 12px !important;
+            background-color: #ffeedb !important;
+            color: #c45716 !important;
+            border-radius: var(--md-shape-full) !important;
+            font-size: 0.88rem !important; /* 与账号及实词字词字号一致 */
+            font-weight: 700 !important;
+            line-height: 1 !important;
+            box-sizing: border-box;
+            border: none !important;
+            vertical-align: middle;
+        }
+
+        .local-player-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 30px;
+            padding: 0 12px;
             border-radius: var(--md-shape-full);
-            font-size: 0.82rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            box-sizing: border-box;
+        }
+
+        .shici-word-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 30px !important;
+            min-height: 30px !important;
+            padding: 0 12px !important;
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-radius: var(--md-shape-full);
+            font-size: 0.88rem !important;
             font-weight: 700;
             line-height: 1;
             box-sizing: border-box;
@@ -5870,6 +5906,7 @@
                                     id="arena-index-tag">第 1 题</span>
                                 <span class="badge" id="arena-book-badge"
                                     style="background: #ffeedb; color: #c45716; border: none; font-weight: 600; font-size: 0.78rem;">对决词库</span>
+                                <span class="shici-word-badge" id="arena-shici-badge" style="display:none;"></span>
                             </div>
                             <button class="btn btn-outlined btn-sm"
                                 style="min-height: 32px; padding: 0 12px; font-size: 0.8rem;"
@@ -5878,8 +5915,8 @@
                                 <span class="btn-label-text">退出对决</span>
                             </button>
                         </div>
-                        <div class="word-display" id="p1-word">Word</div>
-                        <div class="phone-display" id="p1-phone" style="display: none;"></div>
+                        <div class="single-word-display" id="p1-word">Word</div>
+                        <div class="single-phone-display" id="p1-phone" style="display: none;"></div>
 
                         <!-- 文言实词例句展示区（考察词加粗高亮，出处右下方对齐，与单人模式背实词UI保持一致） -->
                         <div class="shici-sentence-box" id="p1-shici-box" style="display: none; margin: 12px 0 16px;">
@@ -12108,62 +12145,79 @@
                 arenaBookBadge.innerText = q.bookName || '对决词库';
             }
 
-            const isPhrase = q.word && q.word.trim().includes(' ');
+            const isShiCi = Boolean(q.isShiCi || q.senses || q.highlightedSentence);
+            const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
             if (isPhrase) {
+                const shiciBadge = document.getElementById('arena-shici-badge');
+                if (shiciBadge) shiciBadge.style.display = 'none';
                 renderArenaPhraseQuestion(state, q);
                 return;
             }
 
-            const isShiCi = Boolean(q.isShiCi || q.highlightedSentence || q.sentence);
             const wordEl = document.getElementById(`p1-word`);
             const phoneEl = document.getElementById(`p1-phone`);
+            const shiciBadge = document.getElementById('arena-shici-badge');
             const shiciBox = document.getElementById('p1-shici-box');
             const shiciSentence = document.getElementById('p1-shici-sentence');
             const shiciSource = document.getElementById('p1-shici-source');
             const shiciCooldown = document.getElementById('p1-shici-cooldown-reveal');
             if (shiciCooldown) shiciCooldown.style.display = 'none';
 
+            const optContainer = document.getElementById(`p1-options`);
+
             if (isShiCi) {
                 if (wordEl) wordEl.style.display = 'none';
                 if (phoneEl) phoneEl.style.display = 'none';
+                if (shiciBadge) {
+                    shiciBadge.style.display = 'inline-flex';
+                    shiciBadge.innerText = `${q.word} ${q.pinyin || ''}`.trim();
+                }
                 if (shiciBox) {
                     shiciBox.style.display = 'block';
                     if (shiciSentence) shiciSentence.innerHTML = q.highlightedSentence || escapeHtml(q.sentence || q.word);
                     if (shiciSource) shiciSource.innerText = `—— ${q.source || '《古文》'}`;
                 }
+
+                if (optContainer) {
+                    optContainer.className = 'shici-options-grid';
+                    const letters = ['A', 'B', 'C', 'D'];
+                    optContainer.innerHTML = q.options.map((opt, idx) => `
+                        <button class="shici-opt-btn" id="opt-btn-${idx}">
+                            <span class="opt-prefix">${letters[idx]}</span>
+                            ${opt.pos ? `<span class="opt-pos-tag">${escapeHtml(opt.pos)}</span>` : ''}
+                            <span class="opt-meaning-text">${escapeHtml(opt.rawMeaning || (opt.meaning || '').replace(/^\[.*?\]\s*/, ''))}</span>
+                        </button>
+                    `).join('');
+                }
             } else {
+                if (shiciBadge) shiciBadge.style.display = 'none';
                 if (shiciBox) shiciBox.style.display = 'none';
                 if (wordEl) {
                     wordEl.style.display = 'block';
                     wordEl.innerText = q.word;
                 }
                 if (phoneEl) {
-                    phoneEl.innerText = q.phone || '';
-                    phoneEl.style.display = q.phone ? 'block' : 'none';
+                    if (q.phone) {
+                        phoneEl.innerText = q.phone.startsWith('/') ? q.phone : `/${q.phone}/`;
+                        phoneEl.style.display = 'block';
+                    } else {
+                        phoneEl.style.display = 'none';
+                    }
+                }
+
+                if (optContainer) {
+                    optContainer.className = 'single-options-list';
+                    optContainer.innerHTML = q.options.map((opt, idx) => `
+                        <button class="single-opt-btn" id="opt-btn-${idx}">
+                            <span class="opt-trans">${escapeHtml(opt.meaning || opt.word)}</span>
+                        </button>
+                    `).join('');
                 }
             }
 
-            let html = '';
-            q.options.forEach((opt, idx) => {
-                if (isShiCi) {
-                    html += `
-                    <button class="option-btn" id="opt-btn-${idx}" style="text-align:left; justify-content:flex-start; padding:12px 16px;">
-                        ${opt.pos ? `<span class="opt-pos-tag" style="display:inline-block; font-size:0.75rem; padding:1px 6px; border-radius:4px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); margin-right:8px; font-weight:700;">[${escapeHtml(opt.pos)}]</span>` : ''}
-                        <span style="font-weight:600;">${escapeHtml(opt.rawMeaning || opt.meaning)}</span>
-                    </button>
-                    `;
-                } else {
-                    html += `
-                    <button class="option-btn" id="opt-btn-${idx}">
-                        <span>${escapeHtml(opt.meaning)}</span>
-                    </button>
-                    `;
-                }
-            });
-            document.getElementById(`p1-options`).innerHTML = html;
-
             q.options.forEach((_, idx) => {
                 const btn = document.getElementById(`opt-btn-${idx}`);
+                if (!btn) return;
                 btn.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
                     handleAnswer(idx, e.clientX, e.clientY);
@@ -12553,10 +12607,10 @@
                     recordShiCiUserMistake(currentUser, {
                         word: q.word,
                         meaning: q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : (q.options[q.correctIdx]?.rawMeaning || q.options[q.correctIdx]?.meaning || q.meaning),
-                        pinyin: q.pinyin || '',
-                        sentence: q.sentence || '',
+                        pinyin: q.pinyin || q.phone || '',
+                        sentence: q.sentence || q.example?.sentence || '',
                         highlightedSentence: q.highlightedSentence || '',
-                        source: q.source || '',
+                        source: q.source || q.example?.source || '',
                         pos: q.pos || q.sense?.part_of_speech || q.options[q.correctIdx]?.pos || '',
                         isShiCi: true
                     });
@@ -12566,13 +12620,10 @@
             }
             saveCurrentUserData();
 
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < q.options.length; i++) {
                 const btn = document.getElementById(`opt-btn-${i}`);
                 if (!btn) continue;
                 btn.disabled = true;
-                if (!isRight && !q.isShiCi) {
-                    btn.innerHTML = `<span><b>${escapeHtml(q.options[i].word)}</b> <small style="opacity:0.85">${escapeHtml(q.options[i].meaning)}</small></span>`;
-                }
                 if (i === q.correctIdx) btn.classList.add('correct');
             }
 
@@ -13311,7 +13362,7 @@
 
             const q = aiDuelState.pool[aiDuelState.aiIdx % aiDuelState.pool.length];
             let delay = 3500;
-            const isPhrase = q.word && q.word.trim().includes(' ');
+            const isPhrase = q.word && q.word.trim().includes(' ') && !q.isShiCi;
 
             if (aiDuelConfig.speedMode === 'smart') {
                 if (isPhrase) {
@@ -14744,6 +14795,7 @@
                 });
                 pState.currentQ = {
                     isPhrase: true,
+                    isShiCi: false,
                     word: q.word,
                     meaning: q.meaning,
                     targetWords: targetWords,
@@ -14759,9 +14811,28 @@
                     q: pState.currentQ,
                     correctMeaning: q.meaning
                 };
+            } else if (q.isShiCi) {
+                pState.currentQ = {
+                    isPhrase: false,
+                    isShiCi: true,
+                    word: q.word,
+                    phone: q.pinyin || q.phone || '',
+                    pinyin: q.pinyin || q.phone || '',
+                    sentence: q.sentence || '',
+                    highlightedSentence: q.highlightedSentence || '',
+                    source: q.source || '《古文》',
+                    sense: q.sense,
+                    example: q.example,
+                    meaning: q.meaning || '',
+                    options: q.options,
+                    correctIdx: q.correctIdx,
+                    bookName: q.bookName || '文言实词'
+                };
+                pState.answered = false;
             } else {
                 pState.currentQ = {
                     isPhrase: false,
+                    isShiCi: false,
                     word: q.word,
                     phone: q.phone || '',
                     meaning: q.meaning || '',
@@ -14787,6 +14858,12 @@
             const roundEl = document.getElementById(`local-round-${player}`);
             const bookEl = document.getElementById(`local-book-badge-${player}`);
             const optContainer = document.getElementById(`local-options-${player}`);
+            const shiciBadgeEl = document.getElementById(`local-shici-badge-${player}`);
+            const shiciBoxEl = document.getElementById(`local-shici-box-${player}`);
+            const shiciSentenceEl = document.getElementById(`local-shici-sentence-${player}`);
+            const shiciSourceEl = document.getElementById(`local-shici-source-${player}`);
+            const shiciFreezeRevealEl = document.getElementById(`local-shici-freeze-reveal-${player}`);
+            if (shiciFreezeRevealEl) shiciFreezeRevealEl.style.display = 'none';
 
             if (tagEl) {
                 tagEl.innerText = player === 'p1' ? `🔴 ${pState.name || '红方'}` : `🔵 ${pState.name || '蓝方'}`;
@@ -14798,6 +14875,8 @@
             if (scoreEl) scoreEl.innerText = pState.score;
 
             if (q.isPhrase) {
+                if (shiciBadgeEl) shiciBadgeEl.style.display = 'none';
+                if (shiciBoxEl) shiciBoxEl.style.display = 'none';
                 if (wordEl) {
                     wordEl.style.display = 'flex';
                     wordEl.innerText = q.meaning || '请拼出对应英文词组';
@@ -14843,24 +14922,57 @@
                     </div>
                 </div>
             `;
+            } else if (q.isShiCi) {
+                if (wordEl) wordEl.style.display = 'none';
+                if (phoneEl) phoneEl.style.display = 'none';
+                if (shiciBadgeEl) {
+                    shiciBadgeEl.style.display = 'inline-flex';
+                    shiciBadgeEl.innerText = `${q.word} ${q.pinyin || ''}`.trim();
+                }
+                if (shiciBoxEl) {
+                    shiciBoxEl.style.display = 'block';
+                    if (shiciSentenceEl) shiciSentenceEl.innerHTML = q.highlightedSentence || escapeHtml(q.sentence || q.word);
+                    if (shiciSourceEl) shiciSourceEl.innerText = `—— ${q.source || '《古文》'}`;
+                }
+
+                if (optContainer) {
+                    optContainer.className = 'shici-options-grid';
+                    const letters = ['A', 'B', 'C', 'D'];
+                    optContainer.innerHTML = q.options.map((opt, idx) => `
+                    <button class="shici-opt-btn" 
+                            id="local-opt-${player}-${idx}" 
+                            data-idx="${idx}" 
+                            onpointerdown="handleLocalPointerDown(event, '${player}', ${idx})">
+                        <span class="opt-prefix">${letters[idx]}</span>
+                        ${opt.pos ? `<span class="opt-pos-tag">${escapeHtml(opt.pos)}</span>` : ''}
+                        <span class="opt-meaning-text">${escapeHtml(opt.rawMeaning || (opt.meaning || '').replace(/^\[.*?\]\s*/, ''))}</span>
+                    </button>
+                `).join('');
+                }
             } else {
+                if (shiciBadgeEl) shiciBadgeEl.style.display = 'none';
+                if (shiciBoxEl) shiciBoxEl.style.display = 'none';
                 if (wordEl) {
                     wordEl.style.display = 'flex';
                     wordEl.innerText = q.word;
                 }
                 if (phoneEl) {
-                    phoneEl.innerText = '';
-                    phoneEl.style.display = 'none';
+                    if (q.phone) {
+                        phoneEl.innerText = q.phone.startsWith('/') ? q.phone : `/${q.phone}/`;
+                        phoneEl.style.display = 'block';
+                    } else {
+                        phoneEl.style.display = 'none';
+                    }
                 }
 
                 if (optContainer) {
-                    optContainer.className = 'options-grid';
+                    optContainer.className = 'single-options-list';
                     optContainer.innerHTML = q.options.map((opt, idx) => `
-                    <button class="option-btn" 
+                    <button class="single-opt-btn" 
                             id="local-opt-${player}-${idx}" 
                             data-idx="${idx}" 
                             onpointerdown="handleLocalPointerDown(event, '${player}', ${idx})">
-                        <span>${opt.meaning || opt.word}</span>
+                        <span class="opt-trans">${escapeHtml(opt.meaning || opt.word)}</span>
                     </button>
                 `).join('');
                 }
@@ -15230,8 +15342,24 @@
                 }, 180);
             } else {
                 if (card) card.classList.add('wrong');
+                const correctCard = optContainer ? optContainer.querySelector(`[data-idx="${q.correctIdx}"]`) : null;
+                if (correctCard) correctCard.classList.add('correct');
                 const pName = (pState && pState.name) || (player === 'p1' ? (currentUser || '红方') : (localDuelConfig.opponentName || '蓝方'));
-                recordUserMistake(pName, q.word, q.options[q.correctIdx]?.meaning || q.meaning, q.phone);
+                if (q.isShiCi) {
+                    const fullMeaning = q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : (q.options[q.correctIdx]?.rawMeaning || q.options[q.correctIdx]?.meaning || q.meaning);
+                    recordShiCiUserMistake(pName, {
+                        word: q.word,
+                        meaning: fullMeaning,
+                        pinyin: q.pinyin || q.phone || '',
+                        sentence: q.sentence || q.example?.sentence || '',
+                        highlightedSentence: q.highlightedSentence || '',
+                        source: q.source || q.example?.source || '',
+                        pos: q.sense?.part_of_speech || q.pos || q.options[q.correctIdx]?.pos || '',
+                        isShiCi: true
+                    });
+                } else {
+                    recordUserMistake(pName, q.word, q.options[q.correctIdx]?.meaning || q.meaning, q.phone);
+                }
                 triggerLocalPenalty(player);
             }
         }
@@ -15246,9 +15374,31 @@
             const barInner = document.getElementById(`local-freeze-bar-${player}`);
             const freezeInfo = document.getElementById(`local-freeze-info-${player}`);
             const freezeTitle = overlay ? overlay.querySelector('.local-freeze-title') : null;
+            const shiciFreezeRevealEl = document.getElementById(`local-shici-freeze-reveal-${player}`);
+            const shiciSenseEl = document.getElementById(`local-shici-freeze-sense-${player}`);
+            const shiciAnnotEl = document.getElementById(`local-shici-freeze-annot-${player}`);
+
+            const q = pState.currentQ;
+            const isShiCi = Boolean(q && q.isShiCi);
 
             if (freezeTitle) freezeTitle.innerText = "答错惩罚";
             if (freezeInfo) freezeInfo.style.display = 'none';
+
+            if (isShiCi && shiciFreezeRevealEl) {
+                if (shiciSenseEl) {
+                    const posStr = (q.sense?.part_of_speech || q.pos || q.options?.[q.correctIdx]?.pos) ? `[${q.sense?.part_of_speech || q.pos || q.options?.[q.correctIdx]?.pos}] ` : '';
+                    const meaningStr = (q.sense?.meaning || q.options?.[q.correctIdx]?.rawMeaning || q.options?.[q.correctIdx]?.meaning || q.meaning || '').replace(/★/g, '');
+                    shiciSenseEl.innerText = `${posStr}${meaningStr}`;
+                }
+                if (shiciAnnotEl) {
+                    const annotStr = q.example?.annotation || (q.sentence ? `在“${q.sentence}”中作相应释义` : '');
+                    shiciAnnotEl.innerText = annotStr || '请注意该实词在语境中的释义与用法';
+                }
+                shiciFreezeRevealEl.style.display = 'block';
+            } else if (shiciFreezeRevealEl) {
+                shiciFreezeRevealEl.style.display = 'none';
+            }
+
             if (overlay) overlay.style.display = 'flex';
             if (numEl) numEl.innerText = '3';
             if (barInner) barInner.style.width = '100%';
@@ -15271,6 +15421,7 @@
             pState.freezeTimer = setTimeout(() => {
                 if (overlay) overlay.style.display = 'none';
                 if (freezeInfo) freezeInfo.style.display = 'none';
+                if (shiciFreezeRevealEl) shiciFreezeRevealEl.style.display = 'none';
                 pState.frozenUntil = 0;
                 if (localDuelState.active) {
                     generateLocalDuelQuestion(player);
@@ -16858,7 +17009,7 @@
                 try {
                     const parsed = JSON.parse(saved);
                     if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
-                        label.innerText = `继续(${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                        label.innerText = `继续背诵 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
                         return;
                     }
                 } catch (e) { }
