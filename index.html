@@ -5065,12 +5065,16 @@
             }
 
             body.has-nav .md3-bottom-nav {
-                display: flex;
+                display: flex !important;
+                transform: translate3d(0, 0, 0);
+                opacity: 1;
+                visibility: visible;
             }
 
             body.nav-hidden .md3-bottom-nav {
-                transform: translateY(100%);
+                transform: translate3d(0, 100%, 0);
                 opacity: 0;
+                visibility: hidden;
                 pointer-events: none;
             }
         }
@@ -6421,7 +6425,7 @@
     </nav>
 
     <!-- Google MD3 底部导航栏 (手机端) -->
-    <nav id="app-bottom-nav" class="md3-bottom-nav" style="display: none;">
+    <nav id="app-bottom-nav" class="md3-bottom-nav">
         <button type="button" class="md3-nav-item active" id="bottom-nav-home" onclick="handleNavClick('home')">
             <div class="md3-nav-pill">
                 <span class="material-symbols-rounded">home</span>
