@@ -297,6 +297,109 @@ export default {
       return Response.redirect(`https://ghfast.top/${fileUrl}`, 302);
     }
 
+    // ==========================================
+    // 路由 5: 有道词典 Suggest 代理 (解决纯浏览器端直接跨域阻断)
+    // ==========================================
+    if (url.pathname === '/api/youdao') {
+      const query = url.searchParams.get('q') || '';
+      const num = url.searchParams.get('num') || '8';
+      if (!query) {
+        return new Response(JSON.stringify({ result: { code: 400, msg: 'Missing query' }, data: { entries: [] } }), {
+          headers: corsHeaders
+        });
+      }
+
+      try {
+        const cleanQuery = query.trim();
+        const targetSuggest = `https://dict.youdao.com/suggest?q=${encodeURIComponent(cleanQuery)}&num=${encodeURIComponent(num)}&doctype=json`;
+        const targetJsonapi = `https://dict.youdao.com/jsonapi?q=${encodeURIComponent(cleanQuery)}&doctype=json&jsonversion=2`;
+
+        const [suggestRes, jsonApiRes] = await Promise.all([
+          fetch(targetSuggest, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Recite-Words-App' } })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null),
+          fetch(targetJsonapi, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Recite-Words-App' } })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        ]);
+
+        let entries = (suggestRes && suggestRes.data && Array.isArray(suggestRes.data.entries)) ? suggestRes.data.entries : [];
+
+        // 提取 ec (英汉完整词典) 未截断释义
+        if (jsonApiRes && jsonApiRes.ec && Array.isArray(jsonApiRes.ec.word) && jsonApiRes.ec.word.length > 0) {
+          const ecWord = jsonApiRes.ec.word[0];
+          const fullExplains = [];
+          if (Array.isArray(ecWord.trs)) {
+            ecWord.trs.forEach(trItem => {
+              if (trItem && Array.isArray(trItem.tr) && trItem.tr[0] && trItem.tr[0].l && Array.isArray(trItem.tr[0].l.i)) {
+                trItem.tr[0].l.i.forEach(line => {
+                  let text = '';
+                  if (typeof line === 'string') text = line;
+                  else if (line && line['#text']) text = line['#text'];
+                  if (text && !/人名[）\)]?$/.test(text) && !/^【名】.*人名/.test(text)) {
+                    fullExplains.push(text);
+                  }
+                });
+              }
+            });
+          }
+          if (fullExplains.length > 0) {
+            const combined = fullExplains.join('; ');
+            const matchedExact = entries.find(e => e.entry && e.entry === cleanQuery);
+            if (matchedExact) {
+              matchedExact.explain = combined;
+            } else {
+              const matchedLower = entries.find(e => e.entry && e.entry.toLowerCase() === cleanQuery.toLowerCase());
+              if (matchedLower) {
+                matchedLower.entry = cleanQuery;
+                matchedLower.explain = combined;
+              } else {
+                entries.unshift({ entry: cleanQuery, explain: combined });
+              }
+            }
+          }
+        }
+
+        // 提取 ce (汉英完整词典) 释义
+        if (jsonApiRes && jsonApiRes.ce && Array.isArray(jsonApiRes.ce.word) && jsonApiRes.ce.word.length > 0) {
+          const ceWord = jsonApiRes.ce.word[0];
+          const fullExplains = [];
+          if (Array.isArray(ceWord.trs)) {
+            ceWord.trs.forEach(trItem => {
+              if (trItem && Array.isArray(trItem.tr) && trItem.tr[0]) {
+                const tran = trItem.tr[0]['#tran'];
+                if (tran) fullExplains.push(tran);
+              }
+            });
+          }
+          if (fullExplains.length > 0) {
+            const combined = fullExplains.join('; ');
+            const matchedExact = entries.find(e => e.entry && e.entry === cleanQuery);
+            if (matchedExact) {
+              matchedExact.explain = combined;
+            } else {
+              const matchedLower = entries.find(e => e.entry && e.entry.toLowerCase() === cleanQuery.toLowerCase());
+              if (matchedLower) {
+                matchedLower.entry = cleanQuery;
+                matchedLower.explain = combined;
+              } else {
+                entries.unshift({ entry: cleanQuery, explain: combined });
+              }
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ result: { code: 200, msg: 'success' }, data: { entries } }), {
+          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' }
+        });
+      } catch (err) {
+        console.warn('Youdao API proxy error:', err);
+      }
+      return new Response(JSON.stringify({ result: { code: 500, msg: 'Failed to fetch Youdao API' }, data: { entries: [] } }), {
+        headers: corsHeaders
+      });
+    }
+
     return new Response('Not Found', { status: 404 });
   }
 };

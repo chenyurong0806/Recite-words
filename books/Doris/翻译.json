@@ -206,5 +206,340 @@
   {
     "name": "deeply regret what you have done",
     "trans": ["非常后悔你所做的"]
+  },
+  {
+    "name": "park management",
+    "trans": ["公园管理方"],
+    "mistake": ["manager", "manage", "government", "office"]
+  },
+  {
+    "name": "put up",
+    "trans": ["张贴"],
+    "mistake": ["on", "off", "in", "set"]
+  },
+  {
+    "name": "a new notice",
+    "trans": ["新告示"],
+    "mistake": ["note", "sign", "poster", "paper"]
+  },
+  {
+    "name": "call on / appeal to sb to do sth",
+    "trans": ["呼吁某人做某事"],
+    "mistake": ["for", "at", "with", "by"]
+  },
+  {
+    "name": "be civilized / responsible",
+    "trans": ["文明", "负责"],
+    "mistake": ["civil", "civilization", "responsibility", "irresponsible"]
+  },
+  {
+    "name": "when walking dogs",
+    "trans": ["遛狗时"],
+    "mistake": ["walk", "walked", "dog", "with"]
+  },
+  {
+    "name": "walk dogs",
+    "trans": ["遛狗"],
+    "mistake": ["walk", "walked", "with", "take"]
+  },
+  {
+    "name": "be curious about",
+    "trans": ["对...好奇"],
+    "mistake": ["in", "to", "of", "for"]
+  },
+  {
+    "name": "since childhood",
+    "trans": ["从小", "自童年起"],
+    "mistake": ["for", "in", "at", "of"]
+  },
+  {
+    "name": "grow up",
+    "trans": ["长大"],
+    "mistake": ["in", "on", "with", "at"]
+  },
+  {
+    "name": "become a sailor",
+    "trans": ["成为水手"],
+    "mistake": ["becoming", "sail", "sailer", "sailor"]
+  },
+  {
+    "name": "upgrade old urban neighborhoods",
+    "trans": ["推进老旧小区改造", "升级老旧小区"],
+    "mistake": ["update", "raise", "promote", "neighborhood"]
+  },
+  {
+    "name": "not only ... but also ...",
+    "trans": ["不仅...而且...", "既要...更要..."],
+    "mistake": ["and", "or", "as", "but"]
+  },
+  {
+    "name": "beautify the city's appearance",
+    "trans": ["扮靓城市“面子”", "美化城市外观"],
+    "mistake": ["beauty", "beautiful", "appear", "look"]
+  },
+  {
+    "name": "improve / enhance the well-being of residents",
+    "trans": ["夯实民生“里子”", "改善居民福祉"],
+    "mistake": ["increase", "raise", "wellbeing", "wealth"]
+  },
+  {
+    "name": "well-being",
+    "trans": ["福祉", "民生"],
+    "mistake": ["wellbeing", "welfare", "wealth", "health"]
+  },
+  {
+    "name": "with the deepening of ...",
+    "trans": ["随着...的加深"],
+    "mistake": ["deep", "deepen", "deepened", "in"]
+  },
+  {
+    "name": "global economic integration",
+    "trans": ["全球经济一体化"],
+    "mistake": ["economy", "economical", "integrate", "integrated"]
+  },
+  {
+    "name": "economic globalization",
+    "trans": ["经济全球化"],
+    "mistake": ["economy", "economical", "global", "globalize"]
+  },
+  {
+    "name": "find oneself trapped / caught in a situation",
+    "trans": ["发现自己陷入一种境地"],
+    "mistake": ["find", "found", "trap", "catch", "on", "at"]
+  },
+  {
+    "name": "be trapped / caught in",
+    "trans": ["陷入"],
+    "mistake": ["to", "at", "on", "with"]
+  },
+  {
+    "name": "a situation where ...",
+    "trans": ["一种...的境地"],
+    "mistake": ["which", "that", "when", "what"]
+  },
+  {
+    "name": "risks of excessive expansion",
+    "trans": ["过度扩张的风险"],
+    "mistake": ["risk", "expand", "expense", "excess"]
+  },
+  {
+    "name": "excessive expansion",
+    "trans": ["过度扩张"],
+    "mistake": ["excess", "expand", "expense", "expansive"]
+  },
+  {
+    "name": "go beyond / outweigh",
+    "trans": ["超过", "大于"],
+    "mistake": ["over", "than", "outweight", "beyond"]
+  },
+  {
+    "name": "potential profits / rewards",
+    "trans": ["潜在获利空间", "潜在回报"],
+    "mistake": ["potentially", "profit", "reward", "benefit"]
+  },
+  {
+    "name": "claim to do sth",
+    "trans": ["声称做某事"],
+    "mistake": ["doing", "claiming", "claimed"]
+  },
+  {
+    "name": "have a good command of",
+    "trans": ["精通", "掌握"],
+    "mistake": ["in", "at", "with"]
+  },
+  {
+    "name": "be ignorant of",
+    "trans": ["对...一无所知"],
+    "mistake": ["to", "in", "with"]
+  },
+  {
+    "name": "latest discoveries",
+    "trans": ["最新发现"],
+    "mistake": ["late", "last", "newest"]
+  },
+  {
+    "name": "in this field",
+    "trans": ["在这个领域"],
+    "mistake": ["on", "at", "for"]
+  },
+  {
+    "name": "come to realize",
+    "trans": ["渐渐意识到"],
+    "mistake": ["realizing", "know", "understand"]
+  },
+  {
+    "name": "process of learning",
+    "trans": ["学习的过程"],
+    "mistake": ["procedure", "progress", "learn"]
+  },
+  {
+    "name": "compared with / to",
+    "trans": ["与...相比"],
+    "mistake": ["comparing", "compare", "for"]
+  },
+  {
+    "name": "academic performance",
+    "trans": ["学习成绩"],
+    "mistake": ["performances", "grade", "score"]
+  },
+  {
+    "name": "no matter what",
+    "trans": ["无论什么"],
+    "mistake": ["which", "whatever", "who"]
+  },
+  {
+    "name": "meet with",
+    "trans": ["遇到", "遭遇"],
+    "mistake": ["meet", "met", "in"]
+  },
+  {
+    "name": "be confident of / about",
+    "trans": ["对...充满信心"],
+    "mistake": ["in", "to", "with"]
+  },
+  {
+    "name": "have little in common",
+    "trans": ["几乎没有共同之处"],
+    "mistake": ["few", "with", "on"]
+  },
+  {
+    "name": "have much in common",
+    "trans": ["有许多共同之处"],
+    "mistake": ["many", "with", "on"]
+  },
+  {
+    "name": "under no circumstances",
+    "trans": ["在任何情况下都不"],
+    "mistake": ["in", "on", "any"]
+  },
+  {
+    "name": "use sth for private affairs",
+    "trans": ["因私使用某物"],
+    "mistake": ["to", "as", "by"]
+  },
+  {
+    "name": "be concerned about",
+    "trans": ["关心", "担心"],
+    "mistake": ["of", "in", "for"]
+  },
+  {
+    "name": "how to do sth",
+    "trans": ["如何做某事"],
+    "mistake": ["what", "where", "which"]
+  },
+  {
+    "name": "as soon as possible",
+    "trans": ["尽快"],
+    "mistake": ["possibly", "soonest", "quick"]
+  },
+  {
+    "name": "in case",
+    "trans": ["万一", "以防"],
+    "mistake": ["of", "if", "for"]
+  },
+  {
+    "name": "break out",
+    "trans": ["爆发"],
+    "mistake": ["break", "happen", "take"]
+  },
+  {
+    "name": "electrical appliances",
+    "trans": ["电器"],
+    "mistake": ["electric", "electronic", "electricity"]
+  },
+  {
+    "name": "complain to sb about / of sth",
+    "trans": ["向某人投诉某事"],
+    "mistake": ["with", "for", "on"]
+  },
+  {
+    "name": "cheat sb",
+    "trans": ["欺骗某人"],
+    "mistake": ["with", "from", "of"]
+  },
+  {
+    "name": "travel agency",
+    "trans": ["旅行社"],
+    "mistake": ["tourist", "travels", "agent"]
+  },
+  {
+    "name": "chances are that",
+    "trans": ["有可能"],
+    "mistake": ["chance", "is", "there"]
+  },
+  {
+    "name": "continue to worsen",
+    "trans": ["继续恶化"],
+    "mistake": ["continues", "worse", "worst"]
+  },
+  {
+    "name": "cancel trade cooperation",
+    "trans": ["取消贸易合作"],
+    "mistake": ["cancle", "canceled", "cancelling"]
+  },
+  {
+    "name": "the more ... the more ...",
+    "trans": ["越...越..."],
+    "mistake": ["most", "much", "many"]
+  },
+  {
+    "name": "stay calm",
+    "trans": ["保持冷静"],
+    "mistake": ["calmly", "quiet", "quietly"]
+  },
+  {
+    "name": "competitive",
+    "trans": ["有竞争力的"],
+    "mistake": ["competition", "competing", "competent"]
+  },
+  {
+    "name": "pay sb a compliment on sth",
+    "trans": ["赞赏某人某事"],
+    "mistake": ["for", "of", "in"]
+  },
+  {
+    "name": "pay a compliment to sb on sth",
+    "trans": ["赞赏某人某事"],
+    "mistake": ["for", "of", "in"]
+  },
+  {
+    "name": "charity fair",
+    "trans": ["慈善义卖会"],
+    "mistake": ["fun", "sale", "market"]
+  },
+  {
+    "name": "environmentally friendly",
+    "trans": ["环保的"],
+    "mistake": ["environment", "environmental", "environ"]
+  },
+  {
+    "name": "be made of",
+    "trans": ["由...制成"],
+    "mistake": ["from", "in", "by"]
+  },
+  {
+    "name": "waste cloth",
+    "trans": ["废旧布料"],
+    "mistake": ["wasted", "clothes", "clothing"]
+  },
+  {
+    "name": "launch a campaign",
+    "trans": ["发起运动"],
+    "mistake": ["make", "take", "do"]
+  },
+  {
+    "name": "Students' Union",
+    "trans": ["学生会"],
+    "mistake": ["Student", "students", "student"]
+  },
+  {
+    "name": "on campus",
+    "trans": ["在校园里"],
+    "mistake": ["in", "at", "to"]
+  },
+  {
+    "name": "improve service and quality",
+    "trans": ["改善服务和质量"],
+    "mistake": ["raise", "increase", "improvement"]
   }
 ]
