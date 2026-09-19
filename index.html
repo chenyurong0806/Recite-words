@@ -157,21 +157,11 @@
             animation: md3ViewEnter 0.22s cubic-bezier(0.05, 0.7, 0.1, 1.0) forwards;
         }
 
-        /* View Transitions API 支持与左侧栏独立分层防抽搐 */
-        #app-nav-rail, .md3-nav-rail {
-            view-transition-name: app-nav-rail;
-            contain: layout style;
-            will-change: transform;
-            transform: translateZ(0);
-        }
-
+        /* 仅对底部栏做视图隔离，左侧栏保留原生 CSS 3D 硬件加速动画 */
         #app-bottom-nav, .md3-bottom-nav {
             view-transition-name: app-bottom-nav;
         }
 
-        ::view-transition-group(app-nav-rail),
-        ::view-transition-old(app-nav-rail),
-        ::view-transition-new(app-nav-rail),
         ::view-transition-group(app-bottom-nav),
         ::view-transition-old(app-bottom-nav),
         ::view-transition-new(app-bottom-nav) {
@@ -448,6 +438,28 @@
             border-radius: var(--md-shape-full);
             border: 1px solid var(--md-sys-color-outline-variant);
             box-sizing: border-box;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .card-toolbar-toggle {
+            display: none;
+            width: 28px;
+            height: 28px;
+            border-radius: var(--md-shape-full);
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.15s ease;
+        }
+
+        .card-toolbar-toggle:hover {
+            background: rgba(0, 97, 164, 0.12);
+            color: var(--md-sys-color-primary);
         }
 
         .card-tool-btn {
@@ -701,13 +713,17 @@
         }
         /* 词汇掌握度 5 颗菱形：无外框、无背景、纯净胶囊内嵌排版 */
         .mastery-diamond {
-            font-size: 15px;
+            font-size: 20px;
+            font-weight: 700;
             line-height: 1;
             color: var(--md-sys-color-outline-variant, #C4C7D0);
-            display: inline-block;
-            width: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
             text-align: center;
-            font-family: monospace, sans-serif;
+            font-family: inherit;
             vertical-align: middle;
             user-select: none;
             will-change: transform, color;
@@ -715,6 +731,8 @@
 
         .mastery-diamond.filled {
             color: #EAA000; /* 亮金黄色 */
+            font-size: 19px;
+            font-weight: 700;
         }
 
         .mastery-diamond.anim-gain {
@@ -909,10 +927,10 @@
         }
 
         .search-page-topbar .search-page-back-btn {
-            width: 44px;
-            height: 44px;
-            min-width: 44px;
-            max-width: 44px;
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            max-width: 40px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
@@ -922,7 +940,7 @@
             padding: 0;
             flex-shrink: 0;
             background: var(--md-sys-color-surface-container-high);
-            border: 1px solid var(--md-sys-color-outline-variant);
+            border: none;
             color: var(--md-sys-color-on-surface);
             cursor: pointer;
             transition: all 0.2s ease;
@@ -993,6 +1011,118 @@
         .search-page-topbar .search-page-settings-btn:hover {
             background: var(--md-sys-color-primary-container);
             border-color: var(--md-sys-color-primary);
+        }
+
+        /* 搜索历史记录列表 (移动端与桌面端统一) */
+        .search-history-section {
+            padding: 16px 8px 24px;
+            max-width: 880px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .search-history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .search-history-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .search-history-clear-btn {
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-outline);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .search-history-clear-btn:hover {
+            color: var(--md-sys-color-error);
+            background: var(--md-sys-color-error-container, #ffdad6);
+        }
+
+        .search-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .search-history-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            user-select: none;
+        }
+
+        .search-history-item:hover {
+            background: var(--md-sys-color-surface-container-high);
+        }
+
+        .search-history-tag {
+            font-size: 0.72rem;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: var(--md-sys-color-surface-container-highest, #eceef4);
+            color: var(--md-sys-color-outline);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .search-history-word {
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+            white-space: nowrap;
+        }
+
+        .search-history-meaning {
+            font-size: 0.86rem;
+            color: var(--md-sys-color-outline);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-history-del-one {
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-outline);
+            opacity: 0.45;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            margin-left: auto;
+            flex-shrink: 0;
+            transition: opacity 0.15s, color 0.15s;
+        }
+
+        .search-history-del-one:hover {
+            opacity: 1;
+            color: var(--md-sys-color-error);
         }
 
         /* 搜索多标签页体系 (Search Tabs) */
@@ -1205,6 +1335,16 @@
         .droppable-target-meaning-box.drag-over {
             background: rgba(0, 97, 164, 0.06);
             border-color: #0284c7;
+        }
+
+        .meaning-piece-normal {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            font-size: 0.92rem;
+            color: var(--md-sys-color-on-surface, #1e293b);
+            line-height: 1.5;
+            user-select: text;
         }
 
         .meaning-chip {
@@ -1614,9 +1754,9 @@
             }
         }
 
-        /* 词书管理文件夹缩进与树状层级包含样式 */
+        /* 词书管理文件夹缩进与树状层级包含样式：对齐上方文件夹图标中轴线(24px) */
         .settings-folder-expanded-list {
-            margin-left: 14px;
+            margin-left: 24px;
             padding-left: 14px;
             border-left: 2px solid var(--md-sys-color-surface-container-highest, #cbd5e1);
             margin-top: 4px;
@@ -1720,11 +1860,14 @@
             font-size: 1.02rem;
             color: var(--md-sys-color-on-surface, #0f172a);
             margin-bottom: 3px;
-            transition: color 0.15s;
         }
 
-        .search-phrase-item:hover .search-phrase-name {
-            color: var(--md-sys-color-primary, #0061a4);
+        .phrase-keyword-highlight {
+            background: transparent !important;
+            color: var(--md-sys-color-primary, #0061a4) !important;
+            font-weight: 700;
+            border: none !important;
+            padding: 0 !important;
         }
 
         .search-phrase-meaning {
@@ -1929,21 +2072,6 @@
             background: #ced6f0 !important;
         }
 
-        /* 移动端搜索全屏对话框 */
-        @media (max-width: 768px) {
-            .hub-search-modal {
-                position: fixed !important;
-                inset: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                max-width: 100vw !important;
-                border-radius: 0 !important;
-                margin: 0 !important;
-                z-index: 2000 !important;
-                display: flex !important;
-                flex-direction: column !important;
-            }
-        }
         /* 词书进度条与待复习徽标 */
         .book-progress-mini {
             width: 100%;
@@ -2785,13 +2913,40 @@
             text-align: left;
         }
 
-        /* 顶部首行对齐容器：左侧放置 [进度 + 高考3500]，右侧放置 [椭圆工具栏] */
+        /* 顶部首行对齐容器：弹性流式换行，狭窄时 ◇◇◇◇◇ 自动下沉到第二行 */
         .single-top-header-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 12px;
             width: 100%;
             margin-bottom: 12px;
+        }
+
+        .single-top-header-left {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mastery-stars-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 480px) {
+            .mastery-stars-bar {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                margin-top: 2px;
+            }
         }
 
         /* 统一的高考3500及对决词库徽标样式，与账号、实词胶囊尺寸一致 */
@@ -3336,9 +3491,10 @@
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 6px 4px 12px 0;
+            padding: 8px 16px 14px 4px;
             margin: 8px 0;
             scrollbar-width: thin;
+            scrollbar-gutter: stable;
             scrollbar-color: var(--md-sys-color-outline-variant) transparent;
         }
 
@@ -3876,8 +4032,8 @@
             }
 
             .settings-folder-expanded-list {
-                margin-left: 8px;
-                padding-left: 10px;
+                margin-left: 24px;
+                padding-left: 12px;
             }
 
             .card {
@@ -4776,7 +4932,6 @@
             }
         }
 
-        /* 导航栏样式 */
         .md3-nav-rail {
             position: fixed;
             left: 0;
@@ -4791,7 +4946,13 @@
             padding: 24px 0 16px;
             z-index: 900;
             box-shadow: var(--md-elevation-1);
-            transition: transform 0.26s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease;
+            /* 开启 GPU 3D 加速渲染，增加 visibility 延迟避免出场截断 */
+            transform: translate3d(0, 0, 0);
+            opacity: 1;
+            visibility: visible;
+            transition: transform 0.32s cubic-bezier(0.2, 0, 0, 1),
+                        opacity 0.26s cubic-bezier(0.2, 0, 0, 1),
+                        visibility 0.32s cubic-bezier(0.2, 0, 0, 1);
             will-change: transform, opacity;
         }
 
@@ -4883,9 +5044,11 @@
                 display: none !important;
             }
 
+            /* 隐藏时平滑向左移出屏幕，完全不抖动卡顿 */
             body.nav-hidden .md3-nav-rail {
-                transform: translateX(-100%);
+                transform: translate3d(-100%, 0, 0);
                 opacity: 0;
+                visibility: hidden;
                 pointer-events: none;
             }
         }
@@ -5884,14 +6047,14 @@
 
         .settlement-word-text {
             font-size: 1.05rem;
-            font-weight: 600;
+            font-weight: 400;
             color: var(--md-sys-color-on-surface);
             word-break: break-word;
         }
 
         /* 错词加粗规范 */
         .settlement-word-text.mistake-word-bold {
-            font-weight: 800 !important;
+            font-weight: 700 !important;
             color: var(--md-sys-color-error) !important;
         }
 
@@ -6234,7 +6397,7 @@
 
 <body>
     <!-- Google MD3 左侧导航栏 (桌面端) -->
-    <nav id="app-nav-rail" class="md3-nav-rail" style="display: none;">
+    <nav id="app-nav-rail" class="md3-nav-rail">
         <div class="md3-nav-rail-menu">
             <button type="button" class="md3-nav-item active" id="nav-rail-home" onclick="handleNavClick('home')">
                 <div class="md3-nav-pill">
@@ -6378,7 +6541,7 @@
             <!-- 单行顶部搜索栏: [← 返回] + [搜索输入框] + [设置按钮] (44px 统一精密对齐) -->
             <div class="search-page-topbar">
                 <button type="button" class="md3-icon-btn search-page-back-btn" onclick="exitSearchPage()" title="返回主页">
-                    <span class="material-symbols-rounded" style="font-size:22px; width:22px; height:22px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">arrow_back</span>
+                    <span class="material-symbols-rounded">arrow_back</span>
                 </button>
                 <div class="hub-search-wrapper" id="search-page-wrapper">
                     <div class="hub-search-bar">
@@ -6399,8 +6562,11 @@
             <!-- 搜索多标签栏 (受设置开关控制) -->
             <div class="hub-search-tabs-row" id="search-page-tabs-row" style="display:none; max-width:880px; margin:4px auto 8px;"></div>
 
+            <!-- 搜索历史记录容器 (默认及无结果时展示) -->
+            <div id="search-history-container" style="max-width:880px; margin:0 auto; width:100%;"></div>
+
             <!-- 搜索结果主体展示区 -->
-            <div id="search-page-results" class="hub-search-inpage-results" style="display:block; max-width:880px; margin:0 auto; width:100%;">
+            <div id="search-page-results" class="hub-search-inpage-results" style="display:none; max-width:880px; margin:0 auto; width:100%;">
                 <div style="text-align:center; padding:60px 16px; color:var(--md-sys-color-outline);">
                     <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">search</span>
                     <p style="margin-top:12px; font-size:0.95rem;">输入单词或词组开始搜索</p>
@@ -6424,12 +6590,16 @@
                 </div>
             </div>
 
-            <!-- 首页上方搜索栏入口 (点击平滑切换至独立搜索页面) -->
-            <div class="hub-search-wrapper" id="hub-search-wrapper" onclick="focusSearchFromHub()" style="cursor:pointer;">
-                <div class="hub-search-bar" style="cursor:pointer;">
+            <!-- 首页上方搜索栏 (支持即时联想与直接回车进入独立搜索结果页) -->
+            <div class="hub-search-wrapper" id="hub-search-wrapper">
+                <div class="hub-search-bar">
                     <span class="material-symbols-rounded hub-search-icon">search</span>
-                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" onfocus="focusSearchFromHub()" readonly style="cursor:pointer;">
+                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleHubSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleHubSearchEnter(this);}">
+                    <button type="button" class="hub-search-clear-btn" id="hub-search-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearHubSearch(event)">
+                        <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
+                    </button>
                 </div>
+                <div class="hub-search-suggestions" id="hub-search-suggestions" style="display:none;" onmousedown="event.preventDefault()"></div>
             </div>
 
             <!-- 模式卡片 -->
@@ -6619,7 +6789,6 @@
                 <div class="app-bar">
                     <div>
                         <h2>个人中心</h2>
-                        <p style="font-size:0.85rem; color:var(--md-sys-color-outline);">账号管理、学习数据与词书中心</p>
                     </div>
                 </div>
 
@@ -7194,9 +7363,9 @@
                 </div>
 
                 <div class="single-quiz-card">
-                    <!-- 顶部排布行：左端为 [进度 + 词书]，右端为 [椭圆工具栏]，宽度 100% 与下方进度条首尾对齐 -->
+                    <!-- 顶部排布行：一行放不下时 ◇◇◇◇◇ 自动下沉移至第二行 -->
                     <div class="single-top-header-row">
-                        <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="single-top-header-left">
                             <span id="single-progress-text" class="card-progress-counter">1/10</span>
                             <span class="single-book-badge" id="single-book-badge">高考3500</span>
                             <span id="single-retest-tag" style="display:none;" class="retest-banner">
@@ -7211,8 +7380,8 @@
                             </div>
                         </div>
 
-                        <!-- 右侧与进度条末端对齐的工具栏 -->
-                        <div class="card-toolbar-cluster">
+                        <!-- 右侧常驻工具栏（无折叠按钮，三个图标全部直接显示） -->
+                        <div class="card-toolbar-cluster" id="single-card-toolbar-cluster">
                             <button type="button" class="card-tool-btn" id="btn-card-audio"
                                 onclick="playCurrentSingleWordAudio()" title="朗读发音">
                                 <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
@@ -8317,7 +8486,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.0.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.1.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -8360,10 +8529,6 @@
                     </button>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button class="btn btn-tonal btn-sm" onclick="refreshBooksFromWorker(true)">
-                        <span class="material-symbols-rounded" style="font-size:18px;">refresh</span>
-                        <span class="btn-label-text">刷新</span>
-                    </button>
                     <button class="btn btn-outlined btn-sm"
                         onclick="document.getElementById('custom-book-input').click()">
                         <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
@@ -8482,13 +8647,12 @@
             </div>
         </div>
 
-    <!-- 独立搜索设置弹窗 (标签页功能、包含该词的词组、相关链接) -->
+    <!-- 独立搜索设置弹窗 (标签页功能、相关词组、相关链接) -->
     <div id="modal-search-settings" class="modal-overlay">
         <div class="modal-card" style="max-width: 460px;">
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.18rem; font-weight:700;">搜索设置</h3>
-                    <p style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-top:2px;">自定义搜索页面的功能与展示项</p>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="closeSearchSettingsModal()">
                     <span class="material-symbols-rounded">close</span>
@@ -8499,7 +8663,6 @@
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <span class="rule-label" style="margin:0;">标签页功能</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">查词时在顶部显示多标签页，方便多词切换</p>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-tabs-label">
                         <input type="checkbox" id="switch-search-enable-tabs" onchange="updateSearchSetting('enableTabs', this.checked)">
@@ -8511,8 +8674,7 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <span class="rule-label" style="margin:0;">包含该词的词组</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">在释义下方展示该词相关的词组卡片</p>
+                        <span class="rule-label" style="margin:0;">展示相关词组</span>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-phrases-label">
                         <input type="checkbox" id="switch-search-enable-phrases" onchange="updateSearchSetting('enablePhrases', this.checked)">
@@ -8524,8 +8686,7 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
                     <div>
-                        <span class="rule-label" style="margin:0;">相关链接</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">展示派生词、同根词等相关词汇卡片</p>
+                        <span class="rule-label" style="margin:0;">展示相关链接</span>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-related-label">
                         <input type="checkbox" id="switch-search-enable-related" onchange="updateSearchSetting('enableRelatedLinks', this.checked)">
@@ -9117,6 +9278,12 @@
         /* ==========================================================================
            3. 词书管理器 (云端/本地/缓存分类隔离)
            ========================================================================== */
+        // 全局通用：彻底剔除词书名中的所有 📂、📁 及前后多余空格
+        function cleanBookName(str) {
+            if (!str || typeof str !== 'string') return '';
+            return str.replace(/[📂📁]/g, '').trim();
+        }
+
         const BookManager = {
             API_BASE: 'https://vocab-api.chenyurong.qzz.io',
             availableBooks: [],
@@ -9142,8 +9309,10 @@
                     const offlineBooks = await VocabOfflineDB.getAllBooks();
                     if (!window.customBooks) window.customBooks = [];
                     offlineBooks.forEach(ob => {
+                        // 强制清理历史缓存名称中的文件夹图标
+                        ob.name = cleanBookName(ob.name);
+                        ob.rawName = cleanBookName(ob.rawName || ob.name);
                         if (ob.isCloud) {
-                            // 云端下载到本地的词书，只放在云端词书中缓存，不放入 customBooks 本地未归类
                             if (ob.words && !this.bookCache[ob.id]) {
                                 this.bookCache[ob.id] = ob.words;
                             }
@@ -9157,6 +9326,7 @@
                         }
                     });
                     localFolders = await VocabOfflineDB.getAllFolders();
+                    localFolders.forEach(f => f.name = cleanBookName(f.name));
                 } catch (e) {
                     console.warn('[BookManager] Offline books load error:', e);
                 }
@@ -9198,8 +9368,8 @@
                                 .map(item => {
                                     const parts = item.path.split('/');
                                     const filename = parts[parts.length - 1];
-                                    const name = filename.replace(/\.json$/i, '');
-                                    const category = parts.length > 2 ? parts[1] : '精选';
+                                    const name = cleanBookName(filename.replace(/\.json$/i, ''));
+                                    const category = cleanBookName(parts.length > 2 ? parts[1] : '精选');
                                     return {
                                         id: item.path,
                                         name: name,
@@ -9248,8 +9418,8 @@
                 if (fetchedBooks && fetchedBooks.length > 0) {
                     this.availableBooks = fetchedBooks.map(item => ({
                         id: String(item.id || item.path || item.name),
-                        name: item.name || item.title || item.id,
-                        category: item.category || '精选',
+                        name: cleanBookName(item.name || item.title || item.id),
+                        category: cleanBookName(item.category || '精选'),
                         count: item.count || (item.words ? item.words.length : null) || (item.size ? `${Math.round(item.size / 120)}` : null) || '多词',
                         path: item.path || (String(item.id).startsWith('books/') ? item.id : `books/${item.category || '其他'}/${item.name || item.id}.json`),
                         cdnUrl: item.cdnUrl || `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(item.path || item.id)}`,
@@ -9694,20 +9864,19 @@
                 resetAllGameAlertsAndFeedback();
             }
             const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search'];
-            const railNav = document.getElementById('app-nav-rail');
-            const bottomNav = document.getElementById('app-bottom-nav');
 
             const performSwitch = () => {
                 currentView = viewId;
                 window.currentView = viewId;
-                if (hideNavViews.includes(viewId) || !currentUser) {
+                const shouldHideNav = hideNavViews.includes(viewId) || !currentUser;
+                
+                // 纯类名控制，触发 CSS 3D 平滑移出/移入动画
+                if (shouldHideNav) {
                     document.body.classList.remove('has-nav');
                     document.body.classList.add('nav-hidden');
                 } else {
                     document.body.classList.add('has-nav');
                     document.body.classList.remove('nav-hidden');
-                    if (railNav) railNav.style.display = '';
-                    if (bottomNav) bottomNav.style.display = '';
                 }
 
                 if (typeof updateNavActive === 'function') {
@@ -9753,6 +9922,13 @@
                 if (typeof fetchOnlineRoomsList === 'function') {
                     fetchOnlineRoomsList();
                     initGlobalPresence();
+                }
+            } else if (viewId === 'view-search') {
+                const searchInp = document.getElementById('search-page-input');
+                if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
+                    if (typeof showSearchHistoryView === 'function') {
+                        showSearchHistoryView();
+                    }
                 }
             }
         }
@@ -10354,7 +10530,7 @@
 
         function renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly = false) {
             const isSel = isBookIdSelected(selectedIds, b.id);
-            const displayName = escapeHtml(b.rawName || b.name);
+            const displayName = escapeHtml(cleanBookName(b.rawName || b.name));
             const clickHandler = isReadOnly ? '' : `onclick="${onToggleFn}('${b.id}')"`;
             const cursorStyle = isReadOnly ? 'cursor:default;' : '';
 
@@ -11255,7 +11431,7 @@
                 booksWithDue.forEach(b => {
                     const isSelected = currentReviewBookId === b.id;
                     const dueCount = EbbinghausEngine.getDueWordsForBooks([b.id]).length;
-                    const bName = escapeHtml((b.rawName || b.name || '').replace(/^[📂📁\s]+/, ''));
+                    const bName = escapeHtml(cleanBookName(b.rawName || b.name));
                     html += `
                         <div class="md3-custom-select-option ${isSelected ? 'selected' : ''}" onclick="switchReviewBook('${escapeHtml(b.id)}')" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer;">
                             <div style="display:flex; align-items:center; gap:6px; min-width:0;">
@@ -11278,6 +11454,9 @@
             startSingleReview(bookId);
         }
 
+        // 记录本轮已复习单词，杜绝连续点击“继续复习”时无限重复上一轮单词
+        let sessionReviewedWords = new Set();
+
         // 艾宾浩斯复习入口 (按所选词书或指定词书复习，当前词书复习完自动复习下一本)
         async function startSingleReview(specificBookId = null) {
             try {
@@ -11285,24 +11464,6 @@
 
                 let targetBookIds = [];
                 if (specificBookId && specificBookId !== 'all') {
-                    // 检查该词书是否还有待复习词汇
-                    const dueInThisBook = EbbinghausEngine.getDueWordsForBooks([specificBookId]);
-                    if (!dueInThisBook || dueInThisBook.length === 0) {
-                        // 当前词书已复习完，自动寻找下一本有待复习词汇的词书
-                        const booksWithDue = getBooksWithDueWords();
-                        if (booksWithDue.length > 0) {
-                            const nextBook = booksWithDue.find(b => b.id !== specificBookId) || booksWithDue[0];
-                            if (nextBook) {
-                                const allBooks = (BookManager.availableBooks || []).concat(window.customBooks || []);
-                                const oldBook = allBooks.find(b => b.id === specificBookId);
-                                const oldName = (oldBook ? (oldBook.rawName || oldBook.name) : '当前词书').replace(/^[📂📁\s]+/, '');
-                                const nextName = (nextBook.rawName || nextBook.name || '').replace(/^[📂📁\s]+/, '');
-                                specificBookId = nextBook.id;
-                                currentReviewBookId = nextBook.id;
-                                showToast(`《${oldName}》已复习完，自动继续复习《${nextName}》`);
-                            }
-                        }
-                    }
                     targetBookIds = [specificBookId];
                 } else {
                     const booksWithDue = getBooksWithDueWords();
@@ -11313,36 +11474,74 @@
                     }
                 }
 
-                const words = await BookManager.loadMultipleBooks(targetBookIds);
+                let words = await BookManager.loadMultipleBooks(targetBookIds);
                 if (!words || words.length === 0) {
                     showToast('未获取到词书词汇，请检查网络或选择词书！');
                     return;
                 }
 
-                const wordMap = new Map();
+                let wordMap = new Map();
                 words.forEach(w => {
                     if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
                 });
 
-                const dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
-                let reviewTargets = [];
+                let dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+                // 关键修复：排除本轮会话已复习过的词汇
+                let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
 
-                if (dueRecords.length === 0) {
+                // 如果指定词书的到期待复习词已在本会话全部复习完毕，自动尝试切换下一本有待复习词的词书
+                if (unreviewedDue.length === 0 && specificBookId && specificBookId !== 'all') {
+                    const allBooksWithDue = getBooksWithDueWords().filter(b => {
+                        const dues = EbbinghausEngine.getDueWordsForBooks([b.id]);
+                        return dues.some(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                    });
+                    if (allBooksWithDue.length > 0) {
+                        const nextBook = allBooksWithDue.find(b => b.id !== specificBookId) || allBooksWithDue[0];
+                        if (nextBook) {
+                            const allBooks = (BookManager.availableBooks || []).concat(window.customBooks || []);
+                            const oldBook = allBooks.find(b => b.id === specificBookId);
+                            const oldName = (oldBook ? (oldBook.rawName || oldBook.name) : '当前词书').replace(/^[📂📁\s]+/, '');
+                            const nextName = (nextBook.rawName || nextBook.name || '').replace(/^[📂📁\s]+/, '');
+                            specificBookId = nextBook.id;
+                            currentReviewBookId = nextBook.id;
+                            targetBookIds = [specificBookId];
+                            const reloadedWords = await BookManager.loadMultipleBooks(targetBookIds);
+                            if (reloadedWords && reloadedWords.length > 0) {
+                                wordMap.clear();
+                                reloadedWords.forEach(w => {
+                                    if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+                                });
+                                dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+                                unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                                showToast(`《${oldName}》已复习完，自动继续复习《${nextName}》`);
+                            }
+                        }
+                    }
+                }
+
+                let reviewTargets = [];
+                if (unreviewedDue.length > 0) {
+                    reviewTargets = [...unreviewedDue].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+                } else {
+                    // 无急需待复习词汇时，抽取已学但尚未熟练掌握的词汇进行强化
                     const allLearned = EbbinghausEngine.getAllLearnedWords().filter(r => {
                         const k = (r.word || '').trim().toLowerCase();
                         return wordMap.has(k) && !isWordMastered(k);
                     });
 
-                    if (allLearned.length === 0) {
-                        showToast('🎉 所有词书均已完成复习！暂无待复习词汇');
-                        return;
+                    let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+
+                    if (unreviewedLearned.length === 0) {
+                        if (allLearned.length === 0) {
+                            showToast('🎉 所有词书均已完成复习！暂无待复习词汇');
+                            return;
+                        }
+                        // 如果所有已学词汇在本会话中均已复习过至少一遍，重置会话去重集，允许开始新一轮强化
+                        sessionReviewedWords.clear();
+                        unreviewedLearned = allLearned;
                     }
-                    if (!confirm('待复习词汇已全部完成！是否提前强化复习已学单词？')) {
-                        return;
-                    }
-                    reviewTargets = [...allLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
-                } else {
-                    reviewTargets = [...dueRecords].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+
+                    reviewTargets = [...unreviewedLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
                 }
 
                 const batchSize = singleConfig.reviewBatch || 20;
@@ -11350,12 +11549,14 @@
 
                 const wordsList = selectedBatch.map(r => {
                     const existing = wordMap.get(r.word.toLowerCase());
+                    const bId = r.bookId || (targetBookIds.length > 0 ? targetBookIds[0] : null);
                     if (existing) {
-                        return { ...existing, bookName: '复习' };
+                        return { ...existing, bookId: bId, bookName: '复习' };
                     }
                     return {
                         word: r.word,
                         phone: r.phone || '',
+                        bookId: bId,
                         bookName: '复习',
                         meanings: [{ pos: '', meaning: r.meaning || '---' }]
                     };
@@ -12114,6 +12315,33 @@
             }
         }
 
+        function toggleCardToolbarCollapse(event) {
+            if (event) event.stopPropagation();
+            const cluster = document.getElementById('single-card-toolbar-cluster');
+            if (cluster) {
+                cluster.classList.toggle('expanded');
+            }
+        }
+
+        function checkCardToolbarOverflow() {
+            const header = document.querySelector('.single-top-header-row');
+            const cluster = document.getElementById('single-card-toolbar-cluster');
+            if (!header || !cluster) return;
+            if (header.scrollWidth > header.clientWidth) {
+                cluster.classList.add('collapsed-overflow');
+            } else if (window.innerWidth > 520) {
+                cluster.classList.remove('collapsed-overflow');
+            }
+        }
+
+        window.addEventListener('resize', checkCardToolbarOverflow);
+        document.addEventListener('pointerdown', (e) => {
+            const cluster = document.getElementById('single-card-toolbar-cluster');
+            if (cluster && cluster.classList.contains('expanded') && !cluster.contains(e.target)) {
+                cluster.classList.remove('expanded');
+            }
+        });
+
         let singlePhraseTimer = null;
         let singlePhraseState = {
             targetWords: [],
@@ -12168,6 +12396,7 @@
 
             updateSingleCardToolbar(q);
             renderCardMasteryDiamonds(q.word);
+            setTimeout(checkCardToolbarOverflow, 0);
 
             const wordEl = document.getElementById('single-word');
             const phoneEl = document.getElementById('single-phone');
@@ -12500,7 +12729,8 @@
             singleState.total++;
             recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
             scheduleRetestForCurrentQuestion();
-            EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false);
+            const currentBookId = q.bookId || (typeof currentReviewBookId !== 'undefined' && currentReviewBookId !== 'all' ? currentReviewBookId : null);
+            EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false, currentBookId);
             renderCardMasteryDiamonds(q.word, 'loss');
 
             const isPhrase = q.word && q.word.trim().includes(' ');
@@ -12602,13 +12832,14 @@
             userStats.total++;
             singleState.total++;
 
+            const currentBookId = q.bookId || (typeof currentReviewBookId !== 'undefined' && currentReviewBookId !== 'all' ? currentReviewBookId : null);
             if (isRight) {
                 userStats.correct++;
                 singleState.score++;
                 if (userStats.mistakes && userStats.mistakes[q.word]) {
                     delete userStats.mistakes[q.word];
                 }
-                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, true);
+                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, true, currentBookId);
                 renderCardMasteryDiamonds(q.word, 'gain');
                 if (window.DailyStudyTracker) {
                     DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
@@ -12616,7 +12847,7 @@
             } else {
                 recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
                 scheduleRetestForCurrentQuestion();
-                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false);
+                EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
                 renderCardMasteryDiamonds(q.word, 'loss');
             }
             saveCurrentUserData();
@@ -14392,6 +14623,11 @@
                 if (btnResultHub) btnResultHub.innerText = '返回主页';
 
                 const pool = gameResult.pool || singleState.pool || [];
+                if (isReview && pool && pool.length > 0 && typeof sessionReviewedWords !== 'undefined') {
+                    pool.forEach(p => {
+                        if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
+                    });
+                }
                 const totalCount = pool.length || singleState.total || 0;
                 const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : (singleState.score || 0);
                 const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
@@ -19344,7 +19580,7 @@
         }
 
         function renderSettingsManageBookRow(b, isCloud = false, categoryName = '') {
-            const displayName = escapeHtml(b.rawName || b.name);
+            const displayName = escapeHtml(cleanBookName(b.rawName || b.name));
             const prog = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookProgress === 'function')
                 ? EbbinghausEngine.getBookProgress(b.id, b.words)
                 : { total: b.count || 0, learned: 0, due: 0, mastered: 0, progressPercent: 0 };
@@ -19409,7 +19645,7 @@
             if (!currentUser) return showToast('请先登录后再导出备份');
             try {
                 const backupObj = {
-                    version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.0.0',
+                    version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.1.0',
                     exportedAt: new Date().toISOString(),
                     user: currentUser,
                     data: {
@@ -20194,12 +20430,24 @@
 
         
 
-        const APP_VERSION = '2.0.0';
+        const APP_VERSION = '2.1.0';
         const APP_CHANGELOG = [
+            {
+                version: 'v2.1.0',
+                date: '2026-09-19',
+                badge: '当前版本',
+                items: [
+                    '添加搜索功能。',
+                    '优化人机对战。',
+                    '优化UI：新增“我”页面。',
+                    '优化复习功能。',
+                    '优化易错项抽取。'
+                ]
+            },
             {
                 version: 'v2.0.0',
                 date: '2026-09-13',
-                badge: '当前版本',
+                badge: '历史版本',
                 items: [
                     '更新背实词功能。',
                     '更新每组小结。',
@@ -20211,7 +20459,7 @@
             {
                 version: 'v1.9.2',
                 date: '2026-09-13',
-                badge: '当前版本',
+                badge: '历史版本',
                 items: [
                     '优化词书。',
                     '优化抽词："/"、"="、"( )"、","、"one’s"等自动预填。',
@@ -20222,7 +20470,7 @@
             {
                 version: 'v1.9.1',
                 date: '2026-09-13',
-                badge: '当前版本',
+                badge: '历史版本',
                 items: [
                     '优化版本更新。',
                 ]
@@ -20230,7 +20478,7 @@
             {
                 version: 'v1.9.0',
                 date: '2026-09-12',
-                badge: '当前版本',
+                badge: '历史版本',
                 items: [
                     '更新学习日历。',
                     '云端词书也支持在设置中查看。',
@@ -21504,7 +21752,7 @@
             const badgeEl = document.getElementById('hub-review-due-count');
             const count = parseInt(badgeEl ? badgeEl.innerText : '0', 10);
             if (count <= 0) {
-                showToast('当前暂无急需复习的词汇，点击可提前强化复习');
+                showToast('暂无需要复习的词汇，点击可强化复习');
             }
             startSingleReview();
         }
@@ -21523,8 +21771,11 @@
         // ----------------- 新建本地词书 -----------------
         function promptCreateCustomBook() {
             const modal = document.getElementById('modal-create-custom-book');
-            const nameInput = document.getElementById('input-create-book-name');
-            if (nameInput) nameInput.value = '';
+            const nameInput = document.getElementById('input-new-book-name') || document.getElementById('input-create-book-name');
+            if (nameInput) {
+                nameInput.value = '';
+                setTimeout(() => nameInput.focus(), 150);
+            }
             if (modal) modal.classList.add('active');
         }
 
@@ -21534,10 +21785,11 @@
         }
 
         async function confirmCreateCustomBook() {
-            const nameInput = document.getElementById('input-create-book-name');
+            const nameInput = document.getElementById('input-new-book-name') || document.getElementById('input-create-book-name');
             const name = (nameInput ? nameInput.value : '').trim();
             if (!name) {
                 showToast('请输入词书名称！');
+                if (nameInput) nameInput.focus();
                 return;
             }
             const bookId = 'custom_' + Date.now();
@@ -21564,17 +21816,34 @@
         }
 
         // ----------------- 手动添加词汇与有道自动查词 -----------------
-        let manualAddWordTimer = null;
+        let manualAddWordState = {
+            word: '',
+            chips: [], // Array of { id, pos, text, selected: boolean, isCustom: boolean }
+            debounceTimer: null
+        };
+
         function openManualAddWordModal() {
             const modal = document.getElementById('modal-manual-add-word');
             const wordInput = document.getElementById('input-manual-word');
-            const phoneInput = document.getElementById('input-manual-phone');
-            const meaningInput = document.getElementById('input-manual-meaning');
+            const labelEl = document.getElementById('manual-add-word-book-label');
             const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
+            const customInput = document.getElementById('input-manual-custom-meaning');
+
+            const currentBook = (window.customBooks || []).find(b => b.id === settingsViewingBookId);
+            if (labelEl) {
+                labelEl.innerText = `目标词书：《${currentBook ? (currentBook.rawName || currentBook.name) : '当前词书'}》`;
+            }
+
             if (wordInput) wordInput.value = '';
-            if (phoneInput) phoneInput.value = '';
-            if (meaningInput) meaningInput.value = '';
-            if (candidatesWrap) candidatesWrap.innerHTML = '';
+            if (customInput) customInput.value = '';
+            manualAddWordState = { word: '', chips: [], debounceTimer: null };
+
+            if (candidatesWrap) {
+                candidatesWrap.innerHTML = `<div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 12px 0; text-align: center;">输入英文单词后自动获取释义词块...</div>`;
+            }
+            const actions = document.getElementById('manual-word-chips-actions');
+            if (actions) actions.style.display = 'none';
+
             if (modal) modal.classList.add('active');
             if (wordInput) setTimeout(() => wordInput.focus(), 150);
         }
@@ -21582,78 +21851,223 @@
         function closeManualAddWordModal() {
             const modal = document.getElementById('modal-manual-add-word');
             if (modal) modal.classList.remove('active');
+            if (manualAddWordState.debounceTimer) clearTimeout(manualAddWordState.debounceTimer);
         }
 
-        function handleManualWordInput(val) {
-            clearTimeout(manualAddWordTimer);
-            const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
-            if (!val || !val.trim()) {
-                if (candidatesWrap) candidatesWrap.innerHTML = '';
+        function handleManualWordInputChange(val) {
+            if (manualAddWordState.debounceTimer) clearTimeout(manualAddWordState.debounceTimer);
+            const clean = (val || '').trim();
+            manualAddWordState.word = clean;
+            if (!clean) {
+                const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
+                if (candidatesWrap) {
+                    candidatesWrap.innerHTML = `<div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 12px 0; text-align: center;">输入英文单词后自动获取释义词块...</div>`;
+                }
+                const actions = document.getElementById('manual-word-chips-actions');
+                if (actions) actions.style.display = 'none';
                 return;
             }
-            manualAddWordTimer = setTimeout(async () => {
-                const res = await searchYoudaoSuggest(val.trim());
-                if (!candidatesWrap) return;
-                if (res && Array.isArray(res.entries) && res.entries.length > 0) {
-                    candidatesWrap.innerHTML = `
-                        <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-bottom:6px;">点击候选释义快速填入：</div>
-                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                            ${res.entries.slice(0, 5).map(e => `
-                                <div class="md3-chip" onclick="selectManualCandidateMeaning('${escapeHtml(e.explain)}')">
-                                    <span>${escapeHtml(e.explain)}</span>
+
+            manualAddWordState.debounceTimer = setTimeout(() => {
+                triggerAutoFetchYoudaoForManual();
+            }, 350);
+        }
+
+        async function triggerAutoFetchYoudaoForManual() {
+            const wordInput = document.getElementById('input-manual-word');
+            const query = wordInput ? wordInput.value.trim() : manualAddWordState.word;
+            if (!query) return;
+
+            const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
+            if (candidatesWrap) {
+                candidatesWrap.innerHTML = `<div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 12px 0; text-align: center;">正在查询有道释义...</div>`;
+            }
+
+            const res = await searchYoudaoSuggest(query);
+            const chips = [];
+            let counter = 0;
+
+            if (res && Array.isArray(res.entries) && res.entries.length > 0) {
+                const queryLower = query.toLowerCase();
+                const matchedEntries = res.entries.filter(e => e && e.entry && e.entry.trim().toLowerCase() === queryLower);
+                const entriesToUse = matchedEntries.length > 0 ? matchedEntries : res.entries.slice(0, 3);
+
+                entriesToUse.forEach(e => {
+                    const segs = parseMeaningPosSegments(cleanMeaningText(e.explain || '', e.entry));
+                    segs.forEach(s => {
+                        const pieces = s.meaning.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean);
+                        pieces.forEach(p => {
+                            chips.push({
+                                id: `mchip_${++counter}`,
+                                pos: s.pos || '',
+                                text: p,
+                                selected: true, // 默认全部勾选
+                                isCustom: false
+                            });
+                        });
+                    });
+                });
+            }
+
+            const existingCustom = manualAddWordState.chips.filter(c => c.isCustom);
+            manualAddWordState.chips = [...chips, ...existingCustom];
+
+            renderManualWordChips();
+        }
+
+        function renderManualWordChips() {
+            const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
+            const actions = document.getElementById('manual-word-chips-actions');
+            if (!candidatesWrap) return;
+
+            if (manualAddWordState.chips.length === 0) {
+                candidatesWrap.innerHTML = `<div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 12px 0; text-align: center;">未查找到有道释义，请在下方直接输入自定义释义</div>`;
+                if (actions) actions.style.display = 'none';
+                return;
+            }
+
+            if (actions) actions.style.display = 'flex';
+
+            const posGroups = {};
+            manualAddWordState.chips.forEach(c => {
+                const p = c.pos || '';
+                if (!posGroups[p]) posGroups[p] = [];
+                posGroups[p].push(c);
+            });
+
+            let html = '';
+            Object.keys(posGroups).forEach(posKey => {
+                const groupChips = posGroups[posKey];
+                html += `
+                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                        ${posKey ? `<span class="unified-source-badge pos" style="margin-top: 2px;">${escapeHtml(posKey)}</span>` : ''}
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; flex: 1;">
+                            ${groupChips.map(c => `
+                                <div class="selectable-meaning-chip ${c.selected ? 'selected' : ''}" onclick="toggleManualWordChip('${c.id}')" title="点击切换勾选">
+                                    <span>${escapeHtml(c.text)}</span>
+                                    ${c.selected ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
+                                    ${c.isCustom ? `<span class="meaning-chip-remove" onclick="event.stopPropagation(); removeManualCustomChip('${c.id}')" title="删除">&times;</span>` : ''}
                                 </div>
                             `).join('')}
                         </div>
-                    `;
-                } else {
-                    candidatesWrap.innerHTML = '';
-                }
-            }, 300);
+                    </div>
+                `;
+            });
+
+            candidatesWrap.innerHTML = html;
         }
 
-        function selectManualCandidateMeaning(text) {
-            const meaningInput = document.getElementById('input-manual-meaning');
-            if (!meaningInput) return;
-            if (!meaningInput.value.trim()) {
-                meaningInput.value = text;
-            } else {
-                meaningInput.value += '; ' + text;
+        function toggleManualWordChip(chipId) {
+            const c = manualAddWordState.chips.find(item => item.id === chipId);
+            if (c) {
+                c.selected = !c.selected;
+                renderManualWordChips();
             }
+        }
+
+        function selectAllManualWordChips(selectAll) {
+            manualAddWordState.chips.forEach(c => c.selected = selectAll);
+            renderManualWordChips();
+        }
+
+        function addManualCustomChip() {
+            const posSelect = document.getElementById('input-manual-custom-pos');
+            const textInput = document.getElementById('input-manual-custom-meaning');
+            const rawText = (textInput ? textInput.value : '').trim();
+            if (!rawText) {
+                showToast('请输入释义内容');
+                return;
+            }
+
+            const pos = posSelect ? posSelect.value : '';
+            const pieces = rawText.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean);
+            pieces.forEach((p, idx) => {
+                manualAddWordState.chips.push({
+                    id: `custom_mchip_${Date.now()}_${idx}`,
+                    pos: pos,
+                    text: p,
+                    selected: true,
+                    isCustom: true
+                });
+            });
+
+            textInput.value = '';
+            renderManualWordChips();
+        }
+
+        function removeManualCustomChip(chipId) {
+            manualAddWordState.chips = manualAddWordState.chips.filter(c => c.id !== chipId);
+            renderManualWordChips();
         }
 
         async function confirmManualAddWord() {
             const wordInput = document.getElementById('input-manual-word');
-            const phoneInput = document.getElementById('input-manual-phone');
-            const meaningInput = document.getElementById('input-manual-meaning');
             const word = (wordInput ? wordInput.value : '').trim();
-            const phone = (phoneInput ? phoneInput.value : '').trim();
-            const meaning = (meaningInput ? meaningInput.value : '').trim();
-
             if (!word) {
-                showToast('请输入单词或词组！');
+                showToast('请输入英文单词或词组！');
+                if (wordInput) wordInput.focus();
                 return;
             }
-            if (!meaning) {
-                showToast('请输入释义！');
+
+            const selectedChips = manualAddWordState.chips.filter(c => c.selected);
+            const customInput = document.getElementById('input-manual-custom-meaning');
+            const extraCustomText = (customInput ? customInput.value : '').trim();
+
+            if (selectedChips.length === 0 && !extraCustomText) {
+                showToast('请至少勾选一个释义或添加自定义释义！');
                 return;
             }
+
+            if (extraCustomText) {
+                const posSelect = document.getElementById('input-manual-custom-pos');
+                const pos = posSelect ? posSelect.value : '';
+                extraCustomText.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean).forEach((p, idx) => {
+                    selectedChips.push({
+                        id: `temp_${idx}`,
+                        pos: pos,
+                        text: p
+                    });
+                });
+            }
+
+            const posGroups = {};
+            selectedChips.forEach(c => {
+                const p = c.pos || '';
+                if (!posGroups[p]) posGroups[p] = [];
+                if (!posGroups[p].includes(c.text)) {
+                    posGroups[p].push(c.text);
+                }
+            });
+
+            const segStrings = [];
+            Object.keys(posGroups).forEach(p => {
+                const joined = posGroups[p].join('；');
+                segStrings.push(p ? `${p} ${joined}` : joined);
+            });
+            const finalMeaning = segStrings.join(' ');
 
             const currentBook = (window.customBooks || []).find(b => b.id === settingsViewingBookId);
             if (!currentBook) {
-                showToast('未找到当前词书！');
+                showToast('未找到目标词书！');
                 return;
             }
 
             const newWordObj = {
                 word: word,
-                phone: phone,
-                meaning: meaning,
+                phone: '',
+                meaning: finalMeaning,
                 bookName: currentBook.name,
                 bookId: currentBook.id
             };
 
             if (!Array.isArray(currentBook.words)) currentBook.words = [];
-            currentBook.words.push(newWordObj);
+            const existingIdx = currentBook.words.findIndex(w => (w.word || w.name || '').toLowerCase() === word.toLowerCase());
+            if (existingIdx !== -1) {
+                currentBook.words[existingIdx].meaning = finalMeaning;
+                currentBook.words[existingIdx].trans = [finalMeaning];
+            } else {
+                currentBook.words.push(newWordObj);
+            }
             currentBook.count = currentBook.words.length;
 
             if (typeof VocabOfflineDB !== 'undefined') {
@@ -21665,7 +22079,7 @@
 
             closeManualAddWordModal();
             viewBookWordsInSettings(currentBook.id);
-            showToast(`已添加词汇：${word}`);
+            showToast(`已成功添加「${word}」！`);
         }
 
 // ----------------- 搜索功能：有道词典与本地词书 -----------------
@@ -21895,7 +22309,7 @@
                     const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
                     bookLanes.push({
                         id: 'lane_book_' + b.id,
-                        title: `《${bookName}》释义词块`,
+                        title: `${bookName}`,
                         type: 'book',
                         bookId: b.id,
                         bookName: bookName,
@@ -21910,7 +22324,7 @@
                 const firstCustom = customBooks[0] || { id: 'custom_default', name: '生词本' };
                 bookLanes.push({
                     id: 'lane_book_' + firstCustom.id,
-                    title: `《${firstCustom.name}》释义词块 (可拖入词块添加)`,
+                    title: `${firstCustom.name}`,
                     type: 'book',
                     bookId: firstCustom.id,
                     bookName: firstCustom.name,
@@ -21943,7 +22357,7 @@
             if (youdaoChips.length > 0) {
                 lanes.push({
                     id: 'lane_youdao',
-                    title: '有道词典参考词块 (拖拽可复制到下方词书)',
+                    title: '有道词典参考释义',
                     type: 'youdao',
                     bookId: null,
                     chips: youdaoChips
@@ -22127,7 +22541,7 @@
                 actionsContainer.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; width: 100%; flex-wrap: wrap;">
                         <span style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-right: auto;">
-                            💡 拖拽词块可跨词性与词书自由归类；点击 ✕ 可移除
+                            拖拽词块编辑释义
                         </span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <button type="button" class="btn btn-tonal btn-sm" onclick="cancelEditMeanings()">
@@ -22205,11 +22619,13 @@
                                     <div style="display: flex; align-items: flex-start; gap: 10px;">
                                         ${p ? `<span class="unified-source-badge pos" style="margin-top: 5px;">${escapeHtml(p)}</span>` : ''}
                                         <div class="droppable-pos-dashed-box"
-                                            ondragover="handleGroupDragOver(event)"
-                                            ondragleave="handleGroupDragLeave(event)"
-                                            ondrop="handleGroupDrop(event, '${escapeHtml(lane.id)}', '${escapeHtml(p)}')">
+                                            ${!isYoudao ? `
+                                                ondragover="handleGroupDragOver(event)"
+                                                ondragleave="handleGroupDragLeave(event)"
+                                                ondrop="handleGroupDrop(event, '${escapeHtml(lane.id)}', '${escapeHtml(p)}')"
+                                            ` : ''}>
                                             ${chipsInGroup.length === 0 ? `
-                                                <span style="color:var(--md-sys-color-outline); font-size:0.8rem; padding:4px;">可拖入词块至此</span>
+                                                <span style="color:var(--md-sys-color-outline); font-size:0.8rem; padding:4px;">${isYoudao ? '无释义词块' : '可拖入词块至此'}</span>
                                             ` : chipsInGroup.map(chip => `
                                                 <div class="meaning-chip" draggable="true"
                                                     ondragstart="handleChipDragStart(event, '${escapeHtml(lane.id)}', '${escapeHtml(chip.id)}', '${escapeHtml(chip.text)}', '${escapeHtml(chip.pos || '')}')"
@@ -22275,9 +22691,18 @@
             const sourceLane = editingMeaningsState.lanes.find(l => l.id === data.sourceLaneId);
             const targetLane = editingMeaningsState.lanes.find(l => l.id === targetLaneId);
             if (!sourceLane || !targetLane) return;
+            if (targetLane.type === 'youdao') return; // 严禁将词块拖入/复制回有道参考栏！
 
-            const finalPos = targetPos !== null ? targetPos : (data.pos || '');
+            const finalPos = targetPos !== null && targetPos !== undefined ? targetPos : (data.pos || '');
 
+            // 查重：防止目标词书同一词性下重复添加相同文字
+            const alreadyExists = targetLane.chips.some(c => (c.pos || '') === finalPos && c.text.trim().toLowerCase() === data.text.trim().toLowerCase());
+            if (alreadyExists && sourceLane.id !== targetLane.id) {
+                showToast('该释义已存在于目标词书中');
+                return;
+            }
+
+            // 如果源自普通本地词书，则移出源位置
             if (sourceLane.type === 'book') {
                 const sIdx = sourceLane.chips.findIndex(c => c.id === data.chipId);
                 if (sIdx !== -1) {
@@ -22285,10 +22710,16 @@
                 }
             }
 
+            // 同词书内换词性时，如果已存在相同词性内容则不重复追加
+            if (sourceLane.id === targetLane.id && alreadyExists) {
+                renderEditMeaningsContainer();
+                return;
+            }
+
             targetLane.chips.push({
                 id: 'chip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                 pos: finalPos,
-                text: data.text
+                text: data.text.trim()
             });
 
             renderEditMeaningsContainer();
@@ -22410,8 +22841,102 @@
             }
         }
 
+        const SEARCH_HISTORY_KEY = 'vocab_search_history';
+
+        function getSearchHistory() {
+            try {
+                return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function addSearchHistoryItem(word, meaning = '') {
+            if (!word || !word.trim()) return;
+            const cleanWord = word.trim();
+            let history = getSearchHistory();
+            history = history.filter(h => (typeof h === 'string' ? h : h.word).toLowerCase() !== cleanWord.toLowerCase());
+            history.unshift({
+                word: cleanWord,
+                meaning: (meaning || '').trim(),
+                time: Date.now()
+            });
+            if (history.length > 30) history = history.slice(0, 30);
+            localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+            renderSearchHistory();
+        }
+
+        function removeSearchHistoryItem(word, e) {
+            if (e) e.stopPropagation();
+            let history = getSearchHistory();
+            history = history.filter(h => (typeof h === 'string' ? h : h.word).toLowerCase() !== word.toLowerCase());
+            localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+            renderSearchHistory();
+        }
+
+        function clearSearchHistory() {
+            localStorage.removeItem(SEARCH_HISTORY_KEY);
+            renderSearchHistory();
+        }
+
+        function renderSearchHistory() {
+            const container = document.getElementById('search-history-container');
+            if (!container) return;
+            const history = getSearchHistory();
+            if (history.length === 0) {
+                container.innerHTML = `
+                    <div class="search-history-section">
+                        <div class="search-history-header">
+                            <span class="search-history-title">搜索历史</span>
+                        </div>
+                        <div style="font-size:0.88rem; color:var(--md-sys-color-outline); padding:20px 0; text-align:center;">暂无搜索历史</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const itemsHtml = history.map(item => {
+                const w = typeof item === 'string' ? item : item.word;
+                const m = typeof item === 'object' && item.meaning ? item.meaning : '';
+                const tag = (w.includes(' ') || w.includes('-')) ? '词组' : '中英';
+                return `
+                    <div class="search-history-item" onclick="executeHubSearch('${escapeHtml(w)}', true, true)">
+                        <span class="search-history-tag">${tag}</span>
+                        <span class="search-history-word">${escapeHtml(w)}</span>
+                        ${m ? `<span class="search-history-meaning" title="${escapeHtml(m)}">${escapeHtml(m)}</span>` : ''}
+                        <button type="button" class="search-history-del-one" onclick="removeSearchHistoryItem('${escapeHtml(w)}', event)" title="删除此条">
+                            <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="search-history-section">
+                    <div class="search-history-header">
+                        <span class="search-history-title">搜索历史</span>
+                        <button type="button" class="search-history-clear-btn" onclick="clearSearchHistory()" title="清空所有历史">
+                            <span class="material-symbols-rounded" style="font-size:20px;">delete_outline</span>
+                        </button>
+                    </div>
+                    <div class="search-history-list">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showSearchHistoryView() {
+            renderSearchHistory();
+            const historyContainer = document.getElementById('search-history-container');
+            const resultsContainer = document.getElementById('search-page-results');
+            if (historyContainer) historyContainer.style.display = 'block';
+            if (resultsContainer) resultsContainer.style.display = 'none';
+        }
+
         function focusSearchFromHub() {
             switchView('view-search');
+            showSearchHistoryView();
             setTimeout(() => {
                 const inp = document.getElementById('search-page-input');
                 if (inp) inp.focus();
@@ -22432,6 +22957,7 @@
             clearTimeout(hubSearchDebounceTimer);
             if (!query || !query.trim()) {
                 if (suggs) suggs.style.display = 'none';
+                showSearchHistoryView();
                 return;
             }
 
@@ -22460,14 +22986,19 @@
             }
             if (clearBtn) clearBtn.style.display = 'none';
             if (suggs) suggs.style.display = 'none';
+            showSearchHistoryView();
         }
 
         function focusHubSearchInput() {
-            focusSearchFromHub();
+            const inp = document.getElementById('hub-search-input');
+            if (inp) inp.focus();
         }
 
         function handleHubSearchFocus() {
-            focusSearchFromHub();
+            const inp = document.getElementById('hub-search-input');
+            if (inp && inp.value && inp.value.trim()) {
+                renderHubSearchSuggestions(inp.value.trim());
+            }
         }
 
         function handleHubSearchBlur() {
@@ -22490,16 +23021,31 @@
             }
             if (clearBtn) clearBtn.style.display = 'none';
             if (suggs) suggs.style.display = 'none';
-            closeInpageSearchResults();
         }
 
         function handleHubSearchInput(query) {
-            handleSearchPageInput(query);
+            const clearBtn = document.getElementById('hub-search-clear-btn');
+            const suggs = document.getElementById('hub-search-suggestions');
+            if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
+
+            clearTimeout(hubSearchDebounceTimer);
+            if (!query || !query.trim()) {
+                if (suggs) suggs.style.display = 'none';
+                return;
+            }
+
+            hubSearchDebounceTimer = setTimeout(() => {
+                renderHubSearchSuggestions(query.trim());
+            }, 180);
         }
 
         function handleHubSearchEnter(inputEl) {
             if (!inputEl) return;
-            handleSearchPageEnter(inputEl);
+            clearTimeout(hubSearchDebounceTimer);
+            const suggs = document.getElementById('hub-search-suggestions');
+            if (suggs) suggs.style.display = 'none';
+            inputEl.blur();
+            executeHubSearch(inputEl.value, true, true);
         }
 
         function handleHubSearchModalInput(val) {
@@ -22519,10 +23065,16 @@
         }
 
         document.addEventListener('pointerdown', (e) => {
-            const wrap = document.getElementById('hub-search-wrapper');
-            const suggs = document.getElementById('hub-search-suggestions');
-            if (wrap && !wrap.contains(e.target)) {
-                if (suggs) suggs.style.display = 'none';
+            const wrapHub = document.getElementById('hub-search-wrapper');
+            const suggsHub = document.getElementById('hub-search-suggestions');
+            if (wrapHub && !wrapHub.contains(e.target)) {
+                if (suggsHub) suggsHub.style.display = 'none';
+            }
+
+            const wrapPage = document.getElementById('search-page-wrapper');
+            const suggsPage = document.getElementById('search-page-suggestions');
+            if (wrapPage && !wrapPage.contains(e.target)) {
+                if (suggsPage) suggsPage.style.display = 'none';
             }
         });
 
@@ -22718,13 +23270,18 @@
             return phrases.slice(0, 30);
         }
 
-        function findRelatedWords(searchWord) {
+        function highlightPhraseKeyword(phrase, keyword) {
+            if (!phrase) return '';
+            if (!keyword || !keyword.trim()) return escapeHtml(phrase);
+            const escapedPhrase = escapeHtml(phrase);
+            const escapedKw = escapeHtml(keyword.trim());
+            const regex = new RegExp('(' + escapeRegExp(escapedKw) + ')', 'gi');
+            return escapedPhrase.replace(regex, '<span class="phrase-keyword-highlight">$1</span>');
+        }
+
+        function findRelatedWords(searchWord, ydEntries = []) {
             if (!searchWord) return [];
             const cleanWord = searchWord.trim().toLowerCase();
-            const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-                ? BookManager.availableBooks
-                : BookManager.fallbackBooks;
-            const allTargetBooks = allBooks.concat(window.customBooks || []);
             const related = [];
             const seenWords = new Set();
 
@@ -22733,27 +23290,61 @@
                 overrides = JSON.parse(localStorage.getItem('vocab_word_meaning_overrides') || '{}');
             } catch (e) {}
 
-            allTargetBooks.forEach(b => {
-                const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
-                words.forEach(w => {
-                    if (!w) return;
-                    const wName = (w.word || w.name || '').trim();
-                    if (!wName) return;
-                    const wLower = wName.toLowerCase();
-                    if (wLower === cleanWord) return;
-                    if (wName.includes(' ') || wName.includes('-')) return;
+            const scanWord = (w, bookId = '') => {
+                if (!w) return;
+                const wName = (w.word || w.name || '').trim();
+                if (!wName) return;
+                const wLower = wName.toLowerCase();
+                if (wLower === cleanWord) return;
+                if (wName.includes(' ') || wName.includes('-')) return;
 
-                    const isVariant = (wLower.startsWith(cleanWord) || cleanWord.startsWith(wLower)) && Math.abs(wLower.length - cleanWord.length) <= 6;
-                    if (isVariant && !seenWords.has(wLower)) {
-                        seenWords.add(wLower);
-                        const meaning = extractWordMeaning(w, overrides, b.id);
+                const isVariant = (wLower.startsWith(cleanWord) || cleanWord.startsWith(wLower)) && Math.abs(wLower.length - cleanWord.length) <= 6;
+                if (isVariant && !seenWords.has(wLower)) {
+                    seenWords.add(wLower);
+                    const meaning = extractWordMeaning(w, overrides, bookId);
+                    related.push({
+                        word: wName,
+                        meaning: meaning
+                    });
+                }
+            };
+
+            // 1. 检索高考3500默认词库
+            if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+                DEFAULT_WORDS.forEach(w => scanWord(w, 'GaoKao3500'));
+            }
+
+            // 2. 检索内置词书、云端缓存词书、用户自定义词书
+            const booksToScan = [
+                ...(BookManager.fallbackBooks || []),
+                ...(BookManager.availableBooks || []),
+                ...(window.customBooks || [])
+            ];
+            booksToScan.forEach(b => {
+                if (!b) return;
+                const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
+                words.forEach(w => scanWord(w, b.id));
+            });
+
+            // 3. 有道搜索联想补充 (词根衍生、变化形式)
+            if (Array.isArray(ydEntries)) {
+                ydEntries.forEach(e => {
+                    if (!e || !e.entry) return;
+                    const eName = e.entry.trim();
+                    const eLower = eName.toLowerCase();
+                    if (eLower === cleanWord) return;
+                    if (eName.includes(' ') || eName.includes('-')) return;
+
+                    const isVariant = (eLower.startsWith(cleanWord) || cleanWord.startsWith(eLower)) && Math.abs(eLower.length - cleanWord.length) <= 7;
+                    if (isVariant && !seenWords.has(eLower)) {
+                        seenWords.add(eLower);
                         related.push({
-                            word: wName,
-                            meaning: meaning
+                            word: eName,
+                            meaning: cleanMeaningText(e.explain || '', eName)
                         });
                     }
                 });
-            });
+            }
 
             return related.slice(0, 16);
         }
@@ -22761,6 +23352,7 @@
         async function renderHubSearchSuggestions(query) {
             const suggsHub = document.getElementById('hub-search-suggestions');
             const suggsPage = document.getElementById('search-page-suggestions');
+            const inpPage = document.getElementById('search-page-input');
             const inpHub = document.getElementById('hub-search-input');
             const isSearchActive = (typeof currentView !== 'undefined' && currentView === 'view-search') || (document.getElementById('view-search') && document.getElementById('view-search').classList.contains('active'));
             const activeSuggs = (document.activeElement === inpPage || isSearchActive) ? suggsPage : suggsHub;
@@ -22959,13 +23551,13 @@
                 `;
             }
 
-            // 并行检索：有道词典 + 本地词库 + 包含该词的词组 + 相关链接
-            const [ydData, localResults, phrasesResults, relatedResults] = await Promise.all([
+            // 并行检索：有道词典 + 本地词库 + 相关词组
+            const [ydData, localResults, phrasesResults] = await Promise.all([
                 searchYoudaoSuggest(clean),
                 Promise.resolve(searchLocalBooks(clean)),
-                Promise.resolve(findPhrasesContainingWord(clean)),
-                Promise.resolve(findRelatedWords(clean))
+                Promise.resolve(findPhrasesContainingWord(clean))
             ]);
+            const relatedResults = findRelatedWords(clean, ydData?.entries);
 
             // 提取音标并严格去除首尾斜杠与多余符号，杜绝 // 双斜杠
             let phonetic = '';
@@ -23103,7 +23695,7 @@
             isInlineAddToBookOpen = false;
             inlineSelectedChipIds.clear();
 
-            // 3. 包含该词的词组 (过滤合并)
+            // 3. 相关词组 (过滤合并)
             const allPhrases = [];
             const seenPhraseName = new Set();
             phrasesResults.forEach(p => {
@@ -23126,14 +23718,14 @@
                 phrasesHtml = allPhrases.map(p => `
                     <div class="search-phrase-item" onclick="executeHubSearch('${escapeHtml(p.phrase)}', true, true)">
                         <div style="flex:1; min-width:0;">
-                            <div class="search-phrase-name">${escapeHtml(p.phrase)}</div>
+                            <div class="search-phrase-name">${highlightPhraseKeyword(p.phrase, clean)}</div>
                             <div class="search-phrase-meaning">${escapeHtml(p.meaning)}</div>
                         </div>
                         <span class="badge" style="font-size:0.75rem;">${p.bookName ? `《${escapeHtml(p.bookName)}》` : '有道词典'}</span>
                     </div>
                 `).join('');
             } else {
-                phrasesHtml = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">暂无包含此词的相关词组</div>`;
+                phrasesHtml = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">未找到相关词组</div>`;
             }
 
             // 发音与音标展示逻辑
@@ -23196,13 +23788,12 @@
                         <div id="search-explains-dynamic-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
                     </div>
 
-                    <!-- 3. 包含该词的词组 (受设置开关控制) -->
+                    <!-- 3. 相关词组 (受设置开关控制，已去除个数) -->
                     <div class="search-section-block" id="search-phrases-block" style="${searchConfig.enablePhrases !== false ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-phrases-content', this)" style="cursor:pointer; user-select:none;">
                             <div class="search-section-title">
                                 <span class="material-symbols-rounded" style="color:#7c3aed; font-size:20px;">link</span>
-                                <span>包含该词的词组</span>
-                                <span class="badge">${allPhrases.length} 个</span>
+                                <span>相关词组</span>
                             </div>
                             <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
                         </div>
@@ -23211,13 +23802,12 @@
                         </div>
                     </div>
 
-                    <!-- 4. 相关链接 (受设置开关控制) -->
+                    <!-- 4. 相关链接 (受设置开关控制，已去除个数) -->
                     <div class="search-section-block" id="search-related-block" style="${searchConfig.enableRelatedLinks !== false && relatedResults.length > 0 ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-related-content', this)" style="cursor:pointer; user-select:none;">
                             <div class="search-section-title">
                                 <span class="material-symbols-rounded" style="color:#0284c7; font-size:20px;">hub</span>
                                 <span>相关链接</span>
-                                <span class="badge">${relatedResults.length} 个</span>
                             </div>
                             <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
                         </div>
@@ -23234,6 +23824,21 @@
             `;
 
             renderSearchExplainsList();
+
+            // 隐藏搜索历史，显示搜索结果
+            const historyContainer = document.getElementById('search-history-container');
+            if (historyContainer) historyContainer.style.display = 'none';
+            if (inpageResults) inpageResults.style.display = 'block';
+
+            let firstMeaning = '';
+            if (exactYoudaoEntries.length > 0) {
+                firstMeaning = exactYoudaoEntries[0].explain || '';
+            } else if (localResults.length > 0) {
+                firstMeaning = localResults[0].meaning || '';
+            }
+            if (typeof addSearchHistoryItem === 'function') {
+                addSearchHistoryItem(clean, firstMeaning);
+            }
 
             if (shouldScroll) {
                 inpageResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -23253,6 +23858,7 @@
                         <p style="margin-top:12px; font-size:0.95rem;">输入单词或词组开始搜索</p>
                     </div>
                 `;
+                inpageResults.style.display = 'none';
             }
             if (tabsRow) tabsRow.style.display = 'none';
             if (searchInput) searchInput.value = '';
@@ -23260,6 +23866,9 @@
             activeSearchTabId = null;
             saveSearchTabs();
             renderSearchTabsRow();
+            if (typeof showSearchHistoryView === 'function') {
+                showSearchHistoryView();
+            }
         }
 
         // ----------------- 添加到本地词书 (极简化：勾选原生透明虚线词块 + 自定义输入) -----------------
@@ -23283,30 +23892,37 @@
                         <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
                     </div>
                     <div class="unified-card-content">
-                        ${src.segments.map(seg => `
-                            <div class="unified-explain-row" style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                                ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
-                                <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
-                                    ${seg.pieces.map(chip => {
-                                        if (isInlineAddToBookOpen) {
-                                            const isSel = inlineSelectedChipIds.has(chip.id);
-                                            return `
-                                                <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
-                                                    onclick="toggleInlineSelectChip('${chip.id}')"
-                                                    title="点击勾选/取消勾选">
-                                                    <span>${escapeHtml(chip.text)}</span>
-                                                    ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
-                                                </div>
-                                            `;
-                                        } else {
-                                            return `
-                                                <span class="meaning-chip" style="cursor:default;">${escapeHtml(chip.text)}</span>
-                                            `;
-                                        }
-                                    }).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
+                        ${src.segments.map(seg => {
+                            if (isInlineAddToBookOpen) {
+                                return `
+                                    <div class="unified-explain-row" style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
+                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
+                                            ${seg.pieces.map(chip => {
+                                                const isSel = inlineSelectedChipIds.has(chip.id);
+                                                return `
+                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
+                                                        onclick="toggleInlineSelectChip('${chip.id}')"
+                                                        title="点击勾选/取消勾选">
+                                                        <span>${escapeHtml(chip.text)}</span>
+                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                // 正常状态下自然连续排布，以中文分号连接，杜绝各个词条间的分裂巨大间隙
+                                const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
+                                return `
+                                    <div class="unified-explain-row">
+                                        ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
+                                        <div class="unified-explain-text">${fluidText}</div>
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
                     </div>
                 </div>
             `).join('');
@@ -23397,7 +24013,7 @@
 
             const bookOptions = customBooks.map(b => ({
                 value: b.id,
-                label: `${b.name || b.rawName} (${b.count || 0} 词)`
+                label: `${cleanBookName(b.rawName || b.name)} (${b.count || 0} 词)`
             }));
             bookOptions.push({ value: '__create_new__', label: '＋ 新建词书并添加...' });
 
@@ -23405,14 +24021,13 @@
                 <div class="inline-add-to-book-card" style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1.5px solid var(--md-sys-color-primary, #0061a4); border-radius:14px; padding:12px 16px; margin-bottom:12px; animation:fadeIn 0.2s ease;">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:1; min-width:0;">
-                            <span style="font-weight:700; font-size:0.92rem; color:var(--md-sys-color-on-surface); white-space:nowrap;">添加「${escapeHtml(currentSearchExplainsData.word)}」到：</span>
+                            <span style="font-weight:700; font-size:0.92rem; color:var(--md-sys-color-on-surface); white-space:nowrap;">添加到：</span>
                             ${renderMd3SelectHtml({
                                 id: 'inline-add-book-select',
                                 options: bookOptions,
                                 defaultValue: inlineAddSelectedBookId,
                                 onChange: 'handleInlineAddBookSelectChange'
                             })}
-                            <input type="text" id="input-inline-add-custom-meaning" class="input-field" placeholder="自定义释义 (可选)..." style="height:34px; font-size:0.84rem; border-radius:8px; flex:1; min-width:140px; max-width:260px;" onkeydown="if(event.key==='Enter') confirmInlineAddToBook()">
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
                             <button type="button" class="btn btn-tonal btn-sm" onclick="closeInlineAddToBookPanel()">
@@ -23761,7 +24376,7 @@
             </div>
             <div class="modal-body">
                 <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">词书名称</label>
-                <input type="text" id="input-new-book-name" class="input-field" placeholder="请输入词书名称，例如：高频生词本..." maxlength="30" style="height: 42px; border-radius: var(--md-shape-m);">
+                <input type="text" id="input-new-book-name" class="input-field" placeholder="请输入词书名称，例如：高频生词本..." maxlength="30" style="height: 42px; border-radius: var(--md-shape-m);" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmCreateCustomBook();}">
             </div>
             <div class="modal-footer">
                 <button class="btn btn-tonal" onclick="closeCreateCustomBookModal()">取消</button>
@@ -23770,47 +24385,69 @@
         </div>
     </div>
 
-    <!-- 手动向词书添加单词/词组弹窗 -->
+    <!-- 重构后的“添加单词/词组”弹窗 (仿搜索页面 MD3 设计，免填音标和最终释义) -->
     <div id="modal-manual-add-word" class="modal-overlay">
-        <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-card" style="max-width: 520px;">
             <div class="modal-header">
                 <div>
-                    <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">添加单词/词组</h3>
-                    <p style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="manual-add-word-book-label"></p>
+                    <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">添加单词/词组</h3>
+                    <p style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-top: 3px;" id="manual-add-word-book-label">目标词书：本地词书</p>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="closeManualAddWordModal()">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
             <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                <!-- 1. 输入词汇 -->
                 <div>
-                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">输入英文单词或词组</label>
+                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">英文单词或词组</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" id="input-manual-word" class="input-field" placeholder="例如：apple 或 make a decision" style="flex: 1; height: 42px; border-radius: var(--md-shape-m);" onblur="triggerAutoFetchYoudaoForManual()">
-                        <button type="button" class="btn btn-tonal btn-sm" onclick="triggerAutoFetchYoudaoForManual()" style="height: 42px; padding: 0 14px;">
-                            <span class="material-symbols-rounded" style="font-size: 16px;">search</span>
-                            <span>获取释义</span>
+                        <input type="text" id="input-manual-word" class="input-field" placeholder="例如：apple 或 make a decision..." style="flex: 1; height: 42px; border-radius: var(--md-shape-m);" oninput="handleManualWordInputChange(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();triggerAutoFetchYoudaoForManual();}">
+                        <button type="button" class="btn btn-tonal btn-sm" onclick="triggerAutoFetchYoudaoForManual()" style="height: 42px; padding: 0 16px; flex-shrink: 0;">
+                            <span class="material-symbols-rounded" style="font-size: 17px;">search</span>
+                            <span>查询释义</span>
                         </button>
                     </div>
                 </div>
+
+                <!-- 2. 有道词典释义 (勾选词块) -->
                 <div>
-                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">音标 (可选)</label>
-                    <input type="text" id="input-manual-phone" class="input-field" placeholder="例如：æpl" style="height: 38px; border-radius: var(--md-shape-m);">
-                </div>
-                <div>
-                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">有道推荐释义（勾选即可添加）</label>
-                    <div id="manual-word-youdao-candidates" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; padding: 4px 0;">
-                        <div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 8px 0;">输入单词后自动获取释义候选...</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); margin: 0;">有道词典释义（点击勾选）</label>
+                        <div id="manual-word-chips-actions" style="display: none; gap: 6px;">
+                            <button type="button" class="btn btn-outlined btn-sm" style="height: 24px; padding: 0 8px; font-size: 0.75rem;" onclick="selectAllManualWordChips(true)">全选</button>
+                            <button type="button" class="btn btn-outlined btn-sm" style="height: 24px; padding: 0 8px; font-size: 0.75rem;" onclick="selectAllManualWordChips(false)">清空</button>
+                        </div>
+                    </div>
+                    <div id="manual-word-youdao-candidates" style="min-height: 48px; max-height: 180px; overflow-y: auto; padding: 6px 0;">
+                        <div style="font-size: 0.82rem; color: var(--md-sys-color-outline); padding: 12px 0; text-align: center;">输入英文单词后自动获取释义词块...</div>
                     </div>
                 </div>
+
+                <!-- 3. 自定义释义补充 -->
                 <div>
-                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">自定义/最终中文释义</label>
-                    <input type="text" id="input-manual-meaning" class="input-field" placeholder="输入或编辑最终中文释义..." style="height: 40px; border-radius: var(--md-shape-m);">
+                    <label style="font-size: 0.84rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">或添加自定义释义</label>
+                    <div class="inline-add-chip-form" style="margin: 0; background: var(--md-sys-color-surface-container-low); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; padding: 6px 8px; display: flex; align-items: center; gap: 8px;">
+                        <select id="input-manual-custom-pos" class="md3-select" style="height: 34px; padding: 0 28px 0 10px; font-size: 0.82rem;">
+                            <option value="adj.">adj. 形容词</option>
+                            <option value="n." selected>n. 名词</option>
+                            <option value="v.">v. 动词</option>
+                            <option value="vt.">vt. 及物动词</option>
+                            <option value="vi.">vi. 不及物动词</option>
+                            <option value="adv.">adv. 副词</option>
+                            <option value="prep.">prep. 介词</option>
+                            <option value="conj.">conj. 连词</option>
+                            <option value="pron.">pron. 代词</option>
+                            <option value="">通用/无词性</option>
+                        </select>
+                        <input type="text" id="input-manual-custom-meaning" class="input-field" placeholder="输入释义内容并按回车..." style="height: 34px; font-size: 0.85rem; border-radius: 8px; flex: 1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addManualCustomChip();}">
+                        <button type="button" class="btn btn-filled btn-sm" style="height: 34px; padding: 0 12px; flex-shrink: 0;" onclick="addManualCustomChip()">添加</button>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-tonal" onclick="closeManualAddWordModal()">取消</button>
-                <button class="btn btn-filled" onclick="confirmManualAddWord()">保存词条</button>
+                <button type="button" class="btn btn-tonal" onclick="closeManualAddWordModal()">取消</button>
+                <button type="button" class="btn btn-filled" onclick="confirmManualAddWord()">保存词条</button>
             </div>
         </div>
     </div>
