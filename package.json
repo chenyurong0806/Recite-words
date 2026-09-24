@@ -1,0 +1,17 @@
+{
+  "name": "recite-words",
+  "version": "2.1.0",
+  "description": "词迹 - 沉浸式多维度背词与联机对决学习平台",
+  "scripts": {
+    "bundle": "node scripts/bundle.js"
+  },
+  "keywords": [
+    "recite-words",
+    "vocabulary",
+    "md3",
+    "pwa"
+  ],
+  "author": "chenyurong0806",
+  "license": "MIT"
+}
+
