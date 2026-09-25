@@ -4,7 +4,7 @@
  */
 
 /* ==========================================================================
-   全新独立“选择词书”页面控制器 (支持封面与文件夹分类，立即生效)
+   全新独立“选择词书”页面控制器 (支持封面与文件夹分类)
    ========================================================================== */
 let bookSelectorMode = 'single';
 let bookSelectorActiveCategory = 'english';
@@ -284,6 +284,5 @@ async function handleBookSelectorToggle(bookId) {
     }
 
     updateBookSelectorDOM();
-    showToast(`已切换词书：${bookMeta.name}，立即生效`);
 }
 

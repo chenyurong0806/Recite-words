@@ -2342,6 +2342,37 @@ body.hide-all-icons .material-symbols-rounded {
     font-size: 1rem;
 }
 
+/* 头像更换悬浮相机图标控制 */
+#me-user-avatar-wrap {
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+#me-user-avatar-edit-hint {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 22px;
+    background: rgba(0, 0, 0, 0.58);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateY(4px);
+}
+
+#me-user-avatar-wrap:hover #me-user-avatar-edit-hint {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+
 .account-del-btn {
     opacity: 0.4;
     padding: 4px;
@@ -2689,50 +2720,96 @@ body.hide-all-icons .material-symbols-rounded {
     width: 100%;
 }
 
+/* ==========================================================================
+   对决顶栏卡片与自适应布局 (优化窄屏/移动端)
+   ========================================================================== */
 .arena-head-card {
     background: var(--md-sys-color-surface-container-lowest);
     border-radius: var(--md-shape-xl);
-    padding: 16px 24px;
+    padding: 14px 20px;
     border: 1px solid var(--md-sys-color-outline-variant);
     box-shadow: var(--md-elevation-1);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     width: 100%;
     box-sizing: border-box;
 }
 
 .arena-player-box {
     display: flex;
-    flex-direction: column;
-    min-width: 85px;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
 }
 
 .arena-player-box.left {
+    justify-content: flex-start;
+}
+
+.arena-player-box.right {
+    justify-content: flex-end;
+}
+
+.arena-avatar-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.arena-avatar-circle.p1 {
+    background: var(--p1-sys-container);
+    color: var(--p1-sys-color);
+    border: 2px solid var(--p1-sys-color);
+}
+
+.arena-avatar-circle.p2 {
+    background: var(--p2-sys-container);
+    color: var(--p2-sys-color);
+    border: 2px solid var(--p2-sys-color);
+}
+
+.arena-player-info-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.arena-player-info-meta.left {
     align-items: flex-start;
     text-align: left;
 }
 
-.arena-player-box.right {
+.arena-player-info-meta.right {
     align-items: flex-end;
     text-align: right;
 }
 
-.arena-player-name {
-    font-size: 0.95rem;
+.arena-player-name-text {
+    font-size: 0.86rem;
     font-weight: 700;
-    max-width: 120px;
+    max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--md-sys-color-on-surface);
 }
 
 .arena-player-score {
-    font-size: 1.8rem;
+    font-size: 1.85rem;
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin: 0 4px;
+    flex-shrink: 0;
 }
 
 .arena-center-gauge {
@@ -2740,11 +2817,63 @@ body.hide-all-icons .material-symbols-rounded {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    position: relative;
     flex: 1;
-    margin: 0 20px;
-    min-width: 0;
-    width: 100%;
+    min-width: 120px;
+    margin: 0 8px;
+}
+
+/* 窄屏/移动端专属两层对称布局 */
+@media (max-width: 640px) {
+    .arena-head-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 
+            "left-player right-player"
+            "center-gauge center-gauge";
+        row-gap: 10px;
+        column-gap: 8px;
+        padding: 12px 14px;
+    }
+
+    .arena-player-box.left {
+        grid-area: left-player;
+        justify-content: flex-start;
+    }
+
+    .arena-player-box.right {
+        grid-area: right-player;
+        justify-content: flex-end;
+    }
+
+    .arena-center-gauge {
+        grid-area: center-gauge;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 2px 0 0 0 !important;
+    }
+
+    .arena-avatar-circle {
+        width: 38px;
+        height: 38px;
+    }
+
+    .arena-player-score {
+        font-size: 1.6rem;
+    }
+
+    .arena-player-name-text {
+        max-width: 110px; /* 空间充足，完整显示 游客_xxxx */
+        font-size: 0.84rem;
+    }
+
+    .local-tug-track {
+        height: 14px; /* 拔河条高度更加轻巧精炼 */
+    }
+
+    #arena-tug-rule-summary,
+    #arena-tug-timer {
+        font-size: 0.78rem !important;
+    }
 }
 
 #snakeCanvas,

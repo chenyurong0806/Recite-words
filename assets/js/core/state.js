@@ -69,9 +69,34 @@ let singleState = {
     sessionName: '新词学习'
 };
 
+// 获取或生成专属的游客名称（如：游客_7214）
+function getUniqueGuestName() {
+    let guestId = SafeStorage.getItem('vocab_guest_name');
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
+        SafeStorage.setItem('vocab_guest_name', guestId);
+    }
+    return guestId;
+}
+
+const defaultGuestName = getUniqueGuestName();
+
+currentUserProfile = {
+    isLoggedIn: false,
+    type: 'guest',
+    username: defaultGuestName,
+    avatar: '',
+    openId: ''
+};
+
 function getUserAvatar(username) {
-    if (!username || username === '游客') {
-        return currentUserProfile.avatar || '';
+    if (!username) return '';
+    // 如果是游客账号，游客不分配自定义上传头像，防止取到其他用户的头像
+    if (username.startsWith('游客')) {
+        if (currentUserProfile && currentUserProfile.username === username) {
+            return currentUserProfile.avatar || '';
+        }
+        return '';
     }
     if (currentUserProfile && currentUserProfile.username === username && currentUserProfile.avatar) {
         return currentUserProfile.avatar;
@@ -84,7 +109,12 @@ function getUserAvatar(username) {
 }
 
 function loadUserData(username, profile = null) {
-    currentUser = (username || '游客').trim();
+    const fallbackName = getUniqueGuestName();
+    currentUser = (username || fallbackName).trim();
+    if (currentUser === '游客') {
+        currentUser = fallbackName;
+    }
+
     if (profile) {
         currentUserProfile = { ...currentUserProfile, ...profile, username: currentUser };
         SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
@@ -92,7 +122,6 @@ function loadUserData(username, profile = null) {
             SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, profile.avatar);
         }
     } else {
-        // If not explicit profile and username matches profile session, keep profile
         if (currentUserProfile.username !== currentUser) {
             currentUserProfile = {
                 isLoggedIn: false,
@@ -241,4 +270,3 @@ function recordShiCiUserMistake(username, data) {
         }
     }
 }
-

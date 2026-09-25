@@ -698,6 +698,7 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
     if (myNameEl) myNameEl.innerText = myName || '我方';
     if (oppoNameEl) oppoNameEl.innerText = oppoName || '对手';
 
+    // 绑定我方头像
     const myImg = document.getElementById('arena-my-avatar-img');
     const myIcon = document.getElementById('arena-my-avatar-icon');
     if (myAvatar && myImg && myIcon) {
@@ -709,6 +710,7 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
         myIcon.style.display = 'inline-flex';
     }
 
+    // 绑定对手头像（完全独立，不混淆）
     const oppoImg = document.getElementById('arena-oppo-avatar-img');
     const oppoIcon = document.getElementById('arena-oppo-avatar-icon');
     if (oppoAvatar && oppoImg && oppoIcon) {

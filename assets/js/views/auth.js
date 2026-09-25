@@ -235,29 +235,31 @@ async function handleBiliToyLogin() {
 }
 
 function continueAsGuest() {
+    const guestName = getUniqueGuestName();
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
-        username: '游客',
+        username: guestName,
         avatar: '',
         openId: ''
     };
-    loadUserData('游客', currentUserProfile);
+    loadUserData(guestName, currentUserProfile);
     switchView('view-hub');
 }
 
 function handleAuthLogout() {
+    const guestName = getUniqueGuestName();
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
-        username: '游客',
+        username: guestName,
         avatar: '',
         openId: ''
     };
     SafeStorage.removeItem('vocab_auth_session');
-    SafeStorage.setItem('vocab_pk_user', '游客');
-    loadUserData('游客', currentUserProfile);
-    showToast('已退出登录');
+    SafeStorage.setItem('vocab_pk_user', guestName);
+    loadUserData(guestName, currentUserProfile);
+    showToast('已退出登录，恢复游客身份');
     updateHub();
     if (typeof renderMeView === 'function') {
         renderMeView();
