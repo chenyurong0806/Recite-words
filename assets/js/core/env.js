@@ -8,19 +8,25 @@
 ========================================================================== */
 const isBilibiliToy = (() => {
     try {
-        // 1. URL 参数标记（通常 B 站加载小工具会带特定参数或 referrer）
+        // 1. URL 参数标记 (支持测试 ?bilibili=1 / ?bili_toy=1 / ?toy=1)
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('bilibili') || urlParams.has('bili_toy')) return true;
+        if (urlParams.has('bilibili') || urlParams.has('bili_toy') || urlParams.has('toy')) return true;
 
-        // 2. 检测宿主环境 Referrer
+        // 2. 域名检测 (运行在 B 站官方域名下)
+        const host = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+        if (host.includes('bilibili.com') || host.includes('hdslb.com')) return true;
+
+        // 3. 路径特征 (B 站 Toy 专属运行路径 /toy/<slug>/)
+        const pathname = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : '';
+        if (pathname.includes('/toy/')) return true;
+
+        // 4. 宿主环境 Referrer 检测
         if (document.referrer && (document.referrer.includes('bilibili.com') || document.referrer.includes('bili'))) {
             return true;
         }
 
-        // 3. 检测是否在 iframe 内嵌套运行
-        const inIframe = window.self !== window.top;
-        // 如果是在线上域名且嵌在 iframe 内，基本可判定为平台内嵌
-        if (inIframe && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        // 5. 客户端 UserAgent 检测 (B 站 App WebView 容器内)
+        if (typeof navigator !== 'undefined' && navigator.userAgent && /bili/i.test(navigator.userAgent)) {
             return true;
         }
     } catch (e) {
@@ -29,4 +35,4 @@ const isBilibiliToy = (() => {
     return false;
 })();
 
-
+

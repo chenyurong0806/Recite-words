@@ -761,14 +761,18 @@ function generateShiCiQuestion(wordItem, allWords) {
 async function startShiCiLearning() {
     loadShiCiSettings();
 
-    // 检查是否有未完成的断点进度
+    const titleEl = document.getElementById('shici-mode-title');
+    if (titleEl) titleEl.innerText = '学习新词';
+
+    // 检查是否有未完成的新词学习断点进度
     if (currentUser) {
-        const saved = localStorage.getItem(`shici_progress_session_${currentUser}`);
+        const saved = localStorage.getItem(`shici_learn_progress_${currentUser}`) || localStorage.getItem(`shici_progress_session_${currentUser}`);
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
+                if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
                     shiciState = parsed;
+                    shiciState.isReview = false;
                     renderShiCiQuestion();
                     switchView('view-shici');
                     return;
@@ -821,9 +825,30 @@ async function startShiCiLearning() {
     }
 }
 
-// 实词复习功能（基于艾宾浩斯记忆遗忘曲线）
+// 实词复习功能（基于艾宾浩斯记忆遗忘曲线，支持断点恢复）
 async function startShiCiReview() {
     loadShiCiSettings();
+
+    const titleEl = document.getElementById('shici-mode-title');
+    if (titleEl) titleEl.innerText = '复习';
+
+    // 检查是否有未完成的复习断点进度
+    if (currentUser) {
+        const savedReview = localStorage.getItem(`shici_review_progress_${currentUser}`);
+        if (savedReview) {
+            try {
+                const parsed = JSON.parse(savedReview);
+                if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
+                    shiciState = parsed;
+                    shiciState.isReview = true;
+                    renderShiCiQuestion();
+                    switchView('view-shici');
+                    return;
+                }
+            } catch (e) { }
+        }
+    }
+
     try {
         const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/实词.json']);
         if (!allWords || allWords.length === 0) {
@@ -867,6 +892,7 @@ async function startShiCiReview() {
             isReview: true
         };
 
+        saveShiCiSessionProgress();
         updateShiCiSettingsModalUi();
         updateHubShiCiBadge();
         renderShiCiQuestion();
@@ -880,66 +906,159 @@ function saveShiCiSessionProgress() {
     if (!currentUser || !shiciState || !shiciState.pool || shiciState.pool.length === 0) return;
     if (shiciState.currentIdx >= shiciState.pool.length) return;
     try {
-        localStorage.setItem(`shici_progress_session_${currentUser}`, JSON.stringify({
+        const payload = JSON.stringify({
             pool: shiciState.pool,
             currentIdx: shiciState.currentIdx,
             score: shiciState.score,
             total: shiciState.pool.length,
             isReview: !!shiciState.isReview,
             timestamp: Date.now()
-        }));
+        });
+        if (shiciState.isReview) {
+            localStorage.setItem(`shici_review_progress_${currentUser}`, payload);
+        } else {
+            localStorage.setItem(`shici_learn_progress_${currentUser}`, payload);
+            localStorage.setItem(`shici_progress_session_${currentUser}`, payload);
+        }
     } catch (e) { }
     updateHubShiCiResumeButton();
 }
 
-function clearCurrentShiCiProgress() {
+function clearCurrentShiCiLearnProgress() {
     if (!currentUser) return;
+    localStorage.removeItem(`shici_learn_progress_${currentUser}`);
     localStorage.removeItem(`shici_progress_session_${currentUser}`);
     updateHubShiCiResumeButton();
     updateShiCiProgressStatusUI();
-    showToast('已清除当前实词学习进度');
+    showToast('已清除实词学习进度');
+}
+
+function clearCurrentShiCiReviewProgress() {
+    if (!currentUser) return;
+    localStorage.removeItem(`shici_review_progress_${currentUser}`);
+    updateHubShiCiResumeButton();
+    updateShiCiProgressStatusUI();
+    showToast('已清除实词复习进度');
+}
+
+function clearCurrentShiCiProgress() {
+    clearCurrentShiCiLearnProgress();
+    clearCurrentShiCiReviewProgress();
 }
 
 function updateShiCiProgressStatusUI() {
-    const tipEl = document.getElementById('shici-progress-status-tip');
-    const clearBtn = document.getElementById('btn-clear-shici-progress');
-    if (!tipEl || !clearBtn || !currentUser) return;
+    const tipLearn = document.getElementById('shici-learn-progress-status-tip');
+    const clearBtnLearn = document.getElementById('btn-clear-shici-learn-progress');
+    const tipReview = document.getElementById('shici-review-progress-status-tip');
+    const clearBtnReview = document.getElementById('btn-clear-shici-review-progress');
 
-    const saved = localStorage.getItem(`shici_progress_session_${currentUser}`);
-    if (saved) {
+    // 兼顾旧单按钮
+    const tipOld = document.getElementById('shici-progress-status-tip');
+    const clearBtnOld = document.getElementById('btn-clear-shici-progress');
+
+    if (!currentUser) return;
+
+    // 学习进度
+    const savedLearn = localStorage.getItem(`shici_learn_progress_${currentUser}`) || localStorage.getItem(`shici_progress_session_${currentUser}`);
+    let hasLearn = false;
+    if (savedLearn) {
         try {
-            const parsed = JSON.parse(saved);
-            if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
-                tipEl.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
-                tipEl.style.color = 'var(--md-sys-color-primary)';
-                clearBtn.disabled = false;
-                return;
+            const parsed = JSON.parse(savedLearn);
+            if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
+                if (tipLearn) {
+                    tipLearn.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
+                    tipLearn.style.color = 'var(--md-sys-color-primary)';
+                }
+                if (clearBtnLearn) clearBtnLearn.disabled = false;
+                hasLearn = true;
             }
         } catch (e) { }
     }
-    tipEl.innerText = '无';
-    tipEl.style.color = 'var(--md-sys-color-outline)';
-    clearBtn.disabled = true;
+    if (!hasLearn) {
+        if (tipLearn) {
+            tipLearn.innerText = '无';
+            tipLearn.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (clearBtnLearn) clearBtnLearn.disabled = true;
+    }
+
+    // 复习进度
+    const savedRev = localStorage.getItem(`shici_review_progress_${currentUser}`);
+    let hasRev = false;
+    if (savedRev) {
+        try {
+            const parsed = JSON.parse(savedRev);
+            if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
+                if (tipReview) {
+                    tipReview.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
+                    tipReview.style.color = 'var(--md-sys-color-primary)';
+                }
+                if (clearBtnReview) clearBtnReview.disabled = false;
+                hasRev = true;
+            }
+        } catch (e) { }
+    }
+    if (!hasRev) {
+        if (tipReview) {
+            tipReview.innerText = '无';
+            tipReview.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (clearBtnReview) clearBtnReview.disabled = true;
+    }
+
+    if (tipOld) {
+        tipOld.innerText = (hasLearn || hasRev) ? '有保存的进度' : '无';
+    }
+    if (clearBtnOld) {
+        clearBtnOld.disabled = !(hasLearn || hasRev);
+    }
 }
 
 function updateHubShiCiResumeButton() {
-    const label = document.getElementById('btn-hub-shici-text');
-    if (!label) return;
+    const learnLabel = document.getElementById('btn-hub-shici-text');
+    const reviewLabel = document.getElementById('btn-hub-shici-review-text');
+
     if (!currentUser) {
-        label.innerText = '学习新词';
+        if (learnLabel) learnLabel.innerText = '学习新词';
+        if (reviewLabel) reviewLabel.innerText = '复习';
         return;
     }
-    const saved = localStorage.getItem(`shici_progress_session_${currentUser}`);
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
-                label.innerText = `继续背诵 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
-                return;
-            }
-        } catch (e) { }
+
+    // 检查学习新词进度
+    const savedLearn = localStorage.getItem(`shici_learn_progress_${currentUser}`) || localStorage.getItem(`shici_progress_session_${currentUser}`);
+    if (learnLabel) {
+        let restored = false;
+        if (savedLearn) {
+            try {
+                const parsed = JSON.parse(savedLearn);
+                if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
+                    learnLabel.innerText = `继续学习 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    restored = true;
+                }
+            } catch (e) { }
+        }
+        if (!restored) {
+            learnLabel.innerText = '学习新词';
+        }
     }
-    label.innerText = '学习新词';
+
+    // 检查复习进度
+    const savedReview = localStorage.getItem(`shici_review_progress_${currentUser}`);
+    if (reviewLabel) {
+        let restored = false;
+        if (savedReview) {
+            try {
+                const parsed = JSON.parse(savedReview);
+                if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
+                    reviewLabel.innerText = `继续复习 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    restored = true;
+                }
+            } catch (e) { }
+        }
+        if (!restored) {
+            reviewLabel.innerText = '复习';
+        }
+    }
 }
 
 function renderShiCiQuestion() {
@@ -1160,7 +1279,12 @@ function endShiCiGame() {
     }
     saveShiCiState();
     if (currentUser) {
-        localStorage.removeItem(`shici_progress_session_${currentUser}`);
+        if (shiciState && shiciState.isReview) {
+            localStorage.removeItem(`shici_review_progress_${currentUser}`);
+        } else {
+            localStorage.removeItem(`shici_learn_progress_${currentUser}`);
+            localStorage.removeItem(`shici_progress_session_${currentUser}`);
+        }
     }
     updateHubShiCiBadge();
     updateHubShiCiResumeButton();
@@ -1331,4 +1455,4 @@ function updateHubShiCiBadge() {
     }
     updateHubShiCiResumeButton();
 }
-
+

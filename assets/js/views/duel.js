@@ -360,8 +360,34 @@ function setupRoomLobbyUI(code, customName) {
 }
 
 function refreshRoomPlayerCards() {
-    document.getElementById('room-p1-name').innerText = hostName || '等待房主...';
-    document.getElementById('room-p2-name').innerText = guestName || '等待对手加入...';
+    const p1NameEl = document.getElementById('room-p1-name');
+    const p2NameEl = document.getElementById('room-p2-name');
+    if (p1NameEl) p1NameEl.innerText = hostName || '等待房主...';
+    if (p2NameEl) p2NameEl.innerText = guestName || '等待对手加入...';
+
+    const p1Img = document.getElementById('room-p1-avatar-img');
+    const p1Icon = document.getElementById('room-p1-avatar-icon');
+    const p1Avatar = hostAvatar || (hostName ? getUserAvatar(hostName) : '');
+    if (p1Avatar && p1Img && p1Icon) {
+        p1Img.src = p1Avatar;
+        p1Img.style.display = 'block';
+        p1Icon.style.display = 'none';
+    } else if (p1Img && p1Icon) {
+        p1Img.style.display = 'none';
+        p1Icon.style.display = 'inline-flex';
+    }
+
+    const p2Img = document.getElementById('room-p2-avatar-img');
+    const p2Icon = document.getElementById('room-p2-avatar-icon');
+    const p2Avatar = guestAvatar || (guestName ? getUserAvatar(guestName) : '');
+    if (p2Avatar && p2Img && p2Icon) {
+        p2Img.src = p2Avatar;
+        p2Img.style.display = 'block';
+        p2Icon.style.display = 'none';
+    } else if (p2Img && p2Icon) {
+        p2Img.style.display = 'none';
+        p2Icon.style.display = 'inline-flex';
+    }
 
     const startBtn = document.getElementById('online-start-btn');
     if (!startBtn) return;
@@ -459,13 +485,20 @@ function connectSupabaseChannel(code) {
         .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
             if (payload.role === 'guest') {
                 guestName = payload.name;
+                guestAvatar = payload.avatar || (guestName ? getUserAvatar(guestName) : '');
                 showToast(`玩家${guestName}已就位！`);
                 refreshRoomPlayerCards();
                 if (isHost) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'room_sync',
-                        payload: { hostName: currentUser, guestName: guestName, config: roomConfig }
+                        payload: {
+                            hostName: currentUser,
+                            hostAvatar: getUserAvatar(currentUser),
+                            guestName: guestName,
+                            guestAvatar: guestAvatar,
+                            config: roomConfig
+                        }
                     });
                 }
             }
@@ -473,6 +506,8 @@ function connectSupabaseChannel(code) {
         .on('broadcast', { event: 'room_sync' }, ({ payload }) => {
             hostName = payload.hostName;
             guestName = payload.guestName;
+            if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
+            if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
             if (payload.roomName) {
                 customRoomName = payload.roomName;
                 const titleEl = document.getElementById('display-room-name');
@@ -554,7 +589,7 @@ function connectSupabaseChannel(code) {
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'player_joined',
-                        payload: { name: currentUser, role: 'guest' }
+                        payload: { name: currentUser, avatar: getUserAvatar(currentUser), role: 'guest' }
                     });
                 }
             }
@@ -637,15 +672,52 @@ async function startOnlineGame() {
     try {
         const words = await BookManager.loadMultipleBooks(roomConfig.selectedBooks);
         const sharedPool = generateShuffledPoolFromWords(words, 80);
+        const startPayload = {
+            pool: sharedPool,
+            hostName: currentUser,
+            hostAvatar: getUserAvatar(currentUser),
+            guestName: guestName,
+            guestAvatar: guestAvatar || (guestName ? getUserAvatar(guestName) : ''),
+            config: roomConfig
+        };
         realtimeChannel.send({
             type: 'broadcast',
             event: 'game_start',
-            payload: { pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig }
+            payload: startPayload
         });
-        handleRemoteGameStart({ pool: sharedPool, hostName: currentUser, guestName: guestName, config: roomConfig });
+        handleRemoteGameStart(startPayload);
     } catch (err) {
         alert('准备词库失败：' + err.message);
         refreshRoomPlayerCards();
+    }
+}
+
+function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
+    const myNameEl = document.getElementById('arena-my-name');
+    const oppoNameEl = document.getElementById('arena-oppo-name');
+    if (myNameEl) myNameEl.innerText = myName || '我方';
+    if (oppoNameEl) oppoNameEl.innerText = oppoName || '对手';
+
+    const myImg = document.getElementById('arena-my-avatar-img');
+    const myIcon = document.getElementById('arena-my-avatar-icon');
+    if (myAvatar && myImg && myIcon) {
+        myImg.src = myAvatar;
+        myImg.style.display = 'block';
+        myIcon.style.display = 'none';
+    } else if (myImg && myIcon) {
+        myImg.style.display = 'none';
+        myIcon.style.display = 'inline-flex';
+    }
+
+    const oppoImg = document.getElementById('arena-oppo-avatar-img');
+    const oppoIcon = document.getElementById('arena-oppo-avatar-icon');
+    if (oppoAvatar && oppoImg && oppoIcon) {
+        oppoImg.src = oppoAvatar;
+        oppoImg.style.display = 'block';
+        oppoIcon.style.display = 'none';
+    } else if (oppoImg && oppoIcon) {
+        oppoImg.style.display = 'none';
+        oppoIcon.style.display = 'inline-flex';
     }
 }
 
@@ -653,12 +725,16 @@ function handleRemoteGameStart(payload) {
     gameMode = 'online';
     if (payload.config) roomConfig = payload.config;
 
+    if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
+    if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
+
     const oppoName = isHost ? payload.guestName : payload.hostName;
+    const oppoAvatar = isHost ? (guestAvatar || getUserAvatar(oppoName)) : (hostAvatar || getUserAvatar(oppoName));
+    const myAvatar = getUserAvatar(currentUser);
 
-    document.getElementById('arena-my-badge').innerText = isHost ? '🔴 ' + currentUser : oppoName || '对手';
+    renderArenaPlayersUI(currentUser, myAvatar, oppoName, oppoAvatar);
+
     document.getElementById('arena-my-score').innerText = '0';
-
-    document.getElementById('arena-oppo-badge').innerText = isHost ? '🔵 挑战者' : '🔴 ' + payload.hostName;
     document.getElementById('arena-oppo-score').innerText = '0';
 
     const gaugeStyle = roomConfig.gaugeStyle || 'tug';
@@ -1907,6 +1983,7 @@ function sendMatchInvite(targetUser) {
         event: 'invite_match',
         payload: {
             from: currentUser,
+            fromAvatar: getUserAvatar(currentUser),
             to: targetUser,
             roomCode: code,
             roomName: autoRoomName
@@ -1924,9 +2001,21 @@ function handleReceivedMatchInvite(payload) {
     const fromEl = document.getElementById('invite-from-name');
     const roomEl = document.getElementById('invite-room-name');
     const countdownEl = document.getElementById('invite-countdown');
+    const avatarImg = document.getElementById('invite-from-avatar-img');
+    const avatarIcon = document.getElementById('invite-from-avatar-icon');
     if (!modal) return;
 
     if (fromEl) fromEl.innerText = `${payload.from} 向你发起对决邀请！`;
+
+    const avatarUrl = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
+    if (avatarUrl && avatarImg && avatarIcon) {
+        avatarImg.src = avatarUrl;
+        avatarImg.style.display = 'block';
+        avatarIcon.style.display = 'none';
+    } else if (avatarImg && avatarIcon) {
+        avatarImg.style.display = 'none';
+        avatarIcon.style.display = 'inline-flex';
+    }
 
     let countdown = 15;
     if (countdownEl) countdownEl.innerText = countdown;
@@ -1958,6 +2047,7 @@ function acceptMatchInvite() {
             event: 'invite_response',
             payload: {
                 from: currentUser,
+                fromAvatar: getUserAvatar(currentUser),
                 to: invite.from,
                 accepted: true,
                 roomCode: invite.roomCode,
@@ -1969,7 +2059,9 @@ function acceptMatchInvite() {
     isHost = false;
     roomCode = invite.roomCode;
     hostName = invite.from;
+    hostAvatar = invite.fromAvatar || (invite.from ? getUserAvatar(invite.from) : '');
     guestName = currentUser;
+    guestAvatar = getUserAvatar(currentUser);
     customRoomName = invite.roomName;
 
     setupRoomLobbyUI(roomCode, invite.roomName);
@@ -2007,7 +2099,9 @@ function handleMatchInviteResponse(payload) {
         isHost = true;
         roomCode = payload.roomCode;
         hostName = currentUser;
+        hostAvatar = getUserAvatar(currentUser);
         guestName = payload.from;
+        guestAvatar = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
         customRoomName = payload.roomName;
 
         setupRoomLobbyUI(roomCode, payload.roomName);
@@ -2366,4 +2460,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 
-
+

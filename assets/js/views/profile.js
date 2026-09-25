@@ -1077,6 +1077,56 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
 
 // ----------------- 个人中心 (我) 渲染逻辑 -----------------
 function renderMeView() {
+    const isLoggedIn = currentUserProfile && currentUserProfile.isLoggedIn;
+    const unloggedBox = document.getElementById('me-account-unlogged-box');
+    const loggedBox = document.getElementById('me-account-logged-box');
+
+    if (unloggedBox && loggedBox) {
+        if (!isLoggedIn) {
+            unloggedBox.style.display = 'block';
+            loggedBox.style.display = 'none';
+        } else {
+            unloggedBox.style.display = 'none';
+            loggedBox.style.display = 'block';
+
+            const avatarWrap = document.getElementById('me-user-avatar-wrap');
+            const avatarImg = document.getElementById('me-user-avatar-img');
+            const avatarIcon = document.getElementById('me-user-avatar-icon');
+            const avatarEditHint = document.getElementById('me-user-avatar-edit-hint');
+            const displayNameEl = document.getElementById('me-user-display-name');
+            const badgeEl = document.getElementById('me-user-platform-badge');
+            const cloudActions = document.getElementById('me-user-cloud-actions');
+
+            if (displayNameEl) displayNameEl.innerText = currentUserProfile.username || currentUser;
+
+            const avatarUrl = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUserProfile.username) : '';
+            if (avatarUrl && avatarImg && avatarIcon) {
+                avatarImg.src = avatarUrl;
+                avatarImg.style.display = 'block';
+                avatarIcon.style.display = 'none';
+            } else if (avatarImg && avatarIcon) {
+                avatarImg.style.display = 'none';
+                avatarIcon.style.display = 'inline-flex';
+            }
+
+            if (currentUserProfile.type === 'bilibili') {
+                if (badgeEl) {
+                    badgeEl.innerHTML = `<span class="badge" style="background:#fb7299; color:#fff; font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">哔哩哔哩授权账号</span>`;
+                }
+                if (cloudActions) cloudActions.style.display = 'none';
+                if (avatarEditHint) avatarEditHint.style.display = 'none';
+                if (avatarWrap) avatarWrap.style.cursor = 'default';
+            } else {
+                if (badgeEl) {
+                    badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">Supabase 云端账号</span>`;
+                }
+                if (cloudActions) cloudActions.style.display = 'flex';
+                if (avatarEditHint) avatarEditHint.style.display = 'flex';
+                if (avatarWrap) avatarWrap.style.cursor = 'pointer';
+            }
+        }
+    }
+
     const nameEl = document.getElementById('settings-current-user-name');
     const statEl = document.getElementById('settings-current-user-stat');
     if (nameEl) nameEl.innerText = `当前登录：${currentUser || '未登录'}`;
@@ -1098,19 +1148,6 @@ function renderMeView() {
         statMistakesEl.innerText = Object.keys(userStats.mistakes || {}).length;
     }
 
-    const quickUsersList = document.getElementById('settings-quick-users-list');
-    if (quickUsersList) {
-        quickUsersList.innerHTML = allUsersList.map(u => {
-            const isCur = u === currentUser;
-            return `
-                    <div class="md3-chip ${isCur ? 'selected' : ''}" onclick="switchAccount('${escapeHtml(u)}')">
-                        <span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">${isCur ? 'check' : 'person'}</span>
-                        <span>${escapeHtml(u)}</span>
-                    </div>
-                `;
-        }).join('');
-    }
-
     const summaryEl = document.getElementById('settings-books-summary-text');
     if (summaryEl) {
         const customCount = (window.customBooks || []).length;
@@ -1128,6 +1165,130 @@ function renderMeView() {
     if (trashSummaryEl) {
         const tCount = getTrashWords().length;
         trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
+    }
+}
+
+// ----------------- 云端账号管理操作 (修改用户名、密码、头像) -----------------
+function triggerMeAvatarUpload() {
+    if (currentUserProfile && currentUserProfile.type !== 'cloud') return;
+    const input = document.getElementById('me-avatar-file-input');
+    if (input) input.click();
+}
+
+async function handleMeAvatarChange(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+        const dataUrl = await compressImageFile(file, 140, 140, 0.82);
+        await supabaseUpdateAvatar(currentUser, dataUrl);
+        currentUserProfile.avatar = dataUrl;
+        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+        SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, dataUrl);
+        showToast('头像已更新');
+        renderMeView();
+        updateHub();
+    } catch (e) {
+        showToast(e.message || '更新头像失败');
+    }
+}
+
+function openEditUsernameModal() {
+    const input = document.getElementById('input-new-username');
+    if (input) input.value = currentUserProfile.username || currentUser;
+    const modal = document.getElementById('modal-edit-username');
+    if (modal) modal.classList.add('active');
+}
+
+function closeEditUsernameModal() {
+    const modal = document.getElementById('modal-edit-username');
+    if (modal) modal.classList.remove('active');
+}
+
+async function confirmUpdateUsername() {
+    const input = document.getElementById('input-new-username');
+    const newName = (input ? input.value : '').trim();
+    if (!newName) {
+        showToast('用户名不能为空');
+        return;
+    }
+    if (newName.length < 2 || newName.length > 16) {
+        showToast('用户名长度需在 2 到 16 个字符之间');
+        return;
+    }
+    if (newName === currentUser) {
+        closeEditUsernameModal();
+        return;
+    }
+
+    try {
+        await supabaseUpdateUsername(currentUser, newName);
+        const oldName = currentUser;
+        currentUser = newName;
+        currentUserProfile.username = newName;
+        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+        SafeStorage.setItem('vocab_pk_user', newName);
+
+        // 迁移本地数据 key
+        const oldStats = SafeStorage.getItem(`vocab_stats_${oldName}`);
+        if (oldStats) SafeStorage.setItem(`vocab_stats_${newName}`, oldStats);
+
+        showToast(`用户名已成功修改为 “${newName}”`);
+        closeEditUsernameModal();
+        renderMeView();
+        updateHub();
+    } catch (e) {
+        alert(e.message || '修改用户名失败');
+    }
+}
+
+function openEditPasswordModal() {
+    const pOld = document.getElementById('input-old-password');
+    const pNew = document.getElementById('input-new-password');
+    const pConfirm = document.getElementById('input-confirm-new-password');
+    if (pOld) pOld.value = '';
+    if (pNew) pNew.value = '';
+    if (pConfirm) pConfirm.value = '';
+    const modal = document.getElementById('modal-edit-password');
+    if (modal) modal.classList.add('active');
+}
+
+function closeEditPasswordModal() {
+    const modal = document.getElementById('modal-edit-password');
+    if (modal) modal.classList.remove('active');
+}
+
+async function confirmUpdatePassword() {
+    const pOld = document.getElementById('input-old-password');
+    const pNew = document.getElementById('input-new-password');
+    const pConfirm = document.getElementById('input-confirm-new-password');
+
+    const oldPass = (pOld ? pOld.value : '').trim();
+    const newPass = (pNew ? pNew.value : '').trim();
+    const confirmPass = (pConfirm ? pConfirm.value : '').trim();
+
+    if (!oldPass) {
+        showToast('请输入旧密码');
+        return;
+    }
+    if (!newPass) {
+        showToast('请输入新密码');
+        return;
+    }
+    if (newPass.length < 4) {
+        showToast('新密码长度至少为 4 位');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        showToast('两次输入的新密码不一致');
+        return;
+    }
+
+    try {
+        await supabaseUpdatePassword(currentUser, oldPass, newPass);
+        showToast('密码修改成功，请牢记新密码');
+        closeEditPasswordModal();
+    } catch (e) {
+        alert(e.message || '修改密码失败');
     }
 }
 
@@ -1229,4 +1390,4 @@ async function confirmCreateCustomBook() {
     showToast(`词书《${name}》创建成功！`);
     viewBookWordsInSettings(bookId);
 }
-
+

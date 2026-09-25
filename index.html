@@ -36,6 +36,8 @@
             src: local('Material Symbols Rounded'), url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
         }
     </style>
+    <!-- Bilibili Toy JS SDK -->
+    <script src="//s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js"></script>
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- 引入主样式表 -->
@@ -159,9 +161,10 @@
     <!-- 实时对战邀请弹窗 (MD3 规范) -->
     <div id="modal-match-invite" class="modal-overlay">
         <div class="modal-card" style="max-width: 420px; text-align: center;">
-            <div
-                style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                <span class="material-symbols-rounded" style="font-size: 32px;">sports_esports</span>
+            <div id="invite-from-avatar-wrap"
+                style="width: 64px; height: 64px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; overflow: hidden; position: relative; border: 2px solid var(--md-sys-color-primary);">
+                <span class="material-symbols-rounded" id="invite-from-avatar-icon" style="font-size: 34px;">sports_esports</span>
+                <img id="invite-from-avatar-img" src="" alt="头像" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
             </div>
             <!-- 添加 justify-content: center 与 text-align: center 实现严格居中 -->
             <h3 style="font-size: 1.25rem; font-weight: 700; justify-content: center; text-align: center; margin-bottom: 8px; line-height: 1.3;" id="invite-from-name">对决挑战</h3>
@@ -182,38 +185,92 @@
 
     <div class="container">
 
-        <!-- VIEW 1: 玩家账号中心 -->
-        <div id="view-auth" class="view active">
-            <div class="card" style="max-width: 440px; margin: 36px auto; text-align: center;">
+        <!-- VIEW 1: 账号登录与注册 -->
+        <div id="view-auth" class="view">
+            <div class="card" style="max-width: 440px; margin: 24px auto; text-align: center;">
+                <div style="display:flex; justify-content:flex-start; margin-bottom:8px;">
+                    <button type="button" class="md3-icon-btn" onclick="continueAsGuest()" title="返回主页">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+                </div>
                 <div
-                    style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                     <span class="material-symbols-rounded filled" style="font-size: 32px;">account_circle</span>
                 </div>
-                <h1 style="font-size: 1.65rem; margin-bottom: 6px;">背单词</h1>
-                <p style="margin-bottom: 20px;">选择下列账号或创建新账号</p>
+                <h1 style="font-size: 1.55rem; margin-bottom: 4px;">背单词</h1>
+                <p style="margin-bottom: 5px; color:var(--md-sys-color-outline); font-size:0.9rem;">请选择登录方式</p>
 
-                <div id="auth-users-list"
-                    style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 240px; overflow-y: auto;">
+                <!-- B站 Toy 专用登录卡片 (仅在 Toy 平台展示) -->
+                <div id="auth-toy-container" style="display: none; padding: 12px 0;">
+                    <div style="margin-bottom: 16px; padding: 14px; background: #fff0f5; border-radius: 12px; border: 1px solid #ffccd8;">
+                        <span class="material-symbols-rounded" style="font-size: 28px; color: #fb7299;">tv</span>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #fb7299; margin-top: 4px;">建议使用 B 站账号登录</div>
+                        <p style="font-size: 0.82rem; color: #777; margin: 4px 0 0;">授权后将自动同步数据至 B 站云端</p>
+                    </div>
+                    <button type="button" class="btn btn-filled btn-touch-large" id="btn-bili-toy-login" onclick="handleBiliToyLogin()" style="width: 100%; background: #fb7299; color: #fff; font-size: 1rem; border-radius: var(--md-shape-full);">
+                        <span class="material-symbols-rounded">login</span>
+                        <span class="btn-label-text">B 站快捷授权登录</span>
+                    </button>
+                    <div style="margin-top: 14px;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="continueAsGuest()" style="width: 100%; border-radius: var(--md-shape-full);">
+                            离线模式（数据保存在本地）
+                        </button>
+                    </div>
                 </div>
 
-                <div id="auth-create-box"
-                    style="display: flex; flex-direction: column; gap: 10px; text-align: left; border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 18px;">
-                    <label
-                        style="font-size: 0.88rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; gap: 6px;">
-                        <span class="material-symbols-rounded"
-                            style="font-size: 18px; color: var(--md-sys-color-primary);">person_add</span>
-                        新建账号
-                    </label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" id="username-input" class="input-field" placeholder="请输入昵称..." maxlength="12"
-                            style="height: 46px; border-radius: var(--md-shape-full); padding: 0 18px;"
-                            onkeydown="if(event.key==='Enter') createUserAndEnter()">
-                        <button class="btn btn-filled"
-                            style="height: 46px; min-height: 46px; padding: 0 22px; border-radius: var(--md-shape-full); font-size: 0.95rem; gap: 6px;"
-                            onclick="createUserAndEnter()">
-                            <span class="material-symbols-rounded"
-                                style="font-size: 18px; width: 18px; height: 18px; margin-top: -1px;">add</span>
-                            <span class="btn-label-text">创建</span>
+                <!-- Web 浏览器端 Supabase 云端账号卡片 (Toy 平台禁用并隐藏) -->
+                <div id="auth-web-container" style="display: block;">
+                    <!-- 标签栏：登录 / 注册 -->
+                    <div class="auth-tabs-row" style="display:flex; border-bottom:1px solid var(--md-sys-color-outline-variant); margin-bottom:16px;">
+                        <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="switchAuthTab('login')" style="flex:1; padding:10px 0; border:none; background:transparent; font-weight:700; font-size:0.95rem; cursor:pointer; color:var(--md-sys-color-primary); border-bottom:2.5px solid var(--md-sys-color-primary);">登录云端账号</button>
+                        <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="switchAuthTab('register')" style="flex:1; padding:10px 0; border:none; background:transparent; font-weight:600; font-size:0.95rem; cursor:pointer; color:var(--md-sys-color-outline);">注册新账号</button>
+                    </div>
+
+                    <!-- 登录表单 -->
+                    <div id="auth-login-section" style="display:flex; flex-direction:column; gap:12px; text-align:left;">
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">用户名</label>
+                            <input type="text" id="auth-login-username" class="input-field" placeholder="输入用户名..." maxlength="20" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">密码</label>
+                            <input type="password" id="auth-login-password" class="input-field" placeholder="输入密码..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;" onkeydown="if(event.key==='Enter') handleCloudLogin()">
+                        </div>
+                        <button type="button" class="btn btn-filled btn-touch-large" id="btn-auth-cloud-login" onclick="handleCloudLogin()" style="margin-top:6px; width:100%; border-radius:var(--md-shape-full);">
+                            <span class="btn-label-text">登录</span>
+                        </button>
+                    </div>
+
+                    <!-- 注册表单 (可选上传头像) -->
+                    <div id="auth-register-section" style="display:none; flex-direction:column; gap:12px; text-align:left;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:4px;">
+                            <div class="auth-reg-avatar-wrap" onclick="triggerRegAvatarUpload()" style="width:72px; height:72px; border-radius:50%; background:var(--md-sys-color-surface-container); border:2px dashed var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; overflow:hidden;" title="点击上传头像 (可选)">
+                                <span class="material-symbols-rounded" id="auth-reg-avatar-icon" style="font-size:32px; color:var(--md-sys-color-primary);">add_a_photo</span>
+                                <img id="auth-reg-avatar-preview" src="" alt="头像预览" style="display:none; width:100%; height:100%; object-fit:cover;">
+                            </div>
+                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">点击上传头像 (可选)</span>
+                            <input type="file" id="auth-reg-avatar-file" accept="image/*" style="display:none;" onchange="handleRegAvatarChange(event)">
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">用户名</label>
+                            <input type="text" id="auth-reg-username" class="input-field" placeholder="设置用户名 (2-16位)..." maxlength="16" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">密码</label>
+                            <input type="password" id="auth-reg-password" class="input-field" placeholder="设置密码 (至少4位)..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">确认密码</label>
+                            <input type="password" id="auth-reg-password2" class="input-field" placeholder="再次输入密码..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;" onkeydown="if(event.key==='Enter') handleCloudRegister()">
+                        </div>
+                        <button type="button" class="btn btn-filled btn-touch-large" id="btn-auth-cloud-register" onclick="handleCloudRegister()" style="margin-top:6px; width:100%; border-radius:var(--md-shape-full);">
+                            <span class="btn-label-text">注册并登录</span>
+                        </button>
+                    </div>
+
+                    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="continueAsGuest()" style="width:100%; border-radius:var(--md-shape-full);">
+                            暂不登录，以游客身份体验
                         </button>
                     </div>
                 </div>
@@ -233,6 +290,9 @@
                         <input type="text" id="search-page-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleSearchPageInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleSearchPageEnter(this);}">
                         <button type="button" class="hub-search-clear-btn" id="search-page-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearSearchPageInput(event)">
                             <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
+                        </button>
+                        <button type="button" class="hub-search-keyboard-btn" id="search-page-keyboard-btn" title="弹出虚拟键盘" onclick="toggleVirtualKeyboardFromSearch(event, 'search-page-input')">
+                            <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">keyboard</span>
                         </button>
                     </div>
                     <div class="hub-search-suggestions" id="search-page-suggestions" style="display:none;" onmousedown="event.preventDefault()"></div>
@@ -266,10 +326,16 @@
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
-                    <span class="badge badge-p1" id="hub-profile-tag">玩家</span>
-                    <button class="btn btn-outlined btn-sm" onclick="handleLogout()">
-                        <span class="material-symbols-rounded">switch_account</span>
-                        <span class="btn-label-text">切换账号</span>
+                    <div id="hub-user-pill" class="hub-user-pill" onclick="switchView('view-me')" title="个人中心 (我)">
+                        <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap">
+                            <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
+                            <img id="hub-user-avatar-img" src="" alt="头像" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                        </div>
+                        <span id="hub-user-name" style="font-weight:600; font-size:0.9rem; color:var(--md-sys-color-on-surface);">游客</span>
+                    </div>
+                    <button type="button" class="btn btn-filled btn-sm" id="btn-hub-login" onclick="switchView('view-auth')" title="登录账号">
+                        <span class="material-symbols-rounded" style="font-size:16px;">login</span>
+                        <span class="btn-label-text">登录</span>
                     </button>
                 </div>
             </div>
@@ -281,6 +347,9 @@
                     <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleHubSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleHubSearchEnter(this);}">
                     <button type="button" class="hub-search-clear-btn" id="hub-search-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearHubSearch(event)">
                         <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
+                    </button>
+                    <button type="button" class="hub-search-keyboard-btn" id="hub-search-keyboard-btn" title="弹出虚拟键盘" onclick="toggleVirtualKeyboardFromSearch(event, 'hub-search-input')">
+                        <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">keyboard</span>
                     </button>
                 </div>
                 <div class="hub-search-suggestions" id="hub-search-suggestions" style="display:none;" onmousedown="event.preventDefault()"></div>
@@ -490,45 +559,61 @@
                     <span>账号管理</span>
                 </div>
                 <div class="settings-card">
-                    <div class="settings-row" style="flex-wrap: wrap; gap: 10px;">
-                        <div class="settings-row-left" style="flex: 1; min-width: 180px;">
-                            <div class="settings-icon-box"
-                                style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary);">
-                                <span class="material-symbols-rounded">person</span>
+                    <!-- 未登录状态卡片 (仅显示登录按钮，点击后进入登录页面) -->
+                    <div id="me-account-unlogged-box" style="padding: 16px 20px; display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--md-sys-color-surface-container); display: flex; align-items: center; justify-content: center; color: var(--md-sys-color-outline);">
+                                    <span class="material-symbols-rounded" style="font-size: 28px;">person_off</span>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 1rem; font-weight: 700;">未登录</h4>
+                                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">登录账号以同步学习数据</p>
+                                </div>
                             </div>
-                            <div class="settings-row-text">
-                                <h4 id="settings-current-user-name">当前登录：玩家</h4>
-                                <p id="settings-current-user-stat">作答词数：0 词</p>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <button type="button" class="btn btn-danger btn-sm" onclick="handleDeleteCurrentAccount()" title="删除当前账号及其所有学习数据">
-                                <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
-                                <span class="btn-label-text">删除此账号</span>
-                            </button>
-                            <button class="btn btn-outlined btn-sm" onclick="handleLogout()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">logout</span>
-                                <span class="btn-label-text">退出登录</span>
+                            <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius: var(--md-shape-full); padding: 0 20px;">
+                                <span class="material-symbols-rounded" style="font-size: 16px;">login</span>
+                                <span class="btn-label-text">去登录</span>
                             </button>
                         </div>
                     </div>
-                    <div
-                        style="padding:14px 20px; background:var(--md-sys-color-surface-container-low); border-top:1px solid var(--md-sys-color-surface-container-high);">
-                        <div
-                            style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px;">
-                            切换账号：</div>
-                        <div id="settings-quick-users-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-                        <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
-                            <input type="text" id="settings-new-user-input" class="input-field"
-                                placeholder="创建并切换新账号..." maxlength="12"
-                                style="flex:1; height:38px; border-radius:var(--md-shape-full); font-size:0.85rem;"
-                                onkeydown="if(event.key==='Enter') createAndSwitchAccount()">
-                            <button type="button" class="btn btn-filled btn-sm"
-                                style="height:38px; min-height:38px; border-radius:var(--md-shape-full); padding:0 16px;"
-                                onclick="createAndSwitchAccount()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">add</span>
-                                <span class="btn-label-text">新建</span>
-                            </button>
+
+                    <!-- 已登录状态卡片 -->
+                    <div id="me-account-logged-box" style="padding: 16px 20px; display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div id="me-user-avatar-wrap" onclick="triggerMeAvatarUpload()" style="width: 54px; height: 54px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; border: 2px solid var(--md-sys-color-primary);" title="点击更换头像">
+                                    <span class="material-symbols-rounded" id="me-user-avatar-icon" style="font-size: 30px;">person</span>
+                                    <img id="me-user-avatar-img" src="" alt="头像" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+                                    <div id="me-user-avatar-edit-hint" style="position: absolute; bottom: 0; left: 0; right: 0; height: 18px; background: rgba(0,0,0,0.52); display: flex; align-items: center; justify-content: center; color: #fff;">
+                                        <span class="material-symbols-rounded" style="font-size: 12px;">photo_camera</span>
+                                    </div>
+                                    <input type="file" id="me-avatar-file-input" accept="image/*" style="display:none;" onchange="handleMeAvatarChange(event)">
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <h4 id="me-user-display-name" style="margin: 0; font-size: 1.05rem; font-weight: 700;">用户名</h4>
+                                        <div id="me-user-platform-badge"></div>
+                                    </div>
+                                    <p id="settings-current-user-stat" style="margin: 3px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">作答词数：0 词</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <div id="me-user-cloud-actions" style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-outlined btn-sm" onclick="openEditUsernameModal()">
+                                        <span class="material-symbols-rounded" style="font-size: 16px;">edit</span>
+                                        <span class="btn-label-text">修改用户名</span>
+                                    </button>
+                                    <button type="button" class="btn btn-outlined btn-sm" onclick="openEditPasswordModal()">
+                                        <span class="material-symbols-rounded" style="font-size: 16px;">lock_reset</span>
+                                        <span class="btn-label-text">修改密码</span>
+                                    </button>
+                                </div>
+                                <button type="button" class="btn btn-outlined btn-danger btn-sm" onclick="handleAuthLogout()">
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">logout</span>
+                                    <span class="btn-label-text">退出登录</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -887,19 +972,22 @@
                     <div class="card-filled"
                         style="border-radius: var(--md-shape-l); padding: 14px; margin-bottom: 16px;">
                         <div style="display: flex; justify-content: space-around; align-items: center;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.8rem;">🔴</div>
-                                <div style="font-weight: 700; color: var(--p1-sys-color);" id="room-p1-name">等待房主...
+                            <div style="text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 100px;">
+                                <div id="room-p1-avatar-wrap" style="width: 54px; height: 54px; border-radius: 50%; background: var(--p1-sys-color-container, #ffd8e4); color: var(--p1-sys-color, #ba1a1a); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; overflow: hidden; border: 2.5px solid var(--p1-sys-color, #ba1a1a);">
+                                    <span class="material-symbols-rounded" id="room-p1-avatar-icon" style="font-size: 30px;">person</span>
+                                    <img id="room-p1-avatar-img" src="" alt="头像" style="display: none; width: 100%; height: 100%; object-fit: cover;">
                                 </div>
-                                <span class="badge badge-p1" style="margin-top: 4px;"> P1 </span>
+                                <div style="font-weight: 700; color: var(--p1-sys-color); font-size: 0.95rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="room-p1-name">等待房主...</div>
+                                <span class="badge badge-p1" style="margin-top: 4px;"> 房主 (P1) </span>
                             </div>
-                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--md-sys-color-outline);">VS
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.8rem;">🔵</div>
-                                <div style="font-weight: 700; color: var(--p2-sys-color);" id="room-p2-name">等待对手加入...
+                            <div style="font-size: 1.3rem; font-weight: 800; color: var(--md-sys-color-outline); margin: 0 10px;">VS</div>
+                            <div style="text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 100px;">
+                                <div id="room-p2-avatar-wrap" style="width: 54px; height: 54px; border-radius: 50%; background: var(--p2-sys-color-container, #d8e2ff); color: var(--p2-sys-color, #005ac1); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; overflow: hidden; border: 2.5px solid var(--p2-sys-color, #005ac1);">
+                                    <span class="material-symbols-rounded" id="room-p2-avatar-icon" style="font-size: 30px;">person</span>
+                                    <img id="room-p2-avatar-img" src="" alt="头像" style="display: none; width: 100%; height: 100%; object-fit: cover;">
                                 </div>
-                                <span class="badge badge-p2" style="margin-top: 4px;"> P2 </span>
+                                <div style="font-weight: 700; color: var(--p2-sys-color); font-size: 0.95rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="room-p2-name">等待对手加入...</div>
+                                <span class="badge badge-p2" style="margin-top: 4px;"> 挑战者 (P2) </span>
                             </div>
                         </div>
                     </div>
@@ -1122,9 +1210,16 @@
         <div id="view-game" class="view">
             <div class="arena-container">
                 <div class="arena-head-card">
-                    <div class="arena-player-box left">
-                        <span class="badge badge-p1" id="arena-my-badge">🔴 我方</span>
-                        <div class="arena-player-score" id="arena-my-score" style="color: var(--p1-sys-color);">0</div>
+                    <div class="arena-player-box left" style="display: flex; align-items: center; gap: 8px;">
+                        <div id="arena-my-avatar-wrap" style="width: 40px; height: 40px; border-radius: 50%; background: var(--p1-sys-color-container, #ffd8e4); color: var(--p1-sys-color, #ba1a1a); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid var(--p1-sys-color, #ba1a1a); flex-shrink: 0;">
+                            <span class="material-symbols-rounded" id="arena-my-avatar-icon" style="font-size: 24px;">person</span>
+                            <img id="arena-my-avatar-img" src="" alt="头像" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div style="text-align: left;">
+                            <span class="badge badge-p1" id="arena-my-badge">🔴 我方</span>
+                            <div id="arena-my-name" style="font-size: 0.8rem; font-weight: 700; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-sys-color-on-surface);">我方</div>
+                        </div>
+                        <div class="arena-player-score" id="arena-my-score" style="color: var(--p1-sys-color); margin-left: 4px;">0</div>
                     </div>
 
                     <div class="arena-center-gauge" id="arena-center-gauge">
@@ -1152,9 +1247,15 @@
                         </div>
                     </div>
 
-                    <div class="arena-player-box right">
-                        <span class="badge badge-p2" id="arena-oppo-badge">🔵 对手</span>
-                        <div class="arena-player-score" id="arena-oppo-score" style="color: var(--p2-sys-color);">0
+                    <div class="arena-player-box right" style="display: flex; align-items: center; gap: 8px;">
+                        <div class="arena-player-score" id="arena-oppo-score" style="color: var(--p2-sys-color); margin-right: 4px;">0</div>
+                        <div style="text-align: right;">
+                            <span class="badge badge-p2" id="arena-oppo-badge">🔵 对手</span>
+                            <div id="arena-oppo-name" style="font-size: 0.8rem; font-weight: 700; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-sys-color-on-surface);">对手</div>
+                        </div>
+                        <div id="arena-oppo-avatar-wrap" style="width: 40px; height: 40px; border-radius: 50%; background: var(--p2-sys-color-container, #d8e2ff); color: var(--p2-sys-color, #005ac1); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid var(--p2-sys-color, #005ac1); flex-shrink: 0;">
+                            <span class="material-symbols-rounded" id="arena-oppo-avatar-icon" style="font-size: 24px;">person</span>
+                            <img id="arena-oppo-avatar-img" src="" alt="头像" style="display:none; width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     </div>
                 </div>
@@ -1282,14 +1383,9 @@
 
                     <div class="riddle-title-group">
                         <h2 class="riddle-top-title">Wordle</h2>
-                        <span class="riddle-chip-tag" id="riddle-book-tag" title="点击更换词库" style="cursor:pointer;" onclick="openBookSelectorPage('riddle')">高考3500</span>
                     </div>
 
                     <div class="riddle-top-actions">
-                        <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-add-draft" onclick="addRiddleDraftRow()" title="添加一行草稿行">
-                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                            <span class="btn-label-text">草稿</span>
-                        </button>
                         <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-select-book" onclick="openBookSelectorPage('riddle')" title="选择词书">
                             <span class="material-symbols-rounded" style="font-size:18px;">auto_stories</span>
                             <span class="btn-label-text" id="riddle-top-book-name">高考3500</span>
@@ -1349,6 +1445,10 @@
 
                 <div
                     style="margin-top:16px; display:flex; gap:10px; justify-content:center; width:100%; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-add-draft" onclick="addRiddleDraftRow()" title="添加一行草稿行">
+                        <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                        <span class="btn-label-text">草稿</span>
+                    </button>
                     <button class="btn btn-filled btn-sm" id="btn-riddle-hint" onclick="handleRiddleHint()"
                         style="background: #6750A4;">
                         <span class="material-symbols-rounded" style="font-size:18px;">lightbulb</span>
@@ -1584,8 +1684,6 @@
 
                     <div id="dictation-input-area" style="width:100%;"></div>
 
-                    <div id="dictation-keyboard-container"></div>
-
                     <div id="dictation-feedback-card"
                         style="display:none; padding:12px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="font-size:0.85rem; color:var(--md-sys-color-outline);"
@@ -1721,6 +1819,13 @@
                     </div>
                 </div>
 
+                <div class="settings-search-wrapper" style="margin: 4px 0 16px;">
+                    <div class="hub-search-bar" style="background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant);">
+                        <span class="material-symbols-rounded hub-search-icon">search</span>
+                        <input type="text" id="settings-filter-input" class="hub-search-input" placeholder="搜索设置项..." autocomplete="off" oninput="filterSettingsRows(this.value)">
+                    </div>
+                </div>
+
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">aspect_ratio</span>
                     <span>显示</span>
@@ -1766,6 +1871,25 @@
                             <div class="md3-chip" data-zoom="1.1" onclick="setAppZoom('1.1')">110%</div>
                             <div class="md3-chip" data-zoom="1.2" onclick="setAppZoom('1.2')">120%</div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">search</span>
+                    <span>搜索与查词</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row clickable" onclick="openSearchSettingsModal()">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">tune</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>搜索设置</h4>
+                                <p>配置查词标签页、相关词组、相关链接及查词虚拟键盘</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
                     </div>
                 </div>
 
@@ -2148,18 +2272,30 @@
                     </label>
                 </div>
 
-                <!-- 清除当前学习进度 -->
+                <!-- 清除当前学习与复习进度 -->
                 <div class="rule-group" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
                         <div>
-                            <span class="rule-label" style="margin-bottom: 2px;">本组学习进度</span>
-                            <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="shici-progress-status-tip">
+                            <span class="rule-label" style="margin-bottom: 2px;">新词学习进度</span>
+                            <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="shici-learn-progress-status-tip">
                                 无
                             </p>
                         </div>
-                        <button type="button" class="btn btn-danger btn-sm" id="btn-clear-shici-progress" onclick="clearCurrentShiCiProgress()">
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-clear-shici-learn-progress" onclick="clearCurrentShiCiLearnProgress()">
                             <span class="material-symbols-rounded" style="font-size: 16px;">delete_sweep</span>
-                            <span class="btn-label-text">清除进度</span>
+                            <span class="btn-label-text">清空学习进度</span>
+                        </button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div>
+                            <span class="rule-label" style="margin-bottom: 2px;">复习进度</span>
+                            <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="shici-review-progress-status-tip">
+                                无
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-clear-shici-review-progress" onclick="clearCurrentShiCiReviewProgress()">
+                            <span class="material-symbols-rounded" style="font-size: 16px;">delete_sweep</span>
+                            <span class="btn-label-text">清空复习进度</span>
                         </button>
                     </div>
                 </div>
@@ -2233,7 +2369,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.1.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -2364,18 +2500,30 @@
                     </label>
                 </div>
 
-                    <!-- 新增：清除当前学习进度 -->
+                    <!-- 清除学习与复习进度 -->
                     <div class="rule-group" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
                             <div>
-                                <span class="rule-label" style="margin-bottom: 2px;">本组学习进度</span>
-                                <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="single-progress-status-tip">
+                                <span class="rule-label" style="margin-bottom: 2px;">新词学习进度</span>
+                                <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="single-learn-progress-status-tip">
                                     无
                                 </p>
                             </div>
-                            <button type="button" class="btn btn-danger btn-sm" id="btn-clear-single-progress" onclick="clearCurrentSingleProgress()">
+                            <button type="button" class="btn btn-danger btn-sm" id="btn-clear-single-learn-progress" onclick="clearCurrentSingleLearnProgress()">
                                 <span class="material-symbols-rounded" style="font-size: 16px;">delete_sweep</span>
-                                <span class="btn-label-text">清除进度</span>
+                                <span class="btn-label-text">清空学习进度</span>
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                            <div>
+                                <span class="rule-label" style="margin-bottom: 2px;">复习进度</span>
+                                <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin: 0;" id="single-review-progress-status-tip">
+                                    无
+                                </p>
+                            </div>
+                            <button type="button" class="btn btn-danger btn-sm" id="btn-clear-single-review-progress" onclick="clearCurrentSingleReviewProgress()">
+                                <span class="material-symbols-rounded" style="font-size: 16px;">delete_sweep</span>
+                                <span class="btn-label-text">清空复习进度</span>
                             </button>
                         </div>
                     </div>
@@ -2445,8 +2593,8 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; margin-bottom:0; padding-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
                     <div>
-                        <span class="rule-label" style="margin:0;">虚拟键盘</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">聚焦搜索框时从底部滑入虚拟键盘</p>
+                        <span class="rule-label" style="margin:0;">始终弹出虚拟键盘</span>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">聚焦搜索框时始终弹出虚拟键盘</p>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-keyboard-label">
                         <input type="checkbox" id="switch-search-enable-keyboard" onchange="updateSearchSetting('enableVirtualKeyboard', this.checked)">
@@ -2926,54 +3074,171 @@
         </div>
     </div>
 
+    <!-- 添加自定义释义词块弹窗 (适配手机端) -->
+    <div id="modal-add-meaning-block" class="modal-overlay">
+        <div class="modal-card" style="max-width: 400px; width: 92%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.15rem; font-weight:700;">添加自定义词块</h3>
+                    <p style="font-size:0.82rem; margin-top:2px; color:var(--md-sys-color-outline);" id="add-block-target-word">为当前单词添加释义词块</p>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeAddMeaningBlockModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px;">
+                <div class="rule-group" style="margin-bottom: 14px;">
+                    <label class="rule-label" for="select-meaning-block-pos" style="display:block; margin-bottom: 6px;">词性 (可选)</label>
+                    <select id="select-meaning-block-pos" class="md3-input" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 10px; font-size:0.92rem;">
+                        <option value="">(无词性)</option>
+                        <option value="n.">n. 名词</option>
+                        <option value="v.">v. 动词</option>
+                        <option value="vt.">vt. 及物动词</option>
+                        <option value="vi.">vi. 不及物动词</option>
+                        <option value="adj.">adj. 形容词</option>
+                        <option value="adv.">adv. 副词</option>
+                        <option value="prep.">prep. 介词</option>
+                        <option value="conj.">conj. 连词</option>
+                        <option value="pron.">pron. 代词</option>
+                        <option value="num.">num. 数词</option>
+                        <option value="art.">art. 冠词</option>
+                        <option value="interj.">interj. 感叹词</option>
+                        <option value="phrase">phrase 词组短语</option>
+                    </select>
+                </div>
+                <div class="rule-group" style="margin-bottom: 0;">
+                    <label class="rule-label" for="input-meaning-block-text" style="display:block; margin-bottom: 6px;">释义词块内容</label>
+                    <input type="text" id="input-meaning-block-text" class="md3-input" placeholder="输入释义词块 (如: 苹果)" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;" onkeydown="if(event.key==='Enter')confirmAddMeaningBlock()">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeAddMeaningBlockModal()">
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" onclick="confirmAddMeaningBlock()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">确认添加</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <!-- 统一底部滑入式虚拟键盘 (MD3 规范) -->
+    <!-- 修改用户名弹窗 -->
+    <div id="modal-edit-username" class="modal-overlay">
+        <div class="modal-card" style="max-width: 380px; width: 92%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.15rem; font-weight:700;">修改用户名</h3>
+                    <p style="font-size:0.82rem; margin-top:2px; color:var(--md-sys-color-outline);">修改后将同步更新云端账号</p>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeEditUsernameModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px;">
+                <div class="rule-group" style="margin-bottom: 0;">
+                    <label class="rule-label" for="input-new-username" style="display:block; margin-bottom: 6px;">新用户名</label>
+                    <input type="text" id="input-new-username" class="md3-input" placeholder="2-16位字符" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;" onkeydown="if(event.key==='Enter')confirmUpdateUsername()">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeEditUsernameModal()">
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" onclick="confirmUpdateUsername()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">确认修改</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div id="modal-edit-password" class="modal-overlay">
+        <div class="modal-card" style="max-width: 400px; width: 92%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.15rem; font-weight:700;">修改密码</h3>
+                    <p style="font-size:0.82rem; margin-top:2px; color:var(--md-sys-color-outline);">用于 Supabase 云端账号凭证更新</p>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeEditPasswordModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; display:flex; flex-direction:column; gap:12px;">
+                <div class="rule-group" style="margin-bottom: 0;">
+                    <label class="rule-label" for="input-old-password" style="display:block; margin-bottom: 4px;">原密码</label>
+                    <input type="password" id="input-old-password" class="md3-input" placeholder="输入原密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;">
+                </div>
+                <div class="rule-group" style="margin-bottom: 0;">
+                    <label class="rule-label" for="input-new-password" style="display:block; margin-bottom: 4px;">新密码</label>
+                    <input type="password" id="input-new-password" class="md3-input" placeholder="至少6位新密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;">
+                </div>
+                <div class="rule-group" style="margin-bottom: 0;">
+                    <label class="rule-label" for="input-confirm-new-password" style="display:block; margin-bottom: 4px;">确认新密码</label>
+                    <input type="password" id="input-confirm-new-password" class="md3-input" placeholder="再次输入新密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;" onkeydown="if(event.key==='Enter')confirmUpdatePassword()">
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeEditPasswordModal()">
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" onclick="confirmUpdatePassword()">
+                    <span class="material-symbols-rounded">check</span>
+                    <span class="btn-label-text">确认更新</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 统一底部滑入式虚拟键盘 (MD3 规范，应用图片布局) -->
     <div id="global-virtual-keyboard" class="global-virtual-keyboard" aria-label="虚拟键盘">
         <div class="gvk-row">
-            <button type="button" class="gvk-key" data-key="q">q</button>
-            <button type="button" class="gvk-key" data-key="w">w</button>
-            <button type="button" class="gvk-key" data-key="e">e</button>
-            <button type="button" class="gvk-key" data-key="r">r</button>
-            <button type="button" class="gvk-key" data-key="t">t</button>
-            <button type="button" class="gvk-key" data-key="y">y</button>
-            <button type="button" class="gvk-key" data-key="u">u</button>
-            <button type="button" class="gvk-key" data-key="i">i</button>
-            <button type="button" class="gvk-key" data-key="o">o</button>
-            <button type="button" class="gvk-key" data-key="p">p</button>
+            <button type="button" class="gvk-key" data-key="q" data-letter="q">q</button>
+            <button type="button" class="gvk-key" data-key="w" data-letter="w">w</button>
+            <button type="button" class="gvk-key" data-key="e" data-letter="e">e</button>
+            <button type="button" class="gvk-key" data-key="r" data-letter="r">r</button>
+            <button type="button" class="gvk-key" data-key="t" data-letter="t">t</button>
+            <button type="button" class="gvk-key" data-key="y" data-letter="y">y</button>
+            <button type="button" class="gvk-key" data-key="u" data-letter="u">u</button>
+            <button type="button" class="gvk-key" data-key="i" data-letter="i">i</button>
+            <button type="button" class="gvk-key" data-key="o" data-letter="o">o</button>
+            <button type="button" class="gvk-key" data-key="p" data-letter="p">p</button>
         </div>
         <div class="gvk-row">
-            <button type="button" class="gvk-key" data-key="a">a</button>
-            <button type="button" class="gvk-key" data-key="s">s</button>
-            <button type="button" class="gvk-key" data-key="d">d</button>
-            <button type="button" class="gvk-key" data-key="f">f</button>
-            <button type="button" class="gvk-key" data-key="g">g</button>
-            <button type="button" class="gvk-key" data-key="h">h</button>
-            <button type="button" class="gvk-key" data-key="j">j</button>
-            <button type="button" class="gvk-key" data-key="k">k</button>
-            <button type="button" class="gvk-key" data-key="l">l</button>
+            <button type="button" class="gvk-key" data-key="a" data-letter="a">a</button>
+            <button type="button" class="gvk-key" data-key="s" data-letter="s">s</button>
+            <button type="button" class="gvk-key" data-key="d" data-letter="d">d</button>
+            <button type="button" class="gvk-key" data-key="f" data-letter="f">f</button>
+            <button type="button" class="gvk-key" data-key="g" data-letter="g">g</button>
+            <button type="button" class="gvk-key" data-key="h" data-letter="h">h</button>
+            <button type="button" class="gvk-key" data-key="j" data-letter="j">j</button>
+            <button type="button" class="gvk-key" data-key="k" data-letter="k">k</button>
+            <button type="button" class="gvk-key" data-key="l" data-letter="l">l</button>
         </div>
         <div class="gvk-row">
-            <button type="button" class="gvk-key key-wide key-action" data-key="Enter" title="确认/搜索">
-                <span class="material-symbols-rounded" style="font-size: 1.25rem;">keyboard_return</span>
+            <button type="button" class="gvk-key key-wide key-shift" data-key="Shift" id="gvk-key-shift" title="大小写切换">
+                <span class="material-symbols-rounded" style="font-size: 1.25rem;">shift</span>
             </button>
-            <button type="button" class="gvk-key" data-key="z">z</button>
-            <button type="button" class="gvk-key" data-key="x">x</button>
-            <button type="button" class="gvk-key" data-key="c">c</button>
-            <button type="button" class="gvk-key" data-key="v">v</button>
-            <button type="button" class="gvk-key" data-key="b">b</button>
-            <button type="button" class="gvk-key" data-key="n">n</button>
-            <button type="button" class="gvk-key" data-key="m">m</button>
+            <button type="button" class="gvk-key" data-key="z" data-letter="z">z</button>
+            <button type="button" class="gvk-key" data-key="x" data-letter="x">x</button>
+            <button type="button" class="gvk-key" data-key="c" data-letter="c">c</button>
+            <button type="button" class="gvk-key" data-key="v" data-letter="v">v</button>
+            <button type="button" class="gvk-key" data-key="b" data-letter="b">b</button>
+            <button type="button" class="gvk-key" data-key="n" data-letter="n">n</button>
+            <button type="button" class="gvk-key" data-key="m" data-letter="m">m</button>
             <button type="button" class="gvk-key key-wide" data-key="Backspace" title="退格">
                 <span class="material-symbols-rounded" style="font-size: 1.25rem;">backspace</span>
             </button>
         </div>
         <div class="gvk-row">
-            <button type="button" class="gvk-key key-hide" data-key="hide" title="收起键盘">
-                <span class="material-symbols-rounded" style="font-size: 1.2rem;">keyboard_hide</span>
-            </button>
+            <button type="button" class="gvk-key key-symbol" data-key="-">-</button>
+            <button type="button" class="gvk-key key-symbol" data-key="'">'</button>
             <button type="button" class="gvk-key key-space" data-key=" ">空格</button>
-            <button type="button" class="gvk-key" data-key="-">-</button>
-            <button type="button" class="gvk-key" data-key="'">'</button>
+            <button type="button" class="gvk-key key-wide key-action" data-key="Enter" title="确认/提交">
+                <span class="material-symbols-rounded" style="font-size: 1.25rem;">keyboard_return</span>
+            </button>
         </div>
     </div>
 

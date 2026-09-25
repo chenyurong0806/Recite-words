@@ -49,8 +49,10 @@ function switchView(viewId) {
     if (document.startViewTransition) {
         try {
             const transition = document.startViewTransition(performSwitch);
-            if (transition && typeof transition.catch === 'function') {
-                transition.catch(() => { });
+            if (transition) {
+                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
+                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
+                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
             }
         } catch (e) {
             performSwitch();
@@ -65,7 +67,7 @@ function switchView(viewId) {
             initGlobalPresence();
         }
     } else if (viewId === 'view-auth') {
-        renderAuthUsersList();
+        if (typeof renderAuthView === 'function') renderAuthView();
     } else if (viewId === 'view-me') {
         if (typeof renderMeView === 'function') {
             renderMeView();
@@ -145,11 +147,39 @@ window.addEventListener('offline', () => {
 });
 
 function updateHub() {
-    if (!currentUser) return switchView('view-auth');
-    document.getElementById('hub-profile-tag').innerText = `${currentUser}`;
-    document.getElementById('stat-total').innerText = userStats.total;
-    document.getElementById('stat-acc').innerText = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
-    document.getElementById('stat-mistakes').innerText = Object.keys(userStats.mistakes || {}).length;
+    if (!currentUser) currentUser = '游客';
+    
+    // 更新右上角用户胶囊与登录按钮
+    const userNameEl = document.getElementById('hub-user-name');
+    const userImgEl = document.getElementById('hub-user-avatar-img');
+    const userIconEl = document.getElementById('hub-user-avatar-icon');
+    const loginBtnEl = document.getElementById('btn-hub-login');
+    const profileTag = document.getElementById('hub-profile-tag');
+
+    if (userNameEl) userNameEl.innerText = currentUser;
+    if (profileTag) profileTag.innerText = currentUser;
+
+    const avatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+    if (avatar && userImgEl && userIconEl) {
+        userImgEl.src = avatar;
+        userImgEl.style.display = 'block';
+        userIconEl.style.display = 'none';
+    } else if (userImgEl && userIconEl) {
+        userImgEl.style.display = 'none';
+        userIconEl.style.display = 'inline-flex';
+    }
+
+    const isLoggedIn = currentUserProfile && currentUserProfile.isLoggedIn;
+    if (loginBtnEl) {
+        loginBtnEl.style.display = isLoggedIn ? 'none' : 'inline-flex';
+    }
+
+    const statTotal = document.getElementById('stat-total');
+    const statAcc = document.getElementById('stat-acc');
+    const statMistakes = document.getElementById('stat-mistakes');
+    if (statTotal) statTotal.innerText = userStats.total || 0;
+    if (statAcc) statAcc.innerText = (userStats.total > 0) ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
+    if (statMistakes) statMistakes.innerText = Object.keys(userStats.mistakes || {}).length;
 
     checkNetworkStatus();
     updateHubResumeButtons();
@@ -171,22 +201,42 @@ function updateHub() {
 // 刷新主页中单人学习与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
 function updateHubResumeButtons() {
     if (!currentUser) return;
-    const singleSaved = localStorage.getItem(`single_progress_${currentUser}`);
+
+    // 1. 英语新词学习进度
+    const singleSaved = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
     const learnBtnText = document.getElementById('btn-hub-learn-text');
     if (learnBtnText) {
+        let restored = false;
         if (singleSaved) {
             try {
                 const parsed = JSON.parse(singleSaved);
-                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
-                    learnBtnText.innerText = `继续(${parsed.currentIdx + 1}/${parsed.pool.length})`;
-                } else {
-                    learnBtnText.innerText = '学习新词';
+                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length && (!parsed.isReview && !String(parsed.sessionName).includes('复习'))) {
+                    learnBtnText.innerText = `继续学习(${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    restored = true;
                 }
-            } catch (e) {
-                learnBtnText.innerText = '学习新词';
-            }
-        } else {
+            } catch (e) { }
+        }
+        if (!restored) {
             learnBtnText.innerText = '学习新词';
+        }
+    }
+
+    // 2. 英语复习进度
+    const reviewSaved = localStorage.getItem(`single_review_progress_${currentUser}`);
+    const reviewBtnText = document.getElementById('btn-hub-review-text');
+    if (reviewBtnText) {
+        let restored = false;
+        if (reviewSaved) {
+            try {
+                const parsed = JSON.parse(reviewSaved);
+                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
+                    reviewBtnText.innerText = `继续复习(${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    restored = true;
+                }
+            } catch (e) { }
+        }
+        if (!restored) {
+            reviewBtnText.innerText = '复习';
         }
     }
 
@@ -327,4 +377,4 @@ function isShiCiBook(b) {
 function isEnglishBook(b) {
     return !isShiCiBook(b);
 }
-
+

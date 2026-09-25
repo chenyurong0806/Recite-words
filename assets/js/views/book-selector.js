@@ -13,11 +13,25 @@ let bookSelectorPreviousView = 'view-hub';
 function openBookSelectorPage(mode = 'single') {
     bookSelectorMode = mode;
     bookSelectorPreviousView = currentView || 'view-hub';
+    const enTab = document.getElementById('tab-bs-en');
+    const shiciTab = document.getElementById('tab-bs-shici');
+
     if (mode === 'shici') {
         bookSelectorActiveCategory = 'shici';
+        if (enTab) enTab.style.display = 'none';
+        if (shiciTab) {
+            shiciTab.style.display = 'inline-flex';
+            shiciTab.classList.add('active');
+        }
     } else {
         bookSelectorActiveCategory = 'english';
+        if (shiciTab) shiciTab.style.display = 'none';
+        if (enTab) {
+            enTab.style.display = 'inline-flex';
+            enTab.classList.add('active');
+        }
     }
+
     const titleEl = document.getElementById('book-selector-page-title');
     const modeNames = {
         'single': '选择词书 (背单词)',
@@ -26,10 +40,6 @@ function openBookSelectorPage(mode = 'single') {
         'dictation': '选择词书 (英语默写)'
     };
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
-
-    document.querySelectorAll('.book-selector-tab').forEach(t => t.classList.remove('active'));
-    const activeTab = document.getElementById(bookSelectorActiveCategory === 'shici' ? 'tab-bs-shici' : 'tab-bs-en');
-    if (activeTab) activeTab.classList.add('active');
 
     switchView('view-book-selector');
     renderBookSelectorPage();
@@ -40,6 +50,9 @@ function exitBookSelectorPage() {
 }
 
 function switchBookSelectorCategory(cat) {
+    if (bookSelectorMode === 'shici' && cat !== 'shici') return;
+    if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+
     bookSelectorActiveCategory = cat;
     document.querySelectorAll('.book-selector-tab').forEach(t => t.classList.remove('active'));
     const activeTab = document.getElementById(cat === 'shici' ? 'tab-bs-shici' : 'tab-bs-en');
@@ -88,7 +101,7 @@ function renderBookSelectorPage() {
     if (!container) return;
 
     const allBooks = getAllUniqueBooks();
-    const isShiCi = (bookSelectorActiveCategory === 'shici');
+    const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
     const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
 
     let selectedCount = 0;
@@ -248,8 +261,6 @@ async function handleBookSelectorToggle(bookId) {
             riddleState.bookName = bookMeta.name;
         }
         saveRiddleSettingsOnly();
-        const bookTag = document.getElementById('riddle-book-tag');
-        if (bookTag) bookTag.innerText = bookMeta.name;
         const topBookName = document.getElementById('riddle-top-book-name');
         if (topBookName) topBookName.innerText = bookMeta.name;
         if (currentView === 'view-riddle' && typeof startWordRiddleGame === 'function') {
@@ -275,4 +286,4 @@ async function handleBookSelectorToggle(bookId) {
     updateBookSelectorDOM();
     showToast(`已切换词书：${bookMeta.name}，立即生效`);
 }
-
+

@@ -25,6 +25,64 @@ function safeJsonParse(str) {
     }
 }
 
+const memoryStorageMap = {};
+const SafeStorage = {
+    isAvailable: (() => {
+        try {
+            const testKey = '__storage_test__';
+            window.localStorage.setItem(testKey, testKey);
+            window.localStorage.removeItem(testKey);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    })(),
+
+    getItem(key) {
+        if (!key) return null;
+        try {
+            if (this.isAvailable) {
+                const val = window.localStorage.getItem(key);
+                if (val !== null) return val;
+            }
+        } catch (e) { }
+        return Object.prototype.hasOwnProperty.call(memoryStorageMap, key) ? memoryStorageMap[key] : null;
+    },
+
+    setItem(key, value) {
+        if (!key) return;
+        const strVal = String(value);
+        memoryStorageMap[key] = strVal;
+        try {
+            if (this.isAvailable) {
+                window.localStorage.setItem(key, strVal);
+            }
+        } catch (e) {
+            console.warn('[SafeStorage] localStorage.setItem failed, retained in memory:', key, e);
+        }
+    },
+
+    removeItem(key) {
+        if (!key) return;
+        delete memoryStorageMap[key];
+        try {
+            if (this.isAvailable) {
+                window.localStorage.removeItem(key);
+            }
+        } catch (e) { }
+    },
+
+    clear() {
+        Object.keys(memoryStorageMap).forEach(k => delete memoryStorageMap[k]);
+        try {
+            if (this.isAvailable) {
+                window.localStorage.clear();
+            }
+        } catch (e) { }
+    }
+};
+window.SafeStorage = SafeStorage;
+
 let localFolders = [];
 let folderTreeCollapseMap = {};
 
@@ -36,27 +94,31 @@ const VocabOfflineDB = {
     async init() {
         if (this.db) return this.db;
         return new Promise((resolve) => {
-            if (!window.indexedDB) {
+            try {
+                if (!window.indexedDB) {
+                    resolve(null);
+                    return;
+                }
+                const request = indexedDB.open(this.dbName, this.version);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('books')) {
+                        db.createObjectStore('books', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('folders')) {
+                        db.createObjectStore('folders', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    this.db = e.target.result;
+                    resolve(this.db);
+                };
+                request.onerror = (e) => {
+                    resolve(null);
+                };
+            } catch (err) {
                 resolve(null);
-                return;
             }
-            const request = indexedDB.open(this.dbName, this.version);
-            request.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains('books')) {
-                    db.createObjectStore('books', { keyPath: 'id' });
-                }
-                if (!db.objectStoreNames.contains('folders')) {
-                    db.createObjectStore('folders', { keyPath: 'id' });
-                }
-            };
-            request.onsuccess = (e) => {
-                this.db = e.target.result;
-                resolve(this.db);
-            };
-            request.onerror = (e) => {
-                resolve(null);
-            };
         });
     },
 
@@ -64,7 +126,7 @@ const VocabOfflineDB = {
         await this.init();
         if (!this.db) {
             try {
-                return JSON.parse(localStorage.getItem('vocab_offline_books') || '[]');
+                return JSON.parse(SafeStorage.getItem('vocab_offline_books') || '[]');
             } catch (e) { return []; }
         }
         return new Promise((resolve) => {
@@ -82,7 +144,7 @@ const VocabOfflineDB = {
             const list = await this.getAllBooks();
             const idx = list.findIndex(b => b.id === book.id);
             if (idx >= 0) list[idx] = book; else list.push(book);
-            try { localStorage.setItem('vocab_offline_books', JSON.stringify(list)); } catch (e) { }
+            try { SafeStorage.setItem('vocab_offline_books', JSON.stringify(list)); } catch (e) { }
             return true;
         }
         return new Promise((resolve) => {
@@ -98,7 +160,7 @@ const VocabOfflineDB = {
         await this.init();
         if (!this.db) {
             const list = (await this.getAllBooks()).filter(b => b.id !== bookId);
-            localStorage.setItem('vocab_offline_books', JSON.stringify(list));
+            SafeStorage.setItem('vocab_offline_books', JSON.stringify(list));
             return true;
         }
         return new Promise((resolve) => {
@@ -114,7 +176,7 @@ const VocabOfflineDB = {
         await this.init();
         if (!this.db) {
             try {
-                return JSON.parse(localStorage.getItem('vocab_offline_folders') || '[]');
+                return JSON.parse(SafeStorage.getItem('vocab_offline_folders') || '[]');
             } catch (e) { return []; }
         }
         return new Promise((resolve) => {
@@ -132,7 +194,7 @@ const VocabOfflineDB = {
             const list = await this.getAllFolders();
             const idx = list.findIndex(f => f.id === folder.id);
             if (idx >= 0) list[idx] = folder; else list.push(folder);
-            localStorage.setItem('vocab_offline_folders', JSON.stringify(list));
+            SafeStorage.setItem('vocab_offline_folders', JSON.stringify(list));
             return true;
         }
         return new Promise((resolve) => {
@@ -148,7 +210,7 @@ const VocabOfflineDB = {
         await this.init();
         if (!this.db) {
             const list = (await this.getAllFolders()).filter(f => f.id !== folderId);
-            localStorage.setItem('vocab_offline_folders', JSON.stringify(list));
+            SafeStorage.setItem('vocab_offline_folders', JSON.stringify(list));
             return true;
         }
         return new Promise((resolve) => {
@@ -160,4 +222,4 @@ const VocabOfflineDB = {
         });
     }
 };
-
+

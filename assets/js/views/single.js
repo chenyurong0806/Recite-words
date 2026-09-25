@@ -223,34 +223,95 @@ function openSingleSettings() {
 
 // 检查当前是否有正在进行的断点进度，并更新提示与按钮状态
 function updateSingleProgressStatusUI() {
-    const tipEl = document.getElementById('single-progress-status-tip');
-    const clearBtn = document.getElementById('btn-clear-single-progress');
-    if (!tipEl || !clearBtn || !currentUser) return;
+    const tipLearn = document.getElementById('single-learn-progress-status-tip');
+    const clearBtnLearn = document.getElementById('btn-clear-single-learn-progress');
+    const tipReview = document.getElementById('single-review-progress-status-tip');
+    const clearBtnReview = document.getElementById('btn-clear-single-review-progress');
 
-    const saved = localStorage.getItem(`single_progress_${currentUser}`);
-    if (saved) {
+    // 兼顾旧单按钮
+    const tipOld = document.getElementById('single-progress-status-tip');
+    const clearBtnOld = document.getElementById('btn-clear-single-progress');
+
+    if (!currentUser) return;
+
+    // 学习进度
+    const savedLearn = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
+    let hasLearn = false;
+    if (savedLearn) {
         try {
-            const parsed = JSON.parse(saved);
-            if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
-                tipEl.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
-                tipEl.style.color = 'var(--md-sys-color-primary)';
-                clearBtn.disabled = false;
-                return;
+            const parsed = JSON.parse(savedLearn);
+            if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length && (!parsed.isReview && !String(parsed.sessionName).includes('复习'))) {
+                if (tipLearn) {
+                    tipLearn.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
+                    tipLearn.style.color = 'var(--md-sys-color-primary)';
+                }
+                if (clearBtnLearn) clearBtnLearn.disabled = false;
+                hasLearn = true;
             }
         } catch (e) { }
     }
-    tipEl.innerText = '无';
-    tipEl.style.color = 'var(--md-sys-color-outline)';
-    clearBtn.disabled = true; // 无进度时禁用清除按钮
+    if (!hasLearn) {
+        if (tipLearn) {
+            tipLearn.innerText = '无';
+            tipLearn.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (clearBtnLearn) clearBtnLearn.disabled = true;
+    }
+
+    // 复习进度
+    const savedRev = localStorage.getItem(`single_review_progress_${currentUser}`);
+    let hasRev = false;
+    if (savedRev) {
+        try {
+            const parsed = JSON.parse(savedRev);
+            if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
+                if (tipReview) {
+                    tipReview.innerText = `已保存进度：第 ${parsed.currentIdx + 1} / ${parsed.pool.length} 题`;
+                    tipReview.style.color = 'var(--md-sys-color-primary)';
+                }
+                if (clearBtnReview) clearBtnReview.disabled = false;
+                hasRev = true;
+            }
+        } catch (e) { }
+    }
+    if (!hasRev) {
+        if (tipReview) {
+            tipReview.innerText = '无';
+            tipReview.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (clearBtnReview) clearBtnReview.disabled = true;
+    }
+
+    if (tipOld) {
+        tipOld.innerText = (hasLearn || hasRev) ? '有保存的进度' : '无';
+    }
+    if (clearBtnOld) {
+        clearBtnOld.disabled = !(hasLearn || hasRev);
+    }
 }
 
 // 清除保存的学习进度
-function clearCurrentSingleProgress() {
+function clearCurrentSingleLearnProgress() {
     if (!currentUser) return;
+    localStorage.removeItem(`single_learn_progress_${currentUser}`);
     localStorage.removeItem(`single_progress_${currentUser}`);
     updateHubResumeButtons();       // 首页按钮恢复为“学习新词”
     updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
-    showToast('已清除当前学习进度');
+    showToast('已清除新词学习进度');
+}
+
+// 清除保存的复习进度
+function clearCurrentSingleReviewProgress() {
+    if (!currentUser) return;
+    localStorage.removeItem(`single_review_progress_${currentUser}`);
+    updateHubResumeButtons();       // 首页按钮恢复为“复习”
+    updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
+    showToast('已清除复习进度');
+}
+
+function clearCurrentSingleProgress() {
+    clearCurrentSingleLearnProgress();
+    clearCurrentSingleReviewProgress();
 }
 
 function closeSingleSettings() {
@@ -408,11 +469,17 @@ function scheduleRetestForCurrentQuestion() {
     saveSingleProgress();
 }
 
-// 保存学习模式当前进度
+// 保存学习模式当前进度 (新词学习与复习独立保存)
 function saveSingleProgress() {
     if (!currentUser || gameMode !== 'single' || !singleState || !singleState.pool || singleState.pool.length === 0) return;
+    const isRev = !!singleState.isReview || (singleState.sessionName && String(singleState.sessionName).includes('复习'));
     if (singleState.currentIdx >= singleState.pool.length) {
-        localStorage.removeItem(`single_progress_${currentUser}`);
+        if (isRev) {
+            localStorage.removeItem(`single_review_progress_${currentUser}`);
+        } else {
+            localStorage.removeItem(`single_learn_progress_${currentUser}`);
+            localStorage.removeItem(`single_progress_${currentUser}`);
+        }
         updateHubResumeButtons();
         return;
     }
@@ -422,26 +489,33 @@ function saveSingleProgress() {
         score: singleState.score,
         total: singleState.total,
         sessionName: singleState.sessionName,
+        isReview: isRev,
         time: Date.now()
     };
-    localStorage.setItem(`single_progress_${currentUser}`, JSON.stringify(dataToSave));
+    if (isRev) {
+        localStorage.setItem(`single_review_progress_${currentUser}`, JSON.stringify(dataToSave));
+    } else {
+        localStorage.setItem(`single_learn_progress_${currentUser}`, JSON.stringify(dataToSave));
+        localStorage.setItem(`single_progress_${currentUser}`, JSON.stringify(dataToSave));
+    }
     updateHubResumeButtons();
 }
 
 // 学习新词入口 (支持断点恢复)
 async function startSingleLearning() {
     if (currentUser) {
-        const saved = localStorage.getItem(`single_progress_${currentUser}`);
+        const saved = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
+                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length && (!parsed.isReview && !String(parsed.sessionName).includes('复习'))) {
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
                         score: parsed.score || 0,
                         total: parsed.total || 0,
                         sessionName: parsed.sessionName || '新词学习',
+                        isReview: false,
                         answered: false,
                         selectedIdx: -1
                     };
@@ -609,6 +683,37 @@ let sessionReviewedWords = new Set();
 
 // 艾宾浩斯复习入口 (按所选词书或指定词书复习，当前词书复习完自动复习下一本)
 async function startSingleReview(specificBookId = null) {
+    // 检查是否有未完成的复习断点进度
+    if (currentUser && !specificBookId) {
+        const savedRev = localStorage.getItem(`single_review_progress_${currentUser}`);
+        if (savedRev) {
+            try {
+                const parsed = JSON.parse(savedRev);
+                if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
+                    singleState = {
+                        pool: parsed.pool,
+                        currentIdx: parsed.currentIdx,
+                        score: parsed.score || 0,
+                        total: parsed.total || 0,
+                        sessionName: parsed.sessionName || '智能复习',
+                        isReview: true,
+                        answered: false,
+                        selectedIdx: -1
+                    };
+                    gameMode = 'single';
+                    const titleEl = document.getElementById('single-mode-title');
+                    if (titleEl) titleEl.innerText = singleState.sessionName;
+                    if (typeof updateReviewPageActiveBookLabel === 'function') {
+                        updateReviewPageActiveBookLabel();
+                    }
+                    renderSingleQuestion();
+                    switchView('view-single');
+                    return;
+                }
+            } catch (e) { }
+        }
+    }
+
     try {
         currentReviewBookId = specificBookId || 'all';
 
@@ -770,6 +875,7 @@ async function startSinglePlayerFromSelectedBooks() {
 function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     resetAllGameAlertsAndFeedback();
     gameMode = 'single';
+    const isRev = defaultBookName.includes('复习');
     singleState = {
         pool: pool,
         currentIdx: 0,
@@ -777,7 +883,8 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
         selectedIdx: -1,
         score: 0,
         total: 0,
-        sessionName: defaultBookName
+        sessionName: defaultBookName,
+        isReview: isRev
     };
     saveSingleProgress();
     const titleEl = document.getElementById('single-mode-title');
@@ -794,4 +901,4 @@ function confirmExitSingle() {
     saveSingleProgress();
     switchView('view-hub');
 }
-
+

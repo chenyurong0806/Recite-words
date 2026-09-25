@@ -138,6 +138,7 @@ function saveDictationSettings() {
 }
 
 function confirmExitDictation() {
+    if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();
     switchView('view-hub');
 }
 
@@ -265,13 +266,14 @@ function renderDictationQuestion() {
         inputArea.innerHTML = `
                 <div class="dictation-slots-container">
                     <div class="dictation-slot-item">
-                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="输入英文单词..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()">
+                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()" oninput="autoResizeDictationInput(this)">
                         <span class="dictation-slot-len-badge">${q.word.length} 字母</span>
                     </div>
                 </div>
             `;
         const wordInput = document.getElementById('dictation-word-input');
         if (wordInput) {
+            autoResizeDictationInput(wordInput);
             setTimeout(() => wordInput.focus(), 150);
         }
     } else {
@@ -293,6 +295,8 @@ function renderDictationQuestion() {
         });
         slotsHtml += '</div>';
         inputArea.innerHTML = slotsHtml;
+
+        inputArea.querySelectorAll('.dictation-slot-input').forEach(inp => autoResizeDictationInput(inp));
 
         setTimeout(() => {
             const firstInput = inputArea.querySelector('.dictation-slot-input');
@@ -319,13 +323,30 @@ function handleDictationSlotKey(event, idx) {
         if (currIdx >= 0 && currIdx < allInputs.length - 1) {
             allInputs[currIdx + 1].focus();
         }
+    } else if (event.key === 'Backspace') {
+        const el = event.target;
+        if (!el.value || (el.selectionStart === 0 && el.selectionEnd === 0)) {
+            const allInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
+            const currIdx = allInputs.indexOf(el);
+            if (currIdx > 0) {
+                event.preventDefault();
+                const prev = allInputs[currIdx - 1];
+                prev.focus();
+                if (prev.value.length > 0) {
+                    prev.value = prev.value.slice(0, -1);
+                    autoResizeDictationInput(prev);
+                    prev.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        }
     }
 }
 
 function handleDictationSlotInput(event, idx) {
     const el = event.target;
+    autoResizeDictationInput(el);
     const token = el.getAttribute('data-token') || '';
-    if (el.value.length >= token.length) {
+    if (token && el.value.length >= token.length) {
         const allInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
         const currIdxInList = allInputs.indexOf(el);
         if (currIdxInList >= 0 && currIdxInList < allInputs.length - 1) {
@@ -351,9 +372,11 @@ function handleDictationHint() {
         if (matchLen < target.length) {
             const nextChar = target[matchLen];
             input.value = target.slice(0, matchLen + 1);
+            autoResizeDictationInput(input);
             showToast(`已补全第 ${matchLen + 1} 个字母「${nextChar}」`);
         } else {
             input.value = target;
+            autoResizeDictationInput(input);
             showToast('已补全完整单词');
         }
         input.focus();
@@ -363,6 +386,7 @@ function handleDictationHint() {
             const token = input.getAttribute('data-token') || '';
             if (input.value.trim().toLowerCase() !== token.toLowerCase()) {
                 input.value = token;
+                autoResizeDictationInput(input);
                 const idx = parseInt(input.getAttribute('data-idx'));
                 showToast(`已揭示第 ${idx + 1} 格词块「${token}」`);
                 input.focus();
@@ -502,6 +526,7 @@ function skipDictationQuestion() {
 }
 
 function endDictationSession() {
+    if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();
     const accuracy = dictationState.total > 0 ? Math.round((dictationState.score / dictationState.total) * 100) : 0;
     alert(`🎉 默写练习完成！\n\n总题数：${dictationState.total} 题\n正确数：${dictationState.score} 题\n正确率：${accuracy}%\n\n错题已自动录入个人错题本。`);
     switchView('view-hub');
@@ -521,91 +546,37 @@ function setDictationKeyboardToggle(enabled) {
 }
 
 function renderDictationKeyboard() {
+    // 移除原有内置键盘，应用图片中的底部统一滑入式虚拟键盘
     const container = document.getElementById('dictation-keyboard-container');
-    if (!container) return;
-    if (dictationVirtualKeyboardEnabled === false) {
+    if (container) {
         container.innerHTML = '';
         container.style.display = 'none';
-        return;
     }
-    container.style.display = 'block';
-
-    const row1 = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'];
-    const row2 = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'];
-    const row3 = ['Z', 'X', 'C', 'V', 'B', 'N', 'M'];
-
-    container.innerHTML = `
-        <div class="dictation-keyboard">
-            <div class="dictation-keyboard-row">
-                ${row1.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
-            </div>
-            <div class="dictation-keyboard-row">
-                ${row2.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
-            </div>
-            <div class="dictation-keyboard-row">
-                <button type="button" class="dictation-key key-wide" onclick="handleVirtualKeyPress('BACKSPACE')" title="退格删除">
-                    <span class="material-symbols-rounded" style="font-size:18px;">backspace</span>
-                </button>
-                ${row3.map(k => `<button type="button" class="dictation-key" onclick="handleVirtualKeyPress('${k}')">${k}</button>`).join('')}
-                <button type="button" class="dictation-key key-wide" onclick="handleVirtualKeyPress('ENTER')" title="确认提交" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                    <span class="material-symbols-rounded" style="font-size:18px;">check</span>
-                </button>
-            </div>
-            <div class="dictation-keyboard-row">
-                <button type="button" class="dictation-key key-space" onclick="handleVirtualKeyPress('SPACE')">空格 (Space)</button>
-            </div>
-        </div>
-    `;
+    if (dictationVirtualKeyboardEnabled !== false) {
+        const activeInp = document.getElementById('dictation-word-input') || document.querySelector('.dictation-slot-input');
+        if (activeInp && typeof openGlobalVirtualKeyboard === 'function') {
+            activeVirtualKeyboardInput = activeInp;
+            openGlobalVirtualKeyboard();
+        }
+    } else {
+        if (typeof closeGlobalVirtualKeyboard === 'function') {
+            closeGlobalVirtualKeyboard();
+        }
+    }
 }
 
 function handleVirtualKeyPress(key) {
-    const wordInput = document.getElementById('dictation-word-input');
-    if (wordInput && wordInput.offsetParent !== null) {
-        if (key === 'BACKSPACE') {
-            wordInput.value = wordInput.value.slice(0, -1);
-        } else if (key === 'ENTER') {
-            submitDictationAnswer();
-        } else if (key === 'SPACE') {
-            wordInput.value += ' ';
-        } else {
-            wordInput.value += key.toLowerCase();
-        }
-        wordInput.dispatchEvent(new Event('input'));
-        wordInput.focus();
-        return;
+    if (typeof handleGlobalVirtualKeyPress === 'function') {
+        handleGlobalVirtualKeyPress(key);
     }
+}
 
-    const allSlotInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
-    if (allSlotInputs.length > 0) {
-        let activeInput = document.activeElement;
-        if (!allSlotInputs.includes(activeInput)) {
-            activeInput = allSlotInputs.find(inp => inp.value.length < (inp.getAttribute('data-token') || '').length) || allSlotInputs[0];
-        }
-        const activeIdx = allSlotInputs.indexOf(activeInput);
-
-        if (key === 'BACKSPACE') {
-            if (activeInput.value.length > 0) {
-                activeInput.value = activeInput.value.slice(0, -1);
-            } else if (activeIdx > 0) {
-                const prev = allSlotInputs[activeIdx - 1];
-                prev.focus();
-                prev.value = prev.value.slice(0, -1);
-            }
-        } else if (key === 'ENTER') {
-            submitDictationAnswer();
-        } else if (key === 'SPACE') {
-            if (activeIdx < allSlotInputs.length - 1) {
-                allSlotInputs[activeIdx + 1].focus();
-            }
-        } else {
-            const token = activeInput.getAttribute('data-token') || '';
-            activeInput.value += key.toLowerCase();
-            activeInput.dispatchEvent(new Event('input'));
-            if (activeInput.value.length >= token.length && activeIdx < allSlotInputs.length - 1) {
-                allSlotInputs[activeIdx + 1].focus();
-            }
-        }
-    }
+function autoResizeDictationInput(input) {
+    if (!input) return;
+    const len = Math.max((input.value || '').length, 1);
+    // 缩窄输入框默认宽度（随输入的内容动态调整宽度）
+    const dynamicWidth = Math.max(68, len * 16 + 28);
+    input.style.width = `${Math.min(dynamicWidth, 340)}px`;
 }
 
 // ----------------- 听写槽位 Tooltip -----------------
@@ -622,4 +593,4 @@ function handleDictationSlotBlur(inputEl) {
     const tooltip = parent.querySelector('.dictation-slot-tooltip');
     if (tooltip) tooltip.classList.remove('visible');
 }
-
+

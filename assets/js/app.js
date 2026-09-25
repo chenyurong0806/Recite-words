@@ -8,8 +8,9 @@
    ========================================================================== */
 function bootstrapApp() {
     initDisplaySettings();
-    BookManager.init();
-    renderAuthUsersList();
+    if (typeof renderAuthUsersList === 'function') {
+        renderAuthUsersList();
+    }
     checkCloudVersion(false);
     checkFirstOpenWelcome();
     checkIosSafariPwa();
@@ -21,14 +22,12 @@ function bootstrapApp() {
         BookManager.fetchBookList(true);
     }
 
-    if (currentUser && allUsersList.includes(currentUser)) {
-        loadUserData(currentUser);
-        switchView('view-hub');
+    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username) {
+        loadUserData(currentUserProfile.username, currentUserProfile);
     } else {
-        currentUser = '';
-        localStorage.removeItem('vocab_pk_user');
-        switchView('view-auth');
+        loadUserData('游客');
     }
+    switchView('view-hub');
 }
 
 if (document.readyState === 'loading') {

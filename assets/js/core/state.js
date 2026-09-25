@@ -3,8 +3,29 @@
  * Module: assets/js/core/state.js
  */
 
-let allUsersList = JSON.parse(localStorage.getItem('vocab_users_list') || '[]');
-let currentUser = localStorage.getItem('vocab_pk_user') || '';
+let allUsersList = [];
+try {
+    allUsersList = JSON.parse(SafeStorage.getItem('vocab_users_list') || '[]');
+} catch (e) {
+    allUsersList = [];
+}
+
+let currentUserProfile = {
+    isLoggedIn: false,
+    type: 'guest', // 'guest' | 'cloud' | 'bilibili'
+    username: '游客',
+    avatar: '',
+    openId: ''
+};
+
+try {
+    const savedSession = SafeStorage.getItem('vocab_auth_session');
+    if (savedSession) {
+        currentUserProfile = { ...currentUserProfile, ...JSON.parse(savedSession) };
+    }
+} catch (e) { }
+
+let currentUser = currentUserProfile.username || '游客';
 let userStats = { total: 0, correct: 0, mistakes: {} };
 
 let gameMode = 'single';
@@ -13,6 +34,8 @@ let roomCode = null;
 let isHost = false;
 let hostName = '';
 let guestName = '';
+let hostAvatar = '';
+let guestAvatar = '';
 
 let roomConfig = {
     duration: 60,
@@ -27,7 +50,7 @@ let timeLeft = 60;
 let gameTimer = null;
 let gameResult = null;
 
-const savedSingleBooks = localStorage.getItem('single_vocab_books');
+const savedSingleBooks = SafeStorage.getItem('single_vocab_books');
 let singleSelectedBookIds = ['GaoKao3500'];
 if (savedSingleBooks) {
     try {
@@ -46,16 +69,48 @@ let singleState = {
     sessionName: '新词学习'
 };
 
-function loadUserData(username) {
-    if (!username) return;
-    currentUser = username.trim();
-    localStorage.setItem('vocab_pk_user', currentUser);
-    if (!allUsersList.includes(currentUser)) {
-        allUsersList.push(currentUser);
-        localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+function getUserAvatar(username) {
+    if (!username || username === '游客') {
+        return currentUserProfile.avatar || '';
+    }
+    if (currentUserProfile && currentUserProfile.username === username && currentUserProfile.avatar) {
+        return currentUserProfile.avatar;
     }
     try {
-        const rawStats = localStorage.getItem(`vocab_stats_${currentUser}`);
+        return SafeStorage.getItem(`vocab_user_avatar_${username}`) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function loadUserData(username, profile = null) {
+    currentUser = (username || '游客').trim();
+    if (profile) {
+        currentUserProfile = { ...currentUserProfile, ...profile, username: currentUser };
+        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+        if (profile.avatar) {
+            SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, profile.avatar);
+        }
+    } else {
+        // If not explicit profile and username matches profile session, keep profile
+        if (currentUserProfile.username !== currentUser) {
+            currentUserProfile = {
+                isLoggedIn: false,
+                type: 'guest',
+                username: currentUser,
+                avatar: getUserAvatar(currentUser)
+            };
+        }
+    }
+
+    SafeStorage.setItem('vocab_pk_user', currentUser);
+    if (!allUsersList.includes(currentUser) && currentUser !== '游客') {
+        allUsersList.push(currentUser);
+        SafeStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+    }
+
+    try {
+        const rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
         userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
         if (!userStats.mistakes) userStats.mistakes = {};
     } catch (e) {
@@ -71,7 +126,15 @@ function loadUserData(username) {
 
 function saveCurrentUserData() {
     if (!currentUser) return;
-    localStorage.setItem(`vocab_stats_${currentUser}`, JSON.stringify(userStats));
+    SafeStorage.setItem(`vocab_stats_${currentUser}`, JSON.stringify(userStats));
+    // 同步到云端
+    if (currentUserProfile && currentUserProfile.isLoggedIn) {
+        if (currentUserProfile.type === 'cloud' && typeof supabaseSyncUserData === 'function') {
+            supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now() });
+        } else if (currentUserProfile.type === 'bilibili' && typeof biliSaveCloudData === 'function') {
+            biliSaveCloudData({ stats: userStats, updated: Date.now() });
+        }
+    }
 }
 
 function recordUserMistake(username, word, meaning, phone) {
@@ -178,4 +241,4 @@ function recordShiCiUserMistake(username, data) {
         }
     }
 }
-
+

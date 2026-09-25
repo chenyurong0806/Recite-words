@@ -894,6 +894,32 @@ select.md3-select option {
     background: var(--md-sys-color-surface-container-highest);
 }
 
+.hub-search-keyboard-btn {
+    border: none;
+    background: transparent;
+    color: var(--md-sys-color-outline);
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    margin-left: 2px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.hub-search-keyboard-btn:hover {
+    color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-surface-container-highest);
+}
+
+.hub-search-keyboard-btn.hidden {
+    display: none !important;
+}
+
 .hub-search-suggestions {
     position: absolute;
     top: calc(100% + 6px);
@@ -2343,6 +2369,38 @@ body.hide-all-icons .material-symbols-rounded {
     gap: 10px;
 }
 
+.hub-user-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: var(--md-shape-full, 9999px);
+    background: var(--md-sys-color-surface-container-high, #ecefe7);
+    border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.hub-user-pill:hover {
+    background: var(--md-sys-color-surface-container-highest, #e2e8f0);
+    transform: translateY(-1px);
+}
+
+.hub-user-avatar-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--md-sys-color-primary-container, #dbeafe);
+    color: var(--md-sys-color-primary, #0061a4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
 .badge {
     display: inline-flex;
     align-items: center;
@@ -3672,6 +3730,7 @@ body.hide-all-icons .material-symbols-rounded {
 .riddle-top-actions {
     display: flex;
     align-items: center;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -4846,51 +4905,84 @@ body.hide-all-icons .material-symbols-rounded {
 
 .dictation-slots-container {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 14px;
     width: 100%;
-    max-width: 440px;
-    margin: 12px auto;
+    max-width: 680px;
+    margin: 14px auto 18px;
 }
 
 .dictation-slot-item {
-    display: flex;
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
+    justify-content: center;
+    width: auto;
 }
 
 .dictation-slot-input {
-    flex: 1;
-    height: 52px;
-    border: 2px solid #C4C7D0;
-    border-radius: 14px;
-    padding: 0 16px;
-    font-size: 1.15rem;
-    font-weight: 600;
+    width: 68px;
+    min-width: 52px;
+    max-width: 320px;
+    height: 48px;
+    border: 2px solid var(--md-sys-color-outline-variant, #C4C7D0);
+    border-radius: var(--md-shape-m, 12px);
+    padding: 0 10px;
+    font-size: 1.2rem;
+    font-weight: 700;
     font-family: inherit;
-    background: #FFFFFF;
+    text-align: center;
+    background: var(--md-sys-color-surface-container-lowest, #FFFFFF);
     color: var(--md-sys-color-on-surface);
     outline: none;
-    transition: all 0.2s ease;
+    transition: width 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     box-sizing: border-box;
 }
 
 .dictation-slot-input:focus {
-    border-color: #0061A4;
+    border-color: var(--md-sys-color-primary, #0061A4);
     box-shadow: 0 0 0 3px rgba(0, 97, 164, 0.15);
+    background: var(--md-sys-color-surface, #ffffff);
 }
 
 .dictation-slot-len-badge {
-    font-size: 0.85rem;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    font-size: 0.76rem;
     font-weight: 700;
-    color: #0061A4;
-    background: #D1E4FF;
-    padding: 6px 12px;
-    border-radius: 9999px;
+    color: #ffffff;
+    background: var(--md-sys-color-primary, #0061A4);
+    padding: 3px 9px;
+    border-radius: 6px;
     white-space: nowrap;
-    flex-shrink: 0;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dictation-slot-len-badge::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--md-sys-color-primary, #0061A4);
+}
+
+.dictation-slot-item:focus-within .dictation-slot-len-badge {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
 }
 
 .dictation-slot-input.correct {
@@ -5150,13 +5242,33 @@ body.nav-hidden {
 }
 
 .dictation-key.key-wide {
-    flex: 1.6;
+    flex: 1.5;
     max-width: 64px;
 }
 
+.dictation-key.key-shift.active {
+    background: var(--md-sys-color-primary, #0061a4);
+    color: #ffffff;
+}
+
+.dictation-key.key-action {
+    background: var(--md-sys-color-primary, #0061a4);
+    color: #ffffff;
+}
+
+.dictation-key.key-action:active {
+    background: var(--md-sys-color-primary, #0061a4);
+    filter: brightness(0.9);
+}
+
+.dictation-key.key-symbol {
+    flex: 1;
+    max-width: 44px;
+}
+
 .dictation-key.key-space {
-    flex: 8;
-    max-width: 280px;
+    flex: 4;
+    max-width: 220px;
     font-size: 0.85rem;
 }
 
@@ -6509,17 +6621,20 @@ body.nav-hidden {
     filter: brightness(0.9);
 }
 
-.gvk-key.key-space {
-    flex: 6;
-    max-width: 260px;
-    font-size: 0.85rem;
+.gvk-key.key-shift.active {
+    background: var(--md-sys-color-primary, #0061a4);
+    color: #ffffff;
 }
 
-.gvk-key.key-hide {
-    flex: 1.2;
-    max-width: 52px;
-    background: var(--md-sys-color-surface-container-high, #e2e8f0);
-    color: var(--md-sys-color-outline, #64748b);
+.gvk-key.key-symbol {
+    flex: 1;
+    max-width: 48px;
+}
+
+.gvk-key.key-space {
+    flex: 4;
+    max-width: 240px;
+    font-size: 0.88rem;
 }
 
 /* ==========================================================================
@@ -6803,22 +6918,22 @@ body.nav-hidden {
 }
 
 /* ==========================================================================
-   Wordle 草稿行样式 (支持多行草稿，每格自由输入，一键提交)
+   Wordle 草稿行样式 (框尺寸与答题区一致，居中对齐，极简紧凑)
    ========================================================================== */
 .riddle-draft-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     max-width: 540px;
-    margin: 8px auto 14px;
-    padding: 0 4px;
+    margin: 6px auto 10px;
+    padding: 0;
 }
 
 .riddle-draft-rows-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
 }
 
@@ -6826,40 +6941,33 @@ body.nav-hidden {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    position: relative;
     width: 100%;
-    padding: 6px 8px;
-    background: var(--md-sys-color-surface-container-low, #f8fafc);
-    border: 1px dashed var(--md-sys-color-outline-variant, #cbd5e1);
-    border-radius: var(--md-shape-m, 12px);
-    transition: border-color 0.2s, background 0.2s;
+    min-height: auto;
+    padding: 2px 0;
+    background: transparent;
+    border: none;
     box-sizing: border-box;
-}
-
-.riddle-draft-row:focus-within {
-    border-color: var(--md-sys-color-primary, #0061a4);
-    background: var(--md-sys-color-surface-container, #f1f5f9);
 }
 
 .riddle-draft-tiles {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
     justify-content: center;
     flex-wrap: nowrap;
 }
 
 .riddle-draft-tile {
-    width: 44px;
-    height: 44px;
+    width: 52px;
+    height: 52px;
     border: 2px solid var(--md-sys-color-outline-variant, #cbd5e1);
-    border-radius: 8px;
+    border-radius: var(--md-shape-m, 12px);
     background: var(--md-sys-color-surface-container-lowest, #ffffff);
     color: var(--md-sys-color-primary, #0061a4);
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 800;
     text-align: center;
-    text-transform: uppercase;
     font-family: inherit;
     outline: none;
     box-sizing: border-box;
@@ -6874,53 +6982,96 @@ body.nav-hidden {
 }
 
 .riddle-draft-tile.compact-8 {
-    width: 38px;
-    height: 38px;
-    font-size: 1.1rem;
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+    border-radius: 8px;
 }
 
 .riddle-draft-tile.compact-9 {
-    width: 32px;
-    height: 32px;
-    font-size: 0.98rem;
+    width: 35px;
+    height: 35px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+    .riddle-draft-tile.compact-8 {
+        width: 34px;
+        height: 34px;
+        font-size: 1.05rem;
+    }
+    .riddle-draft-tile.compact-9 {
+        width: 30px;
+        height: 30px;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .riddle-draft-tile {
+        width: 44px;
+        height: 44px;
+        font-size: 1.3rem;
+    }
+    .riddle-draft-tiles {
+        gap: 6px;
+    }
+}
+
+@media (max-width: 400px) {
+    .riddle-draft-tile {
+        width: 38px;
+        height: 38px;
+        font-size: 1.15rem;
+    }
+    .riddle-draft-tiles {
+        gap: 4px;
+    }
 }
 
 .riddle-draft-actions {
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-left: 4px;
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
     flex-shrink: 0;
 }
 
-.riddle-draft-submit-btn {
-    height: 38px;
-    padding: 0 10px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-}
-
-.riddle-draft-del-btn {
+.riddle-draft-btn {
     width: 32px;
     height: 32px;
     padding: 0;
     border-radius: 50%;
     border: none;
-    background: transparent;
-    color: var(--md-sys-color-outline, #64748b);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.riddle-draft-submit-btn {
+    background: var(--md-sys-color-primary-container, #dbeafe);
+    color: var(--md-sys-color-primary, #0061a4);
+}
+
+.riddle-draft-submit-btn:hover {
+    filter: brightness(0.92);
+    transform: scale(1.08);
+}
+
+.riddle-draft-del-btn {
+    background: var(--md-sys-color-surface-container-high, #e2e8f0);
+    color: var(--md-sys-color-outline, #64748b);
 }
 
 .riddle-draft-del-btn:hover {
     background: var(--md-sys-color-error-container, #fee2e2);
     color: var(--md-sys-color-error, #ba1a1a);
+    transform: scale(1.08);
 }

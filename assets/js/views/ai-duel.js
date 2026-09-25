@@ -228,9 +228,15 @@ async function startAiDuel() {
         aiFrozenUntil: 0
     };
 
-    document.getElementById('arena-my-badge').innerText = '🔴 ' + (currentUser || '我方');
+    if (typeof renderArenaPlayersUI === 'function') {
+        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), '系统AI', '');
+    } else {
+        const myBadge = document.getElementById('arena-my-badge');
+        const oppoBadge = document.getElementById('arena-oppo-badge');
+        if (myBadge) myBadge.innerText = '🔴 ' + (currentUser || '我方');
+        if (oppoBadge) oppoBadge.innerText = '🔵 系统AI';
+    }
     document.getElementById('arena-my-score').innerText = '0';
-    document.getElementById('arena-oppo-badge').innerText = '🔵 系统AI';
     document.getElementById('arena-oppo-score').innerText = '0';
 
     const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
@@ -384,4 +390,4 @@ function checkAiDuelWinCondition() {
     }
     return false;
 }
-
+

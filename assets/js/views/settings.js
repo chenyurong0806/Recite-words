@@ -37,7 +37,16 @@ function openMeSubview(subviewKey) {
     };
 
     if (document.startViewTransition) {
-        document.startViewTransition(performSwitch);
+        try {
+            const transition = document.startViewTransition(performSwitch);
+            if (transition) {
+                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
+                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
+                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
+            }
+        } catch (e) {
+            performSwitch();
+        }
     } else {
         performSwitch();
     }
@@ -118,7 +127,16 @@ function switchSettingsSubview(subviewKey) {
     };
 
     if (document.startViewTransition) {
-        document.startViewTransition(performSubviewSwitch);
+        try {
+            const transition = document.startViewTransition(performSubviewSwitch);
+            if (transition) {
+                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
+                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
+                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
+            }
+        } catch (e) {
+            performSubviewSwitch();
+        }
     } else {
         performSubviewSwitch();
     }
@@ -146,13 +164,14 @@ function renderSettingsMain() {
     const githubRow = document.querySelector('a[href*="github.com"]');
     const webBadge = document.getElementById('settings-online-badge');
     const webTip = document.getElementById('settings-online-tip');
+    
+    if (githubRow) githubRow.style.display = 'flex';
+
     if (isBilibiliToy) {
-        // 在 B 站端彻底隐藏外部链接，防止审核被拒
+        // 在 B 站端隐藏外部网页版入口
         if (webRow) webRow.style.display = 'none';
-        if (githubRow) githubRow.style.display = 'none';
     } else {
         // 在个人站与离线端正常显示全部功能
-        if (githubRow) githubRow.style.display = 'flex';
         if (webRow) {
             webRow.style.display = 'flex';
             if (isLocal) {
@@ -516,7 +535,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.1.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -1306,14 +1325,25 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-
-
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.0',
+        date: '2026-09-25',
+        badge: '当前版本',
+        items: [
+            '更新登录系统。',
+            '更新 wordle 笔记功能。',
+            '优化搜索功能。',
+            '优化选择词书功能。',
+            '优化UI。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.1.0',
         date: '2026-09-19',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '添加搜索功能。',
             '优化人机对战。',
@@ -1564,4 +1594,35 @@ function renderChangelogItems(container, list) {
                 </div>
             `;
     }).join('');
-}
+}
+
+function filterSettingsRows(query) {
+    const q = (query || '').trim().toLowerCase();
+    const sections = document.querySelectorAll('#settings-subview-main .settings-card');
+    const titles = document.querySelectorAll('#settings-subview-main .settings-section-title');
+    if (!q) {
+        sections.forEach(s => {
+            s.style.display = '';
+            s.querySelectorAll('.settings-row').forEach(r => r.style.display = '');
+        });
+        titles.forEach(t => t.style.display = '');
+        return;
+    }
+    sections.forEach(card => {
+        let matchCount = 0;
+        card.querySelectorAll('.settings-row').forEach(row => {
+            const text = (row.innerText || '').toLowerCase();
+            if (text.includes(q)) {
+                row.style.display = '';
+                matchCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        card.style.display = matchCount > 0 ? '' : 'none';
+        const prevTitle = card.previousElementSibling;
+        if (prevTitle && prevTitle.classList.contains('settings-section-title')) {
+            prevTitle.style.display = matchCount > 0 ? '' : 'none';
+        }
+    });
+}

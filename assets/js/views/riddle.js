@@ -56,7 +56,7 @@ function renderRiddleDraftRows() {
         while (row.length < len) row.push('');
         if (row.length > len) row.length = len;
 
-        html += `<div class="riddle-draft-row" data-row="${rIdx}">`;
+        html += `<div class="riddle-draft-row" data-row="${rIdx}" onclick="handleRiddleDraftRowClick(event, ${rIdx})">`;
         html += `<div class="riddle-draft-tiles">`;
         for (let cIdx = 0; cIdx < len; cIdx++) {
             const val = row[cIdx] || '';
@@ -71,6 +71,7 @@ function renderRiddleDraftRows() {
                 autocorrect="off"
                 autocapitalize="off"
                 spellcheck="false"
+                style="text-transform: ${isLower ? 'lowercase' : 'uppercase'};"
                 value="${escapeHtml(displayVal)}"
                 onfocus="handleRiddleDraftFocus(${rIdx}, ${cIdx})"
                 oninput="handleRiddleDraftInput(event, ${rIdx}, ${cIdx})"
@@ -79,17 +80,37 @@ function renderRiddleDraftRows() {
         }
         html += `</div>`;
         html += `<div class="riddle-draft-actions">
-            <button type="button" class="btn btn-filled btn-sm riddle-draft-submit-btn" onclick="submitRiddleDraftRow(${rIdx})" title="填入答题格并验证">
-                <span class="material-symbols-rounded" style="font-size:16px;">check</span>
-                <span>提交</span>
+            <button type="button" class="riddle-draft-btn riddle-draft-submit-btn" onclick="submitRiddleDraftRow(${rIdx})" title="填入答题格并验证">
+                <span class="material-symbols-rounded" style="font-size:18px;">check</span>
             </button>
-            <button type="button" class="riddle-draft-del-btn" onclick="removeRiddleDraftRow(${rIdx})" title="删除此草稿行">
+            <button type="button" class="riddle-draft-btn riddle-draft-del-btn" onclick="removeRiddleDraftRow(${rIdx})" title="删除此草稿行">
                 <span class="material-symbols-rounded" style="font-size:18px;">close</span>
             </button>
         </div>`;
         html += `</div>`;
     });
     container.innerHTML = html;
+}
+
+function handleRiddleDraftRowClick(e, rIdx) {
+    if (e.target.closest('.riddle-draft-actions') || e.target.classList.contains('riddle-draft-tile')) {
+        return;
+    }
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    const row = riddleDraftRows[rIdx] || [];
+    let targetCol = 0;
+    for (let c = 0; c < len; c++) {
+        if (!row[c]) {
+            targetCol = c;
+            break;
+        }
+    }
+    const tile = document.getElementById(`draft-tile-${rIdx}-${targetCol}`);
+    if (tile) {
+        tile.focus();
+        tile.select();
+    }
+    activeRiddleDraft = { row: rIdx, col: targetCol };
 }
 
 function handleRiddleDraftFocus(row, col) {
@@ -110,6 +131,7 @@ function handleRiddleDraftInput(e, row, col) {
         if (nextTile) {
             nextTile.focus();
             nextTile.select();
+            activeRiddleDraft = { row, col: col + 1 };
         }
     } else {
         input.value = '';
@@ -120,11 +142,20 @@ function handleRiddleDraftInput(e, row, col) {
 function handleRiddleDraftKeydown(e, row, col) {
     if (e.key === 'Backspace') {
         const input = e.target;
-        if (!input.value || input.selectionStart === 0) {
+        if (input.value) {
+            // 当前格有字符，仅清空当前格并阻止默认行为，不删除左边格
+            e.preventDefault();
+            input.value = '';
+            if (riddleDraftRows[row]) riddleDraftRows[row][col] = '';
+        } else if (col > 0) {
+            // 当前格已为空，跳转到左边一格并清空
+            e.preventDefault();
             const prevTile = document.getElementById(`draft-tile-${row}-${col - 1}`);
             if (prevTile) {
                 prevTile.focus();
-                prevTile.select();
+                prevTile.value = '';
+                if (riddleDraftRows[row]) riddleDraftRows[row][col - 1] = '';
+                activeRiddleDraft = { row, col: col - 1 };
             }
         }
     } else if (e.key === 'ArrowLeft') {
@@ -133,6 +164,7 @@ function handleRiddleDraftKeydown(e, row, col) {
         if (prevTile) {
             prevTile.focus();
             prevTile.select();
+            activeRiddleDraft = { row, col: col - 1 };
         }
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -140,6 +172,7 @@ function handleRiddleDraftKeydown(e, row, col) {
         if (nextTile) {
             nextTile.focus();
             nextTile.select();
+            activeRiddleDraft = { row, col: col + 1 };
         }
     } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -396,8 +429,6 @@ async function startWordRiddleGame(forceNew = false) {
                         revealedMeaning: p.revealedMeaning || false
                     };
 
-                    const bookTag = document.getElementById('riddle-book-tag');
-                    if (bookTag) bookTag.innerText = riddleState.bookName;
                     const topBookName = document.getElementById('riddle-top-book-name');
                     if (topBookName) topBookName.innerText = riddleState.bookName;
                     initRiddleDraftRows();
@@ -475,8 +506,6 @@ async function startWordRiddleGame(forceNew = false) {
     saveRiddleProgress();
 
     resetAllGameAlertsAndFeedback();
-    const bookTag = document.getElementById('riddle-book-tag');
-    if (bookTag) bookTag.innerText = riddleState.bookName;
     const topBookName = document.getElementById('riddle-top-book-name');
     if (topBookName) topBookName.innerText = riddleState.bookName;
     initRiddleDraftRows();
@@ -575,7 +604,7 @@ function renderRiddleKeyboard() {
             }
 
             html += `
-                    <button type="button" class="riddle-key ${extraClass}" onclick="handleRiddleVirtualKey('${k}')">
+                    <button type="button" class="riddle-key ${extraClass}" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="handleRiddleVirtualKey('${k}')">
                         ${label}
                     </button>
                 `;
@@ -586,34 +615,57 @@ function renderRiddleKeyboard() {
 }
 
 function handleRiddleVirtualKey(key) {
+    let draftTarget = null;
     const activeEl = document.activeElement;
     if (activeEl && activeEl.classList.contains('riddle-draft-tile')) {
-        const row = parseInt(activeEl.getAttribute('data-row'));
-        const col = parseInt(activeEl.getAttribute('data-col'));
+        const row = parseInt(activeEl.getAttribute('data-row'), 10);
+        const col = parseInt(activeEl.getAttribute('data-col'), 10);
+        draftTarget = { row, col, el: activeEl };
+    } else if (activeRiddleDraft) {
+        const el = document.getElementById(`draft-tile-${activeRiddleDraft.row}-${activeRiddleDraft.col}`);
+        if (el) {
+            draftTarget = { row: activeRiddleDraft.row, col: activeRiddleDraft.col, el };
+        }
+    }
+
+    if (draftTarget && draftTarget.el) {
+        const { row, col, el } = draftTarget;
+        const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
         if (key === 'ENTER') {
             submitRiddleDraftRow(row);
             return;
         } else if (key === 'BACKSPACE') {
-            activeEl.value = '';
-            if (riddleDraftRows[row]) riddleDraftRows[row][col] = '';
-            const prev = document.getElementById(`draft-tile-${row}-${col - 1}`);
-            if (prev) {
-                prev.focus();
-                prev.select();
+            if (el.value) {
+                el.value = '';
+                if (riddleDraftRows[row]) riddleDraftRows[row][col] = '';
+            } else if (col > 0) {
+                const prev = document.getElementById(`draft-tile-${row}-${col - 1}`);
+                if (prev) {
+                    prev.focus();
+                    prev.value = '';
+                    if (riddleDraftRows[row]) riddleDraftRows[row][col - 1] = '';
+                    activeRiddleDraft = { row, col: col - 1 };
+                }
             }
             return;
         } else if (/^[a-zA-Z]$/.test(key)) {
             const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
-            activeEl.value = isLower ? key.toLowerCase() : key.toUpperCase();
+            el.value = isLower ? key.toLowerCase() : key.toUpperCase();
             if (riddleDraftRows[row]) riddleDraftRows[row][col] = key.toUpperCase();
-            const next = document.getElementById(`draft-tile-${row}-${col + 1}`);
-            if (next) {
-                next.focus();
-                next.select();
+            if (col + 1 < len) {
+                const next = document.getElementById(`draft-tile-${row}-${col + 1}`);
+                if (next) {
+                    next.focus();
+                    next.select();
+                    activeRiddleDraft = { row, col: col + 1 };
+                }
+            } else {
+                activeRiddleDraft = { row, col };
             }
             return;
         }
     }
+
     if (key === 'ENTER') {
         submitRiddleRow();
     } else if (key === 'BACKSPACE') {
@@ -629,15 +681,66 @@ window.addEventListener('keydown', (e) => {
     if (!riddleView || !riddleView.classList.contains('active')) return;
 
     const activeEl = document.activeElement;
-    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+    if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
         return;
     }
+    if (activeEl && activeEl.classList.contains('riddle-draft-tile')) {
+        return;
+    }
+    if (activeEl && activeEl.tagName === 'INPUT' && !activeEl.classList.contains('riddle-draft-tile')) {
+        return;
+    }
+
     const openModals = document.querySelectorAll('.modal-overlay.active, .modal.active');
     if (openModals.length > 0) return;
 
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
     const key = e.key;
+
+    // 若当前正在编辑草稿行，则路由至草稿格，绝不跑入正式格
+    if (activeRiddleDraft !== null) {
+        const { row, col } = activeRiddleDraft;
+        const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+        const curTile = document.getElementById(`draft-tile-${row}-${col}`);
+        if (curTile) {
+            if (/^[a-zA-Z]$/.test(key)) {
+                e.preventDefault();
+                const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
+                curTile.value = isLower ? key.toLowerCase() : key.toUpperCase();
+                if (riddleDraftRows[row]) riddleDraftRows[row][col] = key.toUpperCase();
+                if (col + 1 < len) {
+                    const nextTile = document.getElementById(`draft-tile-${row}-${col + 1}`);
+                    if (nextTile) {
+                        nextTile.focus();
+                        nextTile.select();
+                        activeRiddleDraft = { row, col: col + 1 };
+                    }
+                }
+                return;
+            } else if (key === 'Backspace') {
+                e.preventDefault();
+                if (curTile.value) {
+                    curTile.value = '';
+                    if (riddleDraftRows[row]) riddleDraftRows[row][col] = '';
+                } else if (col > 0) {
+                    const prevTile = document.getElementById(`draft-tile-${row}-${col - 1}`);
+                    if (prevTile) {
+                        prevTile.focus();
+                        prevTile.value = '';
+                        if (riddleDraftRows[row]) riddleDraftRows[row][col - 1] = '';
+                        activeRiddleDraft = { row, col: col - 1 };
+                    }
+                }
+                return;
+            } else if (key === 'Enter') {
+                e.preventDefault();
+                submitRiddleDraftRow(row);
+                return;
+            }
+        }
+    }
+
     if (/^[a-zA-Z]$/.test(key)) {
         e.preventDefault();
         handleRiddleKey(key.toUpperCase());
@@ -648,6 +751,15 @@ window.addEventListener('keydown', (e) => {
         e.preventDefault();
         submitRiddleRow();
     }
+});
+
+// 点击草稿区以外区域重置草稿聚焦状态
+document.addEventListener('pointerdown', (e) => {
+    if (typeof currentView !== 'undefined' && currentView !== 'view-riddle') return;
+    if (e.target.closest('#riddle-draft-rows-container') || e.target.closest('#btn-riddle-add-draft') || e.target.closest('#riddle-keyboard')) {
+        return;
+    }
+    activeRiddleDraft = null;
 });
 
 function handleRiddleKey(char) {
@@ -952,4 +1064,4 @@ function giveUpRiddle() {
         renderRiddleResult('揭晓答案', 'var(--md-sys-color-primary)');
     }
 }
-
+

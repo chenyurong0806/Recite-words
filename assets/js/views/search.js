@@ -954,6 +954,10 @@ function updateSearchSetting(key, val) {
     cfg[key] = val;
     saveSearchConfig(cfg);
 
+    if (key === 'enableVirtualKeyboard' && typeof updateSearchKeyboardButtonsVisibility === 'function') {
+        updateSearchKeyboardButtonsVisibility();
+    }
+
     const tabsRow = document.getElementById('search-page-tabs-row');
     if (tabsRow) {
         tabsRow.style.display = cfg.enableTabs ? (searchTabs && searchTabs.length > 0 ? 'flex' : 'none') : 'none';
@@ -1584,21 +1588,8 @@ async function renderHubSearchSuggestions(query) {
 
 function playWordVoice(word, type = 2) {
     if (!word) return;
-    try {
-        const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=${type}`);
-        audio.play().catch(() => {
-            if (window.speechSynthesis) {
-                const u = new SpeechSynthesisUtterance(word);
-                u.lang = (type === 1) ? 'en-GB' : 'en-US';
-                window.speechSynthesis.speak(u);
-            }
-        });
-    } catch (err) {
-        if (window.speechSynthesis) {
-            const u = new SpeechSynthesisUtterance(word);
-            u.lang = (type === 1) ? 'en-GB' : 'en-US';
-            window.speechSynthesis.speak(u);
-        }
+    if (typeof playWordAudio === 'function') {
+        playWordAudio(word, type);
     }
 }
 
@@ -2181,6 +2172,13 @@ function renderSearchExplainsList() {
                                                     </div>
                                                 `;
             }).join('')}
+                                            <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
+                                                onclick="openAddMeaningBlockModal('${escapeHtml(seg.pos || '')}')"
+                                                title="在已有释义后添加词块"
+                                                style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
+                                                <span class="material-symbols-rounded" style="font-size:15px;">add</span>
+                                                <span>添加词块</span>
+                                            </button>
                                         </div>
                                     </div>
                                 `;
@@ -2198,6 +2196,77 @@ function renderSearchExplainsList() {
                     </div>
                 </div>
             `).join('');
+}
+
+function openAddMeaningBlockModal(defaultPos = '') {
+    const posSelect = document.getElementById('select-meaning-block-pos');
+    const input = document.getElementById('input-meaning-block-text');
+    const subtitle = document.getElementById('add-block-target-word');
+
+    if (posSelect) {
+        posSelect.value = defaultPos || '';
+    }
+    if (input) {
+        input.value = '';
+    }
+    if (subtitle && currentSearchExplainsData) {
+        subtitle.innerText = `为单词 “${currentSearchExplainsData.word}” 添加释义词块`;
+    }
+
+    const modal = document.getElementById('modal-add-meaning-block');
+    if (modal) modal.classList.add('active');
+    if (input) setTimeout(() => input.focus(), 150);
+}
+
+function closeAddMeaningBlockModal() {
+    const modal = document.getElementById('modal-add-meaning-block');
+    if (modal) modal.classList.remove('active');
+}
+
+function confirmAddMeaningBlock() {
+    const posSelect = document.getElementById('select-meaning-block-pos');
+    const input = document.getElementById('input-meaning-block-text');
+    const text = (input ? input.value : '').trim();
+    const pos = (posSelect ? posSelect.value : '').trim();
+
+    if (!text) {
+        showToast('请输入词块释义内容');
+        return;
+    }
+
+    if (!currentSearchExplainsData) return;
+    if (!currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
+        currentSearchExplainsData.sources = [{
+            type: 'custom',
+            name: '自定义释义',
+            segments: []
+        }];
+    }
+
+    const src = currentSearchExplainsData.sources[0];
+    if (!src.segments) src.segments = [];
+
+    // 寻找匹配词性的 segment，如果没有则创建
+    let targetSeg = src.segments.find(s => (s.pos || '') === pos);
+    if (!targetSeg) {
+        targetSeg = { pos: pos, pieces: [] };
+        src.segments.push(targetSeg);
+    }
+
+    const newChipId = 'block_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    targetSeg.pieces.push({
+        id: newChipId,
+        text: text,
+        pos: pos
+    });
+
+    // 自动勾选新建的词块
+    inlineSelectedChipIds.add(newChipId);
+
+    closeAddMeaningBlockModal();
+    renderSearchExplainsList();
+    renderInlineAddToBookHeader();
+    showToast(`已添加词块：${pos ? pos + ' ' : ''}${text}`);
 }
 
 function toggleInlineSelectChip(chipId) {
