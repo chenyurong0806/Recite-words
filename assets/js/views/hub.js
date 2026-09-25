@@ -211,7 +211,7 @@ function updateHubResumeButtons() {
             try {
                 const parsed = JSON.parse(singleSaved);
                 if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length && (!parsed.isReview && !String(parsed.sessionName).includes('复习'))) {
-                    learnBtnText.innerText = `继续学习(${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    learnBtnText.innerText = `继续(${parsed.currentIdx + 1}/${parsed.pool.length})`;
                     restored = true;
                 }
             } catch (e) { }

@@ -222,14 +222,14 @@ async function handleBiliToyLogin() {
         }
 
         loadUserData(biliProfile.username, profile);
-        showToast(`B 站快捷登录成功：${biliProfile.username}`);
+        showToast(`登录成功：${biliProfile.username}`);
         switchView('view-hub');
     } catch (err) {
         alert(err.message || 'B 站授权登录失败');
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerText = '哔哩哔哩快捷授权登录';
+            btn.innerText = 'B 站快捷授权登录';
         }
     }
 }
@@ -257,7 +257,7 @@ function handleAuthLogout() {
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', '游客');
     loadUserData('游客', currentUserProfile);
-    showToast('已退出登录，恢复游客身份');
+    showToast('已退出登录');
     updateHub();
     if (typeof renderMeView === 'function') {
         renderMeView();

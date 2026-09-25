@@ -1032,7 +1032,7 @@ function updateHubShiCiResumeButton() {
             try {
                 const parsed = JSON.parse(savedLearn);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
-                    learnLabel.innerText = `继续学习 (${parsed.currentIdx + 1}/${parsed.pool.length})`;
+                    learnLabel.innerText = `继续(${parsed.currentIdx + 1}/${parsed.pool.length})`;
                     restored = true;
                 }
             } catch (e) { }
