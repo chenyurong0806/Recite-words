@@ -371,10 +371,14 @@ async function biliLogin() {
     if (!profile || !profile.nickname) {
         throw new Error('获取 B 站用户资料失败或用户已取消授权');
     }
+    let avatar = profile.avatar || '';
+    if (avatar.startsWith('//')) {
+        avatar = 'https:' + avatar;
+    }
     return {
         type: 'bilibili',
         username: profile.nickname,
-        avatar: profile.avatar || '',
+        avatar: avatar,
         toyOpenId: profile.toyOpenId || ''
     };
 }

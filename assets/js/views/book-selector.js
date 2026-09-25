@@ -11,6 +11,7 @@ let bookSelectorActiveCategory = 'english';
 let bookSelectorPreviousView = 'view-hub';
 
 function openBookSelectorPage(mode = 'single') {
+    if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
     bookSelectorMode = mode;
     bookSelectorPreviousView = currentView || 'view-hub';
     const enTab = document.getElementById('tab-bs-en');
@@ -37,7 +38,10 @@ function openBookSelectorPage(mode = 'single') {
         'single': '选择词书 (背单词)',
         'shici': '选择词书 (背实词)',
         'riddle': '选择词书 (Wordle)',
-        'dictation': '选择词书 (英语默写)'
+        'dictation': '选择词书 (英语默写)',
+        'room': '选择词书 (远程联机)',
+        'preset': '选择词书 (房间预设)',
+        'invite': '选择词书 (对战规则)'
     };
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
 
@@ -46,7 +50,21 @@ function openBookSelectorPage(mode = 'single') {
 }
 
 function exitBookSelectorPage() {
+    if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
     switchView(bookSelectorPreviousView || 'view-hub');
+    if (bookSelectorMode === 'room' && typeof updateRoomBookSummaryUI === 'function') {
+        updateRoomBookSummaryUI();
+    }
+    if (bookSelectorMode === 'preset') {
+        const modal = document.getElementById('modal-room-preset');
+        if (modal) modal.classList.add('active');
+        if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
+    }
+    if (bookSelectorMode === 'invite') {
+        const modal = document.getElementById('modal-create-match-invite');
+        if (modal) modal.classList.add('active');
+        if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
+    }
 }
 
 function switchBookSelectorCategory(cat) {
@@ -84,13 +102,24 @@ function getProceduralBookGradient(title, category = '') {
 
 function isBookIdSelectedInCurrentMode(bookId) {
     if (bookSelectorMode === 'single') {
-        return Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.includes(bookId);
+        return typeof isBookIdSelected === 'function'
+            ? isBookIdSelected(singleSelectedBookIds, bookId)
+            : (Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.includes(bookId));
     } else if (bookSelectorMode === 'shici') {
-        return typeof shiciConfig !== 'undefined' && Array.isArray(shiciConfig.selectedBooks) && shiciConfig.selectedBooks.includes(bookId);
+        return typeof shiciConfig !== 'undefined' && Array.isArray(shiciConfig.selectedBooks) && (typeof isBookIdSelected === 'function' ? isBookIdSelected(shiciConfig.selectedBooks, bookId) : shiciConfig.selectedBooks.includes(bookId));
     } else if (bookSelectorMode === 'riddle') {
-        return typeof riddleConfig !== 'undefined' && ((Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.includes(bookId)) || riddleConfig.bookId === bookId);
+        return typeof riddleConfig !== 'undefined' && ((typeof isBookIdSelected === 'function' ? isBookIdSelected(riddleConfig.selectedBooks, bookId) : (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.includes(bookId))) || (typeof isBookIdSelected === 'function' ? isBookIdSelected([riddleConfig.bookId], bookId) : riddleConfig.bookId === bookId));
     } else if (bookSelectorMode === 'dictation') {
-        return typeof dictationConfig !== 'undefined' && Array.isArray(dictationConfig.selectedBooks) && dictationConfig.selectedBooks.includes(bookId);
+        return typeof dictationConfig !== 'undefined' && Array.isArray(dictationConfig.selectedBooks) && (typeof isBookIdSelected === 'function' ? isBookIdSelected(dictationConfig.selectedBooks, bookId) : dictationConfig.selectedBooks.includes(bookId));
+    } else if (bookSelectorMode === 'room') {
+        const list = (typeof roomConfig !== 'undefined' && Array.isArray(roomConfig.selectedBooks)) ? roomConfig.selectedBooks : [];
+        return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
+    } else if (bookSelectorMode === 'preset') {
+        const list = (typeof activeEditingPreset !== 'undefined' && Array.isArray(activeEditingPreset.selectedBooks)) ? activeEditingPreset.selectedBooks : [];
+        return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
+    } else if (bookSelectorMode === 'invite') {
+        const list = (typeof activeInviteRules !== 'undefined' && Array.isArray(activeInviteRules.selectedBooks)) ? activeInviteRules.selectedBooks : [];
+        return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
     }
     return false;
 }
@@ -104,16 +133,7 @@ function renderBookSelectorPage() {
     const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
     const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
 
-    let selectedCount = 0;
-    if (bookSelectorMode === 'single') {
-        selectedCount = (singleSelectedBookIds || []).length;
-    } else if (bookSelectorMode === 'shici') {
-        selectedCount = (typeof shiciConfig !== 'undefined' && shiciConfig.selectedBooks) ? shiciConfig.selectedBooks.length : 0;
-    } else if (bookSelectorMode === 'riddle') {
-        selectedCount = (typeof riddleConfig !== 'undefined' && riddleConfig.selectedBooks) ? riddleConfig.selectedBooks.length : 1;
-    } else if (bookSelectorMode === 'dictation') {
-        selectedCount = (typeof dictationConfig !== 'undefined' && dictationConfig.selectedBooks) ? dictationConfig.selectedBooks.length : 0;
-    }
+    const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
     if (summaryChip) summaryChip.textContent = `已选 ${selectedCount} 本词书`;
 
     if (filteredBooks.length === 0) {
@@ -151,7 +171,7 @@ function renderBookSelectorPage() {
                         <div class="book-folder-header" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary, #0061a4); font-size:22px;">folder</span>
                             <span class="book-folder-title" style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface);">${escapeHtml(folderName)}</span>
-                            <span class="book-folder-count" style="font-size:0.8rem; color:var(--md-sys-color-outline); font-family:monospace;">(${books.length} 本)</span>
+                            <span class="book-folder-count" style="font-size:0.8rem; color:var(--md-sys-color-outline);">(${books.length} 本)</span>
                         </div>
                         <div class="book-cover-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px;">
                             ${books.map(b => {
@@ -161,7 +181,7 @@ function renderBookSelectorPage() {
             return `
                                     <div class="book-cover-card ${isSelected ? 'selected' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')">
                                         <div class="book-cover-wrap">
-                                            ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+                                             ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
                                             <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
                                                 <span class="book-cover-art-cat">${escapeHtml(b.category || '精选')}</span>
                                                 <span class="book-cover-art-title">${escapeHtml(b.name)}</span>
@@ -177,7 +197,7 @@ function renderBookSelectorPage() {
                                             </div>
                                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                                                 <span class="badge" style="font-size:0.75rem;">${escapeHtml(b.category || '词书')}</span>
-                                                <span style="font-size:0.75rem; color:var(--md-sys-color-outline); font-family:monospace;">${b.count ? `${b.count} 词` : ''}</span>
+                                                <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">${b.count ? `${b.count} 词` : ''}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -203,16 +223,10 @@ function updateBookSelectorDOM() {
 
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (summaryChip) {
-        let selectedCount = 0;
-        if (bookSelectorMode === 'single') {
-            selectedCount = (typeof singleSelectedBookIds !== 'undefined') ? singleSelectedBookIds.length : 0;
-        } else if (bookSelectorMode === 'shici') {
-            selectedCount = (typeof shiciConfig !== 'undefined' && shiciConfig.selectedBooks) ? shiciConfig.selectedBooks.length : 0;
-        } else if (bookSelectorMode === 'riddle') {
-            selectedCount = (typeof riddleConfig !== 'undefined' && riddleConfig.selectedBooks) ? riddleConfig.selectedBooks.length : 1;
-        } else if (bookSelectorMode === 'dictation') {
-            selectedCount = (typeof dictationConfig !== 'undefined' && dictationConfig.selectedBooks) ? dictationConfig.selectedBooks.length : 0;
-        }
+        const allBooks = getAllUniqueBooks();
+        const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
+        const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
+        const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
         summaryChip.textContent = `已选 ${selectedCount} 本词书`;
     }
 }
@@ -223,37 +237,72 @@ async function handleBookSelectorToggle(bookId) {
 
     if (bookSelectorMode === 'single') {
         if (!Array.isArray(singleSelectedBookIds)) singleSelectedBookIds = [];
-        if (singleSelectedBookIds.includes(bookId)) {
+        const isSel = typeof isBookIdSelected === 'function'
+            ? isBookIdSelected(singleSelectedBookIds, bookId)
+            : singleSelectedBookIds.includes(bookId);
+
+        if (isSel) {
             if (singleSelectedBookIds.length > 1) {
-                singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== bookId);
+                singleSelectedBookIds = typeof toggleBookIdInList === 'function'
+                    ? toggleBookIdInList(singleSelectedBookIds, bookId)
+                    : singleSelectedBookIds.filter(id => id !== bookId);
             } else {
                 showToast('至少需保留一本背单词词书');
                 return;
             }
         } else {
-            singleSelectedBookIds.push(bookId);
+            singleSelectedBookIds = typeof toggleBookIdInList === 'function'
+                ? toggleBookIdInList(singleSelectedBookIds, bookId)
+                : [...singleSelectedBookIds, bookId];
         }
+
+        // 如果已经选择了其他词书，确保不带上默认内置词书
+        if (singleSelectedBookIds.length > 1 && singleSelectedBookIds.includes('builtin_default')) {
+            singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== 'builtin_default');
+        }
+
         localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
         const badge = document.getElementById('single-book-badge');
         if (badge) badge.innerText = bookMeta.name;
-        if (typeof singleState !== 'undefined' && singleState && typeof initSinglePlayerGame === 'function' && currentView === 'view-single') {
+
+        // 切换成其他词书后，清除当前学习进度
+        if (currentUser) {
+            localStorage.removeItem(`single_learn_progress_${currentUser}`);
+            localStorage.removeItem(`single_progress_${currentUser}`);
+            localStorage.removeItem(`single_review_progress_${currentUser}`);
+        }
+        if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+        if (typeof updateSingleProgressStatusUI === 'function') updateSingleProgressStatusUI();
+        if (typeof singleState !== 'undefined' && singleState) {
+            singleState.pool = [];
+            singleState.currentIdx = 0;
+            singleState.answered = false;
+        }
+        if (typeof initSinglePlayerGame === 'function' && currentView === 'view-single') {
             initSinglePlayerGame();
         }
     } else if (bookSelectorMode === 'shici') {
         if (!Array.isArray(shiciConfig.selectedBooks)) shiciConfig.selectedBooks = [];
-        if (shiciConfig.selectedBooks.includes(bookId)) {
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(shiciConfig.selectedBooks, bookId) : shiciConfig.selectedBooks.includes(bookId);
+        if (isSel) {
             if (shiciConfig.selectedBooks.length > 1) {
-                shiciConfig.selectedBooks = shiciConfig.selectedBooks.filter(id => id !== bookId);
+                shiciConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(shiciConfig.selectedBooks, bookId) : shiciConfig.selectedBooks.filter(id => id !== bookId);
             } else {
                 showToast('至少需保留一本实词词书');
                 return;
             }
         } else {
-            shiciConfig.selectedBooks.push(bookId);
+            shiciConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(shiciConfig.selectedBooks, bookId) : [...shiciConfig.selectedBooks, bookId];
         }
         saveShiCiState();
         const badge = document.getElementById('shici-book-badge');
         if (badge) badge.innerText = bookMeta.name;
+
+        if (currentUser) {
+            localStorage.removeItem(`shici_learn_progress_${currentUser}`);
+            localStorage.removeItem(`shici_review_progress_${currentUser}`);
+        }
+        if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
         riddleConfig.selectedBooks = [bookId];
         riddleConfig.bookId = bookId;
@@ -263,26 +312,95 @@ async function handleBookSelectorToggle(bookId) {
         saveRiddleSettingsOnly();
         const topBookName = document.getElementById('riddle-top-book-name');
         if (topBookName) topBookName.innerText = bookMeta.name;
-        if (currentView === 'view-riddle' && typeof startWordRiddleGame === 'function') {
+        if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
+        if (typeof startWordRiddleGame === 'function') {
             startWordRiddleGame(true);
         }
     } else if (bookSelectorMode === 'dictation') {
         if (!Array.isArray(dictationConfig.selectedBooks)) dictationConfig.selectedBooks = [];
-        if (dictationConfig.selectedBooks.includes(bookId)) {
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(dictationConfig.selectedBooks, bookId) : dictationConfig.selectedBooks.includes(bookId);
+        if (isSel) {
             if (dictationConfig.selectedBooks.length > 1) {
-                dictationConfig.selectedBooks = dictationConfig.selectedBooks.filter(id => id !== bookId);
+                dictationConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(dictationConfig.selectedBooks, bookId) : dictationConfig.selectedBooks.filter(id => id !== bookId);
             } else {
                 showToast('至少需保留一本默写词书');
                 return;
             }
         } else {
-            dictationConfig.selectedBooks.push(bookId);
+            dictationConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(dictationConfig.selectedBooks, bookId) : [...dictationConfig.selectedBooks, bookId];
         }
         saveDictationSettings();
         const badge = document.getElementById('dictation-book-badge');
         if (badge) badge.innerText = bookMeta.name;
+    } else if (bookSelectorMode === 'room') {
+        if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.includes(bookId);
+        if (isSel) {
+            if (roomConfig.selectedBooks.length > 1) {
+                roomConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.filter(id => id !== bookId);
+            } else {
+                showToast('至少需保留一本联机词书');
+                return;
+            }
+        } else {
+            roomConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(roomConfig.selectedBooks, bookId) : [...roomConfig.selectedBooks, bookId];
+        }
+        if (typeof updateRoomBookSummaryUI === 'function') updateRoomBookSummaryUI();
+        if (typeof broadcastRuleChange === 'function' && isHost) broadcastRuleChange();
+    } else if (bookSelectorMode === 'preset') {
+        if (!window.activeEditingPreset) window.activeEditingPreset = { selectedBooks: [] };
+        if (!activeEditingPreset.selectedBooks) activeEditingPreset.selectedBooks = [];
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeEditingPreset.selectedBooks, bookId) : activeEditingPreset.selectedBooks.includes(bookId);
+        if (isSel) {
+            if (activeEditingPreset.selectedBooks.length > 1) {
+                activeEditingPreset.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(activeEditingPreset.selectedBooks, bookId) : activeEditingPreset.selectedBooks.filter(id => id !== bookId);
+            } else {
+                showToast('至少需保留一本词书');
+                return;
+            }
+        } else {
+            activeEditingPreset.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(activeEditingPreset.selectedBooks, bookId) : [...activeEditingPreset.selectedBooks, bookId];
+        }
+        if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
+    } else if (bookSelectorMode === 'invite') {
+        if (!window.activeInviteRules) window.activeInviteRules = { selectedBooks: [] };
+        if (!activeInviteRules.selectedBooks) activeInviteRules.selectedBooks = [];
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeInviteRules.selectedBooks, bookId) : activeInviteRules.selectedBooks.includes(bookId);
+        if (isSel) {
+            if (activeInviteRules.selectedBooks.length > 1) {
+                activeInviteRules.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(activeInviteRules.selectedBooks, bookId) : activeInviteRules.selectedBooks.filter(id => id !== bookId);
+            } else {
+                showToast('至少需保留一本词书');
+                return;
+            }
+        } else {
+            activeInviteRules.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(activeInviteRules.selectedBooks, bookId) : [...activeInviteRules.selectedBooks, bookId];
+        }
+        if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
     }
 
     updateBookSelectorDOM();
 }
+
+function openRoomBookSelector(target = 'room') {
+    if (target === 'room' && typeof isHost !== 'undefined' && !isHost) {
+        showToast('仅房主可更改对决词书');
+        return;
+    }
+    if (target === 'preset') {
+        const modal = document.getElementById('modal-room-preset');
+        if (modal) modal.classList.remove('active');
+        openBookSelectorPage('preset');
+        return;
+    }
+    if (target === 'invite') {
+        const modal = document.getElementById('modal-create-match-invite');
+        if (modal) modal.classList.remove('active');
+        openBookSelectorPage('invite');
+        return;
+    }
+    openBookSelectorPage('room');
+}
+window.openRoomBookSelector = openRoomBookSelector;
+
 

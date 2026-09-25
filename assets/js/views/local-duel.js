@@ -162,7 +162,7 @@ function selectAllLocalDuelBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    const targetBooks = allBooks.filter(b => currentLocalDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b))
+    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (currentLocalDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)))
         .concat((window.customBooks || []).filter(b => currentLocalDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
     if (selectAll) {
@@ -1176,4 +1176,4 @@ function confirmExitLocalDuel() {
     if (localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
     switchView('view-hub');
 }
-
+

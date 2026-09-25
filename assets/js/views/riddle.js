@@ -10,14 +10,13 @@ let riddleDraftRows = [];
 let activeRiddleDraft = null;
 
 function initRiddleDraftRows() {
-    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : (riddleConfig && riddleConfig.wordLength ? riddleConfig.wordLength : 5);
-    riddleDraftRows = [new Array(len).fill('')];
+    riddleDraftRows = [];
     activeRiddleDraft = null;
     renderRiddleDraftRows();
 }
 
 function addRiddleDraftRow() {
-    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : (riddleConfig && riddleConfig.wordLength ? riddleConfig.wordLength : 5);
     riddleDraftRows.push(new Array(len).fill(''));
     renderRiddleDraftRows();
     setTimeout(() => {
@@ -31,25 +30,23 @@ function addRiddleDraftRow() {
 }
 
 function removeRiddleDraftRow(rowIndex) {
-    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
-    if (riddleDraftRows.length <= 1) {
-        riddleDraftRows = [new Array(len).fill('')];
-    } else {
+    if (riddleDraftRows && riddleDraftRows.length > 0) {
         riddleDraftRows.splice(rowIndex, 1);
     }
+    activeRiddleDraft = null;
     renderRiddleDraftRows();
 }
 
 function renderRiddleDraftRows() {
     const container = document.getElementById('riddle-draft-rows-container');
     if (!container) return;
+    if (!riddleDraftRows || riddleDraftRows.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
     const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
     const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
     const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
-
-    if (!riddleDraftRows || riddleDraftRows.length === 0) {
-        riddleDraftRows = [new Array(len).fill('')];
-    }
 
     let html = '';
     riddleDraftRows.forEach((row, rIdx) => {
@@ -80,11 +77,11 @@ function renderRiddleDraftRows() {
         }
         html += `</div>`;
         html += `<div class="riddle-draft-actions">
-            <button type="button" class="riddle-draft-btn riddle-draft-submit-btn" onclick="submitRiddleDraftRow(${rIdx})" title="填入答题格并验证">
-                <span class="material-symbols-rounded" style="font-size:18px;">check</span>
-            </button>
             <button type="button" class="riddle-draft-btn riddle-draft-del-btn" onclick="removeRiddleDraftRow(${rIdx})" title="删除此草稿行">
                 <span class="material-symbols-rounded" style="font-size:18px;">close</span>
+            </button>
+            <button type="button" class="riddle-draft-btn riddle-draft-submit-btn" onclick="submitRiddleDraftRow(${rIdx})" title="填入答题格并验证">
+                <span class="material-symbols-rounded" style="font-size:18px;">check</span>
             </button>
         </div>`;
         html += `</div>`;
@@ -451,11 +448,17 @@ async function startWordRiddleGame(forceNew = false) {
     let candidatePool = [];
     const selected = (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.length > 0)
         ? riddleConfig.selectedBooks
-        : ['GaoKao3500'];
+        : ['books/考纲/高考3500.json'];
 
     candidatePool = await BookManager.loadMultipleBooks(selected);
     if (!candidatePool || candidatePool.length === 0) {
-        candidatePool = (dictionary && dictionary.length > 0) ? dictionary : DEFAULT_WORDS;
+        const hasCloudBooks = (BookManager.availableBooks || []).some(b => b.isCloud || String(b.id).startsWith('books/'));
+        const hasSelectedOtherBooks = selected && selected.length > 0 && !selected.includes('builtin_default');
+        if (!hasSelectedOtherBooks && !hasCloudBooks) {
+            candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+        } else if (dictionary && dictionary.length > 0) {
+            candidatePool = dictionary;
+        }
     }
 
     const requiredLen = riddleConfig.wordLength || 0;
@@ -517,9 +520,19 @@ async function startWordRiddleGame(forceNew = false) {
     switchView('view-riddle');
 }
 
+function clearRiddleAnimationClasses() {
+    const grid = document.getElementById('riddle-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.riddle-tile.flip').forEach(t => {
+        t.classList.remove('flip');
+        t.style.animationDelay = '';
+    });
+}
+
 function renderRiddleBoard() {
     const grid = document.getElementById('riddle-grid');
     if (!grid) return;
+    clearRiddleAnimationClasses();
 
     const attemptInd = document.getElementById('riddle-attempt-indicator');
     if (attemptInd) {
@@ -849,6 +862,13 @@ function submitRiddleRow() {
                 tile.classList.add(evaluation[c]);
                 tile.classList.add('flip');
                 tile.style.animationDelay = `${c * 80}ms`;
+                const currentTile = tile;
+                setTimeout(() => {
+                    if (currentTile) {
+                        currentTile.classList.remove('flip');
+                        currentTile.style.animationDelay = '';
+                    }
+                }, c * 80 + 500);
             }
         }
     }

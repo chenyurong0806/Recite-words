@@ -19,7 +19,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-mistakes', 'view-result'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -159,8 +159,17 @@ function updateHub() {
     if (userNameEl) userNameEl.innerText = currentUser;
     if (profileTag) profileTag.innerText = currentUser;
 
-    const avatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+    let avatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+    if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
     if (avatar && userImgEl && userIconEl) {
+        userImgEl.onerror = () => {
+            userImgEl.style.display = 'none';
+            userIconEl.style.display = 'inline-flex';
+        };
+        userImgEl.onload = () => {
+            userImgEl.style.display = 'block';
+            userIconEl.style.display = 'none';
+        };
         userImgEl.src = avatar;
         userImgEl.style.display = 'block';
         userIconEl.style.display = 'none';

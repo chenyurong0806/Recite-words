@@ -243,7 +243,15 @@ function renderDictationQuestion() {
     }
 
     const feedbackCard = document.getElementById('dictation-feedback-card');
-    if (feedbackCard) feedbackCard.style.display = 'none';
+    const feedbackWord = document.getElementById('dictation-feedback-word');
+    if (feedbackCard) {
+        feedbackCard.style.display = 'none';
+        feedbackCard.style.background = '';
+        feedbackCard.style.borderColor = '';
+    }
+    if (feedbackWord) {
+        feedbackWord.style.color = '';
+    }
 
     const submitBtn = document.getElementById('btn-dictation-submit');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
@@ -446,8 +454,13 @@ function submitDictationAnswer() {
 
         if (feedbackCard) {
             feedbackCard.style.display = 'block';
+            feedbackCard.style.background = '';
+            feedbackCard.style.borderColor = '';
             if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
-            if (feedbackWord) feedbackWord.innerText = q.word;
+            if (feedbackWord) {
+                feedbackWord.innerText = q.word;
+                feedbackWord.style.color = '';
+            }
             if (feedbackMeaning) {
                 feedbackMeaning.innerHTML = `
                         <span>${q.meaning}</span>
@@ -510,8 +523,13 @@ function skipDictationQuestion() {
 
     if (feedbackCard) {
         feedbackCard.style.display = 'block';
+        feedbackCard.style.background = 'var(--md-sys-color-error-container)';
+        feedbackCard.style.borderColor = 'var(--md-sys-color-error)';
         if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
-        if (feedbackWord) feedbackWord.innerText = q.word;
+        if (feedbackWord) {
+            feedbackWord.innerText = q.word;
+            feedbackWord.style.color = 'var(--md-sys-color-on-error-container)';
+        }
         if (feedbackMeaning) {
             feedbackMeaning.innerHTML = `
                     <span>${q.meaning}</span>

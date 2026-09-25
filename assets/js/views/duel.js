@@ -4,8 +4,367 @@
  */
 
 /* ==========================================================================
-   6. 联机大厅与房间设置 (已修复跨房间聊天漏洞、仅列在线房间、1天后过期清理)
+   6. 联机大厅与房间设置 (专属房间、房间预设、实时对战与高并发保护)
    ========================================================================== */
+let userExclusiveRoomPreset = null;
+let activeEditingPreset = null;
+let activeInviteRules = null;
+let activeInviteTarget = null;
+let pendingSentInvite = null;
+let cachedDbRooms = [];
+let cachedDbRoomsTime = 0;
+let fetchRoomsDebounceTimer = null;
+
+function isCurrentUserLoggedIn() {
+    if (typeof currentUserProfile === 'undefined' || !currentUserProfile) return false;
+    if (!currentUserProfile.isLoggedIn) return false;
+    if (currentUserProfile.type === 'guest') return false;
+    if (!currentUser || currentUser === '游客' || currentUser.startsWith('游客_')) return false;
+    return true;
+}
+
+function getUserRoomCode(username) {
+    if (!username) return 'EXCL01';
+    let hash = 5381;
+    for (let i = 0; i < username.length; i++) {
+        hash = ((hash << 5) + hash) + username.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(-6);
+}
+
+function getDefaultRoomPreset(user) {
+    const name = user ? `${user}的房间` : '对战房间';
+    const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
+        ? [...singleSelectedBookIds]
+        : ['GaoKao3500'];
+    return {
+        name: name,
+        capacity: 2,
+        duration: 60,
+        winLead: 6,
+        gaugeStyle: 'tug',
+        selectedBooks: books
+    };
+}
+
+function getUserExclusivePreset() {
+    if (userExclusiveRoomPreset) return userExclusiveRoomPreset;
+    try {
+        const saved = localStorage.getItem('vocab_room_preset_' + currentUser);
+        if (saved) {
+            userExclusiveRoomPreset = JSON.parse(saved);
+            return userExclusiveRoomPreset;
+        }
+    } catch (e) { }
+    if (currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
+        userExclusiveRoomPreset = currentUserProfile.user_data.room_preset;
+        return userExclusiveRoomPreset;
+    }
+    userExclusiveRoomPreset = getDefaultRoomPreset(currentUser);
+    return userExclusiveRoomPreset;
+}
+
+function openRoomPresetModal() {
+    if (!isCurrentUserLoggedIn()) {
+        showToast('只有已登录账号拥有专属房间');
+        return;
+    }
+    activeEditingPreset = JSON.parse(JSON.stringify(getUserExclusivePreset()));
+    
+    const nameInput = document.getElementById('preset-room-name-input');
+    if (nameInput) nameInput.value = activeEditingPreset.name || `${currentUser}的房间`;
+
+    renderPresetChips();
+    updatePresetBookSummaryUI();
+
+    const modal = document.getElementById('modal-room-preset');
+    if (modal) modal.classList.add('active');
+}
+
+function closeRoomPresetModal() {
+    const modal = document.getElementById('modal-room-preset');
+    if (modal) modal.classList.remove('active');
+}
+
+function renderPresetChips() {
+    if (!activeEditingPreset) return;
+    document.querySelectorAll('#preset-chips-time .md3-chip').forEach(el => {
+        const val = parseInt(el.getAttribute('data-time'));
+        el.classList.toggle('selected', val === (activeEditingPreset.duration || 60));
+    });
+
+    document.querySelectorAll('#preset-chips-lead .md3-chip').forEach(el => {
+        const val = parseInt(el.getAttribute('data-lead'));
+        el.classList.toggle('selected', val === (activeEditingPreset.winLead || 6));
+    });
+
+    document.querySelectorAll('#preset-chips-gauge .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-gauge');
+        el.classList.toggle('selected', val === (activeEditingPreset.gaugeStyle || 'tug'));
+    });
+}
+
+function selectPresetTime(val) {
+    if (!activeEditingPreset) return;
+    activeEditingPreset.duration = parseInt(val);
+    renderPresetChips();
+}
+
+function selectPresetLead(val) {
+    if (!activeEditingPreset) return;
+    activeEditingPreset.winLead = parseInt(val);
+    renderPresetChips();
+}
+
+function selectPresetGauge(val) {
+    if (!activeEditingPreset) return;
+    activeEditingPreset.gaugeStyle = val;
+    renderPresetChips();
+}
+
+function updatePresetBookSummaryUI() {
+    if (!activeEditingPreset) return;
+    const books = activeEditingPreset.selectedBooks || [];
+    const titleEl = document.getElementById('preset-selected-book-title');
+    const summaryEl = document.getElementById('preset-selected-book-summary');
+    if (titleEl) titleEl.innerText = getBookNamesSummary(books);
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+}
+
+async function saveRoomPreset() {
+    if (!activeEditingPreset) return;
+    const nameInput = document.getElementById('preset-room-name-input');
+    const nameVal = (nameInput ? nameInput.value : '').trim();
+    activeEditingPreset.name = nameVal || `${currentUser}的房间`;
+    activeEditingPreset.capacity = 2;
+
+    userExclusiveRoomPreset = JSON.parse(JSON.stringify(activeEditingPreset));
+    try {
+        localStorage.setItem('vocab_room_preset_' + currentUser, JSON.stringify(userExclusiveRoomPreset));
+    } catch (e) { }
+
+    if (currentUserProfile && currentUserProfile.isLoggedIn) {
+        if (currentUserProfile.type === 'cloud' && typeof supabaseSyncUserData === 'function') {
+            const currentData = (currentUserProfile.user_data || {});
+            currentData.room_preset = userExclusiveRoomPreset;
+            currentUserProfile.user_data = currentData;
+            supabaseSyncUserData(currentUser, currentData);
+        } else if (currentUserProfile.type === 'bilibili' && typeof biliSaveCloudData === 'function') {
+            biliSaveCloudData({ room_preset: userExclusiveRoomPreset });
+        }
+    }
+
+    const myCode = getUserRoomCode(currentUser);
+    try {
+        await sbClient.from('rooms').upsert({
+            code: myCode,
+            name: userExclusiveRoomPreset.name,
+            host: currentUser,
+            capacity: 2,
+            player_count: (isHost && roomCode === myCode) ? 1 : 0,
+            status: (isHost && roomCode === myCode) ? 'waiting' : 'closed',
+            is_temporary: false,
+            config: userExclusiveRoomPreset,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'code' });
+    } catch (e) { }
+
+    closeRoomPresetModal();
+    showToast('专属房间预设已保存至云端');
+    fetchOnlineRoomsList();
+}
+
+async function enterMyExclusiveRoom() {
+    if (!isCurrentUserLoggedIn()) {
+        showToast('请先登录云端账号');
+        return;
+    }
+    const myPreset = getUserExclusivePreset();
+    roomCode = getUserRoomCode(currentUser);
+    isHost = true;
+    hostName = currentUser;
+    guestName = '';
+    customRoomName = myPreset.name || `${currentUser}的房间`;
+    roomConfig = { ...myPreset };
+
+    setupRoomLobbyUI(roomCode, customRoomName);
+    connectSupabaseChannel(roomCode);
+
+    try {
+        await sbClient.from('rooms').upsert({
+            code: roomCode,
+            name: customRoomName,
+            host: currentUser,
+            capacity: 2,
+            player_count: 1,
+            status: 'waiting',
+            is_temporary: false,
+            config: roomConfig,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'code' });
+    } catch (e) { }
+
+    if (globalLobbyChannel) {
+        globalLobbyChannel.send({
+            type: 'broadcast',
+            event: 'room_state_change',
+            payload: {
+                action: 'ready',
+                room: {
+                    code: roomCode,
+                    name: customRoomName,
+                    host: currentUser,
+                    capacity: 2,
+                    playerCount: 1,
+                    status: 'waiting'
+                }
+            }
+        });
+    }
+
+    switchView('view-online');
+    showToast(`已进入专属房间：${customRoomName}`);
+}
+
+function handleP2AvatarClick() {
+    if (!isHost) return;
+    if (guestName) {
+        if (confirm(`确定要将玩家【${guestName}】移出房间吗？`)) {
+            kickPlayerFromRoom(guestName);
+        }
+    } else {
+        openRoomInvitePlayersModal();
+    }
+}
+
+function openRoomInvitePlayersModal() {
+    const modal = document.getElementById('modal-room-invite-players');
+    if (!modal) return;
+    modal.classList.add('active');
+    renderRoomInvitePlayersList();
+}
+
+function closeRoomInvitePlayersModal() {
+    const modal = document.getElementById('modal-room-invite-players');
+    if (modal) modal.classList.remove('active');
+}
+
+function renderRoomInvitePlayersList() {
+    const container = document.getElementById('room-invite-players-list');
+    if (!container) return;
+    if (!globalLobbyChannel) {
+        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--md-sys-color-outline);">未连接到大厅</div>`;
+        return;
+    }
+    const state = globalLobbyChannel.presenceState();
+    const onlineUsers = [];
+    Object.keys(state).forEach(k => {
+        const presList = state[k] || [];
+        const pres = presList[0] || {};
+        const pUsername = pres.username || k;
+        if (k === currentUser || pUsername === currentUser) return;
+        if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
+        if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+        let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
+        if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
+        onlineUsers.push({
+            username: pUsername,
+            avatar: avatar,
+            status: pres.status || 'idle'
+        });
+    });
+
+    if (onlineUsers.length === 0) {
+        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); font-size:0.88rem;">当前暂无其他在线玩家</div>`;
+        return;
+    }
+
+    container.innerHTML = onlineUsers.map(u => `
+        <div class="online-player-card">
+            <div class="online-player-left">
+                <div class="online-player-avatar" style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container);">
+                    <span class="material-symbols-rounded" style="font-size:22px; color:var(--md-sys-color-primary);">person</span>
+                    ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
+                </div>
+                <div class="online-player-meta">
+                    <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
+                    <span class="online-player-status">
+                        <span class="online-status-dot"></span>
+                        在线空闲
+                    </span>
+                </div>
+            </div>
+            <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="invitePlayerFromRoom('${escapeHtml(u.username)}')">
+                <span class="material-symbols-rounded" style="font-size:16px;">send</span>
+                <span class="btn-label-text">邀请</span>
+            </button>
+        </div>
+    `).join('');
+}
+
+function invitePlayerFromRoom(targetUser) {
+    if (!targetUser || !globalLobbyChannel || !roomCode) return;
+    const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
+        ? BookManager.availableBooks
+        : BookManager.fallbackBooks;
+    const bookMap = {};
+    allBooks.forEach(b => bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, ''));
+    (window.customBooks || []).forEach(b => bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, ''));
+    const selected = roomConfig.selectedBooks || [];
+    const bookNames = selected.map(id => bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id));
+
+    globalLobbyChannel.send({
+        type: 'broadcast',
+        event: 'invite_match',
+        payload: {
+            from: currentUser,
+            fromAvatar: getUserAvatar(currentUser),
+            to: targetUser,
+            roomCode: roomCode,
+            roomName: customRoomName || `${currentUser}的房间`,
+            config: roomConfig,
+            bookNames: bookNames.join(', ') || '未选词书'
+        }
+    });
+
+    closeRoomInvitePlayersModal();
+    showToast(`已向【${targetUser}】发送对决邀请，等待对方接受...`);
+}
+
+function kickPlayerFromRoom(targetUser) {
+    if (!isHost || !realtimeChannel || !targetUser) return;
+    realtimeChannel.send({
+        type: 'broadcast',
+        event: 'kick_player',
+        payload: { target: targetUser, reason: '您已被房主移出房间' }
+    });
+    guestName = '';
+    guestAvatar = '';
+    refreshRoomPlayerCards();
+    showToast(`已将玩家【${targetUser}】移出房间`);
+    if (roomCode) {
+        sbClient.from('rooms').update({ player_count: 1, status: 'waiting' }).eq('code', roomCode).then(() => {}).catch(() => {});
+    }
+}
+
+function getBookNamesSummary(bookIds) {
+    if (!bookIds || bookIds.length === 0) return '未选词书';
+    const allBooks = (typeof BookManager !== 'undefined' && BookManager.availableBooks && BookManager.availableBooks.length > 0)
+        ? BookManager.availableBooks
+        : (typeof BookManager !== 'undefined' && BookManager.fallbackBooks ? BookManager.fallbackBooks : []);
+    const bookMap = {};
+    allBooks.forEach(b => {
+        bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
+    });
+    (window.customBooks || []).forEach(b => {
+        bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
+    });
+    const names = bookIds.map(id => bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id));
+    if (names.length === 1) return names[0];
+    return `${names[0]} 等 ${names.length} 本`;
+}
+
 function changeRuleTime(seconds) {
     if (!isHost) return;
     roomConfig.duration = seconds;
@@ -100,93 +459,38 @@ function selectAllRoomBooks(selectAll = true) {
     broadcastRuleChange();
 }
 
-function renderRoomBookChips() {
-    const container = document.getElementById('chips-books');
-    if (!container) return;
-
-    // P2 视角专属：隐藏分类切换 Tabs 和操作工具栏，只保留已选词书
-    const catTabs = document.getElementById('room-book-category-tabs');
-    if (catTabs) catTabs.style.display = isHost ? 'flex' : 'none';
-    const roomToolbar = document.getElementById('room-book-toolbar');
-    if (roomToolbar) roomToolbar.style.display = isHost ? 'flex' : 'none';
-
-    // 统一的书名查找字典
-    const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-        ? BookManager.availableBooks
-        : BookManager.fallbackBooks;
-    const bookMap = {};
-    allBooks.forEach(b => {
-        bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-    });
-    (window.customBooks || []).forEach(b => {
-        bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-    });
+function updateRoomBookSummaryUI() {
+    const books = roomConfig.selectedBooks || [];
+    const titleEl = document.getElementById('room-selected-books-title');
+    const summaryEl = document.getElementById('room-selected-books-summary');
+    const selectBtn = document.getElementById('btn-room-select-books');
 
     if (!isHost) {
-        // P2 视角：优先从房主广播过来的 selectedBookNames 读取真实中文名
-        const selectedNames = roomConfig.selectedBookNames || [];
-        const selectedIds = roomConfig.selectedBooks || [];
-        const displayItems = [];
-
-        if (selectedNames.length > 0) {
-            selectedNames.forEach(name => {
-                const clean = String(name).replace(/^[📂📁\s]+/, '');
-                displayItems.push(clean);
-            });
-        } else if (selectedIds.length > 0) {
-            selectedIds.forEach(id => {
-                const resolvedName = bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id);
-                displayItems.push(String(resolvedName).replace(/^[📂📁\s]+/, ''));
-            });
-        }
-
-        if (displayItems.length === 0) {
-            container.innerHTML = `
-                        <div style="padding:10px 14px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-small); font-size:0.88rem; color:var(--md-sys-color-outline);">
-                            房主暂未选定词书，等待房主设置中...
-                        </div>
-                    `;
+        const names = roomConfig.selectedBookNames || [];
+        if (names.length > 0) {
+            if (titleEl) titleEl.innerText = names.join(', ');
+            if (summaryEl) summaryEl.innerText = `房主已选 ${names.length} 本词书`;
+        } else if (books.length > 0) {
+            if (titleEl) titleEl.innerText = getBookNamesSummary(books);
+            if (summaryEl) summaryEl.innerText = `房主已选 ${books.length} 本词书`;
         } else {
-            let html = '<div style="display:flex; flex-wrap:wrap; gap:8px; padding:4px 0;">';
-            displayItems.forEach(name => {
-                html += `
-                            <div style="display:inline-flex; align-items:center; gap:6px; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); padding:6px 14px; border-radius:var(--md-shape-full); font-size:0.88rem; font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
-                                <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">menu_book</span>
-                                <span>${escapeHtml(name)}</span>
-                            </div>
-                        `;
-            });
-            html += '</div>';
-            container.innerHTML = html;
+            if (titleEl) titleEl.innerText = '等待房主选定词书...';
+            if (summaryEl) summaryEl.innerText = '房主尚未选书';
         }
-
-        const tip = document.getElementById('room-book-count-tip');
-        if (tip) {
-            tip.innerText = `房主已选择 ${displayItems.length} 本词书`;
-        }
+        if (selectBtn) selectBtn.style.display = 'none';
         return;
     }
 
-    // 房主视角：不强迫每分类必须有书，选中的词书可自由跨分类存在
-    const targetBooks = allBooks.filter(b => currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b))
-        .concat((window.customBooks || []).filter(b => currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
-    const targetIds = new Set(targetBooks.map(b => b.id));
-    const curCatSelectedCount = (roomConfig.selectedBooks || []).filter(id => targetIds.has(id)).length;
-    const totalSelectedCount = (roomConfig.selectedBooks || []).length;
+    if (selectBtn) selectBtn.style.display = 'inline-flex';
+    if (titleEl) titleEl.innerText = getBookNamesSummary(books);
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+}
 
-    renderBookFolderTree('chips-books', {
-        selectedIds: roomConfig.selectedBooks || [],
-        onToggle: 'toggleRoomBook',
-        mode: 'room',
-        filterType: 'all'
-    });
-
-    const tip = document.getElementById('room-book-count-tip');
-    if (tip) {
-        tip.innerText = `已选 ${totalSelectedCount} 本词书`;
-    }
+function renderRoomBookChips() {
+    updateRoomBookSummaryUI();
     refreshRoomPlayerCards();
 }
+
 
 function renderRuleChips() {
     document.querySelectorAll('#chips-time .md3-chip').forEach(el => {
@@ -235,19 +539,11 @@ function broadcastRuleChange() {
 }
 
 async function createOnlineRoom() {
-    roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    isHost = true;
-    hostName = currentUser;
-    guestName = '';
-    roomConfig = {
-        duration: 60,
-        winLead: 6,
-        gaugeStyle: 'tug',
-        selectedBooks: (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? [...singleSelectedBookIds] : ['GaoKao3500']
-    };
-
-    setupRoomLobbyUI(roomCode);
-    connectSupabaseChannel(roomCode);
+    if (isCurrentUserLoggedIn()) {
+        enterMyExclusiveRoom();
+    } else {
+        showToast('游客无专属房间，请通过在线玩家列表发起对战');
+    }
 }
 
 async function joinOnlineRoom() {
@@ -346,7 +642,10 @@ function setupRoomLobbyUI(code, customName) {
 
     const delBtn = document.getElementById('btn-host-delete-room');
     if (delBtn) {
-        delBtn.style.display = isHost ? 'inline-flex' : 'none';
+        const isLogged = isCurrentUserLoggedIn();
+        const myExclusiveCode = isLogged ? getUserRoomCode(currentUser) : null;
+        const isExclusiveRoom = isLogged && (code === myExclusiveCode);
+        delBtn.style.display = (isHost && !isExclusiveRoom) ? 'inline-flex' : 'none';
     }
 
     // 彻底清空房间聊天记录，防止残留上一房间的消息
@@ -363,11 +662,11 @@ function refreshRoomPlayerCards() {
     const p1NameEl = document.getElementById('room-p1-name');
     const p2NameEl = document.getElementById('room-p2-name');
     if (p1NameEl) p1NameEl.innerText = hostName || '等待房主...';
-    if (p2NameEl) p2NameEl.innerText = guestName || '等待对手加入...';
 
     const p1Img = document.getElementById('room-p1-avatar-img');
     const p1Icon = document.getElementById('room-p1-avatar-icon');
-    const p1Avatar = hostAvatar || (hostName ? getUserAvatar(hostName) : '');
+    let p1Avatar = hostAvatar || (hostName ? getUserAvatar(hostName) : '');
+    if (p1Avatar && p1Avatar.startsWith('//')) p1Avatar = 'https:' + p1Avatar;
     if (p1Avatar && p1Img && p1Icon) {
         p1Img.src = p1Avatar;
         p1Img.style.display = 'block';
@@ -379,14 +678,30 @@ function refreshRoomPlayerCards() {
 
     const p2Img = document.getElementById('room-p2-avatar-img');
     const p2Icon = document.getElementById('room-p2-avatar-icon');
-    const p2Avatar = guestAvatar || (guestName ? getUserAvatar(guestName) : '');
-    if (p2Avatar && p2Img && p2Icon) {
-        p2Img.src = p2Avatar;
-        p2Img.style.display = 'block';
-        p2Icon.style.display = 'none';
-    } else if (p2Img && p2Icon) {
-        p2Img.style.display = 'none';
-        p2Icon.style.display = 'inline-flex';
+    const p2Badge = document.getElementById('room-p2-badge');
+
+    if (guestName) {
+        if (p2NameEl) p2NameEl.innerText = guestName;
+        if (p2Badge) p2Badge.innerText = isHost ? '挑战者' : '挑战者';
+        let p2Avatar = guestAvatar || (guestName ? getUserAvatar(guestName) : '');
+        if (p2Avatar && p2Avatar.startsWith('//')) p2Avatar = 'https:' + p2Avatar;
+        if (p2Avatar && p2Img && p2Icon) {
+            p2Img.src = p2Avatar;
+            p2Img.style.display = 'block';
+            p2Icon.style.display = 'none';
+        } else if (p2Img && p2Icon) {
+            p2Img.style.display = 'none';
+            p2Icon.style.display = 'inline-flex';
+            p2Icon.innerText = 'person';
+        }
+    } else {
+        if (p2NameEl) p2NameEl.innerText = isHost ? '点击邀请玩家' : '等待对手加入...';
+        if (p2Badge) p2Badge.innerText = isHost ? '邀请对手' : '等待加入';
+        if (p2Img) p2Img.style.display = 'none';
+        if (p2Icon) {
+            p2Icon.style.display = 'inline-flex';
+            p2Icon.innerText = isHost ? 'person_add' : 'person';
+        }
     }
 
     const startBtn = document.getElementById('online-start-btn');
@@ -538,10 +853,15 @@ function connectSupabaseChannel(code) {
                 refreshRoomPlayerCards();
             }
         })
-        // === 核心新增：接收到房主解散/踢人广播时，所有人强制退出 ===
         .on('broadcast', { event: 'host_closed_and_kick' }, () => {
             if (!isHost) {
                 alert('房主已关闭页面或离开房间，您已被移出房间。');
+                cleanUpAndBackToHub();
+            }
+        })
+        .on('broadcast', { event: 'kick_player' }, ({ payload }) => {
+            if (!isHost && payload && payload.target === currentUser) {
+                alert(payload.reason || '您已被房主移出房间');
                 cleanUpAndBackToHub();
             }
         })
@@ -612,9 +932,16 @@ async function leaveOnlineLobby(confirmNeeded = false) {
 
     // 如果是房主退出具体房间：
     if (wasHost && codeToLeave) {
-        // 1. 云端置为 closed（非 waiting 状态，对他人隐藏）
+        const isLogged = isCurrentUserLoggedIn();
+        const myExclusiveCode = isLogged ? getUserRoomCode(currentUser) : null;
+        const isTemp = (codeToLeave !== myExclusiveCode);
+
         try {
-            await sbClient.from('rooms').update({ status: 'closed', player_count: 0 }).eq('code', codeToLeave);
+            if (isTemp) {
+                await sbClient.from('rooms').delete().eq('code', codeToLeave);
+            } else {
+                await sbClient.from('rooms').update({ status: 'closed', player_count: 0 }).eq('code', codeToLeave);
+            }
         } catch (e) { }
 
         // 2. 广播通知他人立刻移除该房间
@@ -697,6 +1024,9 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
     const oppoNameEl = document.getElementById('arena-oppo-name');
     if (myNameEl) myNameEl.innerText = myName || '我方';
     if (oppoNameEl) oppoNameEl.innerText = oppoName || '对手';
+
+    if (myAvatar && typeof myAvatar === 'string' && myAvatar.startsWith('//')) myAvatar = 'https:' + myAvatar;
+    if (oppoAvatar && typeof oppoAvatar === 'string' && oppoAvatar.startsWith('//')) oppoAvatar = 'https:' + oppoAvatar;
 
     // 绑定我方头像
     const myImg = document.getElementById('arena-my-avatar-img');
@@ -1852,15 +2182,39 @@ let customRoomName = '';
 let matchInviteTimer = null;
 let currentIncomingInvite = null;
 
+const CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
+const recentlySwitchedAccounts = new Set();
+
+function recordSwitchedAccount(username) {
+    if (!username) return;
+    recentlySwitchedAccounts.add(username);
+    setTimeout(() => {
+        recentlySwitchedAccounts.delete(username);
+    }, 120000);
+}
+window.recordSwitchedAccount = recordSwitchedAccount;
+
 function initGlobalPresence() {
     if (!currentUser || !sbClient) return;
+
+    // 如果 channel 存在但 key 不属于当前用户，先彻底清理
     if (globalLobbyChannel) {
-        globalLobbyChannel.track({
-            username: currentUser,
-            status: 'idle',
-            joinedAt: Date.now()
-        });
-        return;
+        if (globalLobbyChannel.params && globalLobbyChannel.params.config && globalLobbyChannel.params.config.presence && globalLobbyChannel.params.config.presence.key !== currentUser) {
+            try {
+                globalLobbyChannel.untrack();
+                sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        } else {
+            globalLobbyChannel.track({
+                username: currentUser,
+                sessionId: CLIENT_SESSION_ID,
+                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                status: 'idle',
+                joinedAt: Date.now()
+            });
+            return;
+        }
     }
 
     globalLobbyChannel = sbClient.channel('global_lobby', {
@@ -1873,14 +2227,12 @@ function initGlobalPresence() {
             fetchOnlineRoomsList();
         })
         .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-            // 当有玩家离线，检查其是否为房主，是则立刻从本地移除并刷新视图
             if (Array.isArray(leftPresences)) {
                 leftPresences.forEach(p => {
                     const leftUser = p.key;
-                    // 从内存发现列表中剔除该离线用户开设的房间
                     discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.host !== leftUser);
-                    // 同步清理云端数据
-                    sbClient.from('rooms').delete().eq('host', leftUser).then(() => { });
+                    sbClient.from('rooms').update({ status: 'closed', player_count: 0 }).eq('host', leftUser).eq('is_temporary', false).then(() => { }).catch(() => { });
+                    sbClient.from('rooms').delete().eq('host', leftUser).eq('is_temporary', true).then(() => { }).catch(() => { });
                 });
             }
             syncGlobalPresenceState();
@@ -1899,6 +2251,8 @@ function initGlobalPresence() {
             if (status === 'SUBSCRIBED') {
                 await globalLobbyChannel.track({
                     username: currentUser,
+                    sessionId: CLIENT_SESSION_ID,
+                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
                     status: 'idle',
                     joinedAt: Date.now()
                 });
@@ -1907,21 +2261,33 @@ function initGlobalPresence() {
         });
 }
 
-// 修复：全新在线玩家卡片排版，彻底解决文字竖向排列问题
+// 修复：在线玩家过滤掉自己、当前客户端会话及近期切换账号，并支持头像加载
 function syncGlobalPresenceState() {
     if (!globalLobbyChannel) return;
     const state = globalLobbyChannel.presenceState();
     const onlineUsers = [];
 
     Object.keys(state).forEach(k => {
-        if (k && k !== currentUser) {
-            const pres = state[k][0] || {};
-            onlineUsers.push({
-                username: k,
-                status: pres.status || 'idle',
-                joinedAt: pres.joinedAt || Date.now()
-            });
-        }
+        const presList = state[k] || [];
+        const pres = presList[0] || {};
+        const pUsername = pres.username || k;
+
+        // 1. 过滤当前用户名
+        if (k === currentUser || pUsername === currentUser) return;
+        // 2. 过滤当前浏览器会话的 presence（防止切换账号时旧 session 未过期）
+        if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
+        // 3. 过滤刚刚切换过的旧账号
+        if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+
+        let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
+        if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
+
+        onlineUsers.push({
+            username: pUsername,
+            avatar: avatar,
+            status: pres.status || 'idle',
+            joinedAt: pres.joinedAt || Date.now()
+        });
     });
 
     const cardsHtml = onlineUsers.length === 0 ? `
@@ -1931,8 +2297,9 @@ function syncGlobalPresenceState() {
             ` : onlineUsers.map(u => `
             <div class="online-player-card">
                 <div class="online-player-left">
-                    <div class="online-player-avatar">
-                        <span class="material-symbols-rounded" style="font-size:22px;">person</span>
+                    <div class="online-player-avatar" style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container);">
+                        <span class="material-symbols-rounded" style="font-size:22px; color:var(--md-sys-color-primary);">person</span>
+                        ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
                     </div>
                     <div class="online-player-meta">
                         <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
@@ -1942,7 +2309,7 @@ function syncGlobalPresenceState() {
                         </span>
                     </div>
                 </div>
-                <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="sendMatchInvite('${escapeHtml(u.username)}')">
+                <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
                     <span class="material-symbols-rounded" style="font-size:16px;">swords</span>
                     <span class="btn-label-text">发起对战</span>
                 </button>
@@ -1969,16 +2336,186 @@ function syncGlobalPresence() {
     }
 }
 
-function sendMatchInvite(targetUser) {
+function openCreateMatchInviteModal(targetUser) {
     if (!targetUser || targetUser === currentUser) return;
     if (!globalLobbyChannel) {
         showToast('正在连接大厅服务器...');
         initGlobalPresence();
         return;
     }
+    activeInviteTarget = targetUser;
 
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const autoRoomName = `${currentUser}的挑战房`;
+    const modal = document.getElementById('modal-create-match-invite');
+    const targetNameEl = document.getElementById('create-invite-target-name');
+    const targetAvatarImg = document.getElementById('create-invite-target-avatar-img');
+    const targetAvatarIcon = document.getElementById('create-invite-target-avatar-icon');
+    const presetView = document.getElementById('create-invite-preset-view');
+    const rulesEditor = document.getElementById('create-invite-rules-editor');
+    const roomNameField = document.getElementById('create-invite-room-name-field');
+    const roomNameInput = document.getElementById('create-invite-room-name');
+
+    if (targetNameEl) targetNameEl.innerText = targetUser;
+    let oppoAvatar = getUserAvatar(targetUser);
+    if (oppoAvatar && oppoAvatar.startsWith('//')) oppoAvatar = 'https:' + oppoAvatar;
+    if (oppoAvatar && targetAvatarImg && targetAvatarIcon) {
+        targetAvatarImg.src = oppoAvatar;
+        targetAvatarImg.style.display = 'block';
+        targetAvatarIcon.style.display = 'none';
+    } else if (targetAvatarImg && targetAvatarIcon) {
+        targetAvatarImg.style.display = 'none';
+        targetAvatarIcon.style.display = 'inline-flex';
+    }
+
+    const isLogged = isCurrentUserLoggedIn();
+    if (isLogged) {
+        // 使用专属房间预设
+        const preset = getUserExclusivePreset();
+        activeInviteRules = JSON.parse(JSON.stringify(preset));
+
+        if (presetView) {
+            presetView.style.display = 'block';
+            const presetNameEl = document.getElementById('create-invite-preset-name');
+            const presetSummaryEl = document.getElementById('create-invite-preset-summary');
+            if (presetNameEl) presetNameEl.innerText = `专属房间预设：《${activeInviteRules.name || currentUser + '的房间'}》`;
+            if (presetSummaryEl) {
+                const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+                const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
+                presetSummaryEl.innerText = `限时: ${Math.round((activeInviteRules.duration || 60) / 60)} 分钟 | 胜出: 领先 ${activeInviteRules.winLead || 6} 题 | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
+            }
+        }
+        if (rulesEditor) rulesEditor.style.display = 'none';
+        const toggleBtnText = document.getElementById('text-toggle-invite-rules');
+        const toggleBtnIcon = document.getElementById('icon-toggle-invite-rules');
+        if (toggleBtnText) toggleBtnText.innerText = '修改规则';
+        if (toggleBtnIcon) toggleBtnIcon.innerText = 'edit';
+    } else {
+        // 游客模式：直接显示规则编辑
+        activeInviteRules = getDefaultRoomPreset(currentUser);
+        activeInviteRules.name = `${currentUser}的挑战房`;
+        if (presetView) presetView.style.display = 'none';
+        if (rulesEditor) rulesEditor.style.display = 'flex';
+        if (roomNameField) roomNameField.style.display = 'block';
+        if (roomNameInput) roomNameInput.value = activeInviteRules.name;
+    }
+
+    renderInviteRuleChips();
+    updateInviteBookSummaryUI();
+
+    if (modal) modal.classList.add('active');
+}
+
+function closeCreateMatchInviteModal() {
+    const modal = document.getElementById('modal-create-match-invite');
+    if (modal) modal.classList.remove('active');
+    activeInviteTarget = null;
+    activeInviteRules = null;
+}
+
+function toggleEditInviteRules() {
+    const rulesEditor = document.getElementById('create-invite-rules-editor');
+    const toggleBtnText = document.getElementById('text-toggle-invite-rules');
+    const toggleBtnIcon = document.getElementById('icon-toggle-invite-rules');
+    if (!rulesEditor) return;
+    const isHidden = rulesEditor.style.display === 'none' || !rulesEditor.style.display;
+    rulesEditor.style.display = isHidden ? 'flex' : 'none';
+    if (toggleBtnText) toggleBtnText.innerText = isHidden ? '收起规则' : '修改规则';
+    if (toggleBtnIcon) toggleBtnIcon.innerText = isHidden ? 'expand_less' : 'edit';
+    if (isHidden) {
+        const roomNameInput = document.getElementById('create-invite-room-name');
+        if (roomNameInput) roomNameInput.value = activeInviteRules.name || `${currentUser}的房间`;
+        renderInviteRuleChips();
+        updateInviteBookSummaryUI();
+    }
+}
+
+function renderInviteRuleChips() {
+    if (!activeInviteRules) return;
+    document.querySelectorAll('#invite-chips-time .md3-chip').forEach(el => {
+        const val = parseInt(el.getAttribute('data-time'));
+        el.classList.toggle('selected', val === (activeInviteRules.duration || 60));
+    });
+
+    document.querySelectorAll('#invite-chips-lead .md3-chip').forEach(el => {
+        const val = parseInt(el.getAttribute('data-lead'));
+        el.classList.toggle('selected', val === (activeInviteRules.winLead || 6));
+    });
+
+    document.querySelectorAll('#invite-chips-gauge .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-gauge');
+        el.classList.toggle('selected', val === (activeInviteRules.gaugeStyle || 'tug'));
+    });
+}
+
+function selectInviteRuleTime(val) {
+    if (!activeInviteRules) return;
+    activeInviteRules.duration = parseInt(val);
+    renderInviteRuleChips();
+}
+
+function selectInviteRuleLead(val) {
+    if (!activeInviteRules) return;
+    activeInviteRules.winLead = parseInt(val);
+    renderInviteRuleChips();
+}
+
+function selectInviteRuleGauge(val) {
+    if (!activeInviteRules) return;
+    activeInviteRules.gaugeStyle = val;
+    renderInviteRuleChips();
+}
+
+function updateInviteBookSummaryUI() {
+    if (!activeInviteRules) return;
+    const books = activeInviteRules.selectedBooks || [];
+    const titleEl = document.getElementById('invite-selected-book-title');
+    const summaryEl = document.getElementById('invite-selected-book-summary');
+    if (titleEl) titleEl.innerText = getBookNamesSummary(books);
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+}
+
+async function confirmAndSendMatchInvite() {
+    if (!activeInviteTarget || !globalLobbyChannel) return;
+
+    const roomNameInput = document.getElementById('create-invite-room-name');
+    const customName = (roomNameInput ? roomNameInput.value : '').trim();
+    if (customName) activeInviteRules.name = customName;
+
+    const isLogged = isCurrentUserLoggedIn();
+    let finalRoomCode = '';
+    let isTemp = false;
+
+    if (isLogged) {
+        finalRoomCode = getUserRoomCode(currentUser);
+        isTemp = false;
+    } else {
+        finalRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        isTemp = true;
+    }
+
+    const finalRoomName = activeInviteRules.name || (isLogged ? `${currentUser}的专属房间` : `${currentUser}的挑战房`);
+    const matchConfig = {
+        name: finalRoomName,
+        capacity: 2,
+        duration: activeInviteRules.duration || 60,
+        winLead: activeInviteRules.winLead || 6,
+        gaugeStyle: activeInviteRules.gaugeStyle || 'tug',
+        selectedBooks: activeInviteRules.selectedBooks || ['GaoKao3500']
+    };
+
+    // 保存到 Supabase 房间表
+    try {
+        await sbClient.from('rooms').upsert({
+            code: finalRoomCode,
+            name: finalRoomName,
+            host: currentUser,
+            capacity: 2,
+            player_count: 1,
+            status: 'waiting',
+            is_temporary: isTemp,
+            config: matchConfig,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'code' });
+    } catch (e) { }
 
     globalLobbyChannel.send({
         type: 'broadcast',
@@ -1986,13 +2523,17 @@ function sendMatchInvite(targetUser) {
         payload: {
             from: currentUser,
             fromAvatar: getUserAvatar(currentUser),
-            to: targetUser,
-            roomCode: code,
-            roomName: autoRoomName
+            to: activeInviteTarget,
+            roomCode: finalRoomCode,
+            roomName: finalRoomName,
+            config: matchConfig,
+            bookNames: getBookNamesSummary(matchConfig.selectedBooks)
         }
     });
 
-    showToast(`已向 ${targetUser} 发起对战邀请，等待对方接受...`);
+    const target = activeInviteTarget;
+    closeCreateMatchInviteModal();
+    showToast(`已向【${target}】发起对战邀请，等待对方接受...`);
 }
 
 function handleReceivedMatchInvite(payload) {
@@ -2001,15 +2542,27 @@ function handleReceivedMatchInvite(payload) {
 
     const modal = document.getElementById('modal-match-invite');
     const fromEl = document.getElementById('invite-from-name');
-    const roomEl = document.getElementById('invite-room-name');
+    const roomEl = document.getElementById('invite-room-name-display');
+    const timeEl = document.getElementById('invite-rule-time');
+    const leadEl = document.getElementById('invite-rule-lead');
+    const gaugeEl = document.getElementById('invite-rule-gauge');
+    const bookEl = document.getElementById('invite-rule-book');
     const countdownEl = document.getElementById('invite-countdown');
     const avatarImg = document.getElementById('invite-from-avatar-img');
     const avatarIcon = document.getElementById('invite-from-avatar-icon');
     if (!modal) return;
 
     if (fromEl) fromEl.innerText = `${payload.from} 向你发起对决邀请！`;
+    if (roomEl) roomEl.innerText = payload.roomName || '对决房间';
 
-    const avatarUrl = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
+    const cfg = payload.config || {};
+    if (timeEl) timeEl.innerText = `${Math.round((cfg.duration || 60) / 60)} 分钟`;
+    if (leadEl) leadEl.innerText = `领先 ${cfg.winLead || 6} 题`;
+    if (gaugeEl) gaugeEl.innerText = cfg.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+    if (bookEl) bookEl.innerText = payload.bookNames || getBookNamesSummary(cfg.selectedBooks);
+
+    let avatarUrl = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
+    if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
     if (avatarUrl && avatarImg && avatarIcon) {
         avatarImg.src = avatarUrl;
         avatarImg.style.display = 'block';
@@ -2053,7 +2606,8 @@ function acceptMatchInvite() {
                 to: invite.from,
                 accepted: true,
                 roomCode: invite.roomCode,
-                roomName: invite.roomName
+                roomName: invite.roomName,
+                config: invite.config
             }
         });
     }
@@ -2065,6 +2619,7 @@ function acceptMatchInvite() {
     guestName = currentUser;
     guestAvatar = getUserAvatar(currentUser);
     customRoomName = invite.roomName;
+    if (invite.config) roomConfig = invite.config;
 
     setupRoomLobbyUI(roomCode, invite.roomName);
     connectSupabaseChannel(roomCode);
@@ -2097,7 +2652,7 @@ function declineMatchInvite(isTimeout = false) {
 function handleMatchInviteResponse(payload) {
     if (!payload || payload.to !== currentUser) return;
     if (payload.accepted) {
-        showToast(`${payload.from} 接受了对战邀请！正在进入房间...`);
+        showToast(`玩家【${payload.from}】接受了对战邀请！正在进入房间...`);
         isHost = true;
         roomCode = payload.roomCode;
         hostName = currentUser;
@@ -2105,83 +2660,31 @@ function handleMatchInviteResponse(payload) {
         guestName = payload.from;
         guestAvatar = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
         customRoomName = payload.roomName;
+        if (payload.config) roomConfig = payload.config;
 
         setupRoomLobbyUI(roomCode, payload.roomName);
         connectSupabaseChannel(roomCode);
         switchView('view-online');
     } else {
         showToast(`玩家【${payload.from}】${payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'}`);
+        if (payload.roomCode && payload.roomCode !== getUserRoomCode(currentUser)) {
+            sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
+        }
     }
-}
-
-async function handleCreateCustomRoom() {
-    const inputEl = document.getElementById('input-custom-room-name');
-    const nameVal = (inputEl ? inputEl.value : '').trim();
-    const finalRoomName = nameVal || `${currentUser}创建的房间`;
-
-    roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    isHost = true;
-    hostName = currentUser;
-    guestName = '';
-    customRoomName = finalRoomName;
-    roomConfig = {
-        duration: 60,
-        winLead: 6,
-        gaugeStyle: 'tug',
-        selectedBooks: (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? [...singleSelectedBookIds] : ['GaoKao3500']
-    };
-
-    const roomMeta = {
-        code: roomCode,
-        name: finalRoomName,
-        host: currentUser,
-        capacity: selectedRoomCapacity || 2,
-        player_count: 1,
-        status: 'waiting',
-        createdAt: Date.now()
-    };
-
-    if (!myCreatedRooms.some(r => r.code === roomCode)) {
-        myCreatedRooms.push(roomMeta);
-        localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
-    }
-
-    // 写入云端数据库
-    try {
-        await sbClient.from('rooms').upsert({
-            code: roomCode,
-            name: finalRoomName,
-            host: currentUser,
-            capacity: selectedRoomCapacity || 2,
-            player_count: 1,
-            status: 'waiting',
-            created_at: new Date().toISOString()
-        }, { onConflict: 'code' });
-    } catch (e) { }
-
-    setupRoomLobbyUI(roomCode, finalRoomName);
-    connectSupabaseChannel(roomCode);
-
-    // 广播给大厅全网
-    if (globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'room_state_change',
-            payload: { action: 'ready', room: roomMeta }
-        });
-    }
-
-    showToast(`创建成功！房间码：${roomCode}`);
 }
 
 async function handleHostDeleteRoom(targetCode) {
     const codeToDelete = targetCode || roomCode;
     if (!codeToDelete) return;
 
-    if (!confirm(`确定解散并删除房间 ${codeToDelete} 吗？`)) return;
+    const isLogged = isCurrentUserLoggedIn();
+    const myExclusiveCode = isLogged ? getUserRoomCode(currentUser) : null;
+    if (isLogged && codeToDelete === myExclusiveCode) {
+        showToast('专属房间无法删除，若要离开请直接点击“退出房间”');
+        return;
+    }
 
-    myCreatedRooms = myCreatedRooms.filter(r => r.code !== codeToDelete);
-    localStorage.setItem('my_created_rooms', JSON.stringify(myCreatedRooms));
+    if (!confirm(`确定解散并删除房间 ${codeToDelete} 吗？`)) return;
 
     if (roomCode === codeToDelete) {
         if (realtimeChannel) {
@@ -2214,13 +2717,11 @@ async function handleHostDeleteRoom(targetCode) {
     } catch (e) { }
 
     fetchOnlineRoomsList();
-    showToast('房间已成功解散并删除');
+    showToast('房间已解散并删除');
 }
 
 function handleRoomStateBroadcast(payload) {
     if (!payload) return;
-
-    // 收到房主就绪/创建广播：直接把该房间存入发现列表，并重新刷新
     if ((payload.action === 'ready' || payload.action === 'create') && payload.room) {
         const room = payload.room;
         const idx = discoveredLobbyRooms.findIndex(r => r.code === room.code);
@@ -2230,15 +2731,11 @@ function handleRoomStateBroadcast(payload) {
             discoveredLobbyRooms.unshift({ ...room, status: 'waiting' });
         }
     } else if ((payload.action === 'hide' || payload.action === 'delete') && payload.code) {
-        // 房主离房：立刻在列表中剔除
         discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.code !== payload.code);
     }
-
-    // 立即重新执行渲染
     fetchOnlineRoomsList();
 }
 
-// 仅当房间中有人在线时展示，且超过 1 天 (24h) 的空闲房间自动清理
 async function fetchOnlineRoomsList(manual = false) {
     const container = document.getElementById('online-rooms-container');
     if (!container) return;
@@ -2248,152 +2745,152 @@ async function fetchOnlineRoomsList(manual = false) {
     const onlineUserSet = new Set(Object.keys(presenceState));
     if (currentUser) onlineUserSet.add(currentUser);
 
-    // 2. 获取云端所有房间
-    let dbRooms = [];
-    try {
-        const { data, error } = await sbClient
-            .from('rooms')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(30);
-        if (!error && Array.isArray(data)) {
-            dbRooms = data.map(r => ({
-                code: r.code,
-                name: r.name || `${r.host}的房间`,
-                host: r.host,
-                capacity: r.capacity || 2,
-                playerCount: r.player_count || 1,
-                status: r.status || 'closed',
-                createdAt: new Date(r.created_at).getTime()
-            }));
-        }
-    } catch (e) { }
+    // 2. 带防抖与缓存获取云端房间列表 (防止高并发击垮 Supabase)
+    const now = Date.now();
+    let dbRooms = cachedDbRooms;
+    if (manual || (now - cachedDbRoomsTime > 4000) || !dbRooms || dbRooms.length === 0) {
+        try {
+            const { data, error } = await sbClient
+                .from('rooms')
+                .select('*')
+                .order('updated_at', { ascending: false })
+                .limit(40);
+            if (!error && Array.isArray(data)) {
+                cachedDbRooms = data;
+                cachedDbRoomsTime = now;
+                dbRooms = data;
+            }
+        } catch (e) { }
+    }
 
-    // 3. 整合广播发现的房间与数据库房间
     const roomMap = new Map();
-    dbRooms.forEach(r => roomMap.set(r.code, r));
-    discoveredLobbyRooms.forEach(r => {
-        if (r.status === 'waiting') roomMap.set(r.code, { ...roomMap.get(r.code), ...r });
+    (dbRooms || []).forEach(r => {
+        roomMap.set(r.code, {
+            code: r.code,
+            name: r.name || `${r.host}的房间`,
+            host: r.host,
+            capacity: r.capacity || 2,
+            playerCount: r.player_count || 1,
+            status: r.status || 'closed',
+            is_temporary: r.is_temporary || false,
+            config: r.config || {},
+            createdAt: new Date(r.created_at || r.updated_at || Date.now()).getTime()
+        });
     });
 
-    // 房主自己本地创建的房间始终对房主保留
-    myCreatedRooms.forEach(r => {
-        if (!roomMap.has(r.code)) {
-            roomMap.set(r.code, { ...r, status: 'closed' });
+    discoveredLobbyRooms.forEach(r => {
+        if (r.status === 'waiting') {
+            roomMap.set(r.code, { ...roomMap.get(r.code), ...r });
         }
     });
 
-    // 4. 精准过滤：
-    // - 房主本人：永远能看到自己的房间卡片
-    // - 其他人：房主必须在线，且房间状态必须处于 'waiting'（即房主在房内等待对手）
-    const activeRoomsList = Array.from(roomMap.values()).filter(r => {
-        const isMine = r.host === currentUser;
-        if (isMine) return true;
+    const isLogged = isCurrentUserLoggedIn();
+    const myCode = isLogged ? getUserRoomCode(currentUser) : null;
+    const isCurrentlyInMyRoom = (isHost && roomCode === myCode && document.getElementById('online-in-room')?.style.display !== 'none');
 
+    const resultRooms = [];
+
+    // 核心要求：在线房间列表中，将自己的房间放在第一个，可以编辑房间预设。
+    if (isLogged) {
+        const myPreset = getUserExclusivePreset();
+        const myRoom = {
+            code: myCode,
+            name: myPreset.name || `${currentUser}的房间`,
+            host: currentUser,
+            capacity: 2,
+            playerCount: isCurrentlyInMyRoom ? (guestName ? 2 : 1) : 0,
+            status: isCurrentlyInMyRoom ? 'waiting' : 'closed',
+            isMine: true,
+            isExclusive: true,
+            config: myPreset
+        };
+        resultRooms.push(myRoom);
+    }
+
+    // 其他在线房间：房主必须在线，且状态为 waiting，且不是自己的专属房间
+    roomMap.forEach(r => {
+        if (isLogged && r.code === myCode) return;
+        if (r.host === currentUser) return;
         const isHostOnline = onlineUserSet.has(r.host);
-        const isWaiting = (r.status === 'waiting');
-        return isHostOnline && isWaiting;
+        if (isHostOnline && r.status === 'waiting') {
+            resultRooms.push(r);
+        }
     });
 
-    if (activeRoomsList.length === 0) {
+    if (resultRooms.length === 0) {
         container.innerHTML = `
-                <div style="text-align:center; padding:28px 12px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
-                    <span class="material-symbols-rounded" style="font-size:40px; opacity:0.6;">meeting_room</span>
-                    <p style="margin-top:8px; font-size:0.9rem;">暂无在线房间</p>
-                </div>
-            `;
-        if (manual) showToast('刷新成功');
+            <div style="text-align:center; padding:28px 12px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
+                <span class="material-symbols-rounded" style="font-size:40px; opacity:0.6;">meeting_room</span>
+                <p style="margin-top:8px; font-size:0.9rem;">暂无在线房间</p>
+            </div>
+        `;
+        if (manual) showToast('已刷新房间列表');
         return;
     }
 
-    // 当前房主是否真正处于房间内页面
-    const isCurrentlyInRoomView = (isHost && roomCode && document.getElementById('online-in-room')?.style.display !== 'none');
-
-    container.innerHTML = activeRoomsList.map(r => {
-        const isMine = r.host === currentUser;
+    container.innerHTML = resultRooms.map((r) => {
+        const isMine = r.isMine || (r.host === currentUser);
         const isFull = (r.playerCount || 1) >= (r.capacity || 2);
-        const isHostInRoom = isMine ? isCurrentlyInRoomView : (r.status === 'waiting');
+        const isHostInRoom = isMine ? isCurrentlyInMyRoom : (r.status === 'waiting');
+
+        const cfg = r.config || {};
+        const durationText = cfg.duration ? `${Math.round(cfg.duration / 60)}分钟` : '1分钟';
+        const winLeadText = cfg.winLead ? `领先${cfg.winLead}题` : '领先6题';
+        const gaugeText = cfg.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+        const bookText = getBookNamesSummary(cfg.selectedBooks || ['GaoKao3500']);
 
         return `
-                <div class="online-room-card">
-                    <div class="online-room-header" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-on-surface); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>
-                        <span class="badge ${isMine ? (isHostInRoom ? 'badge-online' : '') : (isFull ? 'badge-p1' : 'badge-online')}" 
-                              style="font-size:0.75rem; ${isMine && !isHostInRoom ? 'background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline);' : ''}">
-                            ${isMine ? (isHostInRoom ? '在线' : '无人') : `${r.playerCount} / ${r.capacity || 2} 人`}
-                        </span>
+            <div class="online-room-card ${isMine ? 'my-exclusive-room-card' : ''}" style="${isMine ? 'border: 2px solid var(--md-sys-color-primary); background: var(--md-sys-color-surface-container-low);' : ''}">
+                <div class="online-room-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:6px; max-width:180px; overflow:hidden;">
+                        ${isMine ? `<span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:18px;">star</span>` : ''}
+                        <div style="font-weight:700; font-size:0.96rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>
                     </div>
-                    <div class="online-room-body" style="display:flex; justify-content:space-between; align-items:center; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant);">
-                        <div style="display:flex; align-items:center; gap:5px;">
-                            <span class="material-symbols-rounded" style="font-size:16px; color:var(--md-sys-color-primary);">badge</span>
+                    <span class="badge ${isMine ? (isHostInRoom ? 'badge-online' : '') : (isFull ? 'badge-p1' : 'badge-online')}" 
+                          style="font-size:0.75rem; ${isMine && !isHostInRoom ? 'background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline);' : ''}">
+                        ${isMine ? (isHostInRoom ? '我在房内' : '我的房间') : (isFull ? '已满员' : `${r.playerCount} / ${r.capacity || 2} 人`)}
+                    </span>
+                </div>
+                <div class="online-room-body" style="display:flex; flex-direction:column; gap:4px; font-size:0.82rem; color:var(--md-sys-color-on-surface-variant); margin: 6px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-rounded" style="font-size:15px; color:var(--md-sys-color-primary);">badge</span>
                             <span>房主：<strong>${escapeHtml(r.host)}</strong></span>
-                        </div>
+                        </span>
+                        <span style="color:var(--md-sys-color-outline); font-size:0.78rem;">${durationText} · ${winLeadText} · ${gaugeText}</span>
                     </div>
-                    <div class="online-room-actions" style="display:flex; gap:8px; margin-top:4px;">
-                        ${isMine ? `
-                            <button type="button" class="btn btn-filled btn-sm" style="flex:1;" onclick="quickEnterMyRoom('${r.code}', '${escapeHtml(r.name)}')">
-                                <span class="material-symbols-rounded" style="font-size:15px;">meeting_room</span>
-                                <span>进入房间</span>
-                            </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="handleHostDeleteRoom('${r.code}')" title="彻底删除房间">
-                                <span class="material-symbols-rounded" style="font-size:15px;">delete</span>
-                            </button>
-                        ` : `
-                            <button type="button" class="btn btn-filled btn-sm" style="flex:1;" ${isFull ? 'disabled' : ''} onclick="quickJoinLobbyRoom('${r.code}')">
-                                <span class="material-symbols-rounded" style="font-size:15px;">login</span>
-                                <span>${isFull ? '房间已满' : '加入对战'}</span>
-                            </button>
-                        `}
+                    <div style="font-size:0.78rem; color:var(--md-sys-color-outline); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        词书：${escapeHtml(bookText)}
                     </div>
                 </div>
-            `;
+                <div class="online-room-actions" style="display:flex; gap:8px; margin-top:4px;">
+                    ${isMine ? `
+                        <button type="button" class="btn btn-filled btn-sm" style="flex:2;" onclick="enterMyExclusiveRoom()">
+                            <span class="material-symbols-rounded" style="font-size:16px;">meeting_room</span>
+                            <span>${isHostInRoom ? '返回房间' : '进入房间'}</span>
+                        </button>
+                        <button type="button" class="btn btn-outlined btn-sm" style="flex:1;" onclick="openRoomPresetModal()" title="编辑房间预设">
+                            <span class="material-symbols-rounded" style="font-size:16px;">tune</span>
+                            <span>编辑预设</span>
+                        </button>
+                    ` : `
+                        <button type="button" class="btn btn-filled btn-sm" style="flex:1;" ${isFull ? 'disabled' : ''} onclick="quickJoinLobbyRoom('${r.code}')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">login</span>
+                            <span>${isFull ? '房间已满' : '加入对战'}</span>
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
     }).join('');
+
+    if (manual) showToast('已刷新房间列表');
 }
 
 function quickJoinLobbyRoom(code) {
     const codeInput = document.getElementById('join-room-code');
     if (codeInput) codeInput.value = code;
     joinOnlineRoom();
-}
-
-async function quickEnterMyRoom(code, name) {
-    roomCode = code;
-    isHost = true;
-    hostName = currentUser;
-    guestName = '';
-    customRoomName = name;
-
-    // 1. 切换到具体房间等待页面
-    setupRoomLobbyUI(roomCode, name);
-    connectSupabaseChannel(roomCode);
-
-    const roomData = {
-        code: code,
-        name: name,
-        host: currentUser,
-        capacity: 2,
-        player_count: 1,
-        status: 'waiting' // 标记为等待对手加入（即房主在房内就绪）
-    };
-
-    // 2. 将房间状态 upsert 写入云端数据库
-    try {
-        await sbClient.from('rooms').upsert(roomData, { onConflict: 'code' });
-    } catch (e) {
-        console.warn('[Rooms] Upsert failed:', e);
-    }
-
-    // 3. 广播给大厅里的所有其他人：房主已就绪，通知其他人立即添加该房间
-    if (globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'room_state_change',
-            payload: {
-                action: 'ready',
-                room: roomData
-            }
-        });
-    }
 }
 
 function checkFirstOpenWelcome() {
@@ -2442,7 +2939,10 @@ window.addEventListener('beforeunload', () => {
             } catch (e) { }
         }
 
-        // 3. 将云端数据库房间状态设为 'closed'（关闭），防止其他端再进入
+        // 3. 将云端数据库房间状态设为 'closed'（关闭）；如果是临时房间则直接删除
+        const isLogged = isCurrentUserLoggedIn();
+        const myExclusiveCode = isLogged ? getUserRoomCode(currentUser) : null;
+        const isTemp = (roomCode !== myExclusiveCode);
         const updateUrl = `${SUPABASE_URL}/rest/v1/rooms?code=eq.${roomCode}`;
         const headers = {
             'apikey': SUPABASE_KEY,
@@ -2452,9 +2952,9 @@ window.addEventListener('beforeunload', () => {
         };
         try {
             fetch(updateUrl, {
-                method: 'PATCH',
+                method: isTemp ? 'DELETE' : 'PATCH',
                 headers: headers,
-                body: JSON.stringify({ status: 'closed', player_count: 0 }),
+                body: isTemp ? null : JSON.stringify({ status: 'closed', player_count: 0 }),
                 keepalive: true // 保证网页关闭后请求依然能发出
             });
         } catch (e) { }

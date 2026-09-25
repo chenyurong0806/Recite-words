@@ -22,10 +22,32 @@ function bootstrapApp() {
         BookManager.fetchBookList(true);
     }
 
+    if (typeof updatePronunciationSettingsChips === 'function') {
+        updatePronunciationSettingsChips();
+    }
+
     if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username) {
         loadUserData(currentUserProfile.username, currentUserProfile);
+        if (currentUserProfile.type === 'cloud' && typeof supabaseFetchUserData === 'function') {
+            supabaseFetchUserData(currentUserProfile.username).then(user => {
+                if (user) {
+                    if (user.user_data && user.user_data.stats) {
+                        try {
+                            SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
+                            userStats = user.user_data.stats;
+                        } catch (e) { }
+                    }
+                    if (user.avatar_url && user.avatar_url !== currentUserProfile.avatar) {
+                        currentUserProfile.avatar = user.avatar_url;
+                        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+                        SafeStorage.setItem(`vocab_user_avatar_${user.username}`, user.avatar_url);
+                        if (typeof updateHub === 'function') updateHub();
+                    }
+                }
+            }).catch(() => { });
+        }
     } else {
-        loadUserData('游客');
+        loadUserData(typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客');
     }
     switchView('view-hub');
 }
@@ -62,18 +84,32 @@ async function checkLocalIconFontAvailability() {
     const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocal) return;
 
-    try {
-        const res = await fetch('./assets/fonts/material-symbols-rounded.woff2', { method: 'HEAD' });
-        if (!res.ok) {
-            showMissingIconsModal();
-        }
-    } catch (e) {
-        if (document.fonts && document.fonts.check) {
-            setTimeout(() => {
-                if (!document.fonts.check('16px "Material Symbols Rounded"')) {
-                    showMissingIconsModal();
+    if (typeof FontFace !== 'undefined') {
+        try {
+            const font = new FontFace('Material Symbols Rounded', 'url(./assets/fonts/material-symbols-rounded.woff2)');
+            await font.load();
+            document.fonts.add(font);
+            return;
+        } catch (e1) {
+            try {
+                const fontRoot = new FontFace('Material Symbols Rounded', 'url(./material-symbols-rounded.woff2)');
+                await fontRoot.load();
+                document.fonts.add(fontRoot);
+                return;
+            } catch (e2) {
+                if (document.fonts && document.fonts.check && document.fonts.check('24px "Material Symbols Rounded"', 'home')) {
+                    return;
                 }
-            }, 1200);
+                showMissingIconsModal();
+            }
+        }
+    } else {
+        try {
+            const res = await fetch('./assets/fonts/material-symbols-rounded.woff2');
+            if (res.ok || res.status === 304 || res.status === 0) return;
+            showMissingIconsModal();
+        } catch (e) {
+            // 忽视网络读取异常，不主动触发弹窗
         }
     }
 }

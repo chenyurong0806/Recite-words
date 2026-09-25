@@ -1586,7 +1586,7 @@ async function renderHubSearchSuggestions(query) {
     activeSuggs.style.display = 'block';
 }
 
-function playWordVoice(word, type = 2) {
+function playWordVoice(word, type = null) {
     if (!word) return;
     if (typeof playWordAudio === 'function') {
         playWordAudio(word, type);

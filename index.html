@@ -20,6 +20,8 @@
     <link rel="manifest"
         href='data:application/manifest+json,{"name":"词迹","short_name":"词迹","start_url":"/","display":"standalone","background_color":"%230061A4","theme_color":"%230061A4","icons":[{"src":"./assets/images/icon-web.png","sizes":"512x512","type":"image/png"}]}'>
 
+    <meta name="referrer" content="no-referrer">
+
     <!-- Google Fonts & Material Symbols (在网站中优先向 Google 官方请求图标与字体) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -166,9 +168,28 @@
                 <span class="material-symbols-rounded" id="invite-from-avatar-icon" style="font-size: 34px;">sports_esports</span>
                 <img id="invite-from-avatar-img" src="" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.previousElementSibling.style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
             </div>
-            <!-- 添加 justify-content: center 与 text-align: center 实现严格居中 -->
-            <h3 style="font-size: 1.25rem; font-weight: 700; justify-content: center; text-align: center; margin-bottom: 8px; line-height: 1.3;" id="invite-from-name">对决挑战</h3>
-            <div style="font-size: 0.85rem; color: var(--md-sys-color-error); font-weight: 600; margin-bottom: 20px;">
+            <h3 style="font-size: 1.25rem; font-weight: 700; justify-content: center; text-align: center; margin-bottom: 4px; line-height: 1.3;" id="invite-from-name">对决挑战</h3>
+            <div id="invite-room-name-display" style="font-size: 0.88rem; font-weight: 600; color: var(--md-sys-color-primary); margin-bottom: 12px;">房间名称</div>
+            <!-- 对局规则与信息 -->
+            <div style="background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m); padding:10px 14px; margin-bottom:14px; text-align:left; font-size:0.84rem; line-height:1.7; border:1px solid var(--md-sys-color-outline-variant);">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--md-sys-color-outline);">每局限时:</span>
+                    <span id="invite-rule-time" style="font-weight:600; color:var(--md-sys-color-on-surface);">1 分钟</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--md-sys-color-outline);">获胜条件:</span>
+                    <span id="invite-rule-lead" style="font-weight:600; color:var(--md-sys-color-on-surface);">领先 6 题</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--md-sys-color-outline);">仪表盘样式:</span>
+                    <span id="invite-rule-gauge" style="font-weight:600; color:var(--md-sys-color-on-surface);">拔河</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--md-sys-color-outline);">对决词书:</span>
+                    <span id="invite-rule-book" style="font-weight:600; color:var(--md-sys-color-on-surface); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高考3500</span>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--md-sys-color-error); font-weight: 600; margin-bottom: 16px;">
                 自动拒绝倒计时：<span id="invite-countdown">15</span> 秒
             </div>
             <div class="modal-footer" style="padding: 0; justify-content: center; gap: 12px; border-top: none;">
@@ -183,36 +204,236 @@
         </div>
     </div>
 
+    <!-- 编辑专属房间预设弹窗 (MD3 规范) -->
+    <div id="modal-room-preset" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px; width: 92%;">
+            <div class="modal-header">
+                <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded modal-title-icon" style="color: var(--md-sys-color-primary);">tune</span>
+                    <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;">编辑专属房间预设</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeRoomPresetModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">房间名称</label>
+                    <input type="text" id="preset-room-name-input" class="input-field" maxlength="20" placeholder="例如：某某的房间" style="width:100%; height:40px; border-radius:var(--md-shape-full);">
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">人数限制</label>
+                    <div class="chip-group">
+                        <div class="md3-chip selected">2 人 (当前支持)</div>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">每局限时</label>
+                    <div class="chip-group" id="preset-chips-time">
+                        <div class="md3-chip selected" data-time="60" onclick="selectPresetTime(60)">1 分钟</div>
+                        <div class="md3-chip" data-time="120" onclick="selectPresetTime(120)">2 分钟</div>
+                        <div class="md3-chip" data-time="180" onclick="selectPresetTime(180)">3 分钟</div>
+                        <div class="md3-chip" data-time="240" onclick="selectPresetTime(240)">4 分钟</div>
+                        <div class="md3-chip" data-time="300" onclick="selectPresetTime(300)">5 分钟</div>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">获胜条件</label>
+                    <div class="chip-group" id="preset-chips-lead">
+                        <div class="md3-chip" data-lead="3" onclick="selectPresetLead(3)">领先 3 题</div>
+                        <div class="md3-chip" data-lead="4" onclick="selectPresetLead(4)">4 题</div>
+                        <div class="md3-chip" data-lead="5" onclick="selectPresetLead(5)">5 题</div>
+                        <div class="md3-chip selected" data-lead="6" onclick="selectPresetLead(6)">6 题</div>
+                        <div class="md3-chip" data-lead="7" onclick="selectPresetLead(7)">7 题</div>
+                        <div class="md3-chip" data-lead="8" onclick="selectPresetLead(8)">8 题</div>
+                        <div class="md3-chip" data-lead="10" onclick="selectPresetLead(10)">10 题</div>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">仪表盘样式</label>
+                    <div class="chip-group" id="preset-chips-gauge">
+                        <div class="md3-chip selected" data-gauge="tug" onclick="selectPresetGauge('tug')">拔河 (推荐)</div>
+                        <div class="md3-chip" data-gauge="snake" onclick="selectPresetGauge('snake')">盘龙</div>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对决词书</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1; min-width:0; padding-right:8px;">
+                            <div id="preset-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高考3500</div>
+                            <div id="preset-selected-book-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书</div>
+                        </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="openRoomBookSelector('preset')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
+                            <span>选择词书</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; padding:12px 20px;">
+                <button type="button" class="btn btn-outlined btn-sm" onclick="closeRoomPresetModal()">取消</button>
+                <button type="button" class="btn btn-filled btn-sm" onclick="saveRoomPreset()">
+                    <span class="material-symbols-rounded" style="font-size:16px;">cloud_done</span>
+                    <span>保存预设至云端</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 发起对战与确认规则弹窗 (MD3 规范) -->
+    <div id="modal-create-match-invite" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px; width: 92%;">
+            <div class="modal-header">
+                <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded modal-title-icon" style="color: var(--md-sys-color-primary);">swords</span>
+                    <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;" id="create-invite-title">发起对战</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeCreateMatchInviteModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px;">
+                <!-- 目标对手信息 -->
+                <div style="display:flex; align-items:center; gap:12px; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m);">
+                    <div id="create-invite-target-avatar-wrap" style="width:40px; height:40px; border-radius:50%; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
+                        <span class="material-symbols-rounded" id="create-invite-target-avatar-icon">person</span>
+                        <img id="create-invite-target-avatar-img" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <div>
+                        <div style="font-size:0.78rem; color:var(--md-sys-color-outline);">对战目标</div>
+                        <div id="create-invite-target-name" style="font-size:0.98rem; font-weight:700; color:var(--md-sys-color-on-surface);">玩家</div>
+                    </div>
+                </div>
+
+                <!-- 已登录用户：专属房间预设概览卡片 -->
+                <div id="create-invite-preset-view" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface);" id="create-invite-preset-name">使用专属房间预设</div>
+                        <button type="button" class="btn btn-tonal btn-sm" id="btn-toggle-edit-invite-rules" onclick="toggleEditInviteRules()" style="height:30px; font-size:0.78rem; padding:0 10px;">
+                            <span class="material-symbols-rounded" style="font-size:15px;" id="icon-toggle-invite-rules">edit</span>
+                            <span id="text-toggle-invite-rules">修改规则</span>
+                        </button>
+                    </div>
+                    <div style="background:var(--md-sys-color-surface-container-low); padding:10px 12px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); font-size:0.84rem; line-height:1.6;" id="create-invite-preset-summary">
+                        限时: 1 分钟 | 胜出: 领先 6 题 | 仪表盘: 拔河 | 词书: 高考3500
+                    </div>
+                </div>
+
+                <!-- 规则编辑区（游客直接显示，登录用户点击修改规则后展开） -->
+                <div id="create-invite-rules-editor" style="display:none; flex-direction:column; gap:12px;">
+                    <div id="create-invite-room-name-field">
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">房间名称</label>
+                        <input type="text" id="create-invite-room-name" class="input-field" maxlength="20" placeholder="例如：对决挑战房" style="width:100%; height:38px; border-radius:var(--md-shape-full);">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">每局限时</label>
+                        <div class="chip-group" id="invite-chips-time">
+                            <div class="md3-chip selected" data-time="60" onclick="selectInviteRuleTime(60)">1 分钟</div>
+                            <div class="md3-chip" data-time="120" onclick="selectInviteRuleTime(120)">2 分钟</div>
+                            <div class="md3-chip" data-time="180" onclick="selectInviteRuleTime(180)">3 分钟</div>
+                            <div class="md3-chip" data-time="240" onclick="selectInviteRuleTime(240)">4 分钟</div>
+                            <div class="md3-chip" data-time="300" onclick="selectInviteRuleTime(300)">5 分钟</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">获胜条件</label>
+                        <div class="chip-group" id="invite-chips-lead">
+                            <div class="md3-chip" data-lead="3" onclick="selectInviteRuleLead(3)">领先 3 题</div>
+                            <div class="md3-chip" data-lead="4" onclick="selectInviteRuleLead(4)">4 题</div>
+                            <div class="md3-chip" data-lead="5" onclick="selectInviteRuleLead(5)">5 题</div>
+                            <div class="md3-chip selected" data-lead="6" onclick="selectInviteRuleLead(6)">6 题</div>
+                            <div class="md3-chip" data-lead="7" onclick="selectInviteRuleLead(7)">7 题</div>
+                            <div class="md3-chip" data-lead="8" onclick="selectInviteRuleLead(8)">8 题</div>
+                            <div class="md3-chip" data-lead="10" onclick="selectInviteRuleLead(10)">10 题</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">仪表盘样式</label>
+                        <div class="chip-group" id="invite-chips-gauge">
+                            <div class="md3-chip selected" data-gauge="tug" onclick="selectInviteRuleGauge('tug')">拔河 (推荐)</div>
+                            <div class="md3-chip" data-gauge="snake" onclick="selectInviteRuleGauge('snake')">盘龙</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">对决词书</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:8px 12px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant);">
+                            <div style="flex:1; min-width:0; padding-right:8px;">
+                                <div id="invite-selected-book-title" style="font-size:0.88rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高考3500</div>
+                                <div id="invite-selected-book-summary" style="font-size:0.76rem; color:var(--md-sys-color-outline);">已选 1 本词书</div>
+                            </div>
+                            <button type="button" class="btn btn-outlined btn-sm" onclick="openRoomBookSelector('invite')">
+                                <span class="material-symbols-rounded" style="font-size:15px;">menu_book</span>
+                                <span>选择词书</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; padding:12px 20px;">
+                <button type="button" class="btn btn-outlined btn-sm" onclick="closeCreateMatchInviteModal()">取消</button>
+                <button type="button" class="btn btn-filled btn-sm" onclick="confirmAndSendMatchInvite()">
+                    <span class="material-symbols-rounded" style="font-size:16px;">send</span>
+                    <span class="btn-label-text">发送邀请</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 房间内邀请在线玩家弹窗 (MD3 规范) -->
+    <div id="modal-room-invite-players" class="modal-overlay">
+        <div class="modal-card" style="max-width: 440px; width: 92%;">
+            <div class="modal-header">
+                <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded modal-title-icon" style="color: var(--md-sys-color-primary);">person_add</span>
+                    <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;">邀请在线玩家</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeRoomInvitePlayersModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; max-height: 380px; overflow-y: auto;">
+                <div id="room-invite-players-list" class="online-players-grid">
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--md-sys-color-outline); font-size: 0.85rem;">
+                        正在获取在线玩家...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:10px 20px;">
+                <button type="button" class="btn btn-outlined btn-sm" onclick="closeRoomInvitePlayersModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
 
         <!-- VIEW 1: 账号登录与注册 -->
         <div id="view-auth" class="view">
-            <div class="card" style="max-width: 440px; margin: 24px auto; text-align: center;">
-                <div style="display:flex; justify-content:flex-start; margin-bottom:8px;">
+            <div class="auth-card">
+                <div style="display:flex; justify-content:flex-start; margin-bottom:12px;">
                     <button type="button" class="md3-icon-btn" onclick="continueAsGuest()" title="返回主页">
                         <span class="material-symbols-rounded">arrow_back</span>
                     </button>
                 </div>
                 <div
-                    style="width: 56px; height: 56px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                    <span class="material-symbols-rounded filled" style="font-size: 32px;">account_circle</span>
+                    style="width: 64px; height: 64px; border-radius: var(--md-shape-full); background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;">
+                    <span class="material-symbols-rounded filled" style="font-size: 36px;">account_circle</span>
                 </div>
-                <h1 style="font-size: 1.55rem; margin-bottom: 4px;">背单词</h1>
-                <p style="margin-bottom: 5px; color:var(--md-sys-color-outline); font-size:0.9rem;">请选择登录方式</p>
+                <h1 style="font-size: 1.65rem; font-weight: 700; margin-bottom: 6px;">背单词</h1>
+                <p style="margin-bottom: 8px; color:var(--md-sys-color-outline); font-size:0.92rem;">请选择登录方式</p>
 
                 <!-- B站 Toy 专用登录卡片 (仅在 Toy 平台展示) -->
-                <div id="auth-toy-container" style="display: none; padding: 12px 0;">
-                    <div style="margin-bottom: 16px; padding: 14px; background: #fff0f5; border-radius: 12px; border: 1px solid #ffccd8;">
-                        <span class="material-symbols-rounded" style="font-size: 28px; color: #fb7299;">tv</span>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: #fb7299; margin-top: 4px;">建议使用 B 站账号登录</div>
-                        <p style="font-size: 0.82rem; color: #777; margin: 4px 0 0;">授权后将自动同步数据至 B 站云端</p>
+                <div id="auth-toy-container" style="display: none; padding: 14px 0;">
+                    <div style="margin-bottom: 20px; padding: 16px; background: #fff0f5; border-radius: 16px; border: 1px solid #ffccd8;">
+                        <span class="material-symbols-rounded" style="font-size: 32px; color: #fb7299;">tv</span>
+                        <div style="font-size: 1rem; font-weight: 700; color: #fb7299; margin-top: 6px;">建议使用 B 站账号登录</div>
+                        <p style="font-size: 0.85rem; color: #666; margin: 6px 0 0;">授权后将自动同步数据至 B 站云端</p>
                     </div>
-                    <button type="button" class="btn btn-filled btn-touch-large" id="btn-bili-toy-login" onclick="handleBiliToyLogin()" style="width: 100%; background: #fb7299; color: #fff; font-size: 1rem; border-radius: var(--md-shape-full);">
+                    <button type="button" class="btn btn-filled auth-submit-btn" id="btn-bili-toy-login" onclick="handleBiliToyLogin()" style="background: #fb7299; color: #fff;">
                         <span class="material-symbols-rounded">login</span>
                         <span class="btn-label-text">B 站快捷授权登录</span>
                     </button>
-                    <div style="margin-top: 14px;">
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="continueAsGuest()" style="width: 100%; border-radius: var(--md-shape-full);">
+                    <div style="margin-top: 16px;">
+                        <button type="button" class="btn btn-outlined auth-secondary-btn" onclick="continueAsGuest()">
                             离线模式（数据保存在本地）
                         </button>
                     </div>
@@ -221,55 +442,63 @@
                 <!-- Web 浏览器端 Supabase 云端账号卡片 (Toy 平台禁用并隐藏) -->
                 <div id="auth-web-container" style="display: block;">
                     <!-- 标签栏：登录 / 注册 -->
-                    <div class="auth-tabs-row" style="display:flex; border-bottom:1px solid var(--md-sys-color-outline-variant); margin-bottom:16px;">
-                        <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="switchAuthTab('login')" style="flex:1; padding:10px 0; border:none; background:transparent; font-weight:700; font-size:0.95rem; cursor:pointer; color:var(--md-sys-color-primary); border-bottom:2.5px solid var(--md-sys-color-primary);">登录云端账号</button>
-                        <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="switchAuthTab('register')" style="flex:1; padding:10px 0; border:none; background:transparent; font-weight:600; font-size:0.95rem; cursor:pointer; color:var(--md-sys-color-outline);">注册新账号</button>
+                    <div class="auth-tabs-row">
+                        <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="switchAuthTab('login')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">login</span>
+                            <span>登录云端账号</span>
+                        </button>
+                        <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="switchAuthTab('register')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">person_add</span>
+                            <span>注册新账号</span>
+                        </button>
                     </div>
 
                     <!-- 登录表单 -->
-                    <div id="auth-login-section" style="display:flex; flex-direction:column; gap:12px; text-align:left;">
-                        <div>
-                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">用户名</label>
-                            <input type="text" id="auth-login-username" class="input-field" placeholder="输入用户名..." maxlength="20" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                    <div id="auth-login-section" class="auth-form-body">
+                        <div class="md3-text-field">
+                            <input type="text" id="auth-login-username" class="md3-text-field-input" placeholder=" " maxlength="20" autocomplete="username">
+                            <label for="auth-login-username" class="md3-text-field-label">用户名</label>
                         </div>
-                        <div>
-                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">密码</label>
-                            <input type="password" id="auth-login-password" class="input-field" placeholder="输入密码..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;" onkeydown="if(event.key==='Enter') handleCloudLogin()">
+                        <div class="md3-text-field">
+                            <input type="password" id="auth-login-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter') handleCloudLogin()">
+                            <label for="auth-login-password" class="md3-text-field-label">密码</label>
                         </div>
-                        <button type="button" class="btn btn-filled btn-touch-large" id="btn-auth-cloud-login" onclick="handleCloudLogin()" style="margin-top:6px; width:100%; border-radius:var(--md-shape-full);">
+                        <button type="button" class="btn btn-filled auth-submit-btn" id="btn-auth-cloud-login" onclick="handleCloudLogin()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">login</span>
                             <span class="btn-label-text">登录</span>
                         </button>
                     </div>
 
                     <!-- 注册表单 (可选上传头像) -->
-                    <div id="auth-register-section" style="display:none; flex-direction:column; gap:12px; text-align:left;">
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:4px;">
-                            <div class="auth-reg-avatar-wrap" onclick="triggerRegAvatarUpload()" style="width:72px; height:72px; border-radius:50%; background:var(--md-sys-color-surface-container); border:2px dashed var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; overflow:hidden;" title="点击上传头像 (可选)">
+                    <div id="auth-register-section" class="auth-form-body" style="display:none;">
+                        <div class="auth-reg-avatar-box">
+                            <div class="auth-reg-avatar-wrap" onclick="triggerRegAvatarUpload()" title="点击上传头像 (可选)">
                                 <span class="material-symbols-rounded" id="auth-reg-avatar-icon" style="font-size:32px; color:var(--md-sys-color-primary);">add_a_photo</span>
-                                <img id="auth-reg-avatar-preview" src="" alt="头像预览" style="display:none; width:100%; height:100%; object-fit:cover;">
+                                <img id="auth-reg-avatar-preview" src="" alt="头像预览" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('auth-reg-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover;">
                             </div>
-                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">点击上传头像 (可选)</span>
+                            <span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-top:4px;">点击上传头像 (可选)</span>
                             <input type="file" id="auth-reg-avatar-file" accept="image/*" style="display:none;" onchange="handleRegAvatarChange(event)">
                         </div>
-                        <div>
-                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">用户名</label>
-                            <input type="text" id="auth-reg-username" class="input-field" placeholder="设置用户名 (2-16位)..." maxlength="16" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                        <div class="md3-text-field">
+                            <input type="text" id="auth-reg-username" class="md3-text-field-input" placeholder=" " maxlength="16" autocomplete="username">
+                            <label for="auth-reg-username" class="md3-text-field-label">设置用户名 (2-16位)</label>
                         </div>
-                        <div>
-                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">密码</label>
-                            <input type="password" id="auth-reg-password" class="input-field" placeholder="设置密码 (至少4位)..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;">
+                        <div class="md3-text-field">
+                            <input type="password" id="auth-reg-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="new-password">
+                            <label for="auth-reg-password" class="md3-text-field-label">设置密码 (至少6位)</label>
                         </div>
-                        <div>
-                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:4px;">确认密码</label>
-                            <input type="password" id="auth-reg-password2" class="input-field" placeholder="再次输入密码..." maxlength="32" style="height:44px; border-radius:var(--md-shape-m); width:100%;" onkeydown="if(event.key==='Enter') handleCloudRegister()">
+                        <div class="md3-text-field">
+                            <input type="password" id="auth-reg-password2" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="new-password" onkeydown="if(event.key==='Enter') handleCloudRegister()">
+                            <label for="auth-reg-password2" class="md3-text-field-label">确认密码</label>
                         </div>
-                        <button type="button" class="btn btn-filled btn-touch-large" id="btn-auth-cloud-register" onclick="handleCloudRegister()" style="margin-top:6px; width:100%; border-radius:var(--md-shape-full);">
+                        <button type="button" class="btn btn-filled auth-submit-btn" id="btn-auth-cloud-register" onclick="handleCloudRegister()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">person_add</span>
                             <span class="btn-label-text">注册并登录</span>
                         </button>
                     </div>
 
-                    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="continueAsGuest()" style="width:100%; border-radius:var(--md-shape-full);">
+                    <div style="margin-top:24px; padding-top:18px; border-top:1px solid var(--md-sys-color-outline-variant);">
+                        <button type="button" class="btn btn-outlined auth-secondary-btn" onclick="continueAsGuest()">
                             暂不登录，以游客身份体验
                         </button>
                     </div>
@@ -329,7 +558,7 @@
                     <div id="hub-user-pill" class="hub-user-pill" onclick="switchView('view-me')" title="个人中心 (我)">
                         <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap">
                             <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
-                            <img id="hub-user-avatar-img" src="" alt="头像" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                            <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
                         </div>
                         <span id="hub-user-name" style="font-weight:600; font-size:0.9rem; color:var(--md-sys-color-on-surface);">游客</span>
                     </div>
@@ -584,7 +813,7 @@
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div id="me-user-avatar-wrap" onclick="triggerMeAvatarUpload()" style="width: 54px; height: 54px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; border: 2px solid var(--md-sys-color-primary);" title="点击更换头像">
                                     <span class="material-symbols-rounded" id="me-user-avatar-icon" style="font-size: 30px;">person</span>
-                                    <img id="me-user-avatar-img" src="" alt="头像" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+                                    <img id="me-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('me-user-avatar-icon').style.display='inline-flex';" style="display:none; width: 100%; height: 100%; object-fit: cover;">
                                     <div id="me-user-avatar-edit-hint" style="position: absolute; bottom: 0; left: 0; right: 0; height: 18px; background: rgba(0,0,0,0.52); display: flex; align-items: center; justify-content: center; color: #fff;">
                                         <span class="material-symbols-rounded" style="font-size: 12px;">photo_camera</span>
                                     </div>
@@ -861,39 +1090,7 @@
 
             <div class="card" style="max-width: 680px; margin: 0 auto;">
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
-                    <div class="card-filled" style="padding: 18px; border-radius: var(--md-shape-l);">
-                        <div
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <h3 style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
-                                <span class="material-symbols-rounded"
-                                    style="color:var(--md-sys-color-primary);">add_circle</span>
-                                创建联机房间
-                            </h3>
-                        </div>
-                        <p style="font-size:0.83rem; color:var(--md-sys-color-outline); margin-bottom:12px;">
-                            无人在线时房间将自动清理。</p>
 
-                        <div style="display:flex; flex-direction:column; gap:12px;">
-                            <div>
-                                <label
-                                    style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:5px;">房间名称</label>
-                                <input type="text" id="input-custom-room-name" class="input-field" placeholder="请输入房间名称"
-                                    maxlength="18" style="height:42px; border-radius:var(--md-shape-full);">
-                            </div>
-                            <div>
-                                <label
-                                    style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface-variant); display:block; margin-bottom:5px;">人数限制</label>
-                                <div class="chip-group" id="chips-room-capacity">
-                                    <div class="md3-chip selected" data-cap="2">2 人</div>
-                                </div>
-                            </div>
-                            <button class="btn btn-filled btn-touch-large" style="width:100%; margin-top:4px;"
-                                onclick="handleCreateCustomRoom()">
-                                <span class="material-symbols-rounded">meeting_room</span>
-                                <span class="btn-label-text">创建房间</span>
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- 仅列出有玩家在线的房间 -->
                     <div>
@@ -982,12 +1179,12 @@
                             </div>
                             <div style="font-size: 1.3rem; font-weight: 800; color: var(--md-sys-color-outline); margin: 0 10px;">VS</div>
                             <div style="text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 100px;">
-                                <div id="room-p2-avatar-wrap" style="width: 54px; height: 54px; border-radius: 50%; background: var(--p2-sys-color-container, #d8e2ff); color: var(--p2-sys-color, #005ac1); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; overflow: hidden; border: 2.5px solid var(--p2-sys-color, #005ac1);">
-                                    <span class="material-symbols-rounded" id="room-p2-avatar-icon" style="font-size: 30px;">person</span>
+                                <div id="room-p2-avatar-wrap" onclick="handleP2AvatarClick()" style="width: 54px; height: 54px; border-radius: 50%; background: var(--p2-sys-color-container, #d8e2ff); color: var(--p2-sys-color, #005ac1); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; overflow: hidden; border: 2.5px solid var(--p2-sys-color, #005ac1); cursor: pointer; position: relative;">
+                                    <span class="material-symbols-rounded" id="room-p2-avatar-icon" style="font-size: 30px;">person_add</span>
                                     <img id="room-p2-avatar-img" src="" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('room-p2-avatar-icon').style.display='inline-flex';" style="display: none; width: 100%; height: 100%; object-fit: cover;">
                                 </div>
-                                <div style="font-weight: 700; color: var(--p2-sys-color); font-size: 0.95rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="room-p2-name">等待对手加入...</div>
-                                <span class="badge badge-p2" style="margin-top: 4px;"> 挑战者 (P2) </span>
+                                <div style="font-weight: 700; color: var(--p2-sys-color); font-size: 0.95rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="room-p2-name">点击邀请玩家</div>
+                                <span class="badge badge-p2" id="room-p2-badge" style="margin-top: 4px;"> 邀请对手 </span>
                             </div>
                         </div>
                     </div>
@@ -1035,33 +1232,19 @@
                         </div>
 
                         <div class="rule-group" id="room-book-group" style="margin-bottom:0;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                                <span class="rule-label" style="margin-bottom:0;">对决词库</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <span class="rule-label" style="margin-bottom:0;">对决词书</span>
                             </div>
-
-                            <!-- 与背实词一致的工具栏 -->
-                            <div class="modal-toolbar" id="room-book-toolbar" style="padding:0 0 8px 0; margin-bottom:8px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                                <div style="display:flex; gap:8px;">
-                                    <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllRoomBooks(true)">
-                                        <span class="material-symbols-rounded" style="font-size:18px;">done_all</span>
-                                        <span class="btn-label-text">全选</span>
-                                    </button>
-                                    <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllRoomBooks(false)">
-                                        <span class="material-symbols-rounded" style="font-size:18px;">clear_all</span>
-                                        <span class="btn-label-text">清空</span>
-                                    </button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                                <div style="flex:1; min-width:0; padding-right:10px;">
+                                    <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="room-selected-books-title">高考3500</div>
+                                    <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;" id="room-selected-books-summary">已选 1 本词书</div>
                                 </div>
-                                <div style="display:flex; gap:8px;">
-                                    <button type="button" class="btn btn-outlined btn-sm" onclick="triggerRoomBookImport()">
-                                        <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                                        <span class="btn-label-text" id="room-import-label">导入词书</span>
-                                    </button>
-                                    <input type="file" id="room-custom-book-input" accept=".json" multiple style="display:none;" onchange="handleRoomCustomBookUpload(event)">
-                                </div>
+                                <button type="button" class="btn btn-outlined btn-sm" id="btn-room-select-books" onclick="openRoomBookSelector()">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
+                                    <span>选择词书</span>
+                                </button>
                             </div>
-
-                            <div class="chip-group book-selection-list" id="chips-books"></div>
-                            <div style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-primary); margin-top:8px;" id="room-book-count-tip">已选 1 本英语词书</div>
                         </div>
                     </div>
 
@@ -1868,6 +2051,30 @@
                 </div>
 
                 <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">volume_up</span>
+                    <span>声音与发音</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="flex-direction:column; align-items:flex-start;">
+                        <div class="settings-row-left" style="width:100%; justify-content:space-between;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="settings-icon-box">
+                                    <span class="material-symbols-rounded">record_voice_over</span>
+                                </div>
+                                <div class="settings-row-text">
+                                    <h4>默认发音</h4>
+                                    <p>发音按钮播放英音或美音</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chip-group" id="chips-default-pronunciation" style="margin-top:10px; width:100%;">
+                            <div class="md3-chip selected" data-accent="1" onclick="setDefaultPronunciationAccent(1)">英音</div>
+                            <div class="md3-chip" data-accent="2" onclick="setDefaultPronunciationAccent(2)">美音</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">search</span>
                     <span>搜索与查词</span>
                 </div>
@@ -1879,7 +2086,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>搜索设置</h4>
-                                <p>配置查词标签页、相关词组、相关链接及查词虚拟键盘</p>
+                                <p>过滤搜索结果和虚拟键盘开关</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
@@ -1946,6 +2153,30 @@
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">open_in_new</span>
                     </a>
+                </div>
+
+                <!-- B 站 Toy 平台专属作者互动 -->
+                <div id="settings-toy-feedback-section" style="display: none;">
+                    <div class="settings-section-title">
+                        <span class="material-symbols-rounded" style="font-size:20px;">favorite</span>
+                        <span>作者互动</span>
+                    </div>
+                    <div class="settings-card">
+                        <div class="settings-row clickable" onclick="handleToyFollowAuthor()">
+                            <div class="settings-row-left">
+                                <div class="settings-icon-box" style="background:#ffecf1; color:#e11d48;">
+                                    <span class="material-symbols-rounded">favorite</span>
+                                </div>
+                                <div class="settings-row-text">
+                                    <h4 id="toy-author-name">支持一下</h4>
+                                    <p id="toy-author-desc">关注作者 B 站账号</p>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-filled btn-sm" id="btn-toy-follow" style="pointer-events:none;">
+                                <span class="btn-label-text" id="btn-toy-follow-text">关注作者</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-section-title">
@@ -3183,6 +3414,7 @@
             </div>
         </div>
     </div>
+
 
 
     <!-- 统一底部滑入式虚拟键盘 (MD3 规范，应用图片布局) -->

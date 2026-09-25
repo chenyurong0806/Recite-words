@@ -167,13 +167,16 @@ export default {
               .filter(l => l && !l.startsWith('#'))
               .map(l => l.replace(/^[-*•\d.]+\s*/, ''));
 
-            // 核心：把下载链接指向 Worker 自身的代理加速下载接口
+            const zipAsset = Array.isArray(latest.assets) ? latest.assets.find(a => a.name && a.name.endsWith('.zip')) : null;
+            const zipRawUrl = zipAsset ? zipAsset.browser_download_url : `https://github.com/${REPO}/archive/refs/tags/${latest.tag_name}.zip`;
+
+            // 核心：把下载链接指向 Worker 自身的代理加速下载接口与镜像
             versionData = {
               version: tag,
               releaseDate: (latest.published_at || '').substring(0, 10),
               changelog: changelog.length > 0 ? changelog : ['常规更新及性能优化'],
-              downloadUrl: `${url.origin}/api/download-latest?tag=${latest.tag_name}`, // 走 Worker 代理下载
-              mirrorDownloadUrl: `https://ghfast.top/https://github.com/${REPO}/releases/download/${latest.tag_name}/index.html`, // 备用国内镜像
+              downloadUrl: `${url.origin}/api/download-latest?tag=${latest.tag_name}`, // 走 Worker 代理下载 zip
+              mirrorDownloadUrl: `https://ghfast.top/${zipRawUrl}`, // 备用国内镜像 zip
               githubReleaseUrl: latest.html_url
             };
           }
@@ -261,16 +264,15 @@ export default {
     }
 
     // ==========================================
-    // 路由 4: 下载最新版 HTML (关键优化：Worker 代下中转，免翻墙满速)
+    // 路由 4: 下载最新版 ZIP 压缩包 (关键优化：Worker 代下中转，免翻墙满速)
     // ==========================================
     if (url.pathname === '/api/download-latest') {
       const tag = url.searchParams.get('tag') || 'latest';
       const fileUrl = tag === 'latest' 
-        ? `https://github.com/${REPO}/releases/latest/download/index.html`
-        : `https://github.com/${REPO}/releases/download/${tag}/index.html`;
+        ? `https://github.com/${REPO}/archive/refs/heads/main.zip`
+        : `https://github.com/${REPO}/archive/refs/tags/${tag}.zip`;
 
       try {
-        // Worker 在海外高速拉取 GitHub 文件流，然后直接 pipe 传输给大陆用户
         const upstreamRes = await fetch(fileUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0' },
           redirect: 'follow'
@@ -279,9 +281,8 @@ export default {
         if (upstreamRes.ok) {
           const downloadHeaders = new Headers(upstreamRes.headers);
           downloadHeaders.set('Access-Control-Allow-Origin', '*');
-          downloadHeaders.set('Content-Disposition', 'attachment; filename="index.html"');
-          downloadHeaders.set('Content-Type', 'text/html; charset=utf-8');
-          // 移除 GitHub 的防盗链阻断头
+          downloadHeaders.set('Content-Disposition', `attachment; filename="Recite-words-${tag}.zip"`);
+          downloadHeaders.set('Content-Type', 'application/zip');
           downloadHeaders.delete('x-frame-options');
 
           return new Response(upstreamRes.body, {
@@ -293,7 +294,6 @@ export default {
         console.warn('Worker direct download failed, redirecting to mirror...', err);
       }
 
-      // 如果 Worker 下载失败，302 跳转到国内开源镜像节点
       return Response.redirect(`https://ghfast.top/${fileUrl}`, 302);
     }
 

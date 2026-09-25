@@ -159,6 +159,10 @@ function renderSettingsMain() {
         statEl.innerText = `作答词数：${userStats.total || 0} 词  |  正确率：${acc}%  |  错题数：${Object.keys(userStats.mistakes || {}).length} 词`;
     }
 
+    if (typeof updatePronunciationSettingsChips === 'function') {
+        updatePronunciationSettingsChips();
+    }
+
     const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const webRow = document.getElementById('settings-online-web-row');
     const githubRow = document.querySelector('a[href*="github.com"]');
@@ -232,20 +236,106 @@ function renderSettingsMain() {
         const tCount = getTrashWords().length;
         trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
     }
+
+    initToyFeedbackSection();
+}
+
+let toyAuthorMid = '1569750390';
+let toyAuthorProfile = null;
+let isToyAuthorFollowed = false;
+async function initToyFeedbackSection() {
+    const section = document.getElementById('settings-toy-feedback-section');
+    if (!section) return;
+
+    const isToy = isBilibiliToy || (typeof window !== 'undefined' && !!window.toy);
+    if (!isToy) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+
+    const nameEl = document.getElementById('toy-author-name');
+    const descEl = document.getElementById('toy-author-desc');
+    const btnFollow = document.getElementById('btn-toy-follow');
+    const btnFollowText = document.getElementById('btn-toy-follow-text');
+
+    if (window.toy && typeof window.toy.getAuthorProfile === 'function') {
+        try {
+            const resp = await window.toy.getAuthorProfile();
+            if (resp && resp.status === 'ok' && resp.data) {
+                toyAuthorProfile = resp.data;
+                if (resp.data.mid) toyAuthorMid = String(resp.data.mid);
+                if (nameEl && resp.data.nickname) {
+                    nameEl.innerText = `关注作者 ${resp.data.nickname}`;
+                }
+                if (descEl && resp.data.follower !== undefined) {
+                    descEl.innerText = `粉丝数：${resp.data.follower} | 获取更新动态与交流互动`;
+                }
+            }
+        } catch (e) {
+            console.warn('[Toy] getAuthorProfile error:', e);
+        }
+    }
+
+    if (window.toy && typeof window.toy.getAuthorRelation === 'function') {
+        try {
+            const rel = await window.toy.getAuthorRelation();
+            if (rel && rel.status === 'ok' && rel.data) {
+                isToyAuthorFollowed = !!rel.data.isFollowing;
+                if (btnFollow && btnFollowText) {
+                    if (isToyAuthorFollowed) {
+                        btnFollowText.innerText = '已关注';
+                        btnFollow.classList.remove('btn-filled');
+                        btnFollow.classList.add('btn-tonal');
+                    } else {
+                        btnFollowText.innerText = '关注作者';
+                        btnFollow.classList.add('btn-filled');
+                        btnFollow.classList.remove('btn-tonal');
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Toy] getAuthorRelation error:', e);
+        }
+    }
+}
+
+async function handleToyFollowAuthor() {
+    if (window.toy && typeof window.toy.navigate === 'function') {
+        try {
+            const targetId = toyAuthorMid || (toyAuthorProfile && toyAuthorProfile.mid ? String(toyAuthorProfile.mid) : '1569750390');
+            await window.toy.navigate({
+                type: 'space',
+                id: String(targetId)
+            });
+            return;
+        } catch (e) {
+            console.warn('[Toy] navigate to space failed:', e);
+        }
+    }
+    window.open(`https://space.bilibili.com/${toyAuthorMid || '1569750390'}`, '_blank');
 }
 
 function switchAccount(name) {
     if (!name || name === currentUser) return;
+    const oldUser = currentUser;
+    if (typeof recordSwitchedAccount === 'function') {
+        recordSwitchedAccount(oldUser);
+    }
+    if (globalLobbyChannel) {
+        try {
+            globalLobbyChannel.untrack();
+            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+        } catch (e) { }
+        globalLobbyChannel = null;
+    }
     loadUserData(name);
     renderSettingsMain();
     renderMeView();
     updateHub();
-    if (globalLobbyChannel) {
-        globalLobbyChannel.track({
-            username: currentUser,
-            status: 'idle',
-            joinedAt: Date.now()
-        });
+    if (typeof initGlobalPresence === 'function') {
+        initGlobalPresence();
     }
     showToast(`已切换至账号 ${name} `);
 }
@@ -260,6 +350,17 @@ function createAndSwitchAccount() {
         input.value = '';
         return;
     }
+    const oldUser = currentUser;
+    if (typeof recordSwitchedAccount === 'function') {
+        recordSwitchedAccount(oldUser);
+    }
+    if (globalLobbyChannel) {
+        try {
+            globalLobbyChannel.untrack();
+            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+        } catch (e) { }
+        globalLobbyChannel = null;
+    }
     allUsersList.push(name);
     localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
     loadUserData(name);
@@ -267,12 +368,8 @@ function createAndSwitchAccount() {
     renderSettingsMain();
     renderMeView();
     updateHub();
-    if (globalLobbyChannel) {
-        globalLobbyChannel.track({
-            username: currentUser,
-            status: 'idle',
-            joinedAt: Date.now()
-        });
+    if (typeof initGlobalPresence === 'function') {
+        initGlobalPresence();
     }
     showToast(`已新建并切换至账号【${name}】`);
 }
@@ -282,6 +379,18 @@ function handleDeleteCurrentAccount() {
     const targetUser = currentUser;
     const isConfirmed = confirm(`确定要永久删除当前账号【${targetUser}】吗？\n\n警告：此操作不可撤销！该账号的所有学习统计、艾宾浩斯复习进度、错词记录及熟词数据将被彻底删除！`);
     if (!isConfirmed) return;
+
+    const oldUser = currentUser;
+    if (typeof recordSwitchedAccount === 'function') {
+        recordSwitchedAccount(oldUser);
+    }
+    if (globalLobbyChannel) {
+        try {
+            globalLobbyChannel.untrack();
+            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+        } catch (e) { }
+        globalLobbyChannel = null;
+    }
 
     // 清除该用户在 localStorage 中的所有相关数据
     const userSuffix = `_${targetUser}`;
@@ -304,12 +413,8 @@ function handleDeleteCurrentAccount() {
         renderSettingsMain();
         renderMeView();
         updateHub();
-        if (globalLobbyChannel) {
-            globalLobbyChannel.track({
-                username: currentUser,
-                status: 'idle',
-                joinedAt: Date.now()
-            });
+        if (typeof initGlobalPresence === 'function') {
+            initGlobalPresence();
         }
         showToast(`已删除账号【${targetUser}】，已自动切换至【${nextUser}】`);
     } else {

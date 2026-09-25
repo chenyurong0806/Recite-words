@@ -10,10 +10,22 @@ try {
     allUsersList = [];
 }
 
+// 获取或生成专属的游客名称（如：游客_7214）
+function getUniqueGuestName() {
+    let guestId = SafeStorage.getItem('vocab_guest_name');
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
+        SafeStorage.setItem('vocab_guest_name', guestId);
+    }
+    return guestId;
+}
+
+const defaultGuestName = getUniqueGuestName();
+
 let currentUserProfile = {
     isLoggedIn: false,
     type: 'guest', // 'guest' | 'cloud' | 'bilibili'
-    username: '游客',
+    username: defaultGuestName,
     avatar: '',
     openId: ''
 };
@@ -21,11 +33,14 @@ let currentUserProfile = {
 try {
     const savedSession = SafeStorage.getItem('vocab_auth_session');
     if (savedSession) {
-        currentUserProfile = { ...currentUserProfile, ...JSON.parse(savedSession) };
+        const parsed = JSON.parse(savedSession);
+        if (parsed && parsed.isLoggedIn && parsed.username) {
+            currentUserProfile = { ...currentUserProfile, ...parsed };
+        }
     }
 } catch (e) { }
 
-let currentUser = currentUserProfile.username || '游客';
+let currentUser = currentUserProfile.username || defaultGuestName;
 let userStats = { total: 0, correct: 0, mistakes: {} };
 
 let gameMode = 'single';
@@ -51,11 +66,11 @@ let gameTimer = null;
 let gameResult = null;
 
 const savedSingleBooks = SafeStorage.getItem('single_vocab_books');
-let singleSelectedBookIds = ['GaoKao3500'];
+let singleSelectedBookIds = ['books/考纲/高考3500.json'];
 if (savedSingleBooks) {
     try {
         const parsed = JSON.parse(savedSingleBooks);
-        if (parsed.length > 0) singleSelectedBookIds = parsed;
+        if (Array.isArray(parsed)) singleSelectedBookIds = parsed;
     } catch (e) { }
 }
 
@@ -69,43 +84,27 @@ let singleState = {
     sessionName: '新词学习'
 };
 
-// 获取或生成专属的游客名称（如：游客_7214）
-function getUniqueGuestName() {
-    let guestId = SafeStorage.getItem('vocab_guest_name');
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
-        guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
-        SafeStorage.setItem('vocab_guest_name', guestId);
-    }
-    return guestId;
-}
-
-const defaultGuestName = getUniqueGuestName();
-
-currentUserProfile = {
-    isLoggedIn: false,
-    type: 'guest',
-    username: defaultGuestName,
-    avatar: '',
-    openId: ''
-};
-
 function getUserAvatar(username) {
     if (!username) return '';
+    let avatar = '';
     // 如果是游客账号，游客不分配自定义上传头像，防止取到其他用户的头像
     if (username.startsWith('游客')) {
         if (currentUserProfile && currentUserProfile.username === username) {
-            return currentUserProfile.avatar || '';
+            avatar = currentUserProfile.avatar || '';
         }
-        return '';
+    } else if (currentUserProfile && currentUserProfile.username === username && currentUserProfile.avatar) {
+        avatar = currentUserProfile.avatar;
+    } else {
+        try {
+            avatar = SafeStorage.getItem(`vocab_user_avatar_${username}`) || '';
+        } catch (e) {
+            avatar = '';
+        }
     }
-    if (currentUserProfile && currentUserProfile.username === username && currentUserProfile.avatar) {
-        return currentUserProfile.avatar;
+    if (avatar && typeof avatar === 'string' && avatar.startsWith('//')) {
+        avatar = 'https:' + avatar;
     }
-    try {
-        return SafeStorage.getItem(`vocab_user_avatar_${username}`) || '';
-    } catch (e) {
-        return '';
-    }
+    return avatar;
 }
 
 function loadUserData(username, profile = null) {

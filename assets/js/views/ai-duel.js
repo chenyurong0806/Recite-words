@@ -79,7 +79,7 @@ function selectAllAiDuelBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    const targetBooks = allBooks.filter(b => currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b))
+    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)))
         .concat((window.customBooks || []).filter(b => currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
     if (selectAll) {

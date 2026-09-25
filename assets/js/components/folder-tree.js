@@ -17,7 +17,16 @@ function renderBookFolderTree(containerId, options = {}) {
     const isReadOnly = options.isReadOnly || (mode === 'room' && !isHost);
     const filterType = options.filterType || (mode === 'shici' ? 'shici' : 'english');
 
-    const allBooks = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
+    const isDuel = (mode === 'ai_duel' || mode === 'local_duel');
+    const canFetchCloud = !!BookManager.cloudFetchSuccess;
+    const hasSelection = Array.isArray(selectedIds) && selectedIds.length > 0;
+    // 人机对战、同屏对决：默认内置词书仅在无法获取云端词书和未选择任何词书时显示
+    const hideBuiltin = isDuel && (canFetchCloud || hasSelection);
+
+    let allBooks = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
+    if (hideBuiltin) {
+        allBooks = allBooks.filter(b => b.id !== 'builtin_default');
+    }
 
     const bookMatches = (b) => (filterType === 'all' ? true : (filterType === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
@@ -201,4 +210,4 @@ function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
+

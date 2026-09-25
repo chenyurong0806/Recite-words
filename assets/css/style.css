@@ -116,17 +116,7 @@ body {
     animation: md3ViewEnter 0.22s cubic-bezier(0.05, 0.7, 0.1, 1.0) forwards;
 }
 
-/* 仅对底部栏做视图隔离，左侧栏保留原生 CSS 3D 硬件加速动画 */
-#app-bottom-nav,
-.md3-bottom-nav {
-    view-transition-name: app-bottom-nav;
-}
-
-::view-transition-group(app-bottom-nav),
-::view-transition-old(app-bottom-nav),
-::view-transition-new(app-bottom-nav) {
-    animation: none !important;
-}
+/* 底部栏与左侧栏保留原生 CSS 3D 硬件加速动画，不受 ViewTransition 冻结截断 */
 
 ::view-transition-old(root) {
     animation: 160ms cubic-bezier(0.4, 0, 1, 1) both md3FadeOut;
@@ -2404,18 +2394,46 @@ body.hide-all-icons .material-symbols-rounded {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 12px 4px 4px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 14px 0 4px;
     border-radius: var(--md-shape-full, 9999px);
     background: var(--md-sys-color-surface-container-high, #ecefe7);
     border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .hub-user-pill:hover {
     background: var(--md-sys-color-surface-container-highest, #e2e8f0);
     transform: translateY(-1px);
+}
+
+#btn-hub-login {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: var(--md-shape-full, 9999px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+#btn-hub-login .material-symbols-rounded {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .hub-user-avatar-wrap {
@@ -5268,7 +5286,7 @@ body.hide-all-icons .material-symbols-rounded {
     box-shadow: var(--md-elevation-2);
     padding: 0 16px;
     padding-bottom: env(safe-area-inset-bottom, 0);
-    transition: transform 0.26s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease;
+    transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.36s;
     will-change: transform, opacity;
 }
 
@@ -5300,6 +5318,10 @@ body.hide-all-icons .material-symbols-rounded {
         display: none !important;
     }
 
+    .md3-bottom-nav {
+        display: flex !important;
+    }
+
     body.has-nav {
         padding-bottom: 80px;
         padding-left: 12px;
@@ -5307,17 +5329,20 @@ body.hide-all-icons .material-symbols-rounded {
     }
 
     body.has-nav .md3-bottom-nav {
-        display: flex !important;
         transform: translate3d(0, 0, 0);
         opacity: 1;
         visibility: visible;
+        pointer-events: auto;
+        transition: transform 0.36s cubic-bezier(0.05, 0.7, 0.1, 1), opacity 0.3s ease, visibility 0.36s;
     }
 
+    /* 底部栏平滑向下淡出动画 */
     body.nav-hidden .md3-bottom-nav {
         transform: translate3d(0, 100%, 0);
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
+        transition: transform 0.36s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease, visibility 0.36s;
     }
 }
 
@@ -6920,7 +6945,6 @@ body.nav-hidden {
 .book-cover-art-count {
     font-size: 0.62rem;
     opacity: 0.85;
-    font-family: monospace;
 }
 
 .book-card-info {
@@ -7070,6 +7094,7 @@ body.nav-hidden {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     position: relative;
     width: 100%;
     min-height: auto;
@@ -7138,35 +7163,53 @@ body.nav-hidden {
 }
 
 @media (max-width: 480px) {
+    .riddle-draft-row {
+        gap: 6px;
+    }
     .riddle-draft-tile {
-        width: 44px;
-        height: 44px;
-        font-size: 1.3rem;
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
     }
     .riddle-draft-tiles {
-        gap: 6px;
+        gap: 5px;
+    }
+    .riddle-draft-btn {
+        width: 28px;
+        height: 28px;
+    }
+    .riddle-draft-btn .material-symbols-rounded {
+        font-size: 16px !important;
     }
 }
 
 @media (max-width: 400px) {
+    .riddle-draft-row {
+        gap: 4px;
+    }
     .riddle-draft-tile {
-        width: 38px;
-        height: 38px;
-        font-size: 1.15rem;
+        width: 34px;
+        height: 34px;
+        font-size: 1.05rem;
     }
     .riddle-draft-tiles {
-        gap: 4px;
+        gap: 3px;
+    }
+    .riddle-draft-btn {
+        width: 26px;
+        height: 26px;
+    }
+    .riddle-draft-btn .material-symbols-rounded {
+        font-size: 15px !important;
     }
 }
 
 .riddle-draft-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
-    position: absolute;
-    right: 2px;
-    top: 50%;
-    transform: translateY(-50%);
+    gap: 6px;
+    position: static;
+    transform: none;
     flex-shrink: 0;
 }
 
@@ -7203,4 +7246,190 @@ body.nav-hidden {
     background: var(--md-sys-color-error-container, #fee2e2);
     color: var(--md-sys-color-error, #ba1a1a);
     transform: scale(1.08);
+}
+
+/* ==========================================================================
+   MD3 账号登录/注册卡片与输入框规范 (Google MD3 Outlined Text Field)
+   ========================================================================== */
+.auth-card {
+    max-width: 480px;
+    width: 100%;
+    margin: 36px auto;
+    padding: 36px 36px 32px;
+    border-radius: var(--md-shape-l, 24px);
+    background: var(--md-sys-color-surface, #ffffff);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+    text-align: center;
+    position: relative;
+    border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+}
+
+@media (max-width: 520px) {
+    .auth-card {
+        margin: 16px auto;
+        padding: 24px 20px 24px;
+        border-radius: 18px;
+    }
+}
+
+.auth-tabs-row {
+    display: flex;
+    position: relative;
+    border-bottom: 2px solid var(--md-sys-color-surface-container-highest, #e2e8f0);
+    margin: 24px 0 28px;
+    gap: 8px;
+}
+
+.auth-tab-btn {
+    flex: 1;
+    position: relative;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--md-sys-color-outline, #79747e);
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    outline: none;
+}
+
+.auth-tab-btn:hover {
+    color: var(--md-sys-color-on-surface, #1d1b20);
+    background: var(--md-sys-color-surface-container, rgba(0, 0, 0, 0.03));
+}
+
+.auth-tab-btn.active {
+    color: var(--md-sys-color-primary, #0061a4);
+    font-weight: 700;
+}
+
+.auth-tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 8%;
+    right: 8%;
+    height: 3px;
+    background: var(--md-sys-color-primary, #0061a4);
+    border-radius: 3px 3px 0 0;
+}
+
+/* Google MD3 Outlined Text Field */
+.md3-text-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 54px;
+    border: 1px solid var(--md-sys-color-outline, #79747e);
+    border-radius: var(--md-shape-s, 8px);
+    background: var(--md-sys-color-surface, #ffffff);
+    box-sizing: border-box;
+    transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.md3-text-field:focus-within {
+    border-color: var(--md-sys-color-primary, #0061a4);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary, #0061a4);
+}
+
+.md3-text-field-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 12px 14px;
+    font-size: 1rem;
+    color: var(--md-sys-color-on-surface, #1d1b20);
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.md3-text-field-label {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    color: var(--md-sys-color-on-surface-variant, #49454f);
+    background: var(--md-sys-color-surface, #ffffff);
+    padding: 0 6px;
+    pointer-events: none;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: left top;
+    line-height: 1;
+    z-index: 2;
+}
+
+/* Floating state: focused or input has text */
+.md3-text-field-input:focus ~ .md3-text-field-label,
+.md3-text-field-input:not(:placeholder-shown) ~ .md3-text-field-label {
+    top: 0;
+    transform: translateY(-50%) scale(0.85);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.md3-text-field-input:focus ~ .md3-text-field-label {
+    color: var(--md-sys-color-primary, #0061a4);
+    font-weight: 600;
+}
+
+.auth-form-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: left;
+}
+
+.auth-submit-btn {
+    height: 48px;
+    min-height: 48px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--md-shape-full, 9999px);
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.auth-secondary-btn {
+    height: 44px;
+    min-height: 44px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    border-radius: var(--md-shape-full, 9999px);
+    width: 100%;
+}
+
+.auth-reg-avatar-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--md-sys-color-surface-container, #f1f5f9);
+    border: 2px dashed var(--md-sys-color-primary, #0061a4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    margin: 0 auto;
+}
+
+.auth-reg-avatar-wrap:hover {
+    transform: scale(1.05);
+    background: var(--md-sys-color-primary-container, #dbeafe);
 }

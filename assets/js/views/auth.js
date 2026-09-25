@@ -31,13 +31,13 @@ function switchAuthTab(tab) {
         if (tab === 'login') {
             tabLoginBtn.classList.add('active');
             tabRegBtn.classList.remove('active');
-            if (loginSection) loginSection.style.display = 'block';
+            if (loginSection) loginSection.style.display = 'flex';
             if (regSection) regSection.style.display = 'none';
         } else {
             tabRegBtn.classList.add('active');
             tabLoginBtn.classList.remove('active');
             if (loginSection) loginSection.style.display = 'none';
-            if (regSection) regSection.style.display = 'block';
+            if (regSection) regSection.style.display = 'flex';
         }
     }
 }

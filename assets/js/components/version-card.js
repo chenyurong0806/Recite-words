@@ -43,18 +43,26 @@ async function checkCloudVersion(manual = false) {
                         .map(line => line.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
                         .filter(line => line.length > 0 && !line.startsWith('#'));
                 }
+                const zipAsset = Array.isArray(ghData.assets) ? ghData.assets.find(a => a.name && a.name.endsWith('.zip')) : null;
+                const zipRawUrl = zipAsset ? zipAsset.browser_download_url : `https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${ghData.tag_name}.zip`;
                 data = {
                     version: tag,
                     releaseDate: releaseDate,
                     changelog: changelogItems.length > 0 ? changelogItems : ['常规优化更新'],
-                    // 自动加上 ghfast.top 镜像前缀，确保即使走备选，大陆下载也是满速
-                    downloadUrl: `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/releases/download/${ghData.tag_name}/index.html`
+                    // 自动加上 ghfast.top 镜像前缀，确保离线版在大陆下载 zip 也是满速
+                    downloadUrl: `https://ghfast.top/${zipRawUrl}`
                 };
             }
         } catch (e) { }
     }
 
     if (data && data.version) {
+        // 保证离线版本下载链接始终是 zip 压缩包
+        if (!data.downloadUrl || !data.downloadUrl.includes('.zip')) {
+            const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+            data.downloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+        }
+
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const hasNewer = semverCompare(data.version, APP_VERSION) > 0;
 
@@ -92,8 +100,8 @@ function showVersionUpdateCard(data, isLocal) {
 
     if (actionBtn) {
         if (isLocal) {
-            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载最新版本</span>';
-            actionBtn.onclick = () => handleDownloadLatestHtml(data.downloadUrl);
+            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
+            actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
         } else {
             actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">refresh</span><span>刷新更新</span>';
             actionBtn.onclick = () => window.location.reload(true);
@@ -114,23 +122,29 @@ function openChangelogInSettings() {
     switchSettingsSubview('changelog');
 }
 
-function handleDownloadLatestHtml(downloadUrl) {
+function handleDownloadLatestZip(downloadUrl, version) {
     if (!downloadUrl) return;
-    showToast('正在启动下载，请稍候...');
+    showToast('正在启动下载离线更新压缩包，请稍候...');
 
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = 'index.html';
+    const vStr = version ? `v${version}` : 'latest';
+    a.download = `Recite-words-${vStr}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 }
 
+// 兼容旧方法名
+function handleDownloadLatestHtml(downloadUrl) {
+    handleDownloadLatestZip(downloadUrl);
+}
+
 function handleVersionUpdateAction() {
     const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocal) {
-        handleDownloadLatestHtml();
+        handleDownloadLatestZip();
     } else {
         window.location.reload(true);
     }
-}
+}

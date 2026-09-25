@@ -95,9 +95,44 @@ function speakNative(text, lang = 'en-US', rate = 0.95) {
 }
 
 // ==========================================================================
-// 4. 差异化播放总路由：支持英语单词、英语词组、中文
+// 4. 发音口音偏好设置 (搜索页面以外的发音按钮默认英音 1，可在设置中调整为美音 2)
 // ==========================================================================
-function playWordAudio(rawText, type = 2) {
+function getDefaultPronunciationAccent() {
+    try {
+        const val = localStorage.getItem('vocab_default_pronunciation');
+        if (val === '2') return 2; // 美音
+        return 1; // 默认英音 (1)
+    } catch (e) {
+        return 1;
+    }
+}
+
+function setDefaultPronunciationAccent(accent) {
+    const val = Number(accent) === 2 ? 2 : 1;
+    try {
+        localStorage.setItem('vocab_default_pronunciation', String(val));
+    } catch (e) { }
+    updatePronunciationSettingsChips();
+    if (typeof showToast === 'function') {
+        showToast(val === 1 ? '已设为默认播放英音' : '已设为默认播放美音');
+    }
+}
+
+function updatePronunciationSettingsChips() {
+    const accent = getDefaultPronunciationAccent();
+    document.querySelectorAll('#chips-default-pronunciation .md3-chip').forEach(c => {
+        const chipVal = Number(c.getAttribute('data-accent'));
+        c.classList.toggle('selected', chipVal === accent);
+    });
+}
+
+// ==========================================================================
+// 5. 差异化播放总路由：支持英语单词、英语词组、中文
+// ==========================================================================
+function playWordAudio(rawText, type = null) {
+    if (type === null || type === undefined) {
+        type = getDefaultPronunciationAccent();
+    }
     if (!rawText) return;
     ensureAudioContextUnlocked();
 
@@ -220,9 +255,12 @@ function playNetworkAudioFallback(url) {
 }
 
 // ==========================================================================
-// 5. 静默后台预加载当前题目发音 (用于学习/默写/对决切题时预热)
+// 6. 静默后台预加载当前题目发音 (用于学习/默写/对决切题时预热)
 // ==========================================================================
-function preloadWordAudio(rawText, type = 2) {
+function preloadWordAudio(rawText, type = null) {
+    if (type === null || type === undefined) {
+        type = getDefaultPronunciationAccent();
+    }
     if (!rawText || !navigator.onLine) return;
     const cleanText = cleanAudioText(rawText);
     if (!cleanText || detectAudioCategory(cleanText) !== 'english_word') return;
@@ -236,7 +274,10 @@ function preloadWordAudio(rawText, type = 2) {
 }
 
 // 兼容别名导出
-function playWordVoice(word, type = 2) {
+function playWordVoice(word, type = null) {
+    if (type === null || type === undefined) {
+        type = getDefaultPronunciationAccent();
+    }
     playWordAudio(word, type);
 }
 

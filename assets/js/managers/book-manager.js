@@ -16,6 +16,7 @@ const BookManager = {
     API_BASE: 'https://vocab-api.chenyurong.qzz.io',
     availableBooks: [],
     bookCache: {},
+    cloudFetchSuccess: false,
     fallbackBooks: [
         { id: 'builtin_default', name: '默认词书', category: '内置', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS, path: '', isCloud: false },
         { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3893, path: 'books/考纲/高考3500.json', isCloud: true },
@@ -148,6 +149,7 @@ const BookManager = {
 
         // 3. 处理获取到的词书或使用 fallbackBooks
         if (fetchedBooks && fetchedBooks.length > 0) {
+            this.cloudFetchSuccess = true;
             this.availableBooks = fetchedBooks.map(item => ({
                 id: String(item.id || item.path || item.name),
                 name: cleanBookName(item.name || item.title || item.id),
@@ -162,6 +164,7 @@ const BookManager = {
             if (banner) banner.style.display = 'none';
             return { success: true, books: this.availableBooks };
         } else {
+            this.cloudFetchSuccess = false;
             this.availableBooks = [...this.fallbackBooks];
             this.mergeCustomBooks();
             if (banner) banner.style.display = 'block';
@@ -272,7 +275,10 @@ const BookManager = {
         if (fallback && fallback.words) {
             return this.normalizeWords(fallback.words, fallback.name, fallback.id);
         }
-        return this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
+        if (bookId === 'builtin_default') {
+            return this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
+        }
+        return [];
     },
 
     normalizeWords(rawData, bookName = '', bookId = '') {
@@ -354,8 +360,11 @@ function getAllUniqueBooks() {
         ...(BookManager.fallbackBooks || []),
         ...(window.customBooks || [])
     ];
+    // 如果有云端词书，就不要在选择词书中显示默认内置词书
+    const hasCloudBooks = candidates.some(b => b && (b.isCloud || String(b.id).startsWith('books/')));
     for (const b of candidates) {
         if (!b || !b.id) continue;
+        if (hasCloudBooks && b.id === 'builtin_default') continue;
         if (!seen.has(b.id)) {
             seen.add(b.id);
             list.push(b);
@@ -368,4 +377,4 @@ function isBookShiCi(b) {
     if (!b) return false;
     return b.category === '实词' || b.id === 'books/实词/实词.json' || (typeof isShiCiBook === 'function' && isShiCiBook(b));
 }
-
+

@@ -927,7 +927,10 @@ function endSingleGame() {
 }
 
 function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
-    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...dictionary, ...DEFAULT_WORDS];
+    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...(dictionary || [])];
+    if (pool.length === 0) {
+        pool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+    }
     const targetLower = targetWord.toLowerCase();
     const isSingleWord = !targetWord.trim().includes(' ');
 
@@ -1099,8 +1102,17 @@ function renderMeView() {
 
             if (displayNameEl) displayNameEl.innerText = currentUserProfile.username || currentUser;
 
-            const avatarUrl = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUserProfile.username) : '';
+            let avatarUrl = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUserProfile.username) : '';
+            if (avatarUrl && avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
             if (avatarUrl && avatarImg && avatarIcon) {
+                avatarImg.onerror = () => {
+                    avatarImg.style.display = 'none';
+                    avatarIcon.style.display = 'inline-flex';
+                };
+                avatarImg.onload = () => {
+                    avatarImg.style.display = 'block';
+                    avatarIcon.style.display = 'none';
+                };
                 avatarImg.src = avatarUrl;
                 avatarImg.style.display = 'block';
                 avatarIcon.style.display = 'none';
