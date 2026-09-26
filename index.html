@@ -467,7 +467,7 @@
                         <!-- 设备已登录过的账号快捷登录区域 -->
                         <div id="auth-saved-accounts-section" style="display:none; width:100%; margin-bottom:16px;">
                             <div style="font-size:0.88rem; font-weight:700; color:var(--md-sys-color-on-surface); margin-bottom:10px;">
-                                <span>本机已登录过的账号</span>
+                                <span>登录过的账号：</span>
                             </div>
                             <div id="auth-saved-accounts-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                         </div>
@@ -896,28 +896,26 @@
 
                 <!-- 2. Wordle 榜板块 -->
                 <div id="lb-wordle-section" style="display:none;">
-                    <!-- 日期选择与排序控制栏 -->
-                    <div class="card" style="padding: 14px 18px; margin-bottom: 14px; display:flex; flex-direction:column; gap:12px; border-radius:18px; background:var(--md-sys-color-surface-container-low, #ffffff); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <button type="button" class="md3-icon-btn" id="btn-lb-wordle-prev" onclick="shiftWordleLeaderboardDate(-1)" title="前一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
-                                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_left</span>
-                                </button>
-                                <span id="lb-wordle-date-label" style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface); min-width:140px; text-align:center;">2026-09-26 (今日)</span>
-                                <button type="button" class="md3-icon-btn" id="btn-lb-wordle-next" onclick="shiftWordleLeaderboardDate(1)" title="后一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
-                                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_right</span>
-                                </button>
-                            </div>
-                            <button type="button" class="btn btn-tonal btn-sm" id="btn-lb-wordle-today" onclick="resetWordleLeaderboardDate()" style="border-radius:9999px; height:30px; padding:0 14px; font-size:0.8rem; font-weight:600; display:none;">
+                    <!-- 日期选择（左）与排序依据下拉列表（右），无外容器包裹 -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 14px; padding: 4px 2px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" class="md3-icon-btn" id="btn-lb-wordle-prev" onclick="shiftWordleLeaderboardDate(-1)" title="前一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
+                                <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_left</span>
+                            </button>
+                            <span id="lb-wordle-date-label" style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface); text-align:center;">2026-09-26 (今日)</span>
+                            <button type="button" class="md3-icon-btn" id="btn-lb-wordle-next" onclick="shiftWordleLeaderboardDate(1)" title="后一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
+                                <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_right</span>
+                            </button>
+                            <button type="button" class="btn btn-tonal btn-sm" id="btn-lb-wordle-today" onclick="resetWordleLeaderboardDate()" style="border-radius:9999px; height:28px; padding:0 12px; font-size:0.75rem; font-weight:600; display:none; margin-left:4px;">
                                 回到今日
                             </button>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">排序依据：</span>
-                            <div class="chip-group" style="margin:0; gap:8px;">
-                                <div class="md3-chip selected" id="btn-lb-sort-time" onclick="setWordleLeaderboardSort('time')" style="height:30px; padding:0 12px; font-size:0.8rem; border-radius:8px;">按用时最快</div>
-                                <div class="md3-chip" id="btn-lb-sort-attempts" onclick="setWordleLeaderboardSort('attempts')" style="height:30px; padding:0 12px; font-size:0.8rem; border-radius:8px;">按尝试次数最少</div>
-                            </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">排序：</span>
+                            <select id="select-lb-wordle-sort" onchange="setWordleLeaderboardSort(this.value)" style="height:32px; padding:0 12px; border-radius:10px; border:1px solid var(--md-sys-color-outline-variant, #cbd5e1); background:var(--md-sys-color-surface-container-low, #ffffff); font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface); cursor:pointer; outline:none;">
+                                <option value="time">按用时</option>
+                                <option value="attempts">按尝试次数</option>
+                            </select>
                         </div>
                     </div>
 
@@ -1010,24 +1008,16 @@
                             </div>
                         </div>
 
-                        <!-- 用户等级卡片 -->
-                        <div id="me-user-level-card" style="margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span class="user-level-badge" id="me-level-badge" style="font-size:0.88rem; font-weight:800; padding:2px 10px;">Lv. 1</span>
-                                    <span id="me-level-title" style="display:none;"></span>
-                                </div>
-                                <div id="me-level-comparison" style="font-size:0.78rem; font-weight:600; display:flex; align-items:center; gap:4px; color:var(--md-sys-color-outline);">
-                                </div>
+                        <!-- 用户等级显示 (简化：无外边框包裹，无“升级进度”文字，直接在一行展示) -->
+                        <div id="me-user-level-card" style="margin-top: 14px; display: flex; align-items: center; gap: 12px; width: 100%;">
+                            <span id="me-level-badge" style="font-size: 0.95rem; font-weight: 800; color: var(--md-sys-color-on-surface); white-space: nowrap;">Lv. 1</span>
+                            <span id="me-level-title" style="display: none;"></span>
+                            <div class="book-progress-mini" style="flex: 1; height: 6px; margin: 0; background: var(--md-sys-color-surface-container-high, #e2e8f0); border-radius: 999px; overflow: hidden;">
+                                <div id="me-level-progress-fill" class="book-progress-mini-fill" style="width: 0%; height: 100%; border-radius: 999px;"></div>
                             </div>
-                            <div style="margin-top: 10px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.76rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
-                                    <span>升级进度</span>
-                                    <span id="me-level-exp-text" style="font-weight:600; color:var(--md-sys-color-primary);">0%</span>
-                                </div>
-                                <div class="book-progress-mini" style="height: 6px; margin: 0; background: var(--md-sys-color-surface-container-high, #e2e8f0);">
-                                    <div id="me-level-progress-fill" class="book-progress-mini-fill" style="width: 0%;"></div>
-                                </div>
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
+                                <span id="me-level-exp-text" style="color: var(--md-sys-color-primary, #006495); font-weight: 700;">0%</span>
+                                <span id="me-level-comparison" style="display: inline-flex; align-items: center; gap: 2px; color: var(--md-sys-color-outline);"></span>
                             </div>
                         </div>
                     </div>
@@ -2025,19 +2015,35 @@
                 </div>
 
                 <div class="dictation-card">
-                    <!-- 顶部两枚统一尺寸的 MD3 胶囊徽标与右上角进度 -->
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div class="dictation-badge-row" style="display:flex; align-items:center; gap:8px;">
-                            <span class="single-book-badge" id="dictation-book-badge" style="cursor:pointer;" onclick="openBookSelectorPage('dictation')" title="点击更换词书">基础闯关a-as</span>
-                            <span class="badge badge-tag-secondary" id="dictation-type-badge">词组看义默写</span>
+                    <!-- 顶部排布行：1/20 置于最左侧，词书与题型居中，右侧工具栏（发音、查词、标注熟词） -->
+                    <div class="single-top-header-row">
+                        <div class="single-top-header-left">
+                            <span id="dictation-progress-text" class="card-progress-counter">1 / 20</span>
+                            <span class="single-book-badge" id="dictation-book-badge" style="cursor:pointer;" onclick="openBookSelectorPage('dictation')" title="点击更换词书">高考3500</span>
+                            <span class="badge badge-tag-secondary" id="dictation-type-badge">听音写词</span>
                         </div>
-                        <div class="card-progress-counter" id="dictation-progress-text" style="font-size: 0.95rem;">1 / 20</div>
+
+                        <!-- 右侧常驻工具栏（发音、查词、标注熟词） -->
+                        <div class="card-toolbar-cluster" id="dictation-card-toolbar-cluster">
+                            <button type="button" class="card-tool-btn" id="btn-dictation-tool-audio"
+                                onclick="playDictationAudio()" title="朗读发音">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-dictation-tool-search"
+                                onclick="jumpToSearchFromDictation()" title="查询该词释义" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">search</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-dictation-tool-master"
+                                onclick="toggleDictationMasteredWord()" title="标注为熟词" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <span class="material-symbols-rounded" id="icon-dictation-tool-master" style="font-size: 18px;">check_circle</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 无外边框细条进度条 -->
                     <div class="single-progress-bar-only" style="margin: 8px 0 12px;">
                         <div class="md3-progress-track">
-                            <div class="md3-progress-indicator" id="dictation-progress-fill" style="width: 5%;"></div>
+                            <div class="md3-progress-indicator" id="dictation-progress-fill" style="width: 0%;"></div>
                         </div>
                     </div>
 
@@ -2056,15 +2062,8 @@
 
                     <div id="dictation-feedback-card"
                         style="display:none; padding:12px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <div style="font-size:0.85rem; color:var(--md-sys-color-outline);"
-                                id="dictation-feedback-title">正确答案：</div>
-                            <button type="button" class="btn btn-outlined btn-sm" id="btn-dictation-master"
-                                onclick="toggleDictationMasteredWord()" style="height:26px; padding:0 10px; font-size:0.75rem; border-radius:9999px; gap:4px; display:inline-flex; align-items:center;">
-                                <span class="material-symbols-rounded" id="btn-dictation-master-icon" style="font-size:16px;">check_circle_outline</span>
-                                <span class="btn-label-text" id="btn-dictation-master-text">标为熟词</span>
-                            </button>
-                        </div>
+                        <div style="font-size:0.85rem; color:var(--md-sys-color-outline); margin-bottom:4px;"
+                            id="dictation-feedback-title">正确答案：</div>
                         <div style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary); display:flex; align-items:center; gap:8px; flex-wrap:wrap;"
                             id="dictation-feedback-word"></div>
                         <div style="font-size:0.9rem; font-weight:500; color:var(--md-sys-color-on-surface);"
@@ -2444,21 +2443,23 @@
                     </button>
                     <div class="book-selector-title-group">
                         <h2 class="book-selector-title" id="book-selector-page-title">选择词书</h2>
-                        <span class="book-selector-summary-chip" id="book-selector-summary-chip">已选 1 本词书</span>
                     </div>
                     <div style="width:40px;"></div>
                 </div>
 
-                <!-- 英语词书 / 实词词书 分类标签页 -->
+                <!-- 英语词书 / 实词词书 分类标签页 与 已选词书提示（移动端置于第二行） -->
                 <div class="book-selector-tabs-row">
-                    <button type="button" class="book-selector-tab active" id="tab-bs-en" onclick="switchBookSelectorCategory('english')">
-                        <span class="material-symbols-rounded" style="font-size:20px;">language</span>
-                        <span>英语词书</span>
-                    </button>
-                    <button type="button" class="book-selector-tab" id="tab-bs-shici" onclick="switchBookSelectorCategory('shici')">
-                        <span class="material-symbols-rounded" style="font-size:20px;">history_edu</span>
-                        <span>实词词书</span>
-                    </button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="book-selector-tab active" id="tab-bs-en" onclick="switchBookSelectorCategory('english')">
+                            <span class="material-symbols-rounded" style="font-size:20px;">language</span>
+                            <span>英语词书</span>
+                        </button>
+                        <button type="button" class="book-selector-tab" id="tab-bs-shici" onclick="switchBookSelectorCategory('shici')">
+                            <span class="material-symbols-rounded" style="font-size:20px;">history_edu</span>
+                            <span>实词词书</span>
+                        </button>
+                    </div>
+                    <span class="book-selector-summary-chip" id="book-selector-summary-chip">已选 1 本词书</span>
                 </div>
 
                 <!-- 词书分类文件夹树形/卡片容器 -->
@@ -2798,7 +2799,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.6</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.3.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">

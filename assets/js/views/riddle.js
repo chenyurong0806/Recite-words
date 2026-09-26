@@ -64,6 +64,7 @@ function renderRiddleDraftRows() {
                 id="draft-tile-${rIdx}-${cIdx}"
                 data-row="${rIdx}"
                 data-col="${cIdx}"
+                inputmode="none"
                 maxlength="1"
                 autocomplete="off"
                 autocorrect="off"
@@ -572,10 +573,33 @@ async function startWordRiddleGame(forceNew = false) {
     });
 
     if (validWords.length === 0) {
-        showToast(`未找到长度为 ${requiredLen} 的单词，已切换为任意长度！`);
-        riddleConfig.wordLength = 0;
-        localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
-        return startWordRiddleGame(true);
+        if (requiredLen > 0) {
+            showToast(`未找到长度为 ${requiredLen} 的单词，已切换为任意长度！`);
+            riddleConfig.wordLength = 0;
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            return startWordRiddleGame(true);
+        } else {
+            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高考3500默认词书，绝不卡死
+            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高考3500》');
+            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            try {
+                candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+            } catch (e) { }
+            if (!candidatePool || candidatePool.length === 0) {
+                candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+            }
+            const fallbackWords = candidatePool.filter(w => {
+                const s = (w && w.word ? w.word : '').trim();
+                return /^[a-zA-Z]{3,9}$/.test(s);
+            });
+            if (fallbackWords.length > 0) {
+                validWords.push(...fallbackWords);
+            } else {
+                validWords.push({ word: 'REACT', meaning: 'v. 作出反应', phone: '' });
+            }
+        }
     }
 
     const chosen = validWords[Math.floor(Math.random() * validWords.length)];

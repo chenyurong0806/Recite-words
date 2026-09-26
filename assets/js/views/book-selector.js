@@ -124,10 +124,22 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
+function isWordleUnsupportedBook(b) {
+    if (!b) return false;
+    const nameStr = (b.name || b.title || b.id || '').toString();
+    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试'];
+    for (const kw of unsupportedList) {
+        if (nameStr.includes(kw)) {
+            return true;
+        }
+    }
+    return isPhraseBook(b);
+}
+
 function isPhraseBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toLowerCase();
-    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase')) {
+    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase') || nameStr.includes('518') || nameStr.includes('翻译') || nameStr.includes('基础闯关') || nameStr.includes('词汇测试')) {
         return true;
     }
     if (Array.isArray(b.words) && b.words.length > 0) {
@@ -201,7 +213,7 @@ function renderBookSelectorPage() {
             const gradient = getProceduralBookGradient(b.name, b.category);
             const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
             const isPhrase = isPhraseBook(b);
-            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isPhrase);
+            const isBlockedForWordle = (bookSelectorMode === 'riddle' && (isPhrase || isWordleUnsupportedBook(b)));
 
             // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
             let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
@@ -359,8 +371,8 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
-        if (isPhraseBook(bookMeta)) {
-            showToast('Wordle 模式不支持纯词组书籍，请选择其他单词词书');
+        if (isPhraseBook(bookMeta) || isWordleUnsupportedBook(bookMeta)) {
+            showToast('该词书不支持 Wordle，请选择其他单词词书');
             return;
         }
         riddleConfig.selectedBooks = [bookId];

@@ -79,9 +79,52 @@ function setupCropperEvents() {
     if (!wrap || wrap.dataset.eventsBound === 'true') return;
     wrap.dataset.eventsBound = 'true';
 
+    let initialPinchDistance = null;
+    let initialPinchZoom = 1;
+
+    // 移动端双指触控缩放手势支持
+    wrap.addEventListener('touchstart', (e) => {
+        if (!cropperState.img) return;
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            cropperState.isDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialPinchZoom = cropperState.zoom;
+        }
+    }, { passive: false });
+
+    wrap.addEventListener('touchmove', (e) => {
+        if (!cropperState.img) return;
+        if (e.touches.length === 2 && initialPinchDistance) {
+            e.preventDefault();
+            cropperState.isDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            if (currentDist > 0 && initialPinchDistance > 0) {
+                const factor = currentDist / initialPinchDistance;
+                const newZoom = Math.max(1.0, Math.min(3.5, initialPinchZoom * factor));
+                cropperState.zoom = newZoom;
+                const slider = document.getElementById('cropper-zoom-slider');
+                if (slider) slider.value = newZoom.toFixed(2);
+                renderCropperCanvas();
+            }
+        }
+    }, { passive: false });
+
+    const endPinch = (e) => {
+        if (e.touches && e.touches.length < 2) {
+            initialPinchDistance = null;
+        }
+    };
+    wrap.addEventListener('touchend', endPinch);
+    wrap.addEventListener('touchcancel', endPinch);
+
     // 触控与鼠标事件统一通过 Pointer Events 处理
     wrap.addEventListener('pointerdown', (e) => {
-        if (!cropperState.img) return;
+        if (!cropperState.img || initialPinchDistance) return;
         cropperState.isDragging = true;
         cropperState.startX = e.clientX;
         cropperState.startY = e.clientY;
@@ -94,7 +137,7 @@ function setupCropperEvents() {
     });
 
     wrap.addEventListener('pointermove', (e) => {
-        if (!cropperState.isDragging || !cropperState.img) return;
+        if (!cropperState.isDragging || !cropperState.img || initialPinchDistance) return;
         const dx = e.clientX - cropperState.startX;
         const dy = e.clientY - cropperState.startY;
         cropperState.offsetX = cropperState.initialOffsetX + dx;

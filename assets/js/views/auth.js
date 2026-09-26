@@ -79,9 +79,9 @@ function renderSavedDeviceAccounts() {
         let timeDesc = '近期登录';
         if (acc.lastLoginTime) {
             const diffDays = Math.floor((now - acc.lastLoginTime) / (24 * 60 * 60 * 1000));
-            if (diffDays === 0) timeDesc = '今天登录过';
-            else if (diffDays === 1) timeDesc = '昨天登录过';
-            else timeDesc = `${diffDays} 天前登录`;
+            if (diffDays === 0) timeDesc = '上次登录：今天';
+            else if (diffDays === 1) timeDesc = '上次登录：昨天';
+            else timeDesc = `上次登录：${diffDays}天前`;
         }
 
         let avatarSrc = acc.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(acc.username) : '');
@@ -101,7 +101,7 @@ function renderSavedDeviceAccounts() {
                         <div style="font-size:0.8rem; margin-top:3px;">
                             ${isExpired 
                                 ? `<span style="color:#d97706; font-weight:600; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">lock_clock</span>超过 7 天未登录，需验证密码</span>` 
-                                : `<span style="color:var(--md-sys-color-outline, #64748b);">${timeDesc} · 点击直接登录</span>`}
+                                : `<span style="color:var(--md-sys-color-outline, #64748b);">${timeDesc}</span>`}
                         </div>
                     </div>
                 </div>
@@ -111,7 +111,7 @@ function renderSavedDeviceAccounts() {
                     ` : `
                         <button type="button" class="btn btn-filled btn-sm" style="border-radius:9999px; height:34px; padding:0 18px; font-size:0.85rem; font-weight:700;" onclick="event.stopPropagation(); selectSavedAccountToLogin('${escapeHtml(acc.username)}')">登录</button>
                     `}
-                    <button type="button" class="md3-icon-btn" onclick="event.stopPropagation(); removeSavedDeviceAccount('${escapeHtml(acc.username)}')" title="从本机移除此账号" style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; border:none; display:flex; align-items:center; justify-content:center; padding:0;">
+                    <button type="button" class="md3-icon-btn" onclick="event.stopPropagation(); removeSavedDeviceAccount('${escapeHtml(acc.username)}')" title="删除登录记录" style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; border:none; display:flex; align-items:center; justify-content:center; padding:0;">
                         <span class="material-symbols-rounded" style="font-size:18px; color:#475569;">close</span>
                     </button>
                 </div>
@@ -148,7 +148,6 @@ async function selectSavedAccountToLogin(username) {
         return;
     }
 
-    showToast(`正在快捷登录账号“${username}”...`);
     try {
         const user = await supabaseLoginWithHash(acc.username, acc.hashedPassword);
         acc.lastLoginTime = Date.now();
@@ -166,10 +165,10 @@ async function selectSavedAccountToLogin(username) {
             } catch (e) { }
         }
         loadUserData(user.username, profile);
-        showToast(`快捷登录成功，欢迎回来 ${user.username}！`);
+        showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
     } catch (e) {
-        showToast(e.message || '快捷登录凭证失效，请重新输入密码');
+        showToast(e.message || '登录已过期，请重新输入密码');
         showManualLoginForm(username);
     }
 }
@@ -261,7 +260,7 @@ async function handleCloudLogin() {
         }
 
         loadUserData(user.username, profile);
-        showToast(`登录成功，欢迎回来 ${user.username}！`);
+        showToast(`欢迎回来 ${user.username}！`);
 
         if (passwordInput) passwordInput.value = '';
         switchView('view-hub');

@@ -65,7 +65,7 @@ async function renderLevelLeaderboard() {
     listContainer.innerHTML = `
         <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
             <span class="material-symbols-rounded rotating" style="font-size:32px;">sync</span>
-            <p style="margin-top:8px; font-size:0.9rem;">正在拉取全网等级榜单...</p>
+            <p style="margin-top:8px; font-size:0.9rem;">正在获取榜单...</p>
         </div>
     `;
 
@@ -247,10 +247,10 @@ function resetWordleLeaderboardDate() {
 
 function setWordleLeaderboardSort(sortType) {
     wordleLeaderboardSort = sortType;
-    const btnTime = document.getElementById('btn-lb-sort-time');
-    const btnAtt = document.getElementById('btn-lb-sort-attempts');
-    if (btnTime) btnTime.classList.toggle('selected', sortType === 'time');
-    if (btnAtt) btnAtt.classList.toggle('selected', sortType === 'attempts');
+    const sortSelect = document.getElementById('select-lb-wordle-sort');
+    if (sortSelect && sortSelect.value !== sortType) {
+        sortSelect.value = sortType;
+    }
     renderWordleLeaderboard();
 }
 
@@ -267,6 +267,9 @@ async function renderWordleLeaderboard() {
         wordleLeaderboardDate = todayStr;
     }
     const isToday = wordleLeaderboardDate === todayStr;
+
+    const sortSelect = document.getElementById('select-lb-wordle-sort');
+    if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
     if (dateLabel) {
         dateLabel.innerText = `${wordleLeaderboardDate} ${isToday ? '(今日)' : ''}`;
@@ -298,7 +301,7 @@ async function renderWordleLeaderboard() {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:10px; font-size:0.86rem; color:var(--md-sys-color-outline, #64748b);">
                     <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0284c7);">lock</span>
-                    <span>今日目标词已保密保护（防剧透），通关或挑战结束后可查看</span>
+                    <span>通关或挑战结束后可查看今日词汇</span>
                 </div>
             `;
         } else {

@@ -183,15 +183,15 @@ const EbbinghausEngine = {
         const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
 
         if (currentStage === 0) {
-            // 首次学习生词
+            // 首次学习生词：答对词后再加进度，答错词不要加进度
             if (isSuccess) {
-                // 首次答对直接跳到第 2 轮复习（4天后）
+                // 首次答对进入第 2 轮复习（4天后），并计入已学进度
                 record.stage = 2;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[1];
             } else {
-                // 首次答错进入第 1 轮复习（第二天）
-                record.stage = 1;
-                record.nextReview = now + EBBINGHAUS_INTERVALS[0];
+                // 首次答错仍保持为生词（stage 0），不加已学进度
+                record.stage = 0;
+                record.nextReview = 0;
             }
         } else {
             // 复习阶段 (Stage 1..4) 或熟词 (Stage 5)
@@ -281,4 +281,4 @@ const EbbinghausEngine = {
         }
     }
 };
-window.EbbinghausEngine = EbbinghausEngine;
+window.EbbinghausEngine = EbbinghausEngine;

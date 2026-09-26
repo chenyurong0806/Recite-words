@@ -221,10 +221,10 @@ const LevelManager = {
         let type = 'neutral';
 
         if (deltaLevel > 0) {
-            text = `较昨日 ↑ ${deltaLevel} 级`;
+            text = `较昨日 +${deltaLevel} 级`;
             type = 'up';
         } else if (deltaLevel < 0) {
-            text = `较昨日 ↓ ${Math.abs(deltaLevel)} 级`;
+            text = `较昨日 -${deltaLevel} 级`;
             type = 'down';
         } else {
             text = '与昨日持平';

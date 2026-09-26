@@ -6875,10 +6875,13 @@ body.nav-hidden {
 
 .book-selector-tabs-row {
     display: flex;
-    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 20px;
     border-bottom: 1px solid var(--md-sys-color-outline-variant);
     padding-bottom: 8px;
+    flex-wrap: wrap;
 }
 
 .book-selector-tab {
@@ -7176,7 +7179,8 @@ body.nav-hidden {
     padding: 0;
 }
 
-.riddle-draft-tile:focus {
+.riddle-draft-tile:focus,
+.riddle-draft-tile.active-draft-tile {
     border-color: var(--md-sys-color-primary, #0061a4);
     box-shadow: 0 0 0 2px rgba(0, 97, 164, 0.2);
     background: #ffffff;

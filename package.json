@@ -1,6 +1,6 @@
 {
   "name": "recite-words",
-  "version": "2.2.6",
+  "version": "2.3.0",
   "description": "词迹 - 沉浸式多维度背词与联机对决学习平台",
   "scripts": {
     "bundle": "node scripts/bundle.js"

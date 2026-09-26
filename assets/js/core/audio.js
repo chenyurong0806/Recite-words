@@ -289,6 +289,12 @@ function playCurrentSingleWordAudio() {
 
 function playDictationAudio() {
     if (dictationState && dictationState.currentQ) {
+        const q = dictationState.currentQ;
+        const isListenMode = (typeof dictationConfig !== 'undefined' && dictationConfig.type === 'listen') && !q.isPhrase;
+        if (!dictationState.answered && !isListenMode) {
+            if (typeof showToast === 'function') showToast('答题后方可发音');
+            return;
+        }
         playWordAudio(dictationState.currentQ.word);
     }
 }

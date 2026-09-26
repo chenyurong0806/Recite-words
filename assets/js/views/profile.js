@@ -82,15 +82,21 @@ function removeWordMastered(word) {
 
 function toggleCurrentWordMastered() {
     if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
+    // 只有在答完题后才能标注熟词
+    if (!singleState.answered) {
+        if (typeof showToast === 'function') showToast('请先作答，答题后方可标注熟词');
+        return;
+    }
     const q = singleState.pool[singleState.currentIdx];
     if (!q || !q.word) return;
     const nowMastered = toggleMasteredWord(q.word, q.phone, q.meaning);
     updateSingleCardToolbar(q);
     if (nowMastered) {
-        // 用户需求：标注熟词后直接跳到下一题
-        setTimeout(() => {
-            nextSingleQuestion(true);
-        }, 280);
+        // 标注熟词后播放加星动画，不立刻跳到下一题
+        renderCardMasteryDiamonds(q.word, 'gain');
+    } else {
+        // 取消标注熟词：播放减星动画，回到刚才的星数
+        renderCardMasteryDiamonds(q.word, 'loss');
     }
 }
 
@@ -269,7 +275,17 @@ function updateSingleCardToolbar(q) {
     const masterBtn = document.getElementById('btn-card-master');
     if (masterBtn) {
         masterBtn.classList.toggle('active', isMastered);
-        masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
+        if (singleState && singleState.answered) {
+            masterBtn.disabled = false;
+            masterBtn.style.opacity = '1';
+            masterBtn.style.cursor = 'pointer';
+            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
+        } else {
+            masterBtn.disabled = true;
+            masterBtn.style.opacity = '0.35';
+            masterBtn.style.cursor = 'not-allowed';
+            masterBtn.title = '答题后方可标注熟词';
+        }
         masterBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>`;
     }
 
@@ -396,7 +412,8 @@ function renderSingleQuestion() {
 
     const progFillEl = document.getElementById('single-progress-fill');
     if (progFillEl) {
-        progFillEl.style.width = Math.round(((singleState.currentIdx + 1) / singleState.pool.length) * 100) + '%';
+        const correctCount = singleState.score || 0;
+        progFillEl.style.width = Math.round((correctCount / singleState.pool.length) * 100) + '%';
     }
 
     const retestTag = document.getElementById('single-retest-tag');
@@ -631,6 +648,10 @@ function checkSinglePhraseAnswer() {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
+        const progFillEl = document.getElementById('single-progress-fill');
+        if (progFillEl) {
+            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        }
         q.isCorrect = true;
         q.wrongSlotIndices = [];
 
@@ -852,6 +873,10 @@ function handleSingleAnswer(idx) {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
+        const progFillEl = document.getElementById('single-progress-fill');
+        if (progFillEl) {
+            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
             delete userStats.mistakes[q.word];
         }

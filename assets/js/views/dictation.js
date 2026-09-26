@@ -214,7 +214,7 @@ function renderDictationQuestion() {
 
     const dProgFillEl = document.getElementById('dictation-progress-fill');
     if (dProgFillEl) {
-        dProgFillEl.style.width = Math.round(((dictationState.currentIdx + 1) / dictationState.pool.length) * 100) + '%';
+        dProgFillEl.style.width = Math.round((dictationState.score / dictationState.pool.length) * 100) + '%';
     }
 
     const typeBadge = document.getElementById('dictation-type-badge');
@@ -281,6 +281,10 @@ function renderDictationQuestion() {
     const skipBtn = document.getElementById('btn-dictation-skip');
     if (skipBtn) {
         skipBtn.style.display = 'inline-flex';
+    }
+
+    if (typeof updateDictationToolbar === 'function') {
+        updateDictationToolbar();
     }
 
     const inputArea = document.getElementById('dictation-input-area');
@@ -491,6 +495,11 @@ function submitDictationAnswer() {
         }
         showToast('回答正确！');
 
+        const dProgFillEl = document.getElementById('dictation-progress-fill');
+        if (dProgFillEl) {
+            dProgFillEl.style.width = Math.round((dictationState.score / dictationState.pool.length) * 100) + '%';
+        }
+
         // 输入框设为只读
         document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.readOnly = true);
 
@@ -498,7 +507,7 @@ function submitDictationAnswer() {
         if (skipBtn) skipBtn.style.display = 'none';
         if (hintBtn) hintBtn.style.display = 'none';
 
-        // 展示正确答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
+        // 展示正确答案卡片（发音与熟词按钮已移至顶部工具栏）
         if (feedbackCard) {
             feedbackCard.style.display = 'block';
             feedbackCard.style.background = '';
@@ -506,17 +515,15 @@ function submitDictationAnswer() {
             if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
             if (feedbackWord) {
                 feedbackWord.style.color = '';
-                feedbackWord.innerHTML = `
-                    <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
-                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                        <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                    </button>
-                `;
+                feedbackWord.innerHTML = `<span style="word-break: break-word;">${escapeHtml(q.word)}</span>`;
             }
             if (feedbackMeaning) {
                 feedbackMeaning.innerText = q.meaning;
             }
-            updateDictationMasterBtn(q.word);
+        }
+
+        if (typeof updateDictationToolbar === 'function') {
+            updateDictationToolbar();
         }
 
         // 修改按钮为下一题，不自动下一题
@@ -603,52 +610,89 @@ function skipDictationQuestion() {
         if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
         if (feedbackWord) {
             feedbackWord.style.color = '';
-            feedbackWord.innerHTML = `
-                <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
-                <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                    <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                </button>
-            `;
+            feedbackWord.innerHTML = `<span style="word-break: break-word;">${escapeHtml(q.word)}</span>`;
         }
         if (feedbackMeaning) {
             feedbackMeaning.innerText = q.meaning;
         }
-        updateDictationMasterBtn(q.word);
+    }
+
+    if (typeof updateDictationToolbar === 'function') {
+        updateDictationToolbar();
     }
 
     if (submitBtnText) submitBtnText.innerText = '下一题';
     if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
 }
 
-function updateDictationMasterBtn(word) {
-    const btn = document.getElementById('btn-dictation-master');
-    const icon = document.getElementById('btn-dictation-master-icon');
-    const text = document.getElementById('btn-dictation-master-text');
-    if (!btn || !word) return;
-    const isMastered = typeof isWordMastered === 'function' ? isWordMastered(word) : false;
-    btn.classList.toggle('active', isMastered);
-    if (isMastered) {
-        btn.style.borderColor = 'var(--md-sys-color-primary)';
-        btn.style.color = 'var(--md-sys-color-primary)';
-        btn.style.background = 'var(--md-sys-color-primary-container, rgba(0,97,164,0.1))';
-    } else {
-        btn.style.borderColor = '';
-        btn.style.color = '';
-        btn.style.background = '';
+function updateDictationToolbar() {
+    const q = dictationState ? dictationState.currentQ : null;
+    const audioBtn = document.getElementById('btn-dictation-tool-audio');
+    const searchBtn = document.getElementById('btn-dictation-tool-search');
+    const masterBtn = document.getElementById('btn-dictation-tool-master');
+    const masterIcon = document.getElementById('icon-dictation-tool-master');
+
+    const answered = !!(dictationState && dictationState.answered);
+    const isListenMode = (typeof dictationConfig !== 'undefined' && dictationConfig.type === 'listen') && q && !q.isPhrase;
+
+    // 发音：看义模式或词组默写在答题前禁用，答题后或听音模式下可用
+    if (audioBtn) {
+        const canAudio = answered || isListenMode;
+        audioBtn.disabled = !canAudio;
+        audioBtn.style.opacity = canAudio ? '1' : '0.35';
+        audioBtn.style.cursor = canAudio ? 'pointer' : 'not-allowed';
     }
-    if (icon) icon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
-    if (text) text.innerText = isMastered ? '已标熟词' : '标为熟词';
+
+    // 查词：答题前禁用
+    if (searchBtn) {
+        searchBtn.disabled = !answered;
+        searchBtn.style.opacity = answered ? '1' : '0.35';
+        searchBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+    }
+
+    // 标注熟词：答题前禁用
+    if (masterBtn) {
+        masterBtn.disabled = !answered;
+        masterBtn.style.opacity = answered ? '1' : '0.35';
+        masterBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+
+        if (q && q.word) {
+            const isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
+            masterBtn.classList.toggle('active', isMastered);
+            if (masterIcon) {
+                masterIcon.innerText = 'check_circle';
+                masterIcon.style.color = isMastered ? 'var(--md-sys-color-primary, #0061a4)' : '';
+            }
+        }
+    }
 }
+window.updateDictationToolbar = updateDictationToolbar;
 
 function toggleDictationMasteredWord() {
+    if (!dictationState || !dictationState.answered) {
+        showToast('答题后方可标注熟词');
+        return;
+    }
     if (!dictationState.currentQ) return;
     const q = dictationState.currentQ;
     if (typeof toggleMasteredWord === 'function') {
         toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
-        updateDictationMasterBtn(q.word);
+        updateDictationToolbar();
     }
 }
 window.toggleDictationMasteredWord = toggleDictationMasteredWord;
+
+function jumpToSearchFromDictation() {
+    if (!dictationState || !dictationState.answered) {
+        showToast('答题后方可查询释义');
+        return;
+    }
+    const q = dictationState.currentQ || (dictationState.pool && dictationState.pool[dictationState.currentIdx]);
+    if (q && q.word && typeof jumpToSearch === 'function') {
+        jumpToSearch(q.word);
+    }
+}
+window.jumpToSearchFromDictation = jumpToSearchFromDictation;
 
 function endDictationSession() {
     if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();

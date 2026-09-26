@@ -10,26 +10,56 @@ try {
     allUsersList = [];
 }
 
-// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号
+// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号与数据
 function getUniqueGuestName() {
     let guestId = SafeStorage.getItem('vocab_guest_name');
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        const pkUser = SafeStorage.getItem('vocab_pk_user');
+        if (pkUser && /^游客_\d{4,}$/.test(pkUser)) guestId = pkUser;
+    }
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
         if (typeof getCookie === 'function') {
-            const cId = getCookie('vocab_guest_name');
-            if (cId && /^游客_\d{4}$/.test(cId)) guestId = cId;
+            const cId = getCookie('vocab_guest_name') || getCookie('vocab_pk_user');
+            if (cId && /^游客_\d{4,}$/.test(cId)) guestId = cId;
         }
     }
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
-        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4}$/.test(window.__cachedToyGuestId)) {
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4,}$/.test(window.__cachedToyGuestId)) {
             guestId = window.__cachedToyGuestId;
         }
     }
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+    // 检查历史用户列表是否有已保存的游客
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        if (Array.isArray(allUsersList)) {
+            const foundInList = allUsersList.find(u => typeof u === 'string' && /^游客_\d{4,}$/.test(u));
+            if (foundInList) guestId = foundInList;
+        }
+    }
+    // 检查本地存储中是否存在带统计记录的游客key
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                for (let i = 0; i < window.localStorage.length; i++) {
+                    const k = window.localStorage.key(i);
+                    if (k && k.startsWith('vocab_stats_游客_')) {
+                        const candidate = k.replace('vocab_stats_', '');
+                        if (/^游客_\d{4,}$/.test(candidate)) {
+                            guestId = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (e) { }
+    }
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
     }
     SafeStorage.setItem('vocab_guest_name', guestId);
+    SafeStorage.setItem('vocab_pk_user', guestId);
     if (typeof setCookie === 'function') {
         setCookie('vocab_guest_name', guestId, 365);
+        setCookie('vocab_pk_user', guestId, 365);
     }
     if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
         try {
@@ -163,6 +193,23 @@ function loadUserData(username, profile = null) {
         let rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
         if (!rawStats && typeof getCookie === 'function') {
             rawStats = getCookie(`vocab_stats_${currentUser}`);
+        }
+        // 若当前游客无记录，尝试在本地恢复最近有数据的游客统计
+        if (!rawStats && currentUser.startsWith('游客_')) {
+            try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    for (let i = 0; i < window.localStorage.length; i++) {
+                        const k = window.localStorage.key(i);
+                        if (k && k.startsWith('vocab_stats_游客_') && k !== `vocab_stats_${currentUser}`) {
+                            const candidateStats = window.localStorage.getItem(k);
+                            if (candidateStats && candidateStats.includes('"total"') && !candidateStats.includes('"total":0')) {
+                                rawStats = candidateStats;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { }
         }
         userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
         if (!userStats.mistakes) userStats.mistakes = {};

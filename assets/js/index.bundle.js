@@ -1103,6 +1103,12 @@ function playCurrentSingleWordAudio() {
 
 function playDictationAudio() {
     if (dictationState && dictationState.currentQ) {
+        const q = dictationState.currentQ;
+        const isListenMode = (typeof dictationConfig !== 'undefined' && dictationConfig.type === 'listen') && !q.isPhrase;
+        if (!dictationState.answered && !isListenMode) {
+            if (typeof showToast === 'function') showToast('答题后方可发音');
+            return;
+        }
         playWordAudio(dictationState.currentQ.word);
     }
 }
@@ -1121,26 +1127,56 @@ try {
     allUsersList = [];
 }
 
-// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号
+// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号与数据
 function getUniqueGuestName() {
     let guestId = SafeStorage.getItem('vocab_guest_name');
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        const pkUser = SafeStorage.getItem('vocab_pk_user');
+        if (pkUser && /^游客_\d{4,}$/.test(pkUser)) guestId = pkUser;
+    }
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
         if (typeof getCookie === 'function') {
-            const cId = getCookie('vocab_guest_name');
-            if (cId && /^游客_\d{4}$/.test(cId)) guestId = cId;
+            const cId = getCookie('vocab_guest_name') || getCookie('vocab_pk_user');
+            if (cId && /^游客_\d{4,}$/.test(cId)) guestId = cId;
         }
     }
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
-        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4}$/.test(window.__cachedToyGuestId)) {
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4,}$/.test(window.__cachedToyGuestId)) {
             guestId = window.__cachedToyGuestId;
         }
     }
-    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+    // 检查历史用户列表是否有已保存的游客
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        if (Array.isArray(allUsersList)) {
+            const foundInList = allUsersList.find(u => typeof u === 'string' && /^游客_\d{4,}$/.test(u));
+            if (foundInList) guestId = foundInList;
+        }
+    }
+    // 检查本地存储中是否存在带统计记录的游客key
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                for (let i = 0; i < window.localStorage.length; i++) {
+                    const k = window.localStorage.key(i);
+                    if (k && k.startsWith('vocab_stats_游客_')) {
+                        const candidate = k.replace('vocab_stats_', '');
+                        if (/^游客_\d{4,}$/.test(candidate)) {
+                            guestId = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (e) { }
+    }
+    if (!guestId || !/^游客_\d{4,}$/.test(guestId)) {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
     }
     SafeStorage.setItem('vocab_guest_name', guestId);
+    SafeStorage.setItem('vocab_pk_user', guestId);
     if (typeof setCookie === 'function') {
         setCookie('vocab_guest_name', guestId, 365);
+        setCookie('vocab_pk_user', guestId, 365);
     }
     if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
         try {
@@ -1274,6 +1310,23 @@ function loadUserData(username, profile = null) {
         let rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
         if (!rawStats && typeof getCookie === 'function') {
             rawStats = getCookie(`vocab_stats_${currentUser}`);
+        }
+        // 若当前游客无记录，尝试在本地恢复最近有数据的游客统计
+        if (!rawStats && currentUser.startsWith('游客_')) {
+            try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    for (let i = 0; i < window.localStorage.length; i++) {
+                        const k = window.localStorage.key(i);
+                        if (k && k.startsWith('vocab_stats_游客_') && k !== `vocab_stats_${currentUser}`) {
+                            const candidateStats = window.localStorage.getItem(k);
+                            if (candidateStats && candidateStats.includes('"total"') && !candidateStats.includes('"total":0')) {
+                                rawStats = candidateStats;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { }
         }
         userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
         if (!userStats.mistakes) userStats.mistakes = {};
@@ -2255,15 +2308,15 @@ const EbbinghausEngine = {
         const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
 
         if (currentStage === 0) {
-            // 首次学习生词
+            // 首次学习生词：答对词后再加进度，答错词不要加进度
             if (isSuccess) {
-                // 首次答对直接跳到第 2 轮复习（4天后）
+                // 首次答对进入第 2 轮复习（4天后），并计入已学进度
                 record.stage = 2;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[1];
             } else {
-                // 首次答错进入第 1 轮复习（第二天）
-                record.stage = 1;
-                record.nextReview = now + EBBINGHAUS_INTERVALS[0];
+                // 首次答错仍保持为生词（stage 0），不加已学进度
+                record.stage = 0;
+                record.nextReview = 0;
             }
         } else {
             // 复习阶段 (Stage 1..4) 或熟词 (Stage 5)
@@ -2580,10 +2633,10 @@ const LevelManager = {
         let type = 'neutral';
 
         if (deltaLevel > 0) {
-            text = `较昨日 ↑ ${deltaLevel} 级`;
+            text = `较昨日 +${deltaLevel} 级`;
             type = 'up';
         } else if (deltaLevel < 0) {
-            text = `较昨日 ↓ ${Math.abs(deltaLevel)} 级`;
+            text = `较昨日 -${deltaLevel} 级`;
             type = 'down';
         } else {
             text = '与昨日持平';
@@ -3420,9 +3473,52 @@ function setupCropperEvents() {
     if (!wrap || wrap.dataset.eventsBound === 'true') return;
     wrap.dataset.eventsBound = 'true';
 
+    let initialPinchDistance = null;
+    let initialPinchZoom = 1;
+
+    // 移动端双指触控缩放手势支持
+    wrap.addEventListener('touchstart', (e) => {
+        if (!cropperState.img) return;
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            cropperState.isDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialPinchZoom = cropperState.zoom;
+        }
+    }, { passive: false });
+
+    wrap.addEventListener('touchmove', (e) => {
+        if (!cropperState.img) return;
+        if (e.touches.length === 2 && initialPinchDistance) {
+            e.preventDefault();
+            cropperState.isDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            if (currentDist > 0 && initialPinchDistance > 0) {
+                const factor = currentDist / initialPinchDistance;
+                const newZoom = Math.max(1.0, Math.min(3.5, initialPinchZoom * factor));
+                cropperState.zoom = newZoom;
+                const slider = document.getElementById('cropper-zoom-slider');
+                if (slider) slider.value = newZoom.toFixed(2);
+                renderCropperCanvas();
+            }
+        }
+    }, { passive: false });
+
+    const endPinch = (e) => {
+        if (e.touches && e.touches.length < 2) {
+            initialPinchDistance = null;
+        }
+    };
+    wrap.addEventListener('touchend', endPinch);
+    wrap.addEventListener('touchcancel', endPinch);
+
     // 触控与鼠标事件统一通过 Pointer Events 处理
     wrap.addEventListener('pointerdown', (e) => {
-        if (!cropperState.img) return;
+        if (!cropperState.img || initialPinchDistance) return;
         cropperState.isDragging = true;
         cropperState.startX = e.clientX;
         cropperState.startY = e.clientY;
@@ -3435,7 +3531,7 @@ function setupCropperEvents() {
     });
 
     wrap.addEventListener('pointermove', (e) => {
-        if (!cropperState.isDragging || !cropperState.img) return;
+        if (!cropperState.isDragging || !cropperState.img || initialPinchDistance) return;
         const dx = e.clientX - cropperState.startX;
         const dy = e.clientY - cropperState.startY;
         cropperState.offsetX = cropperState.initialOffsetX + dx;
@@ -3641,9 +3737,9 @@ function renderSavedDeviceAccounts() {
         let timeDesc = '近期登录';
         if (acc.lastLoginTime) {
             const diffDays = Math.floor((now - acc.lastLoginTime) / (24 * 60 * 60 * 1000));
-            if (diffDays === 0) timeDesc = '今天登录过';
-            else if (diffDays === 1) timeDesc = '昨天登录过';
-            else timeDesc = `${diffDays} 天前登录`;
+            if (diffDays === 0) timeDesc = '上次登录：今天';
+            else if (diffDays === 1) timeDesc = '上次登录：昨天';
+            else timeDesc = `上次登录：${diffDays}天前`;
         }
 
         let avatarSrc = acc.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(acc.username) : '');
@@ -3663,7 +3759,7 @@ function renderSavedDeviceAccounts() {
                         <div style="font-size:0.8rem; margin-top:3px;">
                             ${isExpired 
                                 ? `<span style="color:#d97706; font-weight:600; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">lock_clock</span>超过 7 天未登录，需验证密码</span>` 
-                                : `<span style="color:var(--md-sys-color-outline, #64748b);">${timeDesc} · 点击直接登录</span>`}
+                                : `<span style="color:var(--md-sys-color-outline, #64748b);">${timeDesc}</span>`}
                         </div>
                     </div>
                 </div>
@@ -3673,7 +3769,7 @@ function renderSavedDeviceAccounts() {
                     ` : `
                         <button type="button" class="btn btn-filled btn-sm" style="border-radius:9999px; height:34px; padding:0 18px; font-size:0.85rem; font-weight:700;" onclick="event.stopPropagation(); selectSavedAccountToLogin('${escapeHtml(acc.username)}')">登录</button>
                     `}
-                    <button type="button" class="md3-icon-btn" onclick="event.stopPropagation(); removeSavedDeviceAccount('${escapeHtml(acc.username)}')" title="从本机移除此账号" style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; border:none; display:flex; align-items:center; justify-content:center; padding:0;">
+                    <button type="button" class="md3-icon-btn" onclick="event.stopPropagation(); removeSavedDeviceAccount('${escapeHtml(acc.username)}')" title="删除登录记录" style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; border:none; display:flex; align-items:center; justify-content:center; padding:0;">
                         <span class="material-symbols-rounded" style="font-size:18px; color:#475569;">close</span>
                     </button>
                 </div>
@@ -3710,7 +3806,6 @@ async function selectSavedAccountToLogin(username) {
         return;
     }
 
-    showToast(`正在快捷登录账号“${username}”...`);
     try {
         const user = await supabaseLoginWithHash(acc.username, acc.hashedPassword);
         acc.lastLoginTime = Date.now();
@@ -3728,10 +3823,10 @@ async function selectSavedAccountToLogin(username) {
             } catch (e) { }
         }
         loadUserData(user.username, profile);
-        showToast(`快捷登录成功，欢迎回来 ${user.username}！`);
+        showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
     } catch (e) {
-        showToast(e.message || '快捷登录凭证失效，请重新输入密码');
+        showToast(e.message || '登录已过期，请重新输入密码');
         showManualLoginForm(username);
     }
 }
@@ -3823,7 +3918,7 @@ async function handleCloudLogin() {
         }
 
         loadUserData(user.username, profile);
-        showToast(`登录成功，欢迎回来 ${user.username}！`);
+        showToast(`欢迎回来 ${user.username}！`);
 
         if (passwordInput) passwordInput.value = '';
         switchView('view-hub');
@@ -4608,10 +4703,22 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
+function isWordleUnsupportedBook(b) {
+    if (!b) return false;
+    const nameStr = (b.name || b.title || b.id || '').toString();
+    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试'];
+    for (const kw of unsupportedList) {
+        if (nameStr.includes(kw)) {
+            return true;
+        }
+    }
+    return isPhraseBook(b);
+}
+
 function isPhraseBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toLowerCase();
-    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase')) {
+    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase') || nameStr.includes('518') || nameStr.includes('翻译') || nameStr.includes('基础闯关') || nameStr.includes('词汇测试')) {
         return true;
     }
     if (Array.isArray(b.words) && b.words.length > 0) {
@@ -4685,7 +4792,7 @@ function renderBookSelectorPage() {
             const gradient = getProceduralBookGradient(b.name, b.category);
             const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
             const isPhrase = isPhraseBook(b);
-            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isPhrase);
+            const isBlockedForWordle = (bookSelectorMode === 'riddle' && (isPhrase || isWordleUnsupportedBook(b)));
 
             // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
             let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
@@ -4843,8 +4950,8 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
-        if (isPhraseBook(bookMeta)) {
-            showToast('Wordle 模式不支持纯词组书籍，请选择其他单词词书');
+        if (isPhraseBook(bookMeta) || isWordleUnsupportedBook(bookMeta)) {
+            showToast('该词书不支持 Wordle，请选择其他单词词书');
             return;
         }
         riddleConfig.selectedBooks = [bookId];
@@ -5018,7 +5125,7 @@ async function renderLevelLeaderboard() {
     listContainer.innerHTML = `
         <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
             <span class="material-symbols-rounded rotating" style="font-size:32px;">sync</span>
-            <p style="margin-top:8px; font-size:0.9rem;">正在拉取全网等级榜单...</p>
+            <p style="margin-top:8px; font-size:0.9rem;">正在获取榜单...</p>
         </div>
     `;
 
@@ -5200,10 +5307,10 @@ function resetWordleLeaderboardDate() {
 
 function setWordleLeaderboardSort(sortType) {
     wordleLeaderboardSort = sortType;
-    const btnTime = document.getElementById('btn-lb-sort-time');
-    const btnAtt = document.getElementById('btn-lb-sort-attempts');
-    if (btnTime) btnTime.classList.toggle('selected', sortType === 'time');
-    if (btnAtt) btnAtt.classList.toggle('selected', sortType === 'attempts');
+    const sortSelect = document.getElementById('select-lb-wordle-sort');
+    if (sortSelect && sortSelect.value !== sortType) {
+        sortSelect.value = sortType;
+    }
     renderWordleLeaderboard();
 }
 
@@ -5220,6 +5327,9 @@ async function renderWordleLeaderboard() {
         wordleLeaderboardDate = todayStr;
     }
     const isToday = wordleLeaderboardDate === todayStr;
+
+    const sortSelect = document.getElementById('select-lb-wordle-sort');
+    if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
     if (dateLabel) {
         dateLabel.innerText = `${wordleLeaderboardDate} ${isToday ? '(今日)' : ''}`;
@@ -5251,7 +5361,7 @@ async function renderWordleLeaderboard() {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:10px; font-size:0.86rem; color:var(--md-sys-color-outline, #64748b);">
                     <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0284c7);">lock</span>
-                    <span>今日目标词已保密保护（防剧透），通关或挑战结束后可查看</span>
+                    <span>通关或挑战结束后可查看今日词汇</span>
                 </div>
             `;
         } else {
@@ -5526,6 +5636,7 @@ function renderRiddleDraftRows() {
                 id="draft-tile-${rIdx}-${cIdx}"
                 data-row="${rIdx}"
                 data-col="${cIdx}"
+                inputmode="none"
                 maxlength="1"
                 autocomplete="off"
                 autocorrect="off"
@@ -6034,10 +6145,33 @@ async function startWordRiddleGame(forceNew = false) {
     });
 
     if (validWords.length === 0) {
-        showToast(`未找到长度为 ${requiredLen} 的单词，已切换为任意长度！`);
-        riddleConfig.wordLength = 0;
-        localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
-        return startWordRiddleGame(true);
+        if (requiredLen > 0) {
+            showToast(`未找到长度为 ${requiredLen} 的单词，已切换为任意长度！`);
+            riddleConfig.wordLength = 0;
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            return startWordRiddleGame(true);
+        } else {
+            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高考3500默认词书，绝不卡死
+            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高考3500》');
+            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+            try {
+                candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+            } catch (e) { }
+            if (!candidatePool || candidatePool.length === 0) {
+                candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+            }
+            const fallbackWords = candidatePool.filter(w => {
+                const s = (w && w.word ? w.word : '').trim();
+                return /^[a-zA-Z]{3,9}$/.test(s);
+            });
+            if (fallbackWords.length > 0) {
+                validWords.push(...fallbackWords);
+            } else {
+                validWords.push({ word: 'REACT', meaning: 'v. 作出反应', phone: '' });
+            }
+        }
     }
 
     const chosen = validWords[Math.floor(Math.random() * validWords.length)];
@@ -8458,15 +8592,21 @@ function removeWordMastered(word) {
 
 function toggleCurrentWordMastered() {
     if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
+    // 只有在答完题后才能标注熟词
+    if (!singleState.answered) {
+        if (typeof showToast === 'function') showToast('请先作答，答题后方可标注熟词');
+        return;
+    }
     const q = singleState.pool[singleState.currentIdx];
     if (!q || !q.word) return;
     const nowMastered = toggleMasteredWord(q.word, q.phone, q.meaning);
     updateSingleCardToolbar(q);
     if (nowMastered) {
-        // 用户需求：标注熟词后直接跳到下一题
-        setTimeout(() => {
-            nextSingleQuestion(true);
-        }, 280);
+        // 标注熟词后播放加星动画，不立刻跳到下一题
+        renderCardMasteryDiamonds(q.word, 'gain');
+    } else {
+        // 取消标注熟词：播放减星动画，回到刚才的星数
+        renderCardMasteryDiamonds(q.word, 'loss');
     }
 }
 
@@ -8645,7 +8785,17 @@ function updateSingleCardToolbar(q) {
     const masterBtn = document.getElementById('btn-card-master');
     if (masterBtn) {
         masterBtn.classList.toggle('active', isMastered);
-        masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
+        if (singleState && singleState.answered) {
+            masterBtn.disabled = false;
+            masterBtn.style.opacity = '1';
+            masterBtn.style.cursor = 'pointer';
+            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
+        } else {
+            masterBtn.disabled = true;
+            masterBtn.style.opacity = '0.35';
+            masterBtn.style.cursor = 'not-allowed';
+            masterBtn.title = '答题后方可标注熟词';
+        }
         masterBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>`;
     }
 
@@ -8772,7 +8922,8 @@ function renderSingleQuestion() {
 
     const progFillEl = document.getElementById('single-progress-fill');
     if (progFillEl) {
-        progFillEl.style.width = Math.round(((singleState.currentIdx + 1) / singleState.pool.length) * 100) + '%';
+        const correctCount = singleState.score || 0;
+        progFillEl.style.width = Math.round((correctCount / singleState.pool.length) * 100) + '%';
     }
 
     const retestTag = document.getElementById('single-retest-tag');
@@ -9007,6 +9158,10 @@ function checkSinglePhraseAnswer() {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
+        const progFillEl = document.getElementById('single-progress-fill');
+        if (progFillEl) {
+            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        }
         q.isCorrect = true;
         q.wrongSlotIndices = [];
 
@@ -9228,6 +9383,10 @@ function handleSingleAnswer(idx) {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
+        const progFillEl = document.getElementById('single-progress-fill');
+        if (progFillEl) {
+            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
             delete userStats.mistakes[q.word];
         }
@@ -14936,7 +15095,7 @@ function renderDictationQuestion() {
 
     const dProgFillEl = document.getElementById('dictation-progress-fill');
     if (dProgFillEl) {
-        dProgFillEl.style.width = Math.round(((dictationState.currentIdx + 1) / dictationState.pool.length) * 100) + '%';
+        dProgFillEl.style.width = Math.round((dictationState.score / dictationState.pool.length) * 100) + '%';
     }
 
     const typeBadge = document.getElementById('dictation-type-badge');
@@ -15003,6 +15162,10 @@ function renderDictationQuestion() {
     const skipBtn = document.getElementById('btn-dictation-skip');
     if (skipBtn) {
         skipBtn.style.display = 'inline-flex';
+    }
+
+    if (typeof updateDictationToolbar === 'function') {
+        updateDictationToolbar();
     }
 
     const inputArea = document.getElementById('dictation-input-area');
@@ -15213,6 +15376,11 @@ function submitDictationAnswer() {
         }
         showToast('回答正确！');
 
+        const dProgFillEl = document.getElementById('dictation-progress-fill');
+        if (dProgFillEl) {
+            dProgFillEl.style.width = Math.round((dictationState.score / dictationState.pool.length) * 100) + '%';
+        }
+
         // 输入框设为只读
         document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.readOnly = true);
 
@@ -15220,7 +15388,7 @@ function submitDictationAnswer() {
         if (skipBtn) skipBtn.style.display = 'none';
         if (hintBtn) hintBtn.style.display = 'none';
 
-        // 展示正确答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
+        // 展示正确答案卡片（发音与熟词按钮已移至顶部工具栏）
         if (feedbackCard) {
             feedbackCard.style.display = 'block';
             feedbackCard.style.background = '';
@@ -15228,17 +15396,15 @@ function submitDictationAnswer() {
             if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
             if (feedbackWord) {
                 feedbackWord.style.color = '';
-                feedbackWord.innerHTML = `
-                    <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
-                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                        <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                    </button>
-                `;
+                feedbackWord.innerHTML = `<span style="word-break: break-word;">${escapeHtml(q.word)}</span>`;
             }
             if (feedbackMeaning) {
                 feedbackMeaning.innerText = q.meaning;
             }
-            updateDictationMasterBtn(q.word);
+        }
+
+        if (typeof updateDictationToolbar === 'function') {
+            updateDictationToolbar();
         }
 
         // 修改按钮为下一题，不自动下一题
@@ -15325,52 +15491,89 @@ function skipDictationQuestion() {
         if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
         if (feedbackWord) {
             feedbackWord.style.color = '';
-            feedbackWord.innerHTML = `
-                <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
-                <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                    <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
-                </button>
-            `;
+            feedbackWord.innerHTML = `<span style="word-break: break-word;">${escapeHtml(q.word)}</span>`;
         }
         if (feedbackMeaning) {
             feedbackMeaning.innerText = q.meaning;
         }
-        updateDictationMasterBtn(q.word);
+    }
+
+    if (typeof updateDictationToolbar === 'function') {
+        updateDictationToolbar();
     }
 
     if (submitBtnText) submitBtnText.innerText = '下一题';
     if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
 }
 
-function updateDictationMasterBtn(word) {
-    const btn = document.getElementById('btn-dictation-master');
-    const icon = document.getElementById('btn-dictation-master-icon');
-    const text = document.getElementById('btn-dictation-master-text');
-    if (!btn || !word) return;
-    const isMastered = typeof isWordMastered === 'function' ? isWordMastered(word) : false;
-    btn.classList.toggle('active', isMastered);
-    if (isMastered) {
-        btn.style.borderColor = 'var(--md-sys-color-primary)';
-        btn.style.color = 'var(--md-sys-color-primary)';
-        btn.style.background = 'var(--md-sys-color-primary-container, rgba(0,97,164,0.1))';
-    } else {
-        btn.style.borderColor = '';
-        btn.style.color = '';
-        btn.style.background = '';
+function updateDictationToolbar() {
+    const q = dictationState ? dictationState.currentQ : null;
+    const audioBtn = document.getElementById('btn-dictation-tool-audio');
+    const searchBtn = document.getElementById('btn-dictation-tool-search');
+    const masterBtn = document.getElementById('btn-dictation-tool-master');
+    const masterIcon = document.getElementById('icon-dictation-tool-master');
+
+    const answered = !!(dictationState && dictationState.answered);
+    const isListenMode = (typeof dictationConfig !== 'undefined' && dictationConfig.type === 'listen') && q && !q.isPhrase;
+
+    // 发音：看义模式或词组默写在答题前禁用，答题后或听音模式下可用
+    if (audioBtn) {
+        const canAudio = answered || isListenMode;
+        audioBtn.disabled = !canAudio;
+        audioBtn.style.opacity = canAudio ? '1' : '0.35';
+        audioBtn.style.cursor = canAudio ? 'pointer' : 'not-allowed';
     }
-    if (icon) icon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
-    if (text) text.innerText = isMastered ? '已标熟词' : '标为熟词';
+
+    // 查词：答题前禁用
+    if (searchBtn) {
+        searchBtn.disabled = !answered;
+        searchBtn.style.opacity = answered ? '1' : '0.35';
+        searchBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+    }
+
+    // 标注熟词：答题前禁用
+    if (masterBtn) {
+        masterBtn.disabled = !answered;
+        masterBtn.style.opacity = answered ? '1' : '0.35';
+        masterBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+
+        if (q && q.word) {
+            const isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
+            masterBtn.classList.toggle('active', isMastered);
+            if (masterIcon) {
+                masterIcon.innerText = 'check_circle';
+                masterIcon.style.color = isMastered ? 'var(--md-sys-color-primary, #0061a4)' : '';
+            }
+        }
+    }
 }
+window.updateDictationToolbar = updateDictationToolbar;
 
 function toggleDictationMasteredWord() {
+    if (!dictationState || !dictationState.answered) {
+        showToast('答题后方可标注熟词');
+        return;
+    }
     if (!dictationState.currentQ) return;
     const q = dictationState.currentQ;
     if (typeof toggleMasteredWord === 'function') {
         toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
-        updateDictationMasterBtn(q.word);
+        updateDictationToolbar();
     }
 }
 window.toggleDictationMasteredWord = toggleDictationMasteredWord;
+
+function jumpToSearchFromDictation() {
+    if (!dictationState || !dictationState.answered) {
+        showToast('答题后方可查询释义');
+        return;
+    }
+    const q = dictationState.currentQ || (dictationState.pool && dictationState.pool[dictationState.currentIdx]);
+    if (q && q.word && typeof jumpToSearch === 'function') {
+        jumpToSearch(q.word);
+    }
+}
+window.jumpToSearchFromDictation = jumpToSearchFromDictation;
 
 function endDictationSession() {
     if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();
@@ -15485,9 +15688,33 @@ function filterSettlementList(filter, btn) {
 
 function renderSingleSummaryHtml(pool) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
-    let mistakeCount = pool.filter(q => !q.isCorrect).length;
 
-    let itemsHtml = pool.map((q, idx) => {
+    // 去重：同一道题（单词/词组）答错多次不重复展示
+    const uniquePool = [];
+    const seenWords = new Map();
+    pool.forEach(q => {
+        if (!q || !q.word) return;
+        const key = q.word.trim().toLowerCase();
+        if (!seenWords.has(key)) {
+            const itemCopy = { ...q };
+            seenWords.set(key, itemCopy);
+            uniquePool.push(itemCopy);
+        } else {
+            const existing = seenWords.get(key);
+            if (!q.isCorrect) {
+                existing.isCorrect = false;
+                if (q.wrongSlotIndices && q.wrongSlotIndices.length > 0) {
+                    existing.wrongSlotIndices = q.wrongSlotIndices;
+                }
+                if (q.userAnswerIdx !== undefined) existing.userAnswerIdx = q.userAnswerIdx;
+            }
+        }
+    });
+
+    let mistakeCount = uniquePool.filter(q => !q.isCorrect).length;
+    const hasMistakes = mistakeCount > 0;
+
+    let itemsHtml = uniquePool.map((q, idx) => {
         const isMistake = !q.isCorrect;
         const isPhrase = !!(q.isPhrase || (q.word && q.word.trim().includes(' ')));
         const targetMeaning = escapeHtml(q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : ''));
@@ -15496,7 +15723,7 @@ function renderSingleSummaryHtml(pool) {
         let drawerContent = '';
 
         if (isPhrase) {
-            // 词组规则：词组则将错的地方加粗
+            // 词组不需要展开功能，仅在答错的词块部分上标红
             const targetWords = q.targetWords || (typeof extractPhraseTargetWords === 'function' ? extractPhraseTargetWords(q.word) : q.word.split(' '));
             const wrongSlots = Array.isArray(q.wrongSlotIndices) ? q.wrongSlotIndices : [];
 
@@ -15505,24 +15732,14 @@ function renderSingleSummaryHtml(pool) {
                     if (typeof isFixedPhraseToken === 'function' && isFixedPhraseToken(w)) return escapeHtml(w);
                     const isSlotWrong = wrongSlots.length === 0 || wrongSlots.includes(i);
                     return isSlotWrong
-                        ? `<strong class="phrase-wrong-token-bold">${escapeHtml(w)}</strong>`
+                        ? `<span style="color:var(--md-sys-color-error, #ba1a1a); font-weight:700;">${escapeHtml(w)}</span>`
                         : escapeHtml(w);
                 }).join(' ');
             } else {
                 titleDisplay = escapeHtml(q.word);
             }
-
-            drawerContent = `
-                        <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:8px; font-size:0.86rem;">
-                            词组搭配与释义：
-                        </div>
-                        <div style="font-size:0.92rem; line-height:1.6; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:8px;">
-                            完整词组：<strong>${escapeHtml(q.word)}</strong><br>
-                            标准释义：<span style="color:var(--md-sys-color-on-surface-variant);">${targetMeaning}</span>
-                        </div>
-                    `;
+            drawerContent = '';
         } else {
-            // 单词规则：左边放四个选项的单词，右边展示释义；选错加粗标红前缀 ✕，正确前缀 ✓；删除“干扰辨析”“正确释义”“选错的辨析项”等文字标签
             const phoneDisplay = q.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(q.phone)}/</span>` : '';
             if (isMistake) {
                 titleDisplay = `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong>${phoneDisplay}`;
@@ -15542,31 +15759,31 @@ function renderSingleSummaryHtml(pool) {
 
                     if (isCorrectOpt) {
                         return `
-                                    <div class="distractor-grid-row correct-target-row">
-                                        <span class="distractor-word-col">
-                                            <span style="font-weight:700;">✓</span>
-                                            <span>${optWord}</span>
-                                        </span>
-                                        <span class="distractor-meaning-col">${optMeaning}</span>
-                                    </div>
-                                `;
+                            <div class="distractor-grid-row correct-target-row">
+                                <span class="distractor-word-col">
+                                    <span style="font-weight:700;">✓</span>
+                                    <span>${optWord}</span>
+                                </span>
+                                <span class="distractor-meaning-col">${optMeaning}</span>
+                            </div>
+                        `;
                     } else if (isChosenWrong) {
                         return `
-                                    <div class="distractor-grid-row chosen-mistake-row">
-                                        <span class="distractor-word-col">
-                                            <span style="font-weight:800;">✕</span>
-                                            <strong>${optWord}</strong>
-                                        </span>
-                                        <span class="distractor-meaning-col"><strong>${optMeaning}</strong></span>
-                                    </div>
-                                `;
+                            <div class="distractor-grid-row chosen-mistake-row">
+                                <span class="distractor-word-col">
+                                    <span style="font-weight:800;">✕</span>
+                                    <strong>${optWord}</strong>
+                                </span>
+                                <span class="distractor-meaning-col"><strong>${optMeaning}</strong></span>
+                            </div>
+                        `;
                     } else {
                         return `
-                                    <div class="distractor-grid-row">
-                                        <span class="distractor-word-col">${optWord}</span>
-                                        <span class="distractor-meaning-col">${optMeaning}</span>
-                                    </div>
-                                `;
+                            <div class="distractor-grid-row">
+                                <span class="distractor-word-col">${optWord}</span>
+                                <span class="distractor-meaning-col">${optMeaning}</span>
+                            </div>
+                        `;
                     }
                 }).join('');
             } else {
@@ -15574,53 +15791,55 @@ function renderSingleSummaryHtml(pool) {
             }
 
             drawerContent = `
-                        <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:8px; font-size:0.86rem;">
-                            选项辨析：
-                        </div>
-                        <div class="distractor-list">
-                            ${distractorsHtml}
-                        </div>
-                    `;
+                <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:8px; font-size:0.86rem;">
+                    选项辨析：
+                </div>
+                <div class="distractor-list">
+                    ${distractorsHtml}
+                </div>
+            `;
         }
 
         return `
-                    <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}">
-                        <div class="settlement-item-header">
-                            <div class="settlement-item-main">
-                                <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
-                                    ${isMistake ? 'cancel' : 'check_circle'}
-                                </span>
-                                <div>
-                                    <div>${titleDisplay}</div>
-                                    <div class="settlement-trans-text">${targetMeaning}</div>
-                                </div>
-                            </div>
-                            <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
-                        </div>
-                        <div class="settlement-item-drawer">
-                            ${drawerContent}
+            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'} ${isPhrase ? 'phrase-no-drawer' : ''}" ${isPhrase ? '' : 'onclick="toggleSettlementDrawer(this)"'} data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
+                <div class="settlement-item-header" style="${isPhrase ? 'cursor:default;' : ''}">
+                    <div class="settlement-item-main">
+                        <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
+                            ${isMistake ? 'cancel' : 'check_circle'}
+                        </span>
+                        <div>
+                            <div>${titleDisplay}</div>
+                            <div class="settlement-trans-text">${targetMeaning}</div>
                         </div>
                     </div>
-                `;
+                    ${isPhrase ? '' : '<span class="material-symbols-rounded settlement-item-chevron">expand_more</span>'}
+                </div>
+                ${isPhrase ? '' : `
+                <div class="settlement-item-drawer">
+                    ${drawerContent}
+                </div>
+                `}
+            </div>
+        `;
     }).join('');
 
     return `
-                <div class="settlement-summary-card">
-                    <div class="settlement-summary-header">
-                        <div>
-                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组题目小结</h3>
-                            <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词或词组可展开查看选项辨析与干扰项</p>
-                        </div>
-                        <div class="settlement-filter-group">
-                            <button type="button" class="settlement-filter-btn active" onclick="filterSettlementList('all', this)">全部 (${pool.length})</button>
-                            <button type="button" class="settlement-filter-btn" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
-                        </div>
-                    </div>
-                    <div class="settlement-list md3-scroll-view" id="settlement-list-container">
-                        ${itemsHtml}
-                    </div>
+        <div class="settlement-summary-card">
+            <div class="settlement-summary-header">
+                <div>
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组题目小结</h3>
+                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词可展开查看选项辨析与干扰项</p>
                 </div>
-            `;
+                <div class="settlement-filter-group">
+                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
+                    <button type="button" class="settlement-filter-btn ${!hasMistakes ? 'active' : ''}" onclick="filterSettlementList('all', this)">全部 (${uniquePool.length})</button>
+                </div>
+            </div>
+            <div class="settlement-list md3-scroll-view" id="settlement-list-container">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
 }
 
 function renderShiCiSummaryHtml(pool) {
@@ -17499,7 +17718,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.6',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.3.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -18285,51 +18504,35 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.6';
+const APP_VERSION = '2.3.0';
 const APP_CHANGELOG = [
     {
-        version: 'v2.2.6',
+        version: 'v2.3.0',
         date: '2026-09-26',
         badge: '当前版本',
         items: [
-            '首次打开背单词、Wordle、英语默写默认选择《高考3500》词书。',
-            '在默写练习的正确答案框中新增“标注熟词”按钮，可即时标为熟词或取消熟词。',
-            '在选择词书页面直观显示每本词书的掌握度百分比与进度指示条。',
-            'Wordle 模式选择词书限制：禁用纯词组书籍，防止非单词词组影响猜词体验。',
-            '新增“今日 Wordle”每日挑战：字母数随机（4-8字母），全网每日统一，限制6次尝试，计时挑战并在结算时直达排行榜；打开排行榜时自动暂停计时，退出时恢复计时；普通 Wordle 模式隐藏排行榜按钮。',
-            '重做风云排行榜（等级榜 & Wordle 榜）：全面仿照 Google MD3 规范；等级榜移除称号与具体经验数值，极简展示排名与等级；Wordle 榜严格禁止查看未来榜单与单词防剧透；历史挑战单词采用全小写规范展示；支持按用时与尝试次数自由排序。',
-            '动态更新每日 Wordle 单词：以 Supabase 云端为单一事实源动态拉取，管理员后台修改即时生效，全网统一且支持4-8位字母长度随机。',
-            '登录页面与多账号体验优化：移除“登录其他账号”按钮，本机记住的账号与手动输入表单同屏呈现，优化删除与快捷登录微交互。',
-            '首页用户状态同步：下拉菜单切换“在线”或“隐身”后，即时同步至首页顶部状态徽标（绿点在线、灰点隐身、离线优先）。',
-            '简化账号管理等级卡片：极简展示当前等级、较昨日升降变化及进度百分比，不展示多余经验值。',
-            'Supabase 云端全面持久化：用户等级、今日 Wordle 单词、玩家答题记录与排行榜数据均同步至 Supabase 云端。'
-        ]
-    },
-    {
-        version: 'v2.2.5',
-        date: '2026-09-26',
-        badge: '历史版本',
-        items: [
-            '英语默写练习答错后支持自主订正与重试，不再直接展示答案。',
-            '英语默写答对或公布答案后隐藏“看答案”与“提示”按钮，且不再自动跳转下一题。',
-            '优化英语默写反馈样式：正确答案取消红色背景填充，发音按钮移至英文词汇右侧。',
-            '优化词块着色体验：答对词块标蓝（#0061a4），答错词块标红。',
-            '更新日志全面支持识别 Markdown 语法：支持列表缩进、无序列表、有序列表及 blockquote 引用块。',
-            '优化UI与交互细节。'
-        ]
-    },
-    {
-        version: 'v2.2.4',
-        date: '2026-09-26',
-        badge: '历史版本',
-        items: [
-            '支持使用第三方账号登录。',
-            '在设置-更新日志中可以切换云端日志和本地日志。',
-            'Wordle草稿行与上方对齐，方便对照。',
-            '优化UI。',
-            '修复英语词组中带有=、/的题，左右两边互换算错的bug。',
-            '修复手机端游客账号无法保存数据的bug。',
-            '修复若干bug。'
+            '- 支持使用第三方账号登录。',
+            '- 支持记住登录状态和快捷切换账号。',
+            '- 支持切换在线和隐身状态。',
+            '- 更新等级系统。',
+            '- 更新今日Wordle。',
+            '- 更新排行榜功能。',
+            '- 优化英语默写:',
+            '   - 答错后不再展示答案，支持重新修改。',
+            '   - 添加工具栏。',
+            '   - 优化UI。',
+            '- 优化标注熟词逻辑。',
+            '- 优化背词小结。',
+            '- 优化同步数据。',
+            '- 修复英语词组中带有=、/的题，左右两边互换算错的bug。',
+            '- 修复手机端游客账号无法保存数据的bug。',
+            '- 修复Wordle选择词组词书时卡死的bug。',
+            '- 修复打开设置时强制要求在b站中打开的bug。',
+            '- 修复词书学习进度不更新的bug。',
+            '- Wordle草稿行与上方对齐，方便对照。',
+            '- Wordle 草稿行不再调起系统键盘。',
+            '- 在设置-更新日志中可以切换云端日志和本地日志。',
+            '- 上传头像时支持调整显示区域和大小。',
         ]
     },
     {
