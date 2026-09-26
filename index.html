@@ -73,6 +73,7 @@
     <script src="./assets/js/components/folder-tree.js"></script>
     <script src="./assets/js/components/md3-select.js"></script>
     <script src="./assets/js/components/version-card.js"></script>
+    <script src="./assets/js/components/avatar-cropper.js"></script>
 
     <!-- 业务视图与游戏模式控制器 (Feature Views) -->
     <script src="./assets/js/views/auth.js"></script>
@@ -557,7 +558,7 @@
         <div id="view-hub" class="view">
             <div class="app-bar">
                 <div id="hub-header-title-box">
-                    <h2 id="hub-header-title">学习中心</h2>
+                    <h2 id="hub-header-title">首页</h2>
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
@@ -830,7 +831,6 @@
                                         <h4 id="me-user-display-name" style="margin: 0; font-size: 1.05rem; font-weight: 700;">用户名</h4>
                                         <div id="me-user-platform-badge"></div>
                                     </div>
-                                    <p id="settings-current-user-stat" style="margin: 3px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">作答词数：0 词</p>
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1870,7 +1870,7 @@
                         style="display:none; padding:12px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="font-size:0.85rem; color:var(--md-sys-color-outline);"
                             id="dictation-feedback-title">正确答案：</div>
-                        <div style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary);"
+                        <div style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary); display:flex; align-items:center; gap:8px; flex-wrap:wrap;"
                             id="dictation-feedback-word"></div>
                         <div style="font-size:0.9rem; font-weight:500; color:var(--md-sys-color-on-surface);"
                             id="dictation-feedback-meaning"></div>
@@ -1882,7 +1882,7 @@
                             <span class="material-symbols-rounded" style="font-size:18px;">lightbulb</span>
                             <span class="btn-label-text" id="btn-dictation-hint-text">提示</span>
                         </button>
-                        <div style="display:flex; gap:8px;">
+                        <div style="display:flex; gap:8px; margin-left:auto;">
                             <button class="btn btn-tonal btn-sm" id="btn-dictation-skip"
                                 onclick="skipDictationQuestion()">
                                 <span class="material-symbols-rounded" style="font-size:18px;">skip_next</span>
@@ -1890,7 +1890,7 @@
                             </button>
                             <button class="btn btn-filled btn-sm" id="btn-dictation-submit"
                                 onclick="submitDictationAnswer()">
-                                <span class="material-symbols-rounded" style="font-size:18px;">check</span>
+                                <span class="material-symbols-rounded" id="btn-dictation-submit-icon" style="font-size:18px;">check</span>
                                 <span class="btn-label-text" id="btn-dictation-submit-text">确认</span>
                             </button>
                         </div>
@@ -2217,8 +2217,9 @@
                         <h3 style="margin:0; font-size:1.15rem; font-weight:700;">更新日志</h3>
                     </div>
                     <button type="button" class="btn btn-filled btn-sm" id="btn-changelog-action"
-                        onclick="handleVersionUpdateAction()">
-                        <span class="btn-label-text" id="btn-changelog-action-text">下载最新版本</span>
+                        onclick="handleChangelogSyncAction()">
+                        <span class="material-symbols-rounded" id="btn-changelog-action-icon" style="font-size:16px;">sync</span>
+                        <span class="btn-label-text" id="btn-changelog-action-text">同步云端</span>
                     </button>
                 </div>
 
@@ -2602,7 +2603,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.4</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.5</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -3422,7 +3423,72 @@
         </div>
     </div>
 
+    <!-- 全局操作确认弹窗 (兼容 Iframe 沙盒环境，替代系统 confirm) -->
+    <div id="modal-app-confirm" class="modal-overlay">
+        <div class="modal-card" style="max-width: 360px; width: 90%;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="app-confirm-title" style="font-size:1.15rem; font-weight:700;">确认操作</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="resolveAppConfirm(false)">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px;">
+                <p id="app-confirm-message" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);"></p>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" id="app-confirm-btn-cancel" style="flex:1;" onclick="resolveAppConfirm(false)">
+                    <span class="btn-label-text" id="app-confirm-cancel-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" id="app-confirm-btn-ok" style="flex:1;" onclick="resolveAppConfirm(true)">
+                    <span class="material-symbols-rounded" id="app-confirm-ok-icon" style="font-size:18px;">check</span>
+                    <span class="btn-label-text" id="app-confirm-ok-text">确认</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
+    <!-- 头像裁切与区域调整弹窗 -->
+    <div id="modal-avatar-cropper" class="modal-overlay">
+        <div class="modal-card" style="max-width: 380px; width: 92%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.15rem; font-weight:700;">调整头像区域</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeAvatarCropperModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+                <!-- 裁切视口容器 -->
+                <div id="cropper-viewport-wrap" style="position: relative; width: 260px; height: 260px; border-radius: 16px; overflow: hidden; background: #121212; cursor: grab; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="cropper-canvas" width="260" height="260" style="position: absolute; top: 0; left: 0; pointer-events: none; width: 260px; height: 260px;"></canvas>
+                    <!-- 圆形裁切遮罩层 (居中 220px 圆形) -->
+                    <div style="position: absolute; width: 220px; height: 220px; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.58); border: 2px solid var(--md-sys-color-primary);"></div>
+                </div>
+                <!-- 缩放控制滑块与操作按钮 -->
+                <div style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 0 4px;">
+                    <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-outline);">zoom_out</span>
+                    <input type="range" id="cropper-zoom-slider" min="1" max="3.5" step="0.01" value="1" style="flex: 1; accent-color: var(--md-sys-color-primary); cursor: pointer;" oninput="onCropperZoomChange(this.value)">
+                    <span class="material-symbols-rounded" style="font-size: 20px; color: var(--md-sys-color-outline);">zoom_in</span>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="rotateCropperImage()" title="旋转 90 度" style="padding: 4px 8px; height: 32px; gap: 2px;">
+                        <span class="material-symbols-rounded" style="font-size: 18px;">rotate_right</span>
+                    </button>
+                </div>
+                <p style="margin: 0; font-size: 0.8rem; color: var(--md-sys-color-outline); text-align: center;">调整位置、旋转和缩放</p>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeAvatarCropperModal()">
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" id="btn-cropper-confirm" onclick="confirmCropperImage()">
+                    <span class="material-symbols-rounded">crop</span>
+                    <span class="btn-label-text">完成裁切</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- 统一底部滑入式虚拟键盘 (MD3 规范，应用图片布局) -->
     <div id="global-virtual-keyboard" class="global-virtual-keyboard" aria-label="虚拟键盘">

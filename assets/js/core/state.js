@@ -312,3 +312,51 @@ function recordShiCiUserMistake(username, data) {
         }
     }
 }
+
+let appConfirmResolve = null;
+
+function showConfirmModal({
+    title = '确认操作',
+    message = '确认继续此操作吗？',
+    confirmText = '确认',
+    cancelText = '取消',
+    isDanger = false,
+    icon = 'check'
+} = {}) {
+    return new Promise(resolve => {
+        appConfirmResolve = resolve;
+        const modal = document.getElementById('modal-app-confirm');
+        const titleEl = document.getElementById('app-confirm-title');
+        const msgEl = document.getElementById('app-confirm-message');
+        const okTextEl = document.getElementById('app-confirm-ok-text');
+        const cancelTextEl = document.getElementById('app-confirm-cancel-text');
+        const okBtn = document.getElementById('app-confirm-btn-ok');
+        const iconEl = document.getElementById('app-confirm-ok-icon');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+        if (okTextEl) okTextEl.innerText = confirmText;
+        if (cancelTextEl) cancelTextEl.innerText = cancelText;
+        if (iconEl) iconEl.innerText = icon;
+
+        if (okBtn) {
+            if (isDanger) {
+                okBtn.className = 'btn btn-filled btn-danger btn-touch-large';
+            } else {
+                okBtn.className = 'btn btn-filled btn-touch-large';
+            }
+        }
+
+        if (modal) modal.classList.add('active');
+    });
+}
+
+function resolveAppConfirm(result) {
+    const modal = document.getElementById('modal-app-confirm');
+    if (modal) modal.classList.remove('active');
+    if (typeof appConfirmResolve === 'function') {
+        const cb = appConfirmResolve;
+        appConfirmResolve = null;
+        cb(!!result);
+    }
+}

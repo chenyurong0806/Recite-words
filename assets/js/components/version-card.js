@@ -90,12 +90,19 @@ function showVersionUpdateCard(data, isLocal) {
     if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
     if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate}`;
     if (descEl && Array.isArray(data.changelog)) {
-        descEl.innerHTML = `
+        if (typeof renderMarkdownChangelog === 'function') {
+            descEl.innerHTML = `
+                <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
+                ${renderMarkdownChangelog(data.changelog.slice(0, 4))}
+            `;
+        } else {
+            descEl.innerHTML = `
                 <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
                 <ul style="padding-left:16px; margin:0; line-height:1.5;">
-                    ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it)}</li>`).join('')}
+                    ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it.replace(/^[>*\-•\s]+/, ''))}</li>`).join('')}
                 </ul>
             `;
+        }
     }
 
     if (actionBtn) {

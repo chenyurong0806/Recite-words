@@ -47,11 +47,12 @@ function triggerRegAvatarUpload() {
     if (input) input.click();
 }
 
-async function handleRegAvatarChange(event) {
+function handleRegAvatarChange(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    try {
-        regAvatarDataUrl = await compressImageFile(file, 140, 140, 0.82);
+    openAvatarCropper(file, (dataUrl) => {
+        if (!dataUrl) return;
+        regAvatarDataUrl = dataUrl;
         const imgEl = document.getElementById('auth-reg-avatar-preview');
         const iconEl = document.getElementById('auth-reg-avatar-icon');
         if (imgEl && iconEl) {
@@ -59,9 +60,8 @@ async function handleRegAvatarChange(event) {
             imgEl.style.display = 'block';
             iconEl.style.display = 'none';
         }
-    } catch (e) {
-        showToast(e.message || '头像处理失败');
-    }
+    });
+    event.target.value = '';
 }
 
 async function handleCloudLogin() {

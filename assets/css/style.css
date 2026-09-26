@@ -5145,15 +5145,15 @@ body.hide-all-icons .material-symbols-rounded {
 }
 
 .dictation-slot-input.correct {
-    border-color: #146C2E !important;
-    background-color: #E8F5E9 !important;
-    color: #146C2E !important;
+    border-color: #0061a4 !important;
+    background-color: #e8f0fe !important;
+    color: #0061a4 !important;
 }
 
 .dictation-slot-input.wrong {
-    border-color: #BA1A1A !important;
-    background-color: #FFEBEE !important;
-    color: #BA1A1A !important;
+    border-color: #ba1a1a !important;
+    background-color: #ffedea !important;
+    color: #ba1a1a !important;
 }
 
 .dictation-slot-block-fixed {
@@ -7457,4 +7457,102 @@ body.nav-hidden {
 .auth-reg-avatar-wrap:hover {
     transform: scale(1.05);
     background: var(--md-sys-color-primary-container, #dbeafe);
+}
+
+/* 更新日志 Markdown 渲染样式规范 (支持 md 缩进、无序列表、有序列表、blockquote) */
+.changelog-content {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--md-sys-color-on-surface-variant);
+    word-break: break-word;
+}
+
+.changelog-content .changelog-list {
+    margin: 4px 0;
+    padding-left: 20px;
+    list-style-position: outside;
+}
+
+.changelog-content ul.changelog-list {
+    list-style-type: disc;
+}
+
+.changelog-content ul.changelog-list ul.changelog-list {
+    list-style-type: circle;
+    margin: 2px 0 3px;
+    padding-left: 18px;
+}
+
+.changelog-content ul.changelog-list ul.changelog-list ul.changelog-list {
+    list-style-type: square;
+    margin: 2px 0 3px;
+    padding-left: 18px;
+}
+
+.changelog-content ol.changelog-list {
+    list-style-type: decimal;
+}
+
+.changelog-content ol.changelog-list ol.changelog-list {
+    list-style-type: lower-alpha;
+    margin: 2px 0 3px;
+    padding-left: 18px;
+}
+
+.changelog-content .changelog-list li {
+    margin-bottom: 5px;
+    line-height: 1.65;
+}
+
+.changelog-content .changelog-list li:last-child {
+    margin-bottom: 2px;
+}
+
+.changelog-content .changelog-blockquote {
+    margin: 8px 0;
+    padding: 8px 14px;
+    border-left: 3.5px solid var(--md-sys-color-primary, #0061a4);
+    background: var(--md-sys-color-surface-container, #f0f4f9);
+    border-radius: 0 8px 8px 0;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.88rem;
+    line-height: 1.65;
+}
+
+.changelog-content .changelog-blockquote .changelog-p {
+    margin: 4px 0;
+}
+
+.changelog-content .changelog-p {
+    margin: 4px 0 6px;
+    line-height: 1.65;
+}
+
+.changelog-content .changelog-sub-text {
+    margin: 3px 0 5px 6px;
+    color: var(--md-sys-color-outline);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.changelog-content .changelog-heading {
+    font-weight: 700;
+    font-size: 0.94rem;
+    color: var(--md-sys-color-primary, #0061a4);
+    margin: 10px 0 4px;
+}
+
+.changelog-content .md-inline-code {
+    padding: 1.5px 5px;
+    border-radius: 4px;
+    background: var(--md-sys-color-surface-container-high, #e6e8ee);
+    color: var(--md-sys-color-on-surface);
+    font-size: 0.84em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.changelog-content .md-link {
+    color: var(--md-sys-color-primary, #0061a4);
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }

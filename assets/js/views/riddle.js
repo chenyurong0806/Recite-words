@@ -938,7 +938,20 @@ function getRiddleSolvedPositions() {
 
 function renderRiddleHintContent() {
     const hintContent = document.getElementById('riddle-hint-content');
+    const hintTitle = document.getElementById('riddle-hint-title');
+    const hintStepTip = document.getElementById('riddle-hint-step-tip');
     if (!hintContent) return;
+
+    if (hintTitle) hintTitle.innerText = riddleState.revealedMeaning ? '终极释义' : '提示';
+    if (hintStepTip) {
+        if (riddleState.revealedMeaning) {
+            hintStepTip.innerText = '释义已解锁';
+        } else if (riddleState.hintLevel > 0) {
+            hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
+        } else {
+            hintStepTip.innerText = '';
+        }
+    }
 
     const target = riddleState.targetWord;
     const len = riddleState.targetLength;
@@ -953,29 +966,34 @@ function renderRiddleHintContent() {
         }
     }
 
-    let html = `
-            <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-                <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">已掌握格位：</span>
-                <span class="riddle-hint-letters" style="font-size:1.15rem; font-weight:700; letter-spacing:4px;">${lettersArr.join(' ')}</span>
+    let html = '';
+
+    // 只有已定位字母时才显示已知格位（避免开局全是空下划线冗余占位）
+    if (solved.size > 0) {
+        html += `
+            <div style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">已定位格：</span>
+                <span class="riddle-hint-letters" style="font-size:1.05rem; font-weight:700; letter-spacing:3px;">${lettersArr.join(' ')}</span>
             </div>
         `;
+    }
 
     if (riddleState.pendingHint) {
         html += `
-                <div style="margin-bottom:8px; display:inline-flex; align-items:center; gap:6px; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); padding:4px 10px; border-radius:var(--md-shape-full); font-size:0.82rem; font-weight:600;">
-                    <span class="material-symbols-rounded" style="font-size:16px;">lightbulb</span>
-                    <span>待定位置字母：【${formatRiddleCase(riddleState.pendingHint.letter)}】（下次提示解锁具体位置）</span>
-                </div>
-            `;
+            <div style="margin-bottom:6px; display:inline-flex; align-items:center; gap:6px; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); padding:4px 10px; border-radius:var(--md-shape-full); font-size:0.84rem; font-weight:600;">
+                <span class="material-symbols-rounded" style="font-size:16px;">lightbulb</span>
+                <span>包含字母【${formatRiddleCase(riddleState.pendingHint.letter)}】（再次提示解锁格位）</span>
+            </div>
+        `;
     }
 
     if (riddleState.revealedMeaning) {
         html += `
-                <div style="padding-top:6px; margin-top:4px; border-top:1px dashed var(--md-sys-color-outline-variant);">
-                    <strong style="color:var(--md-sys-color-outline);">中文释义：</strong>
-                    <span style="font-weight:600; color:var(--md-sys-color-primary); font-size:0.95rem;">${riddleState.clueMeaning}</span>
-                </div>
-            `;
+            <div style="padding-top:6px; margin-top:4px; border-top:1px dashed var(--md-sys-color-outline-variant);">
+                <strong style="color:var(--md-sys-color-outline); font-size:0.86rem;">释义：</strong>
+                <span style="font-weight:600; color:var(--md-sys-color-primary); font-size:0.92rem;">${riddleState.clueMeaning}</span>
+            </div>
+        `;
     }
 
     hintContent.innerHTML = html;
@@ -1011,8 +1029,8 @@ function handleRiddleHint() {
             riddleState.pendingHint = null;
             riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-            if (hintTitle) hintTitle.innerText = `提示：字母位置揭晓`;
-            if (hintStepTip) hintStepTip.innerText = `已指出该字母的精确格位`;
+            if (hintTitle) hintTitle.innerText = `提示`;
+            if (hintStepTip) hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
             if (hintCount) hintCount.innerText = `第 ${riddleState.hintLevel} 步`;
             renderRiddleHintContent();
             saveRiddleProgress();
@@ -1033,8 +1051,8 @@ function handleRiddleHint() {
         riddleState.revealedMeaning = true;
         riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-        if (hintTitle) hintTitle.innerText = `终极线索：中文释义`;
-        if (hintStepTip) hintStepTip.innerText = `仅剩 ${unrevealed.length} 个字母未填，直接给出中文释义`;
+        if (hintTitle) hintTitle.innerText = `终极提示`;
+        if (hintStepTip) hintStepTip.innerText = `释义已揭晓`;
         if (hintCount) hintCount.innerText = `终极提示`;
         renderRiddleHintContent();
         saveRiddleProgress();
@@ -1047,8 +1065,8 @@ function handleRiddleHint() {
     riddleState.pendingHint = { letter, pos: randomPos };
     riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-    if (hintTitle) hintTitle.innerText = `提示：包含字母`;
-    if (hintStepTip) hintStepTip.innerText = `包含该字母，下次提示将指出其具体格位`;
+    if (hintTitle) hintTitle.innerText = `提示`;
+    if (hintStepTip) hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
     if (hintCount) hintCount.innerText = `第 ${riddleState.hintLevel} 步`;
     renderRiddleHintContent();
     saveRiddleProgress();
@@ -1076,9 +1094,17 @@ function renderRiddleResult(title, titleColor) {
     if (meaningEl) meaningEl.innerText = riddleState.clueMeaning || '---';
 }
 
-function giveUpRiddle() {
+async function giveUpRiddle() {
     if (riddleState.gameOver) return;
-    if (confirm(`确认揭晓答案吗？`)) {
+    const ok = await showConfirmModal({
+        title: '揭晓答案',
+        message: '确认揭晓答案吗？本局游戏将立即结算。',
+        confirmText: '确认揭晓',
+        cancelText: '继续猜词',
+        isDanger: true,
+        icon: 'visibility'
+    });
+    if (ok) {
         riddleState.gameOver = true;
         saveRiddleProgress();
         renderRiddleBoard();

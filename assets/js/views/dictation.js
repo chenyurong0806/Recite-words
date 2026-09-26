@@ -28,7 +28,8 @@ let dictationState = {
     score: 0,
     total: 0,
     currentQ: null,
-    answered: false
+    answered: false,
+    hasError: false
 };
 
 function openDictationSettings() {
@@ -182,7 +183,8 @@ async function startDictationPractice() {
         score: 0,
         total: 0,
         currentQ: null,
-        answered: false
+        answered: false,
+        hasError: false
     };
 
     renderDictationQuestion();
@@ -198,6 +200,7 @@ function renderDictationQuestion() {
     const q = dictationState.pool[dictationState.currentIdx];
     dictationState.currentQ = q;
     dictationState.answered = false;
+    dictationState.hasError = false;
 
     const badge = document.getElementById('dictation-book-badge');
     if (badge) badge.innerText = q.bookName;
@@ -251,11 +254,14 @@ function renderDictationQuestion() {
     }
     if (feedbackWord) {
         feedbackWord.style.color = '';
+        feedbackWord.innerHTML = '';
     }
 
     const submitBtn = document.getElementById('btn-dictation-submit');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
     if (submitBtnText) submitBtnText.innerText = '确认';
+    if (submitBtnIcon) submitBtnIcon.innerText = 'check';
     if (submitBtn) {
         submitBtn.onclick = () => submitDictationAnswer();
         submitBtn.className = 'btn btn-filled btn-sm';
@@ -263,8 +269,14 @@ function renderDictationQuestion() {
 
     const hintBtn = document.getElementById('btn-dictation-hint');
     if (hintBtn) {
+        hintBtn.style.display = 'inline-flex';
         hintBtn.disabled = false;
         hintBtn.style.opacity = '1';
+    }
+
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    if (skipBtn) {
+        skipBtn.style.display = 'inline-flex';
     }
 
     const inputArea = document.getElementById('dictation-input-area');
@@ -274,7 +286,7 @@ function renderDictationQuestion() {
         inputArea.innerHTML = `
                 <div class="dictation-slots-container">
                     <div class="dictation-slot-item">
-                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()" oninput="autoResizeDictationInput(this)">
+                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()" oninput="handleDictationSingleInput(this)">
                         <span class="dictation-slot-len-badge">${q.word.length} 字母</span>
                     </div>
                 </div>
@@ -350,10 +362,22 @@ function handleDictationSlotKey(event, idx) {
     }
 }
 
+function handleDictationSingleInput(input) {
+    autoResizeDictationInput(input);
+    input.classList.remove('wrong');
+    if (dictationState.currentQ && input.value.trim().toLowerCase() !== dictationState.currentQ.word.toLowerCase()) {
+        input.classList.remove('correct');
+    }
+}
+
 function handleDictationSlotInput(event, idx) {
     const el = event.target;
     autoResizeDictationInput(el);
+    el.classList.remove('wrong');
     const token = el.getAttribute('data-token') || '';
+    if (el.value.trim().toLowerCase() !== token.toLowerCase()) {
+        el.classList.remove('correct');
+    }
     if (token && el.value.length >= token.length) {
         const allInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
         const currIdxInList = allInputs.indexOf(el);
@@ -380,10 +404,13 @@ function handleDictationHint() {
         if (matchLen < target.length) {
             const nextChar = target[matchLen];
             input.value = target.slice(0, matchLen + 1);
+            input.classList.remove('wrong');
             autoResizeDictationInput(input);
             showToast(`已补全第 ${matchLen + 1} 个字母「${nextChar}」`);
         } else {
             input.value = target;
+            input.classList.remove('wrong');
+            input.classList.add('correct');
             autoResizeDictationInput(input);
             showToast('已补全完整单词');
         }
@@ -394,6 +421,8 @@ function handleDictationHint() {
             const token = input.getAttribute('data-token') || '';
             if (input.value.trim().toLowerCase() !== token.toLowerCase()) {
                 input.value = token;
+                input.classList.remove('wrong');
+                input.classList.add('correct');
                 autoResizeDictationInput(input);
                 const idx = parseInt(input.getAttribute('data-idx'));
                 showToast(`已揭示第 ${idx + 1} 格词块「${token}」`);
@@ -427,72 +456,88 @@ function submitDictationAnswer() {
         }
     } else {
         const inputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
-        isCorrect = inputs.length > 0 && inputs.every(inp => {
+        let allOk = true;
+        inputs.forEach(inp => {
             const token = inp.getAttribute('data-token') || '';
             const ok = isPhraseSlotMatch(inp.value.trim(), token, q);
             inp.classList.toggle('correct', ok);
             inp.classList.toggle('wrong', !ok);
-            return ok;
+            if (!ok) allOk = false;
         });
+        isCorrect = inputs.length > 0 && allOk;
     }
-
-    dictationState.total++;
-    dictationState.answered = true;
 
     const feedbackCard = document.getElementById('dictation-feedback-card');
     const feedbackTitle = document.getElementById('dictation-feedback-title');
     const feedbackWord = document.getElementById('dictation-feedback-word');
     const feedbackMeaning = document.getElementById('dictation-feedback-meaning');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    const hintBtn = document.getElementById('btn-dictation-hint');
 
     if (isCorrect) {
-        dictationState.score++;
-        if (window.DailyStudyTracker) {
-            DailyStudyTracker.record('dictation', 1);
+        dictationState.answered = true;
+        dictationState.total++;
+        if (!dictationState.hasError) {
+            dictationState.score++;
+            if (window.DailyStudyTracker) {
+                DailyStudyTracker.record('dictation', 1);
+            }
         }
         showToast('回答正确！');
 
+        // 输入框设为只读
+        document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.readOnly = true);
+
+        // 答对后隐藏“看答案”和“提示”
+        if (skipBtn) skipBtn.style.display = 'none';
+        if (hintBtn) hintBtn.style.display = 'none';
+
+        // 展示正确答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
         if (feedbackCard) {
             feedbackCard.style.display = 'block';
             feedbackCard.style.background = '';
             feedbackCard.style.borderColor = '';
             if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
             if (feedbackWord) {
-                feedbackWord.innerText = q.word;
                 feedbackWord.style.color = '';
+                feedbackWord.innerHTML = `
+                    <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
+                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
+                        <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
+                    </button>
+                `;
             }
             if (feedbackMeaning) {
-                feedbackMeaning.innerHTML = `
-                        <span>${q.meaning}</span>
-                        <button type="button" class="btn-audio-speak" style="width:28px; height:28px; margin-left:6px;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                        </button>
-                    `;
+                feedbackMeaning.innerText = q.meaning;
             }
         }
 
-        setTimeout(() => {
-            if (dictationState.answered) {
-                dictationState.currentIdx++;
-                renderDictationQuestion();
-            }
-        }, 800);
-    } else {
-        recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
-
-        if (feedbackCard) {
-            feedbackCard.style.display = 'block';
-            feedbackCard.style.background = 'var(--md-sys-color-error-container)';
-            feedbackCard.style.borderColor = 'var(--md-sys-color-error)';
-            if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
-            if (feedbackWord) {
-                feedbackWord.innerText = q.word;
-                feedbackWord.style.color = 'var(--md-sys-color-on-error-container)';
-            }
-            if (feedbackMeaning) feedbackMeaning.innerText = q.meaning;
-        }
-
+        // 修改按钮为下一题，不自动下一题
         if (submitBtnText) submitBtnText.innerText = '下一题';
+        if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
+
+    } else {
+        // 答错后：不要展示答案，让玩家再次改正
+        if (!dictationState.hasError) {
+            dictationState.hasError = true;
+            recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
+        }
+
+        // 确保答案卡片不展示
+        if (feedbackCard) {
+            feedbackCard.style.display = 'none';
+        }
+
+        showToast('存在拼写错误，请修改标红词块后重试');
+
+        // 自动聚焦第一个错误的词块
+        const firstWrong = document.querySelector('.dictation-slot-input.wrong');
+        if (firstWrong) {
+            firstWrong.focus();
+            if (typeof firstWrong.select === 'function') firstWrong.select();
+        }
     }
 }
 
@@ -508,39 +553,65 @@ function skipDictationQuestion() {
 
     dictationState.total++;
     dictationState.answered = true;
+    dictationState.hasError = true;
 
     recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
 
-    const wordInput = document.getElementById('dictation-word-input');
-    if (wordInput) wordInput.classList.add('wrong');
-    document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.classList.add('wrong'));
+    // 将未答对的词块标红，已答对的标蓝
+    if (!q.isPhrase) {
+        const wordInput = document.getElementById('dictation-word-input');
+        if (wordInput) {
+            const isMatch = wordInput.value.trim().toLowerCase() === q.word.toLowerCase();
+            wordInput.classList.toggle('correct', isMatch);
+            wordInput.classList.toggle('wrong', !isMatch);
+            wordInput.readOnly = true;
+        }
+    } else {
+        const inputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
+        inputs.forEach(inp => {
+            const token = inp.getAttribute('data-token') || '';
+            const ok = isPhraseSlotMatch(inp.value.trim(), token, q);
+            inp.classList.toggle('correct', ok);
+            inp.classList.toggle('wrong', !ok);
+            inp.readOnly = true;
+        });
+    }
 
+    // 隐藏“看答案”和“提示”
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    if (skipBtn) skipBtn.style.display = 'none';
+    const hintBtn = document.getElementById('btn-dictation-hint');
+    if (hintBtn) hintBtn.style.display = 'none';
+
+    // 展示答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
     const feedbackCard = document.getElementById('dictation-feedback-card');
     const feedbackTitle = document.getElementById('dictation-feedback-title');
     const feedbackWord = document.getElementById('dictation-feedback-word');
     const feedbackMeaning = document.getElementById('dictation-feedback-meaning');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
 
     if (feedbackCard) {
         feedbackCard.style.display = 'block';
-        feedbackCard.style.background = 'var(--md-sys-color-error-container)';
-        feedbackCard.style.borderColor = 'var(--md-sys-color-error)';
+        feedbackCard.style.background = '';
+        feedbackCard.style.borderColor = '';
         if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
         if (feedbackWord) {
-            feedbackWord.innerText = q.word;
-            feedbackWord.style.color = 'var(--md-sys-color-on-error-container)';
+            feedbackWord.style.color = '';
+            feedbackWord.innerHTML = `
+                <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
+                <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
+                    <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
+                </button>
+            `;
         }
         if (feedbackMeaning) {
-            feedbackMeaning.innerHTML = `
-                    <span>${q.meaning}</span>
-                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; margin-left:6px;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                        <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                    </button>
-                `;
+            feedbackMeaning.innerText = q.meaning;
         }
     }
 
     if (submitBtnText) submitBtnText.innerText = '下一题';
+    if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
 }
 
 function endDictationSession() {

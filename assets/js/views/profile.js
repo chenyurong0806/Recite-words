@@ -1195,21 +1195,24 @@ function triggerMeAvatarUpload() {
     if (input) input.click();
 }
 
-async function handleMeAvatarChange(event) {
+function handleMeAvatarChange(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    try {
-        const dataUrl = await compressImageFile(file, 140, 140, 0.82);
-        await supabaseUpdateAvatar(currentUser, dataUrl);
-        currentUserProfile.avatar = dataUrl;
-        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
-        SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, dataUrl);
-        showToast('头像已更新');
-        renderMeView();
-        updateHub();
-    } catch (e) {
-        showToast(e.message || '更新头像失败');
-    }
+    openAvatarCropper(file, async (dataUrl) => {
+        if (!dataUrl) return;
+        try {
+            await supabaseUpdateAvatar(currentUser, dataUrl);
+            currentUserProfile.avatar = dataUrl;
+            SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+            SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, dataUrl);
+            showToast('头像已更新');
+            renderMeView();
+            updateHub();
+        } catch (e) {
+            showToast(e.message || '更新头像失败');
+        }
+    });
+    event.target.value = '';
 }
 
 function openEditUsernameModal() {

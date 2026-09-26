@@ -1407,6 +1407,54 @@ function recordShiCiUserMistake(username, data) {
         }
     }
 }
+
+let appConfirmResolve = null;
+
+function showConfirmModal({
+    title = '确认操作',
+    message = '确认继续此操作吗？',
+    confirmText = '确认',
+    cancelText = '取消',
+    isDanger = false,
+    icon = 'check'
+} = {}) {
+    return new Promise(resolve => {
+        appConfirmResolve = resolve;
+        const modal = document.getElementById('modal-app-confirm');
+        const titleEl = document.getElementById('app-confirm-title');
+        const msgEl = document.getElementById('app-confirm-message');
+        const okTextEl = document.getElementById('app-confirm-ok-text');
+        const cancelTextEl = document.getElementById('app-confirm-cancel-text');
+        const okBtn = document.getElementById('app-confirm-btn-ok');
+        const iconEl = document.getElementById('app-confirm-ok-icon');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+        if (okTextEl) okTextEl.innerText = confirmText;
+        if (cancelTextEl) cancelTextEl.innerText = cancelText;
+        if (iconEl) iconEl.innerText = icon;
+
+        if (okBtn) {
+            if (isDanger) {
+                okBtn.className = 'btn btn-filled btn-danger btn-touch-large';
+            } else {
+                okBtn.className = 'btn btn-filled btn-touch-large';
+            }
+        }
+
+        if (modal) modal.classList.add('active');
+    });
+}
+
+function resolveAppConfirm(result) {
+    const modal = document.getElementById('modal-app-confirm');
+    if (modal) modal.classList.remove('active');
+    if (typeof appConfirmResolve === 'function') {
+        const cb = appConfirmResolve;
+        appConfirmResolve = null;
+        cb(!!result);
+    }
+}
 /* --- End: core/state.js --- */
 
 /* --- Begin: managers/book-manager.js --- */
@@ -2937,12 +2985,19 @@ function showVersionUpdateCard(data, isLocal) {
     if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
     if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate}`;
     if (descEl && Array.isArray(data.changelog)) {
-        descEl.innerHTML = `
+        if (typeof renderMarkdownChangelog === 'function') {
+            descEl.innerHTML = `
+                <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
+                ${renderMarkdownChangelog(data.changelog.slice(0, 4))}
+            `;
+        } else {
+            descEl.innerHTML = `
                 <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
                 <ul style="padding-left:16px; margin:0; line-height:1.5;">
-                    ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it)}</li>`).join('')}
+                    ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it.replace(/^[>*\-•\s]+/, ''))}</li>`).join('')}
                 </ul>
             `;
+        }
     }
 
     if (actionBtn) {
@@ -2998,6 +3053,227 @@ function handleVersionUpdateAction() {
 
 /* --- End: components/version-card.js --- */
 
+/* --- Begin: components/avatar-cropper.js --- */
+/**
+ * avatar-cropper.js
+ * 纯前端轻量级头像裁切与缩放调整组件
+ * 支持鼠标拖拽、触控手势、滑动缩放、滚轮缩放、90°旋转与圆形裁切预览
+ */
+
+let cropperState = {
+    img: null,
+    baseScale: 1,
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    callback: null,
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    initialOffsetX: 0,
+    initialOffsetY: 0
+};
+
+const CROPPER_VIEW_SIZE = 260; // 视口大小 260x260
+const CROPPER_TARGET_DIAMETER = 220; // 裁切圆直径 220px
+const CROPPER_OUTPUT_SIZE = 160; // 输出头像统一规格 160x160
+
+function openAvatarCropper(file, onConfirm) {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+        showToast('请选择有效的图片文件');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            initCropperWithImage(img, onConfirm);
+        };
+        img.onerror = () => {
+            showToast('图片加载失败，请换一张试试');
+        };
+        img.src = e.target.result;
+    };
+    reader.onerror = () => {
+        showToast('读取图片文件失败');
+    };
+    reader.readAsDataURL(file);
+}
+
+function initCropperWithImage(img, onConfirm) {
+    cropperState.img = img;
+    cropperState.callback = onConfirm;
+    cropperState.rotation = 0;
+    cropperState.offsetX = 0;
+    cropperState.offsetY = 0;
+    cropperState.isDragging = false;
+
+    // 计算初识 baseScale，使得图片的短边刚好填满裁切圆 (220px)
+    const minDim = Math.min(img.width, img.height);
+    cropperState.baseScale = CROPPER_TARGET_DIAMETER / minDim;
+    cropperState.zoom = 1.0;
+
+    const slider = document.getElementById('cropper-zoom-slider');
+    if (slider) {
+        slider.value = '1';
+        slider.min = '1';
+        slider.max = '3.5';
+        slider.step = '0.01';
+    }
+
+    const modal = document.getElementById('modal-avatar-cropper');
+    if (modal) modal.classList.add('active');
+
+    setupCropperEvents();
+    renderCropperCanvas();
+}
+
+function setupCropperEvents() {
+    const wrap = document.getElementById('cropper-viewport-wrap');
+    if (!wrap || wrap.dataset.eventsBound === 'true') return;
+    wrap.dataset.eventsBound = 'true';
+
+    // 触控与鼠标事件统一通过 Pointer Events 处理
+    wrap.addEventListener('pointerdown', (e) => {
+        if (!cropperState.img) return;
+        cropperState.isDragging = true;
+        cropperState.startX = e.clientX;
+        cropperState.startY = e.clientY;
+        cropperState.initialOffsetX = cropperState.offsetX;
+        cropperState.initialOffsetY = cropperState.offsetY;
+        try {
+            wrap.setPointerCapture(e.pointerId);
+        } catch (err) { }
+        wrap.style.cursor = 'grabbing';
+    });
+
+    wrap.addEventListener('pointermove', (e) => {
+        if (!cropperState.isDragging || !cropperState.img) return;
+        const dx = e.clientX - cropperState.startX;
+        const dy = e.clientY - cropperState.startY;
+        cropperState.offsetX = cropperState.initialOffsetX + dx;
+        cropperState.offsetY = cropperState.initialOffsetY + dy;
+        renderCropperCanvas();
+    });
+
+    const stopDrag = (e) => {
+        if (!cropperState.isDragging) return;
+        cropperState.isDragging = false;
+        try {
+            wrap.releasePointerCapture(e.pointerId);
+        } catch (err) { }
+        wrap.style.cursor = 'grab';
+    };
+
+    wrap.addEventListener('pointerup', stopDrag);
+    wrap.addEventListener('pointercancel', stopDrag);
+
+    // 鼠标滚轮缩放
+    wrap.addEventListener('wheel', (e) => {
+        if (!cropperState.img) return;
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        const newZoom = Math.max(1.0, Math.min(3.5, cropperState.zoom + delta));
+        if (newZoom !== cropperState.zoom) {
+            cropperState.zoom = newZoom;
+            const slider = document.getElementById('cropper-zoom-slider');
+            if (slider) slider.value = newZoom.toFixed(2);
+            renderCropperCanvas();
+        }
+    }, { passive: false });
+}
+
+function onCropperZoomChange(val) {
+    cropperState.zoom = parseFloat(val) || 1.0;
+    renderCropperCanvas();
+}
+
+function rotateCropperImage() {
+    cropperState.rotation = (cropperState.rotation + 90) % 360;
+    renderCropperCanvas();
+}
+
+function renderCropperCanvas() {
+    const canvas = document.getElementById('cropper-canvas');
+    if (!canvas || !cropperState.img) return;
+    const ctx = canvas.getContext('2d');
+
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== CROPPER_VIEW_SIZE * dpr) {
+        canvas.width = CROPPER_VIEW_SIZE * dpr;
+        canvas.height = CROPPER_VIEW_SIZE * dpr;
+    }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, CROPPER_VIEW_SIZE, CROPPER_VIEW_SIZE);
+
+    // 绘制中心
+    const center = CROPPER_VIEW_SIZE / 2;
+    ctx.translate(center + cropperState.offsetX, center + cropperState.offsetY);
+    ctx.rotate((cropperState.rotation * Math.PI) / 180);
+
+    const scale = cropperState.baseScale * cropperState.zoom;
+    ctx.scale(scale, scale);
+
+    const img = cropperState.img;
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+    ctx.restore();
+}
+
+function confirmCropperImage() {
+    if (!cropperState.img) {
+        closeAvatarCropperModal();
+        return;
+    }
+
+    try {
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = CROPPER_OUTPUT_SIZE;
+        outCanvas.height = CROPPER_OUTPUT_SIZE;
+        const ctx = outCanvas.getContext('2d');
+
+        // 输出缩放比 (160 / 220)
+        const ratio = CROPPER_OUTPUT_SIZE / CROPPER_TARGET_DIAMETER;
+        const outCenter = CROPPER_OUTPUT_SIZE / 2;
+
+        ctx.save();
+        ctx.translate(outCenter + cropperState.offsetX * ratio, outCenter + cropperState.offsetY * ratio);
+        ctx.rotate((cropperState.rotation * Math.PI) / 180);
+
+        const scale = (cropperState.baseScale * cropperState.zoom) * ratio;
+        ctx.scale(scale, scale);
+
+        const img = cropperState.img;
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        ctx.restore();
+
+        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.86);
+
+        if (typeof cropperState.callback === 'function') {
+            cropperState.callback(dataUrl);
+        }
+    } catch (e) {
+        console.error('Failed to crop avatar:', e);
+        showToast('头像裁切生成失败');
+    } finally {
+        closeAvatarCropperModal();
+    }
+}
+
+function closeAvatarCropperModal() {
+    const modal = document.getElementById('modal-avatar-cropper');
+    if (modal) modal.classList.remove('active');
+    cropperState.img = null;
+    cropperState.callback = null;
+}
+
+
+/* --- End: components/avatar-cropper.js --- */
+
 /* --- Begin: views/auth.js --- */
 /**
  * 账号中心与认证系统 (Supabase 云端账号 & B 站 Toy 授权登录)
@@ -3048,11 +3324,12 @@ function triggerRegAvatarUpload() {
     if (input) input.click();
 }
 
-async function handleRegAvatarChange(event) {
+function handleRegAvatarChange(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    try {
-        regAvatarDataUrl = await compressImageFile(file, 140, 140, 0.82);
+    openAvatarCropper(file, (dataUrl) => {
+        if (!dataUrl) return;
+        regAvatarDataUrl = dataUrl;
         const imgEl = document.getElementById('auth-reg-avatar-preview');
         const iconEl = document.getElementById('auth-reg-avatar-icon');
         if (imgEl && iconEl) {
@@ -3060,9 +3337,8 @@ async function handleRegAvatarChange(event) {
             imgEl.style.display = 'block';
             iconEl.style.display = 'none';
         }
-    } catch (e) {
-        showToast(e.message || '头像处理失败');
-    }
+    });
+    event.target.value = '';
 }
 
 async function handleCloudLogin() {
@@ -5004,7 +5280,20 @@ function getRiddleSolvedPositions() {
 
 function renderRiddleHintContent() {
     const hintContent = document.getElementById('riddle-hint-content');
+    const hintTitle = document.getElementById('riddle-hint-title');
+    const hintStepTip = document.getElementById('riddle-hint-step-tip');
     if (!hintContent) return;
+
+    if (hintTitle) hintTitle.innerText = riddleState.revealedMeaning ? '终极释义' : '提示';
+    if (hintStepTip) {
+        if (riddleState.revealedMeaning) {
+            hintStepTip.innerText = '释义已解锁';
+        } else if (riddleState.hintLevel > 0) {
+            hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
+        } else {
+            hintStepTip.innerText = '';
+        }
+    }
 
     const target = riddleState.targetWord;
     const len = riddleState.targetLength;
@@ -5019,29 +5308,34 @@ function renderRiddleHintContent() {
         }
     }
 
-    let html = `
-            <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-                <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">已掌握格位：</span>
-                <span class="riddle-hint-letters" style="font-size:1.15rem; font-weight:700; letter-spacing:4px;">${lettersArr.join(' ')}</span>
+    let html = '';
+
+    // 只有已定位字母时才显示已知格位（避免开局全是空下划线冗余占位）
+    if (solved.size > 0) {
+        html += `
+            <div style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.85rem; color:var(--md-sys-color-outline);">已定位格：</span>
+                <span class="riddle-hint-letters" style="font-size:1.05rem; font-weight:700; letter-spacing:3px;">${lettersArr.join(' ')}</span>
             </div>
         `;
+    }
 
     if (riddleState.pendingHint) {
         html += `
-                <div style="margin-bottom:8px; display:inline-flex; align-items:center; gap:6px; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); padding:4px 10px; border-radius:var(--md-shape-full); font-size:0.82rem; font-weight:600;">
-                    <span class="material-symbols-rounded" style="font-size:16px;">lightbulb</span>
-                    <span>待定位置字母：【${formatRiddleCase(riddleState.pendingHint.letter)}】（下次提示解锁具体位置）</span>
-                </div>
-            `;
+            <div style="margin-bottom:6px; display:inline-flex; align-items:center; gap:6px; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); padding:4px 10px; border-radius:var(--md-shape-full); font-size:0.84rem; font-weight:600;">
+                <span class="material-symbols-rounded" style="font-size:16px;">lightbulb</span>
+                <span>包含字母【${formatRiddleCase(riddleState.pendingHint.letter)}】（再次提示解锁格位）</span>
+            </div>
+        `;
     }
 
     if (riddleState.revealedMeaning) {
         html += `
-                <div style="padding-top:6px; margin-top:4px; border-top:1px dashed var(--md-sys-color-outline-variant);">
-                    <strong style="color:var(--md-sys-color-outline);">中文释义：</strong>
-                    <span style="font-weight:600; color:var(--md-sys-color-primary); font-size:0.95rem;">${riddleState.clueMeaning}</span>
-                </div>
-            `;
+            <div style="padding-top:6px; margin-top:4px; border-top:1px dashed var(--md-sys-color-outline-variant);">
+                <strong style="color:var(--md-sys-color-outline); font-size:0.86rem;">释义：</strong>
+                <span style="font-weight:600; color:var(--md-sys-color-primary); font-size:0.92rem;">${riddleState.clueMeaning}</span>
+            </div>
+        `;
     }
 
     hintContent.innerHTML = html;
@@ -5077,8 +5371,8 @@ function handleRiddleHint() {
             riddleState.pendingHint = null;
             riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-            if (hintTitle) hintTitle.innerText = `提示：字母位置揭晓`;
-            if (hintStepTip) hintStepTip.innerText = `已指出该字母的精确格位`;
+            if (hintTitle) hintTitle.innerText = `提示`;
+            if (hintStepTip) hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
             if (hintCount) hintCount.innerText = `第 ${riddleState.hintLevel} 步`;
             renderRiddleHintContent();
             saveRiddleProgress();
@@ -5099,8 +5393,8 @@ function handleRiddleHint() {
         riddleState.revealedMeaning = true;
         riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-        if (hintTitle) hintTitle.innerText = `终极线索：中文释义`;
-        if (hintStepTip) hintStepTip.innerText = `仅剩 ${unrevealed.length} 个字母未填，直接给出中文释义`;
+        if (hintTitle) hintTitle.innerText = `终极提示`;
+        if (hintStepTip) hintStepTip.innerText = `释义已揭晓`;
         if (hintCount) hintCount.innerText = `终极提示`;
         renderRiddleHintContent();
         saveRiddleProgress();
@@ -5113,8 +5407,8 @@ function handleRiddleHint() {
     riddleState.pendingHint = { letter, pos: randomPos };
     riddleState.hintLevel = (riddleState.hintLevel || 0) + 1;
 
-    if (hintTitle) hintTitle.innerText = `提示：包含字母`;
-    if (hintStepTip) hintStepTip.innerText = `包含该字母，下次提示将指出其具体格位`;
+    if (hintTitle) hintTitle.innerText = `提示`;
+    if (hintStepTip) hintStepTip.innerText = `第 ${riddleState.hintLevel} 步`;
     if (hintCount) hintCount.innerText = `第 ${riddleState.hintLevel} 步`;
     renderRiddleHintContent();
     saveRiddleProgress();
@@ -5142,9 +5436,17 @@ function renderRiddleResult(title, titleColor) {
     if (meaningEl) meaningEl.innerText = riddleState.clueMeaning || '---';
 }
 
-function giveUpRiddle() {
+async function giveUpRiddle() {
     if (riddleState.gameOver) return;
-    if (confirm(`确认揭晓答案吗？`)) {
+    const ok = await showConfirmModal({
+        title: '揭晓答案',
+        message: '确认揭晓答案吗？本局游戏将立即结算。',
+        confirmText: '确认揭晓',
+        cancelText: '继续猜词',
+        isDanger: true,
+        icon: 'visibility'
+    });
+    if (ok) {
         riddleState.gameOver = true;
         saveRiddleProgress();
         renderRiddleBoard();
@@ -7709,21 +8011,24 @@ function triggerMeAvatarUpload() {
     if (input) input.click();
 }
 
-async function handleMeAvatarChange(event) {
+function handleMeAvatarChange(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    try {
-        const dataUrl = await compressImageFile(file, 140, 140, 0.82);
-        await supabaseUpdateAvatar(currentUser, dataUrl);
-        currentUserProfile.avatar = dataUrl;
-        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
-        SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, dataUrl);
-        showToast('头像已更新');
-        renderMeView();
-        updateHub();
-    } catch (e) {
-        showToast(e.message || '更新头像失败');
-    }
+    openAvatarCropper(file, async (dataUrl) => {
+        if (!dataUrl) return;
+        try {
+            await supabaseUpdateAvatar(currentUser, dataUrl);
+            currentUserProfile.avatar = dataUrl;
+            SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+            SafeStorage.setItem(`vocab_user_avatar_${currentUser}`, dataUrl);
+            showToast('头像已更新');
+            renderMeView();
+            updateHub();
+        } catch (e) {
+            showToast(e.message || '更新头像失败');
+        }
+    });
+    event.target.value = '';
 }
 
 function openEditUsernameModal() {
@@ -12759,7 +13064,8 @@ let dictationState = {
     score: 0,
     total: 0,
     currentQ: null,
-    answered: false
+    answered: false,
+    hasError: false
 };
 
 function openDictationSettings() {
@@ -12913,7 +13219,8 @@ async function startDictationPractice() {
         score: 0,
         total: 0,
         currentQ: null,
-        answered: false
+        answered: false,
+        hasError: false
     };
 
     renderDictationQuestion();
@@ -12929,6 +13236,7 @@ function renderDictationQuestion() {
     const q = dictationState.pool[dictationState.currentIdx];
     dictationState.currentQ = q;
     dictationState.answered = false;
+    dictationState.hasError = false;
 
     const badge = document.getElementById('dictation-book-badge');
     if (badge) badge.innerText = q.bookName;
@@ -12982,11 +13290,14 @@ function renderDictationQuestion() {
     }
     if (feedbackWord) {
         feedbackWord.style.color = '';
+        feedbackWord.innerHTML = '';
     }
 
     const submitBtn = document.getElementById('btn-dictation-submit');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
     if (submitBtnText) submitBtnText.innerText = '确认';
+    if (submitBtnIcon) submitBtnIcon.innerText = 'check';
     if (submitBtn) {
         submitBtn.onclick = () => submitDictationAnswer();
         submitBtn.className = 'btn btn-filled btn-sm';
@@ -12994,8 +13305,14 @@ function renderDictationQuestion() {
 
     const hintBtn = document.getElementById('btn-dictation-hint');
     if (hintBtn) {
+        hintBtn.style.display = 'inline-flex';
         hintBtn.disabled = false;
         hintBtn.style.opacity = '1';
+    }
+
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    if (skipBtn) {
+        skipBtn.style.display = 'inline-flex';
     }
 
     const inputArea = document.getElementById('dictation-input-area');
@@ -13005,7 +13322,7 @@ function renderDictationQuestion() {
         inputArea.innerHTML = `
                 <div class="dictation-slots-container">
                     <div class="dictation-slot-item">
-                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()" oninput="autoResizeDictationInput(this)">
+                        <input type="text" id="dictation-word-input" class="dictation-slot-input" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitDictationAnswer()" oninput="handleDictationSingleInput(this)">
                         <span class="dictation-slot-len-badge">${q.word.length} 字母</span>
                     </div>
                 </div>
@@ -13081,10 +13398,22 @@ function handleDictationSlotKey(event, idx) {
     }
 }
 
+function handleDictationSingleInput(input) {
+    autoResizeDictationInput(input);
+    input.classList.remove('wrong');
+    if (dictationState.currentQ && input.value.trim().toLowerCase() !== dictationState.currentQ.word.toLowerCase()) {
+        input.classList.remove('correct');
+    }
+}
+
 function handleDictationSlotInput(event, idx) {
     const el = event.target;
     autoResizeDictationInput(el);
+    el.classList.remove('wrong');
     const token = el.getAttribute('data-token') || '';
+    if (el.value.trim().toLowerCase() !== token.toLowerCase()) {
+        el.classList.remove('correct');
+    }
     if (token && el.value.length >= token.length) {
         const allInputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
         const currIdxInList = allInputs.indexOf(el);
@@ -13111,10 +13440,13 @@ function handleDictationHint() {
         if (matchLen < target.length) {
             const nextChar = target[matchLen];
             input.value = target.slice(0, matchLen + 1);
+            input.classList.remove('wrong');
             autoResizeDictationInput(input);
             showToast(`已补全第 ${matchLen + 1} 个字母「${nextChar}」`);
         } else {
             input.value = target;
+            input.classList.remove('wrong');
+            input.classList.add('correct');
             autoResizeDictationInput(input);
             showToast('已补全完整单词');
         }
@@ -13125,6 +13457,8 @@ function handleDictationHint() {
             const token = input.getAttribute('data-token') || '';
             if (input.value.trim().toLowerCase() !== token.toLowerCase()) {
                 input.value = token;
+                input.classList.remove('wrong');
+                input.classList.add('correct');
                 autoResizeDictationInput(input);
                 const idx = parseInt(input.getAttribute('data-idx'));
                 showToast(`已揭示第 ${idx + 1} 格词块「${token}」`);
@@ -13158,72 +13492,88 @@ function submitDictationAnswer() {
         }
     } else {
         const inputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
-        isCorrect = inputs.length > 0 && inputs.every(inp => {
+        let allOk = true;
+        inputs.forEach(inp => {
             const token = inp.getAttribute('data-token') || '';
             const ok = isPhraseSlotMatch(inp.value.trim(), token, q);
             inp.classList.toggle('correct', ok);
             inp.classList.toggle('wrong', !ok);
-            return ok;
+            if (!ok) allOk = false;
         });
+        isCorrect = inputs.length > 0 && allOk;
     }
-
-    dictationState.total++;
-    dictationState.answered = true;
 
     const feedbackCard = document.getElementById('dictation-feedback-card');
     const feedbackTitle = document.getElementById('dictation-feedback-title');
     const feedbackWord = document.getElementById('dictation-feedback-word');
     const feedbackMeaning = document.getElementById('dictation-feedback-meaning');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    const hintBtn = document.getElementById('btn-dictation-hint');
 
     if (isCorrect) {
-        dictationState.score++;
-        if (window.DailyStudyTracker) {
-            DailyStudyTracker.record('dictation', 1);
+        dictationState.answered = true;
+        dictationState.total++;
+        if (!dictationState.hasError) {
+            dictationState.score++;
+            if (window.DailyStudyTracker) {
+                DailyStudyTracker.record('dictation', 1);
+            }
         }
         showToast('回答正确！');
 
+        // 输入框设为只读
+        document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.readOnly = true);
+
+        // 答对后隐藏“看答案”和“提示”
+        if (skipBtn) skipBtn.style.display = 'none';
+        if (hintBtn) hintBtn.style.display = 'none';
+
+        // 展示正确答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
         if (feedbackCard) {
             feedbackCard.style.display = 'block';
             feedbackCard.style.background = '';
             feedbackCard.style.borderColor = '';
             if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
             if (feedbackWord) {
-                feedbackWord.innerText = q.word;
                 feedbackWord.style.color = '';
+                feedbackWord.innerHTML = `
+                    <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
+                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
+                        <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
+                    </button>
+                `;
             }
             if (feedbackMeaning) {
-                feedbackMeaning.innerHTML = `
-                        <span>${q.meaning}</span>
-                        <button type="button" class="btn-audio-speak" style="width:28px; height:28px; margin-left:6px;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                        </button>
-                    `;
+                feedbackMeaning.innerText = q.meaning;
             }
         }
 
-        setTimeout(() => {
-            if (dictationState.answered) {
-                dictationState.currentIdx++;
-                renderDictationQuestion();
-            }
-        }, 800);
-    } else {
-        recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
-
-        if (feedbackCard) {
-            feedbackCard.style.display = 'block';
-            feedbackCard.style.background = 'var(--md-sys-color-error-container)';
-            feedbackCard.style.borderColor = 'var(--md-sys-color-error)';
-            if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
-            if (feedbackWord) {
-                feedbackWord.innerText = q.word;
-                feedbackWord.style.color = 'var(--md-sys-color-on-error-container)';
-            }
-            if (feedbackMeaning) feedbackMeaning.innerText = q.meaning;
-        }
-
+        // 修改按钮为下一题，不自动下一题
         if (submitBtnText) submitBtnText.innerText = '下一题';
+        if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
+
+    } else {
+        // 答错后：不要展示答案，让玩家再次改正
+        if (!dictationState.hasError) {
+            dictationState.hasError = true;
+            recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
+        }
+
+        // 确保答案卡片不展示
+        if (feedbackCard) {
+            feedbackCard.style.display = 'none';
+        }
+
+        showToast('存在拼写错误，请修改标红词块后重试');
+
+        // 自动聚焦第一个错误的词块
+        const firstWrong = document.querySelector('.dictation-slot-input.wrong');
+        if (firstWrong) {
+            firstWrong.focus();
+            if (typeof firstWrong.select === 'function') firstWrong.select();
+        }
     }
 }
 
@@ -13239,39 +13589,65 @@ function skipDictationQuestion() {
 
     dictationState.total++;
     dictationState.answered = true;
+    dictationState.hasError = true;
 
     recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
 
-    const wordInput = document.getElementById('dictation-word-input');
-    if (wordInput) wordInput.classList.add('wrong');
-    document.querySelectorAll('.dictation-slot-input').forEach(inp => inp.classList.add('wrong'));
+    // 将未答对的词块标红，已答对的标蓝
+    if (!q.isPhrase) {
+        const wordInput = document.getElementById('dictation-word-input');
+        if (wordInput) {
+            const isMatch = wordInput.value.trim().toLowerCase() === q.word.toLowerCase();
+            wordInput.classList.toggle('correct', isMatch);
+            wordInput.classList.toggle('wrong', !isMatch);
+            wordInput.readOnly = true;
+        }
+    } else {
+        const inputs = Array.from(document.querySelectorAll('.dictation-slot-input'));
+        inputs.forEach(inp => {
+            const token = inp.getAttribute('data-token') || '';
+            const ok = isPhraseSlotMatch(inp.value.trim(), token, q);
+            inp.classList.toggle('correct', ok);
+            inp.classList.toggle('wrong', !ok);
+            inp.readOnly = true;
+        });
+    }
 
+    // 隐藏“看答案”和“提示”
+    const skipBtn = document.getElementById('btn-dictation-skip');
+    if (skipBtn) skipBtn.style.display = 'none';
+    const hintBtn = document.getElementById('btn-dictation-hint');
+    if (hintBtn) hintBtn.style.display = 'none';
+
+    // 展示答案卡片（正常配色，不要红色填充，发音按钮移到英文右边）
     const feedbackCard = document.getElementById('dictation-feedback-card');
     const feedbackTitle = document.getElementById('dictation-feedback-title');
     const feedbackWord = document.getElementById('dictation-feedback-word');
     const feedbackMeaning = document.getElementById('dictation-feedback-meaning');
     const submitBtnText = document.getElementById('btn-dictation-submit-text');
+    const submitBtnIcon = document.getElementById('btn-dictation-submit-icon');
 
     if (feedbackCard) {
         feedbackCard.style.display = 'block';
-        feedbackCard.style.background = 'var(--md-sys-color-error-container)';
-        feedbackCard.style.borderColor = 'var(--md-sys-color-error)';
+        feedbackCard.style.background = '';
+        feedbackCard.style.borderColor = '';
         if (feedbackTitle) feedbackTitle.innerText = '正确答案：';
         if (feedbackWord) {
-            feedbackWord.innerText = q.word;
-            feedbackWord.style.color = 'var(--md-sys-color-on-error-container)';
+            feedbackWord.style.color = '';
+            feedbackWord.innerHTML = `
+                <span style="word-break: break-word;">${escapeHtml(q.word)}</span>
+                <button type="button" class="btn-audio-speak" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
+                    <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
+                </button>
+            `;
         }
         if (feedbackMeaning) {
-            feedbackMeaning.innerHTML = `
-                    <span>${q.meaning}</span>
-                    <button type="button" class="btn-audio-speak" style="width:28px; height:28px; margin-left:6px;" onclick="playWordAudio('${escapeHtml(q.word)}')" title="发音">
-                        <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                    </button>
-                `;
+            feedbackMeaning.innerText = q.meaning;
         }
     }
 
     if (submitBtnText) submitBtnText.innerText = '下一题';
+    if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
 }
 
 function endDictationSession() {
@@ -15401,7 +15777,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.4',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.5',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -16187,12 +16563,25 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.4';
+const APP_VERSION = '2.2.5';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.5',
+        date: '2026-09-26',
+        badge: '当前版本',
+        items: [
+            '英语默写练习答错后支持自主订正与重试，不再直接展示答案。',
+            '英语默写答对或公布答案后隐藏“看答案”与“提示”按钮，且不再自动跳转下一题。',
+            '优化英语默写反馈样式：正确答案取消红色背景填充，发音按钮移至英文词汇右侧。',
+            '优化词块着色体验：答对词块标蓝（#0061a4），答错词块标红。',
+            '更新日志全面支持识别 Markdown 语法：支持列表缩进、无序列表、有序列表及 blockquote 引用块。',
+            '优化UI与交互细节。'
+        ]
+    },
     {
         version: 'v2.2.4',
         date: '2026-09-26',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '支持使用第三方账号登录。',
             '在设置-更新日志中可以切换云端日志和本地日志。',
@@ -16206,7 +16595,7 @@ const APP_CHANGELOG = [
     {
         version: 'v2.2.0',
         date: '2026-09-25',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '更新登录系统。',
             '更新 wordle 笔记功能。',
@@ -16464,18 +16853,13 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
                     const isNewer = semverCompare(version, APP_VERSION) > 0;
                     const badge = isCurrent ? '当前版本' : (isNewer ? '最新版本' : '历史版本');
                     const date = (rel.published_at || '').substring(0, 10);
-                    let items = [];
-                    if (rel.body) {
-                        items = rel.body.replace(/\r\n/g, '\n').split('\n')
-                            .map(l => l.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
-                            .filter(l => l.length > 0 && !l.startsWith('#'));
-                    }
-                    if (items.length === 0) items = ['查看 GitHub Release 获取完整详情'];
+                    const rawBody = (rel.body || '').trim() || '查看 GitHub Release 获取完整详情';
                     return {
                         version,
                         date,
                         badge,
-                        items,
+                        rawBody,
+                        items: [rawBody],
                         htmlUrl: rel.html_url,
                         isHighlight: isCurrent || isNewer
                     };
@@ -16512,38 +16896,211 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
     }
 }
 
+async function handleChangelogSyncAction() {
+    switchChangelogTab('cloud');
+    const icon = document.getElementById('btn-changelog-action-icon');
+    const text = document.getElementById('btn-changelog-action-text');
+    if (icon) icon.style.animation = 'spin 1s linear infinite';
+    if (text) text.innerText = '同步中...';
+    try {
+        await fetchAndRenderCloudChangelog(true);
+        showToast('已同步最新云端日志');
+    } catch (e) {
+        showToast('同步失败，请检查网络');
+    } finally {
+        if (icon) icon.style.animation = '';
+        if (text) text.innerText = '同步云端';
+    }
+}
+
 async function renderChangelogInSettings() {
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const actionText = document.getElementById('btn-changelog-action-text');
-    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+    if (actionText) actionText.innerText = '同步云端';
 
     switchChangelogTab(settingsChangelogActiveTab);
 }
 
+function safeEscapeChangelogHtml(str) {
+    if (typeof escapeHtml === 'function') return escapeHtml(str);
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatChangelogInlineMarkdown(text) {
+    if (!text) return '';
+    let html = safeEscapeChangelogHtml(text);
+    html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+    return html;
+}
+
+function getChangelogIndentWidth(str) {
+    let width = 0;
+    for (let i = 0; i < str.length; i++) {
+        if (str[i] === '\t') {
+            width = (Math.floor(width / 4) + 1) * 4;
+        } else if (str[i] === ' ') {
+            width += 1;
+        } else {
+            break;
+        }
+    }
+    return width;
+}
+
+function parseChangelogMarkdownBlocks(lines) {
+    let html = '';
+    let listStack = []; // [{ type: 'ul'|'ol', indent: number }]
+
+    function closeListsUpTo(targetIndent = -1, targetType = null) {
+        while (listStack.length > 0) {
+            const top = listStack[listStack.length - 1];
+            if (targetIndent >= 0 && top.indent < targetIndent) {
+                break;
+            }
+            if (targetIndent >= 0 && top.indent === targetIndent && (!targetType || top.type === targetType)) {
+                break;
+            }
+            const popped = listStack.pop();
+            html += `</li></${popped.type}>`;
+        }
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // 1. 检查是否为 blockquote 行 (> ...)
+        if (/^[ \t]*>/.test(line)) {
+            closeListsUpTo(-1);
+            const bqLines = [];
+            while (i < lines.length && /^[ \t]*>/.test(lines[i])) {
+                bqLines.push(lines[i].replace(/^[ \t]*>[ \t]?/, ''));
+                i++;
+            }
+            const innerHtml = parseChangelogMarkdownBlocks(bqLines);
+            html += `<blockquote class="changelog-blockquote">${innerHtml}</blockquote>`;
+            continue;
+        }
+
+        // 2. 检查空行
+        if (!line.trim()) {
+            closeListsUpTo(-1);
+            i++;
+            continue;
+        }
+
+        const indent = getChangelogIndentWidth(line);
+        const ulMatch = line.match(/^[ \t]*([-*+•])\s+(.*)$/);
+        const olMatch = line.match(/^[ \t]*(\d+)[.)]\s+(.*)$/);
+
+        if (ulMatch || olMatch) {
+            const listType = ulMatch ? 'ul' : 'ol';
+            const itemText = ulMatch ? ulMatch[2] : olMatch[2];
+
+            if (listStack.length === 0) {
+                html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                listStack.push({ type: listType, indent: indent });
+            } else {
+                const current = listStack[listStack.length - 1];
+                if (indent > current.indent) {
+                    html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    listStack.push({ type: listType, indent: indent });
+                } else if (indent === current.indent) {
+                    if (current.type === listType) {
+                        html += `</li><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    } else {
+                        html += `</li></${current.type}><${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                        listStack[listStack.length - 1] = { type: listType, indent: indent };
+                    }
+                } else {
+                    closeListsUpTo(indent, listType);
+                    if (listStack.length > 0 && listStack[listStack.length - 1].indent === indent && listStack[listStack.length - 1].type === listType) {
+                        html += `</li><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    } else {
+                        html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                        listStack.push({ type: listType, indent: indent });
+                    }
+                }
+            }
+            i++;
+            continue;
+        }
+
+        // 3. 检查是否为列表项下方的缩进普通文本
+        if (listStack.length > 0 && indent > listStack[0].indent) {
+            html += `<div class="changelog-sub-text">${formatChangelogInlineMarkdown(line.trim())}</div>`;
+            i++;
+            continue;
+        }
+
+        // 4. 非列表行，关闭所有列表
+        closeListsUpTo(-1);
+
+        // 检查标题 (#...)
+        if (/^[ \t]*#+/.test(line)) {
+            const headingText = line.replace(/^[ \t]*#+\s*/, '');
+            html += `<div class="changelog-heading">${formatChangelogInlineMarkdown(headingText)}</div>`;
+        } else {
+            html += `<div class="changelog-p">${formatChangelogInlineMarkdown(line.trim())}</div>`;
+        }
+        i++;
+    }
+
+    closeListsUpTo(-1);
+    return html;
+}
+
+function renderMarkdownChangelog(content) {
+    if (!content) return '';
+    let lines = [];
+    if (Array.isArray(content)) {
+        lines = content.flatMap(item => {
+            const str = String(item || '');
+            return str.replace(/\r\n/g, '\n').split('\n');
+        });
+    } else {
+        lines = String(content).replace(/\r\n/g, '\n').split('\n');
+    }
+
+    const hasAnyMarkdownStructure = lines.some(l => /^[ \t]*([-*+•>]|\d+[.)]|#)/.test(l));
+    if (!hasAnyMarkdownStructure && Array.isArray(content)) {
+        lines = lines.map(l => l.trim() ? `- ${l.trim()}` : '');
+    }
+
+    return `<div class="changelog-content">${parseChangelogMarkdownBlocks(lines)}</div>`;
+}
+window.renderMarkdownChangelog = renderMarkdownChangelog;
+
 function renderChangelogItems(container, list, isCloud = false) {
-    const headerHtml = `
-    `;
     const cardsHtml = list.map((entry, idx) => {
         const isHighlight = entry.isHighlight !== undefined ? entry.isHighlight : (idx === 0);
         return `
             <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
-                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${safeEscapeChangelogHtml(entry.version)}</h3>
+                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${safeEscapeChangelogHtml(entry.badge)}</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
+                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${safeEscapeChangelogHtml(entry.date)}</span>
                         ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
                     </div>
                 </div>
-                <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
-                    ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
-                </ul>
+                ${renderMarkdownChangelog(entry.rawBody || entry.items)}
             </div>
         `;
     }).join('');
-    container.innerHTML = headerHtml + cardsHtml;
+    container.innerHTML = cardsHtml;
 }
 
 function filterSettingsRows(query) {

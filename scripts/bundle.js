@@ -29,6 +29,7 @@ const loadOrder = [
   'components/folder-tree.js',
   'components/md3-select.js',
   'components/version-card.js',
+  'components/avatar-cropper.js',
 
   // 4. Views
   'views/auth.js',

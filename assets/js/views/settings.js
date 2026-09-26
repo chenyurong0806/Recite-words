@@ -590,7 +590,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.4',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.5',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -1376,12 +1376,25 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.4';
+const APP_VERSION = '2.2.5';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.5',
+        date: '2026-09-26',
+        badge: '当前版本',
+        items: [
+            '英语默写练习答错后支持自主订正与重试，不再直接展示答案。',
+            '英语默写答对或公布答案后隐藏“看答案”与“提示”按钮，且不再自动跳转下一题。',
+            '优化英语默写反馈样式：正确答案取消红色背景填充，发音按钮移至英文词汇右侧。',
+            '优化词块着色体验：答对词块标蓝（#0061a4），答错词块标红。',
+            '更新日志全面支持识别 Markdown 语法：支持列表缩进、无序列表、有序列表及 blockquote 引用块。',
+            '优化UI与交互细节。'
+        ]
+    },
     {
         version: 'v2.2.4',
         date: '2026-09-26',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '支持使用第三方账号登录。',
             '在设置-更新日志中可以切换云端日志和本地日志。',
@@ -1395,7 +1408,7 @@ const APP_CHANGELOG = [
     {
         version: 'v2.2.0',
         date: '2026-09-25',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '更新登录系统。',
             '更新 wordle 笔记功能。',
@@ -1653,18 +1666,13 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
                     const isNewer = semverCompare(version, APP_VERSION) > 0;
                     const badge = isCurrent ? '当前版本' : (isNewer ? '最新版本' : '历史版本');
                     const date = (rel.published_at || '').substring(0, 10);
-                    let items = [];
-                    if (rel.body) {
-                        items = rel.body.replace(/\r\n/g, '\n').split('\n')
-                            .map(l => l.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
-                            .filter(l => l.length > 0 && !l.startsWith('#'));
-                    }
-                    if (items.length === 0) items = ['查看 GitHub Release 获取完整详情'];
+                    const rawBody = (rel.body || '').trim() || '查看 GitHub Release 获取完整详情';
                     return {
                         version,
                         date,
                         badge,
-                        items,
+                        rawBody,
+                        items: [rawBody],
                         htmlUrl: rel.html_url,
                         isHighlight: isCurrent || isNewer
                     };
@@ -1701,38 +1709,211 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
     }
 }
 
+async function handleChangelogSyncAction() {
+    switchChangelogTab('cloud');
+    const icon = document.getElementById('btn-changelog-action-icon');
+    const text = document.getElementById('btn-changelog-action-text');
+    if (icon) icon.style.animation = 'spin 1s linear infinite';
+    if (text) text.innerText = '同步中...';
+    try {
+        await fetchAndRenderCloudChangelog(true);
+        showToast('已同步最新云端日志');
+    } catch (e) {
+        showToast('同步失败，请检查网络');
+    } finally {
+        if (icon) icon.style.animation = '';
+        if (text) text.innerText = '同步云端';
+    }
+}
+
 async function renderChangelogInSettings() {
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const actionText = document.getElementById('btn-changelog-action-text');
-    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+    if (actionText) actionText.innerText = '同步云端';
 
     switchChangelogTab(settingsChangelogActiveTab);
 }
 
+function safeEscapeChangelogHtml(str) {
+    if (typeof escapeHtml === 'function') return escapeHtml(str);
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatChangelogInlineMarkdown(text) {
+    if (!text) return '';
+    let html = safeEscapeChangelogHtml(text);
+    html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+    return html;
+}
+
+function getChangelogIndentWidth(str) {
+    let width = 0;
+    for (let i = 0; i < str.length; i++) {
+        if (str[i] === '\t') {
+            width = (Math.floor(width / 4) + 1) * 4;
+        } else if (str[i] === ' ') {
+            width += 1;
+        } else {
+            break;
+        }
+    }
+    return width;
+}
+
+function parseChangelogMarkdownBlocks(lines) {
+    let html = '';
+    let listStack = []; // [{ type: 'ul'|'ol', indent: number }]
+
+    function closeListsUpTo(targetIndent = -1, targetType = null) {
+        while (listStack.length > 0) {
+            const top = listStack[listStack.length - 1];
+            if (targetIndent >= 0 && top.indent < targetIndent) {
+                break;
+            }
+            if (targetIndent >= 0 && top.indent === targetIndent && (!targetType || top.type === targetType)) {
+                break;
+            }
+            const popped = listStack.pop();
+            html += `</li></${popped.type}>`;
+        }
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // 1. 检查是否为 blockquote 行 (> ...)
+        if (/^[ \t]*>/.test(line)) {
+            closeListsUpTo(-1);
+            const bqLines = [];
+            while (i < lines.length && /^[ \t]*>/.test(lines[i])) {
+                bqLines.push(lines[i].replace(/^[ \t]*>[ \t]?/, ''));
+                i++;
+            }
+            const innerHtml = parseChangelogMarkdownBlocks(bqLines);
+            html += `<blockquote class="changelog-blockquote">${innerHtml}</blockquote>`;
+            continue;
+        }
+
+        // 2. 检查空行
+        if (!line.trim()) {
+            closeListsUpTo(-1);
+            i++;
+            continue;
+        }
+
+        const indent = getChangelogIndentWidth(line);
+        const ulMatch = line.match(/^[ \t]*([-*+•])\s+(.*)$/);
+        const olMatch = line.match(/^[ \t]*(\d+)[.)]\s+(.*)$/);
+
+        if (ulMatch || olMatch) {
+            const listType = ulMatch ? 'ul' : 'ol';
+            const itemText = ulMatch ? ulMatch[2] : olMatch[2];
+
+            if (listStack.length === 0) {
+                html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                listStack.push({ type: listType, indent: indent });
+            } else {
+                const current = listStack[listStack.length - 1];
+                if (indent > current.indent) {
+                    html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    listStack.push({ type: listType, indent: indent });
+                } else if (indent === current.indent) {
+                    if (current.type === listType) {
+                        html += `</li><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    } else {
+                        html += `</li></${current.type}><${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                        listStack[listStack.length - 1] = { type: listType, indent: indent };
+                    }
+                } else {
+                    closeListsUpTo(indent, listType);
+                    if (listStack.length > 0 && listStack[listStack.length - 1].indent === indent && listStack[listStack.length - 1].type === listType) {
+                        html += `</li><li>${formatChangelogInlineMarkdown(itemText)}`;
+                    } else {
+                        html += `<${listType} class="changelog-list"><li>${formatChangelogInlineMarkdown(itemText)}`;
+                        listStack.push({ type: listType, indent: indent });
+                    }
+                }
+            }
+            i++;
+            continue;
+        }
+
+        // 3. 检查是否为列表项下方的缩进普通文本
+        if (listStack.length > 0 && indent > listStack[0].indent) {
+            html += `<div class="changelog-sub-text">${formatChangelogInlineMarkdown(line.trim())}</div>`;
+            i++;
+            continue;
+        }
+
+        // 4. 非列表行，关闭所有列表
+        closeListsUpTo(-1);
+
+        // 检查标题 (#...)
+        if (/^[ \t]*#+/.test(line)) {
+            const headingText = line.replace(/^[ \t]*#+\s*/, '');
+            html += `<div class="changelog-heading">${formatChangelogInlineMarkdown(headingText)}</div>`;
+        } else {
+            html += `<div class="changelog-p">${formatChangelogInlineMarkdown(line.trim())}</div>`;
+        }
+        i++;
+    }
+
+    closeListsUpTo(-1);
+    return html;
+}
+
+function renderMarkdownChangelog(content) {
+    if (!content) return '';
+    let lines = [];
+    if (Array.isArray(content)) {
+        lines = content.flatMap(item => {
+            const str = String(item || '');
+            return str.replace(/\r\n/g, '\n').split('\n');
+        });
+    } else {
+        lines = String(content).replace(/\r\n/g, '\n').split('\n');
+    }
+
+    const hasAnyMarkdownStructure = lines.some(l => /^[ \t]*([-*+•>]|\d+[.)]|#)/.test(l));
+    if (!hasAnyMarkdownStructure && Array.isArray(content)) {
+        lines = lines.map(l => l.trim() ? `- ${l.trim()}` : '');
+    }
+
+    return `<div class="changelog-content">${parseChangelogMarkdownBlocks(lines)}</div>`;
+}
+window.renderMarkdownChangelog = renderMarkdownChangelog;
+
 function renderChangelogItems(container, list, isCloud = false) {
-    const headerHtml = `
-    `;
     const cardsHtml = list.map((entry, idx) => {
         const isHighlight = entry.isHighlight !== undefined ? entry.isHighlight : (idx === 0);
         return `
             <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
-                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${safeEscapeChangelogHtml(entry.version)}</h3>
+                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${safeEscapeChangelogHtml(entry.badge)}</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
+                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${safeEscapeChangelogHtml(entry.date)}</span>
                         ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
                     </div>
                 </div>
-                <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
-                    ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
-                </ul>
+                ${renderMarkdownChangelog(entry.rawBody || entry.items)}
             </div>
         `;
     }).join('');
-    container.innerHTML = headerHtml + cardsHtml;
+    container.innerHTML = cardsHtml;
 }
 
 function filterSettingsRows(query) {
