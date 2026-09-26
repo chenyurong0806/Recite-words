@@ -54,6 +54,7 @@ function renderRiddleDraftRows() {
         if (row.length > len) row.length = len;
 
         html += `<div class="riddle-draft-row" data-row="${rIdx}" onclick="handleRiddleDraftRowClick(event, ${rIdx})">`;
+        html += `<div class="riddle-draft-tiles-wrapper">`;
         html += `<div class="riddle-draft-tiles">`;
         for (let cIdx = 0; cIdx < len; cIdx++) {
             const val = row[cIdx] || '';
@@ -84,6 +85,7 @@ function renderRiddleDraftRows() {
                 <span class="material-symbols-rounded" style="font-size:18px;">check</span>
             </button>
         </div>`;
+        html += `</div>`;
         html += `</div>`;
     });
     container.innerHTML = html;

@@ -250,7 +250,6 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     }
 
     if (!username || !password) throw new Error('用户名和密码不能为空');
-    if (isBilibiliToy) throw new Error('Toy 平台暂不支持注册 Supabase 云端账号');
 
     const cleanName = username.trim();
     // 检查用户名是否已存在
@@ -300,7 +299,6 @@ async function supabaseLoginUser(arg1, arg2) {
     }
 
     if (!username || !password) throw new Error('请输入用户名和密码');
-    if (isBilibiliToy) throw new Error('Toy 平台中请使用 B 站授权登录');
 
     const cleanName = username.trim();
     const hashedPassword = await hashPassword(password);
@@ -429,16 +427,15 @@ async function biliLogin() {
 async function biliSaveCloudData(data) {
     if (typeof window.toy === 'undefined' || typeof window.toy.setCloudStorage !== 'function') return;
     try {
-        const jsonStr = JSON.stringify(data || {});
-        const CHUNK_SIZE = 900;
-        const totalChunks = Math.ceil(jsonStr.length / CHUNK_SIZE);
-        const payload = {
-            'storage_meta': JSON.stringify({ chunks: totalChunks, len: jsonStr.length, time: Date.now() })
+        // 极简存储：Toy 云存储严格限制空间，仅存储极轻量概要指标（< 100 字节），杜绝海量分片耗尽配额
+        const compact = {
+            t: (data && data.stats && data.stats.total) || 0,
+            c: (data && data.stats && data.stats.correct) || 0,
+            u: Date.now()
         };
-        for (let i = 0; i < totalChunks; i++) {
-            payload[`data_c_${i}`] = jsonStr.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        }
-        await window.toy.setCloudStorage(payload);
+        const p = window.toy.setCloudStorage({ 'toy_stats': JSON.stringify(compact) });
+        if (p && typeof p.catch === 'function') p.catch(() => { });
+        await p;
     } catch (e) {
         console.warn('[ToySDK] Failed to save cloud storage:', e);
     }
@@ -447,14 +444,27 @@ async function biliSaveCloudData(data) {
 async function biliLoadCloudData() {
     if (typeof window.toy === 'undefined' || typeof window.toy.getCloudStorage !== 'function') return null;
     try {
-        const all = await window.toy.getCloudStorage();
-        if (!all || !all['storage_meta']) return null;
-        const meta = JSON.parse(all['storage_meta']);
-        let fullStr = '';
-        for (let i = 0; i < meta.chunks; i++) {
-            fullStr += (all[`data_c_${i}`] || '');
+        const p = window.toy.getCloudStorage(['toy_stats', 'storage_meta', 'data_c_0']);
+        if (p && typeof p.catch === 'function') p.catch(() => { });
+        const all = await p;
+        if (!all) return null;
+        if (all['toy_stats']) {
+            const compact = JSON.parse(all['toy_stats']);
+            return {
+                stats: { total: compact.t || 0, correct: compact.c || 0, mistakes: {} },
+                updated: compact.u || Date.now()
+            };
         }
-        return JSON.parse(fullStr);
+        // 兼容旧版 chunk 数据
+        if (all['storage_meta']) {
+            const meta = JSON.parse(all['storage_meta']);
+            let fullStr = '';
+            for (let i = 0; i < meta.chunks; i++) {
+                fullStr += (all[`data_c_${i}`] || '');
+            }
+            return JSON.parse(fullStr);
+        }
+        return null;
     } catch (e) {
         console.warn('[ToySDK] Failed to read cloud storage:', e);
         return null;
@@ -534,6 +544,36 @@ function safeJsonParse(str) {
     }
 }
 
+function getCookie(name) {
+    try {
+        if (typeof document === 'undefined' || !document.cookie) return null;
+        const matches = document.cookie.match(new RegExp('(?:^|; )' + encodeURIComponent(name).replace(/[\-\.\+\*]/g, '\\$&') + '=([^;]*)'));
+        return matches ? decodeURIComponent(matches[1]) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function setCookie(name, val, days = 365) {
+    try {
+        if (typeof document === 'undefined') return;
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const secPart = isSecure ? '; SameSite=None; Secure' : '; SameSite=Lax';
+        document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(val)}; expires=${expires}; path=/${secPart}`;
+    } catch (e) { }
+}
+
+function removeCookie(name) {
+    try {
+        if (typeof document === 'undefined') return;
+        document.cookie = `${encodeURIComponent(name)}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    } catch (e) { }
+}
+window.getCookie = getCookie;
+window.setCookie = setCookie;
+window.removeCookie = removeCookie;
+
 const memoryStorageMap = {};
 const SafeStorage = {
     isAvailable: (() => {
@@ -555,6 +595,17 @@ const SafeStorage = {
                 if (val !== null) return val;
             }
         } catch (e) { }
+        // 苹果设备与移动端兜底：尝试从 Cookie 读取
+        try {
+            const cookieVal = getCookie(key);
+            if (cookieVal !== null) {
+                memoryStorageMap[key] = cookieVal;
+                try {
+                    if (this.isAvailable) window.localStorage.setItem(key, cookieVal);
+                } catch (e) { }
+                return cookieVal;
+            }
+        } catch (e) { }
         return Object.prototype.hasOwnProperty.call(memoryStorageMap, key) ? memoryStorageMap[key] : null;
     },
 
@@ -569,6 +620,12 @@ const SafeStorage = {
         } catch (e) {
             console.warn('[SafeStorage] localStorage.setItem failed, retained in memory:', key, e);
         }
+        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保苹果设备持久化
+        if (strVal.length < 3500) {
+            try {
+                setCookie(key, strVal, 365);
+            } catch (e) { }
+        }
     },
 
     removeItem(key) {
@@ -578,6 +635,9 @@ const SafeStorage = {
             if (this.isAvailable) {
                 window.localStorage.removeItem(key);
             }
+        } catch (e) { }
+        try {
+            removeCookie(key);
         } catch (e) { }
     },
 
@@ -1045,12 +1105,32 @@ try {
     allUsersList = [];
 }
 
-// 获取或生成专属的游客名称（如：游客_7214）
+// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号
 function getUniqueGuestName() {
     let guestId = SafeStorage.getItem('vocab_guest_name');
     if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        if (typeof getCookie === 'function') {
+            const cId = getCookie('vocab_guest_name');
+            if (cId && /^游客_\d{4}$/.test(cId)) guestId = cId;
+        }
+    }
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4}$/.test(window.__cachedToyGuestId)) {
+            guestId = window.__cachedToyGuestId;
+        }
+    }
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
-        SafeStorage.setItem('vocab_guest_name', guestId);
+    }
+    SafeStorage.setItem('vocab_guest_name', guestId);
+    if (typeof setCookie === 'function') {
+        setCookie('vocab_guest_name', guestId, 365);
+    }
+    if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
+        try {
+            const p = window.toy.setCloudStorage({ 'guest_id': guestId });
+            if (p && typeof p.catch === 'function') p.catch(() => { });
+        } catch (e) { }
     }
     return guestId;
 }
@@ -1077,6 +1157,7 @@ try {
 
 let currentUser = currentUserProfile.username || defaultGuestName;
 let userStats = { total: 0, correct: 0, mistakes: {} };
+let dictionary = [];
 
 let gameMode = 'single';
 let realtimeChannel = null;
@@ -1173,7 +1254,10 @@ function loadUserData(username, profile = null) {
     }
 
     try {
-        const rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
+        let rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
+        if (!rawStats && typeof getCookie === 'function') {
+            rawStats = getCookie(`vocab_stats_${currentUser}`);
+        }
         userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
         if (!userStats.mistakes) userStats.mistakes = {};
     } catch (e) {
@@ -1189,14 +1273,33 @@ function loadUserData(username, profile = null) {
 
 function saveCurrentUserData() {
     if (!currentUser) return;
-    SafeStorage.setItem(`vocab_stats_${currentUser}`, JSON.stringify(userStats));
+    const statsStr = JSON.stringify(userStats);
+    SafeStorage.setItem(`vocab_stats_${currentUser}`, statsStr);
+    if (currentUser.startsWith('游客_') && typeof setCookie === 'function') {
+        setCookie(`vocab_stats_${currentUser}`, statsStr, 365);
+    }
+
     // 同步到云端
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
         if (currentUserProfile.type === 'cloud' && typeof supabaseSyncUserData === 'function') {
             supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now() });
-        } else if (currentUserProfile.type === 'bilibili' && typeof biliSaveCloudData === 'function') {
-            biliSaveCloudData({ stats: userStats, updated: Date.now() });
+        } else if (currentUserProfile.type === 'bilibili') {
+            if (typeof biliSaveCloudData === 'function') {
+                biliSaveCloudData({ stats: userStats, updated: Date.now() });
+            }
+            if (typeof supabaseSyncUserData === 'function') {
+                supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now(), isBiliUser: true });
+            }
         }
+    } else if (currentUser.startsWith('游客_') && typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
+        // 在 Toy 平台中以微型体积 (< 80 字节) 持久化游客概要与编号
+        try {
+            const p = window.toy.setCloudStorage({
+                'guest_id': currentUser,
+                'toy_stats': JSON.stringify({ t: userStats.total || 0, c: userStats.correct || 0, u: Date.now() })
+            });
+            if (p && typeof p.catch === 'function') p.catch(() => { });
+        } catch (e) { }
     }
 }
 
@@ -2910,12 +3013,12 @@ function renderAuthView() {
 
     if (isBilibiliToy) {
         if (toyContainer) toyContainer.style.display = 'block';
-        if (webContainer) webContainer.style.display = 'none';
+        if (webContainer) webContainer.style.display = 'block';
     } else {
         if (toyContainer) toyContainer.style.display = 'none';
         if (webContainer) webContainer.style.display = 'block';
-        switchAuthTab(authActiveTab);
     }
+    switchAuthTab(authActiveTab);
 }
 
 function switchAuthTab(tab) {
@@ -2963,10 +3066,6 @@ async function handleRegAvatarChange(event) {
 }
 
 async function handleCloudLogin() {
-    if (isBilibiliToy) {
-        showToast('Toy 平台中请使用 B 站授权登录');
-        return;
-    }
     const usernameInput = document.getElementById('auth-login-username');
     const passwordInput = document.getElementById('auth-login-password');
     const loginBtn = document.getElementById('btn-auth-cloud-login');
@@ -3020,10 +3119,6 @@ async function handleCloudLogin() {
 }
 
 async function handleCloudRegister() {
-    if (isBilibiliToy) {
-        showToast('Toy 平台暂不支持注册 Supabase 云端账号');
-        return;
-    }
     const usernameInput = document.getElementById('auth-reg-username');
     const passwordInput = document.getElementById('auth-reg-password');
     const password2Input = document.getElementById('auth-reg-password2');
@@ -3157,7 +3252,7 @@ function handleAuthLogout() {
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
     loadUserData(guestName, currentUserProfile);
-    showToast('已退出登录，恢复游客身份');
+    showToast('已退出登录');
     updateHub();
     if (typeof renderMeView === 'function') {
         renderMeView();
@@ -3738,7 +3833,7 @@ function renderBookSelectorPage() {
                             ${books.map(b => {
             const isSelected = isBookIdSelectedInCurrentMode(b.id);
             const gradient = getProceduralBookGradient(b.name, b.category);
-            const coverUrl = b.cover || (b.path ? b.path.replace(/\.json$/i, '.png') : null) || (b.id && String(b.id).endsWith('.json') ? String(b.id).replace(/\.json$/i, '.png') : null);
+            const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
             return `
                                     <div class="book-cover-card ${isSelected ? 'selected' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')">
                                         <div class="book-cover-wrap">
@@ -4025,6 +4120,7 @@ function renderRiddleDraftRows() {
         if (row.length > len) row.length = len;
 
         html += `<div class="riddle-draft-row" data-row="${rIdx}" onclick="handleRiddleDraftRowClick(event, ${rIdx})">`;
+        html += `<div class="riddle-draft-tiles-wrapper">`;
         html += `<div class="riddle-draft-tiles">`;
         for (let cIdx = 0; cIdx < len; cIdx++) {
             const val = row[cIdx] || '';
@@ -4055,6 +4151,7 @@ function renderRiddleDraftRows() {
                 <span class="material-symbols-rounded" style="font-size:18px;">check</span>
             </button>
         </div>`;
+        html += `</div>`;
         html += `</div>`;
     });
     container.innerHTML = html;
@@ -6163,19 +6260,19 @@ function findLookalikesFromDatabase(targetWord, maxCount = 2) {
 function isFixedPhraseToken(token) {
     if (!token || typeof token !== 'string') return false;
     const clean = token.toLowerCase().trim();
-    // 斜杠 '/' 和 ' / ' 表示同义替代槽位，绝不作为自动预填固定项！
+    if (clean === '=' || clean === '/') return true;
     if (clean.includes('/')) return false;
     // 带有括号、以括号开头结尾的说明词（如 (someone)、(sb.)、(sth.)、(...)、( ) 等）
     if (/^[（(].*[）)]$/.test(clean) || clean === '()' || clean === '（）') return true;
-    // 纯符号或常见连接符（等号、逗号、波浪号、省略号等）
-    if (/^[=,，~…\.\-]+$/.test(clean)) return true;
+    // 纯符号或常见连接符（等号、斜杠、逗号、波浪号、省略号等）
+    if (/^[=,，~…\.\-/]+$/.test(clean)) return true;
     // 常见语法占位固定项自动预填
     const fixedSet = new Set([
         '...', '…', '……',
         'sb.', 'sb', "sb's", 'sbs',
         'sth.', 'sth',
         "one's", "one’s", 'ones',
-        '=', ','
+        '=', ',', '/'
     ]);
     return fixedSet.has(clean) || clean.startsWith('...');
 }
@@ -6184,10 +6281,8 @@ function extractPhraseTargetWords(rawWord) {
     if (!rawWord) return [];
     let str = rawWord.trim();
 
-    // 紧凑处理 / 两侧空格，使 draw / reach 变成 draw/reach 作为单一槽位 token
-    str = str.replace(/\s*\/\s*/g, '/');
-    // 将等号、逗号隔开独立成 token
-    str = str.replace(/([=,，])/g, ' $1 ');
+    // 将等号、斜杠、逗号隔开独立成 token
+    str = str.replace(/([=,，/])/g, ' $1 ');
     str = str.replace(/（/g, ' (').replace(/）/g, ') ');
 
     // 拆分为独立的 token 单元
@@ -6200,6 +6295,81 @@ function extractPhraseTargetWords(rawWord) {
     }
 
     return tokens.length > 0 ? tokens : rawWord.trim().split(/\s+/).filter(Boolean);
+}
+
+// 判定词组作答是否正确（支持带有 =、/ 的题目左右两边互换）
+function isPhraseAnswerMatching(placedWords, targetWords) {
+    if (!Array.isArray(placedWords) || !Array.isArray(targetWords)) return false;
+    if (placedWords.length !== targetWords.length) return false;
+
+    const pLower = placedWords.map(w => (w || '').trim().toLowerCase());
+    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+
+    // 1. 完全一致
+    if (pLower.join(' ') === tLower.join(' ')) {
+        return true;
+    }
+
+    // 2. 带有 '=' 或 '/' 的词组，左右两边互换也算对
+    const separators = ['=', '/'];
+    for (const sep of separators) {
+        if (tLower.includes(sep)) {
+            const targetSegments = [];
+            let curSeg = [];
+            for (const token of tLower) {
+                if (token === sep) {
+                    targetSegments.push(curSeg.join(' '));
+                    curSeg = [];
+                } else {
+                    curSeg.push(token);
+                }
+            }
+            targetSegments.push(curSeg.join(' '));
+
+            const placedSegments = [];
+            curSeg = [];
+            let placedSepMatches = true;
+            for (let i = 0; i < pLower.length; i++) {
+                if (tLower[i] === sep) {
+                    if (pLower[i] !== sep) {
+                        placedSepMatches = false;
+                        break;
+                    }
+                    placedSegments.push(curSeg.join(' '));
+                    curSeg = [];
+                } else {
+                    curSeg.push(pLower[i]);
+                }
+            }
+            placedSegments.push(curSeg.join(' '));
+
+            if (!placedSepMatches || placedSegments.length !== targetSegments.length) {
+                continue;
+            }
+
+            const sortedTarget = [...targetSegments].sort();
+            const sortedPlaced = [...placedSegments].sort();
+            if (sortedTarget.join('::') === sortedPlaced.join('::')) {
+                return true;
+            }
+
+            // 嵌套分隔符（如 A = B / C）内部互换匹配
+            const otherSep = (sep === '=' ? '/' : '=');
+            const normalizeSegment = (seg) => {
+                if (seg.includes(otherSep)) {
+                    return seg.split(otherSep).map(s => s.trim()).sort().join(` ${otherSep} `);
+                }
+                return seg;
+            };
+            const deepSortedTarget = targetSegments.map(normalizeSegment).sort();
+            const deepSortedPlaced = placedSegments.map(normalizeSegment).sort();
+            if (deepSortedTarget.join('::') === deepSortedPlaced.join('::')) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 // 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，或 item.correct 中的任意一项）
@@ -6337,6 +6507,7 @@ function generatePhraseDistractors(targetWords, currentPool = [], currentItem = 
 
     return chips;
 }
+
 
 /* --- End: views/words-engine.js --- */
 
@@ -6947,17 +7118,23 @@ function checkSinglePhraseAnswer() {
         return c ? c.text.toLowerCase() : '';
     });
     const q = singlePhraseState.q;
-    let allSlotsRight = true;
+    const isMatching = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, singlePhraseState.targetWords)
+        : false;
+    let allSlotsRight = isMatching;
     const wrongSlots = [];
-    singlePhraseState.targetWords.forEach((targetToken, idx) => {
-        const userWord = placedWords[idx] || '';
-        if (String(singlePhraseState.placed[idx]).startsWith('__fixed__')) return;
-        if (!isPhraseSlotMatch(userWord, targetToken, q)) {
-            allSlotsRight = false;
-            wrongSlots.push(idx);
-        }
-    });
-    const isRight = allSlotsRight;
+    if (!allSlotsRight) {
+        allSlotsRight = true;
+        singlePhraseState.targetWords.forEach((targetToken, idx) => {
+            const userWord = placedWords[idx] || '';
+            if (String(singlePhraseState.placed[idx]).startsWith('__fixed__')) return;
+            if (!isPhraseSlotMatch(userWord, targetToken, q)) {
+                allSlotsRight = false;
+                wrongSlots.push(idx);
+            }
+        });
+    }
+    const isRight = allSlotsRight || isMatching;
 
     userStats.total++;
     singleState.total++;
@@ -7270,7 +7447,8 @@ function endSingleGame() {
 }
 
 function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
-    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...(dictionary || [])];
+    const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
+    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...curDict];
     if (pool.length === 0) {
         pool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
     }
@@ -7356,7 +7534,8 @@ function shuffle(array) {
 }
 
 function generateShuffledPoolFromWords(wordsList, count = 70) {
-    const list = (wordsList && wordsList.length > 0) ? wordsList : dictionary;
+    const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
+    const list = (wordsList && wordsList.length > 0) ? wordsList : (curDict.length > 0 ? curDict : (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []));
     const unmastered = list.filter(w => !isWordMastered(w.word));
     const activeList = unmastered.length > 0 ? unmastered : list;
     const shuffled = shuffle(activeList);
@@ -7473,7 +7652,7 @@ function renderMeView() {
                 if (avatarWrap) avatarWrap.style.cursor = 'default';
             } else {
                 if (badgeEl) {
-                    badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">Supabase 云端账号</span>`;
+                    badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">云端账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'flex';
                 if (avatarEditHint) avatarEditHint.style.display = 'flex';
@@ -8981,7 +9160,11 @@ function renderQuestion(state) {
     const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
     if (isPhrase) {
         const shiciBadge = document.getElementById('arena-shici-badge');
+        const shiciBox = document.getElementById('p1-shici-box');
+        const shiciCooldown = document.getElementById('p1-shici-cooldown-reveal');
         if (shiciBadge) shiciBadge.style.display = 'none';
+        if (shiciBox) shiciBox.style.display = 'none';
+        if (shiciCooldown) shiciCooldown.style.display = 'none';
         renderArenaPhraseQuestion(state, q);
         return;
     }
@@ -9076,9 +9259,19 @@ function renderArenaPhraseQuestion(state, q) {
     const wordEl = document.getElementById('p1-word');
     const phoneEl = document.getElementById('p1-phone');
     const optionsContainer = document.getElementById('p1-options');
+    const shiciBadge = document.getElementById('arena-shici-badge');
+    const shiciBox = document.getElementById('p1-shici-box');
+    const shiciCooldown = document.getElementById('p1-shici-cooldown-reveal');
+
+    if (shiciBadge) shiciBadge.style.display = 'none';
+    if (shiciBox) shiciBox.style.display = 'none';
+    if (shiciCooldown) shiciCooldown.style.display = 'none';
 
     const correctMeaning = (q.options && q.correctIdx !== undefined && q.options[q.correctIdx]) ? q.options[q.correctIdx].meaning : (q.meaning || '');
-    if (wordEl) wordEl.innerText = correctMeaning;
+    if (wordEl) {
+        wordEl.style.display = 'block';
+        wordEl.innerText = correctMeaning || '请拼出对应英文词组';
+    }
     if (phoneEl) {
         phoneEl.innerText = '';
         phoneEl.style.display = 'none';
@@ -9203,8 +9396,9 @@ function checkArenaPhraseAnswer() {
         const c = arenaPhraseState.chips.find(item => item.id === cid);
         return c ? c.text.toLowerCase() : '';
     });
-    const targetWordsLower = arenaPhraseState.targetWords.map(w => w.toLowerCase());
-    const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+    const isRight = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, arenaPhraseState.targetWords)
+        : (placedWords.join(' ') === arenaPhraseState.targetWords.map(w => w.toLowerCase()).join(' '));
 
     const q = arenaPhraseState.q;
     userStats.total++;
@@ -11264,9 +11458,10 @@ async function restudyMistakes() {
         const words = Object.keys(mistakes).filter(w => !mistakes[w].isShiCi && /[a-zA-Z]/.test(w));
         if (words.length === 0) return alert('当前没有待复习的英语错题！');
 
+        const currentDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
         const pool = words.map(w => {
-            const item = dictionary.find(d => d.word === w) || { phone: '' };
-            const optData = generateOptions(w, mistakes[w].meaning, dictionary);
+            const item = currentDict.find(d => d.word === w) || { phone: '' };
+            const optData = generateOptions(w, mistakes[w].meaning, currentDict.length >= 4 ? currentDict : (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []));
             return {
                 word: w,
                 phone: item.phone || mistakes[w].phone || '',
@@ -11345,6 +11540,7 @@ function clearMistakes() {
     renderMistakesList();
     showToast(`已清空${typeName}错题记录`);
 }
+
 
 /* --- End: views/mistakes.js --- */
 
@@ -12027,8 +12223,9 @@ function checkLocalPhraseAnswer(player) {
         const c = phrState.chips.find(item => item.id === cid);
         return c ? c.text.toLowerCase() : '';
     });
-    const targetWordsLower = phrState.targetWords.map(w => w.toLowerCase());
-    const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+    const isRight = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, phrState.targetWords)
+        : (placedWords.join(' ') === phrState.targetWords.map(w => w.toLowerCase()).join(' '));
 
     if (isRight) {
         pState.answered = true;
@@ -14793,7 +14990,7 @@ function renderSettingsMain() {
         if (webRow) {
             webRow.style.display = 'flex';
             if (isLocal) {
-                webRow.href = 'https://word.chenyurong.qzz.io';
+                webRow.href = 'https://www.bilibili.com/toy/cyr/index.html';
                 if (webTip) webTip.innerText = '当前为本地环境，点击访问在线网页版';
             } else {
                 webRow.href = getGithubAssetUrl('https://github.com/chenyurong0806/Recite-words/releases');
@@ -14858,61 +15055,11 @@ let toyAuthorMid = '1569750390';
 let toyAuthorProfile = null;
 let isToyAuthorFollowed = false;
 async function initToyFeedbackSection() {
-    const section = document.getElementById('settings-toy-feedback-section');
-    if (!section) return;
-
-    const isToy = isBilibiliToy || (typeof window !== 'undefined' && !!window.toy);
-    if (!isToy) {
-        section.style.display = 'none';
-        return;
-    }
-
-    section.style.display = 'block';
-
+    // 静态展现作者信息，绝不发起任何需要用户登录态或触发强制授权弹窗的接口请求
     const nameEl = document.getElementById('toy-author-name');
     const descEl = document.getElementById('toy-author-desc');
-    const btnFollow = document.getElementById('btn-toy-follow');
-    const btnFollowText = document.getElementById('btn-toy-follow-text');
-
-    if (window.toy && typeof window.toy.getAuthorProfile === 'function') {
-        try {
-            const resp = await window.toy.getAuthorProfile();
-            if (resp && resp.status === 'ok' && resp.data) {
-                toyAuthorProfile = resp.data;
-                if (resp.data.mid) toyAuthorMid = String(resp.data.mid);
-                if (nameEl && resp.data.nickname) {
-                    nameEl.innerText = `关注作者 ${resp.data.nickname}`;
-                }
-                if (descEl && resp.data.follower !== undefined) {
-                    descEl.innerText = `粉丝数：${resp.data.follower} | 获取更新动态与交流互动`;
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy] getAuthorProfile error:', e);
-        }
-    }
-
-    if (window.toy && typeof window.toy.getAuthorRelation === 'function') {
-        try {
-            const rel = await window.toy.getAuthorRelation();
-            if (rel && rel.status === 'ok' && rel.data) {
-                isToyAuthorFollowed = !!rel.data.isFollowing;
-                if (btnFollow && btnFollowText) {
-                    if (isToyAuthorFollowed) {
-                        btnFollowText.innerText = '已关注';
-                        btnFollow.classList.remove('btn-filled');
-                        btnFollow.classList.add('btn-tonal');
-                    } else {
-                        btnFollowText.innerText = '关注作者';
-                        btnFollow.classList.add('btn-filled');
-                        btnFollow.classList.remove('btn-tonal');
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy] getAuthorRelation error:', e);
-        }
-    }
+    if (nameEl) nameEl.innerText = '支持一下';
+    if (descEl) descEl.innerText = '关注作者 B 站账号';
 }
 
 async function handleToyFollowAuthor() {
@@ -15254,7 +15401,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.4',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -15635,10 +15782,6 @@ function renderSettingsViewingWordsList(words) {
                                     onclick="event.stopPropagation(); handleToggleMasteredInWordList('${escapeHtml(w.word)}', '${escapeHtml(w.pinyin || '')}', '', 'shici')">
                                     <span class="material-symbols-rounded" style="font-size:16px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
                                     <span>${isMastered ? '已掌握' : '标记熟词'}</span>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outlined" onclick="event.stopPropagation(); jumpToSearch('${escapeHtml(w.word)}')" title="在词典中查询该词" style="gap:3px; padding:0 8px;">
-                                    <span class="material-symbols-rounded" style="font-size:16px;">search</span>
-                                    <span>查词</span>
                                 </button>
                                 ${isLocalCustomBook ? `
                                 <button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation(); handleDeleteWordFromBookList('${escapeHtml(w.word)}')">
@@ -16044,8 +16187,22 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.2.4';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.4',
+        date: '2026-09-26',
+        badge: '当前版本',
+        items: [
+            '支持使用第三方账号登录。',
+            '在设置-更新日志中可以切换云端日志和本地日志。',
+            'Wordle草稿行与上方对齐，方便对照。',
+            '优化UI。',
+            '修复英语词组中带有=、/的题，左右两边互换算错的bug。',
+            '修复手机端游客账号无法保存数据的bug。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.2.0',
         date: '2026-09-25',
@@ -16229,28 +16386,67 @@ const APP_CHANGELOG = [
     }
 ];
 
-async function renderChangelogInSettings() {
+let settingsChangelogActiveTab = 'cloud';
+try {
+    const savedTab = localStorage.getItem('vocab_changelog_tab');
+    if (savedTab === 'cloud' || savedTab === 'local') {
+        settingsChangelogActiveTab = savedTab;
+    }
+} catch (e) { }
+
+let cachedCloudChangelog = null;
+let isFetchingCloudChangelog = false;
+
+function switchChangelogTab(tab) {
+    if (tab !== 'cloud' && tab !== 'local') tab = 'cloud';
+    settingsChangelogActiveTab = tab;
+    try {
+        localStorage.setItem('vocab_changelog_tab', tab);
+    } catch (e) { }
+
+    const tabCloud = document.getElementById('tab-changelog-cloud');
+    const tabLocal = document.getElementById('tab-changelog-local');
+    if (tabCloud) tabCloud.classList.toggle('active', tab === 'cloud');
+    if (tabLocal) tabLocal.classList.toggle('active', tab === 'local');
+
     const container = document.getElementById('settings-changelog-container');
     if (!container) return;
 
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const actionText = document.getElementById('btn-changelog-action-text');
-    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+    if (tab === 'local') {
+        renderChangelogItems(container, APP_CHANGELOG, false);
+    } else {
+        if (cachedCloudChangelog && cachedCloudChangelog.length > 0) {
+            renderChangelogItems(container, cachedCloudChangelog, true);
+        } else {
+            fetchAndRenderCloudChangelog();
+        }
+    }
+}
 
-    // 1. 先用本地 APP_CHANGELOG 立即秒级渲染，杜绝白屏
-    renderChangelogItems(container, APP_CHANGELOG);
+async function fetchAndRenderCloudChangelog(forceRefresh = false) {
+    const container = document.getElementById('settings-changelog-container');
+    if (!container) return;
 
-    // 2. 异步获取全量历史日志 (优先走 Worker 代理，避免大陆直连 GitHub 失败)
+    if (isFetchingCloudChangelog) return;
+    isFetchingCloudChangelog = true;
+
+    if (!cachedCloudChangelog || forceRefresh) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:36px; animation:spin 1s linear infinite; display:inline-block; color:var(--md-sys-color-primary);">sync</span>
+                <p style="margin-top:10px; font-size:0.92rem;">正在从云端获取最新发布日志...</p>
+            </div>
+        `;
+    }
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        // 关键改动：优先从自己的 Worker API 获取，Worker 连 GitHub 无论在何处都不受墙影响
         let ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
             signal: controller.signal
         }).catch(() => null);
 
-        // 如果 Worker 没有这个接口，则降级尝试走 GitHub 直连（针对海外网络）
         if (!ghRes || !ghRes.ok) {
             ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
                 signal: controller.signal
@@ -16262,7 +16458,7 @@ async function renderChangelogInSettings() {
         if (ghRes && ghRes.ok) {
             const releases = await ghRes.json();
             if (Array.isArray(releases) && releases.length > 0) {
-                const dynamicLogs = releases.map((rel, idx) => {
+                cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
                     const isCurrent = semverCompare(version, APP_VERSION) === 0;
                     const isNewer = semverCompare(version, APP_VERSION) > 0;
@@ -16284,35 +16480,70 @@ async function renderChangelogInSettings() {
                         isHighlight: isCurrent || isNewer
                     };
                 });
-                renderChangelogItems(container, dynamicLogs);
             }
         }
     } catch (err) {
-        console.warn('Failed to load changelog:', err);
+        console.warn('Failed to load cloud changelog:', err);
+    } finally {
+        isFetchingCloudChangelog = false;
+    }
+
+    if (settingsChangelogActiveTab === 'cloud') {
+        if (cachedCloudChangelog && cachedCloudChangelog.length > 0) {
+            renderChangelogItems(container, cachedCloudChangelog, true);
+        } else {
+            container.innerHTML = `
+                <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
+                    <span class="material-symbols-rounded" style="font-size:36px; opacity:0.6;">cloud_off</span>
+                    <p style="margin-top:10px; font-size:0.92rem;">未能获取到云端更新日志，可能受网络影响</p>
+                    <div style="margin-top:14px; display:flex; gap:10px; justify-content:center;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="fetchAndRenderCloudChangelog(true)">
+                            <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
+                            <span>重试</span>
+                        </button>
+                        <button type="button" class="btn btn-filled btn-sm" onclick="switchChangelogTab('local')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">folder</span>
+                            <span>查看本地日志</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
     }
 }
 
-function renderChangelogItems(container, list) {
-    container.innerHTML = list.map((entry, idx) => {
+async function renderChangelogInSettings() {
+    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const actionText = document.getElementById('btn-changelog-action-text');
+    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+
+    switchChangelogTab(settingsChangelogActiveTab);
+}
+
+function renderChangelogItems(container, list, isCloud = false) {
+    const headerHtml = `
+    `;
+    const cardsHtml = list.map((entry, idx) => {
         const isHighlight = entry.isHighlight !== undefined ? entry.isHighlight : (idx === 0);
         return `
-                <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
-                            <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
-                            ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
-                        </div>
+            <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
+                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
                     </div>
-                    <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
-                        ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
-                    </ul>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
+                        ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
+                    </div>
                 </div>
-            `;
+                <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
+                    ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
     }).join('');
+    container.innerHTML = headerHtml + cardsHtml;
 }
 
 function filterSettingsRows(query) {
@@ -17662,9 +17893,10 @@ async function searchYoudaoSuggest(query) {
     if (!query) return null;
     const clean = query.trim();
 
-    // 优先通过 Cloudflare Worker 代理拉取完整非截断释义
+    // 优先通过 Cloudflare Worker 代理拉取完整非截断释义（使用绝对地址，防止第三方平台 404）
+    const apiBase = (typeof BookManager !== 'undefined' && BookManager.API_BASE) ? BookManager.API_BASE : 'https://vocab-api.chenyurong.qzz.io';
     try {
-        const res = await fetch(`/api/youdao?q=${encodeURIComponent(clean)}&num=8&doctype=json`);
+        const res = await fetch(`${apiBase}/api/youdao?q=${encodeURIComponent(clean)}&num=8&doctype=json`);
         if (res.ok) {
             const data = await res.json();
             if (data && data.data && Array.isArray(data.data.entries)) {
@@ -18950,7 +19182,7 @@ async function confirmEditMeaning() {
 /* ==========================================================================
    14. 系统初始化启动逻辑
    ========================================================================== */
-function bootstrapApp() {
+async function bootstrapApp() {
     initDisplaySettings();
     if (typeof renderAuthUsersList === 'function') {
         renderAuthUsersList();
@@ -18960,6 +19192,33 @@ function bootstrapApp() {
     checkIosSafariPwa();
     checkLocalIconFontAvailability();
     initGlobalVirtualKeyboard();
+
+    // 检查 Toy 云端是否有持久化游客身份或统计数据（防止苹果手机/Iframe环境刷新重置游客编号）
+    const isToyContainer = typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
+    if (isToyContainer) {
+        try {
+            const fetchPromise = window.toy.getCloudStorage(['guest_id', 'toy_stats']);
+            if (fetchPromise && typeof fetchPromise.catch === 'function') fetchPromise.catch(() => { });
+            const tData = await fetchPromise;
+            if (tData && tData.guest_id && /^游客_\d{4}$/.test(tData.guest_id)) {
+                window.__cachedToyGuestId = tData.guest_id;
+                SafeStorage.setItem('vocab_guest_name', tData.guest_id);
+                if (typeof setCookie === 'function') setCookie('vocab_guest_name', tData.guest_id, 365);
+                if (currentUserProfile && currentUserProfile.type === 'guest') {
+                    currentUserProfile.username = tData.guest_id;
+                }
+            }
+            if (tData && tData.toy_stats) {
+                try {
+                    const p = typeof tData.toy_stats === 'string' ? JSON.parse(tData.toy_stats) : tData.toy_stats;
+                    const gid = (tData && tData.guest_id) || SafeStorage.getItem('vocab_guest_name');
+                    if (gid && !SafeStorage.getItem(`vocab_stats_${gid}`)) {
+                        SafeStorage.setItem(`vocab_stats_${gid}`, JSON.stringify({ total: p.t || 0, correct: p.c || 0, mistakes: {} }));
+                    }
+                } catch (e) { }
+            }
+        } catch (e) { }
+    }
 
     const isLocalStartup = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocalStartup && typeof BookManager !== 'undefined' && typeof BookManager.fetchBookList === 'function') {
@@ -18991,7 +19250,7 @@ function bootstrapApp() {
             }).catch(() => { });
         }
     } else {
-        loadUserData(typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客');
+        loadUserData((currentUserProfile && currentUserProfile.username) || (typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客'));
     }
     switchView('view-hub');
 }

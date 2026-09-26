@@ -12,12 +12,12 @@ function renderAuthView() {
 
     if (isBilibiliToy) {
         if (toyContainer) toyContainer.style.display = 'block';
-        if (webContainer) webContainer.style.display = 'none';
+        if (webContainer) webContainer.style.display = 'block';
     } else {
         if (toyContainer) toyContainer.style.display = 'none';
         if (webContainer) webContainer.style.display = 'block';
-        switchAuthTab(authActiveTab);
     }
+    switchAuthTab(authActiveTab);
 }
 
 function switchAuthTab(tab) {
@@ -65,10 +65,6 @@ async function handleRegAvatarChange(event) {
 }
 
 async function handleCloudLogin() {
-    if (isBilibiliToy) {
-        showToast('Toy 平台中请使用 B 站授权登录');
-        return;
-    }
     const usernameInput = document.getElementById('auth-login-username');
     const passwordInput = document.getElementById('auth-login-password');
     const loginBtn = document.getElementById('btn-auth-cloud-login');
@@ -122,10 +118,6 @@ async function handleCloudLogin() {
 }
 
 async function handleCloudRegister() {
-    if (isBilibiliToy) {
-        showToast('Toy 平台暂不支持注册 Supabase 云端账号');
-        return;
-    }
     const usernameInput = document.getElementById('auth-reg-username');
     const passwordInput = document.getElementById('auth-reg-password');
     const password2Input = document.getElementById('auth-reg-password2');
@@ -259,7 +251,7 @@ function handleAuthLogout() {
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
     loadUserData(guestName, currentUserProfile);
-    showToast('已退出登录，恢复游客身份');
+    showToast('已退出登录');
     updateHub();
     if (typeof renderMeView === 'function') {
         renderMeView();

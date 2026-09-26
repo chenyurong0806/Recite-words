@@ -25,6 +25,36 @@ function safeJsonParse(str) {
     }
 }
 
+function getCookie(name) {
+    try {
+        if (typeof document === 'undefined' || !document.cookie) return null;
+        const matches = document.cookie.match(new RegExp('(?:^|; )' + encodeURIComponent(name).replace(/[\-\.\+\*]/g, '\\$&') + '=([^;]*)'));
+        return matches ? decodeURIComponent(matches[1]) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function setCookie(name, val, days = 365) {
+    try {
+        if (typeof document === 'undefined') return;
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const secPart = isSecure ? '; SameSite=None; Secure' : '; SameSite=Lax';
+        document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(val)}; expires=${expires}; path=/${secPart}`;
+    } catch (e) { }
+}
+
+function removeCookie(name) {
+    try {
+        if (typeof document === 'undefined') return;
+        document.cookie = `${encodeURIComponent(name)}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    } catch (e) { }
+}
+window.getCookie = getCookie;
+window.setCookie = setCookie;
+window.removeCookie = removeCookie;
+
 const memoryStorageMap = {};
 const SafeStorage = {
     isAvailable: (() => {
@@ -46,6 +76,17 @@ const SafeStorage = {
                 if (val !== null) return val;
             }
         } catch (e) { }
+        // 苹果设备与移动端兜底：尝试从 Cookie 读取
+        try {
+            const cookieVal = getCookie(key);
+            if (cookieVal !== null) {
+                memoryStorageMap[key] = cookieVal;
+                try {
+                    if (this.isAvailable) window.localStorage.setItem(key, cookieVal);
+                } catch (e) { }
+                return cookieVal;
+            }
+        } catch (e) { }
         return Object.prototype.hasOwnProperty.call(memoryStorageMap, key) ? memoryStorageMap[key] : null;
     },
 
@@ -60,6 +101,12 @@ const SafeStorage = {
         } catch (e) {
             console.warn('[SafeStorage] localStorage.setItem failed, retained in memory:', key, e);
         }
+        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保苹果设备持久化
+        if (strVal.length < 3500) {
+            try {
+                setCookie(key, strVal, 365);
+            } catch (e) { }
+        }
     },
 
     removeItem(key) {
@@ -69,6 +116,9 @@ const SafeStorage = {
             if (this.isAvailable) {
                 window.localStorage.removeItem(key);
             }
+        } catch (e) { }
+        try {
+            removeCookie(key);
         } catch (e) { }
     },
 

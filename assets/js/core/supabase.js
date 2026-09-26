@@ -207,7 +207,6 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     }
 
     if (!username || !password) throw new Error('用户名和密码不能为空');
-    if (isBilibiliToy) throw new Error('Toy 平台暂不支持注册 Supabase 云端账号');
 
     const cleanName = username.trim();
     // 检查用户名是否已存在
@@ -257,7 +256,6 @@ async function supabaseLoginUser(arg1, arg2) {
     }
 
     if (!username || !password) throw new Error('请输入用户名和密码');
-    if (isBilibiliToy) throw new Error('Toy 平台中请使用 B 站授权登录');
 
     const cleanName = username.trim();
     const hashedPassword = await hashPassword(password);
@@ -386,16 +384,15 @@ async function biliLogin() {
 async function biliSaveCloudData(data) {
     if (typeof window.toy === 'undefined' || typeof window.toy.setCloudStorage !== 'function') return;
     try {
-        const jsonStr = JSON.stringify(data || {});
-        const CHUNK_SIZE = 900;
-        const totalChunks = Math.ceil(jsonStr.length / CHUNK_SIZE);
-        const payload = {
-            'storage_meta': JSON.stringify({ chunks: totalChunks, len: jsonStr.length, time: Date.now() })
+        // 极简存储：Toy 云存储严格限制空间，仅存储极轻量概要指标（< 100 字节），杜绝海量分片耗尽配额
+        const compact = {
+            t: (data && data.stats && data.stats.total) || 0,
+            c: (data && data.stats && data.stats.correct) || 0,
+            u: Date.now()
         };
-        for (let i = 0; i < totalChunks; i++) {
-            payload[`data_c_${i}`] = jsonStr.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        }
-        await window.toy.setCloudStorage(payload);
+        const p = window.toy.setCloudStorage({ 'toy_stats': JSON.stringify(compact) });
+        if (p && typeof p.catch === 'function') p.catch(() => { });
+        await p;
     } catch (e) {
         console.warn('[ToySDK] Failed to save cloud storage:', e);
     }
@@ -404,14 +401,27 @@ async function biliSaveCloudData(data) {
 async function biliLoadCloudData() {
     if (typeof window.toy === 'undefined' || typeof window.toy.getCloudStorage !== 'function') return null;
     try {
-        const all = await window.toy.getCloudStorage();
-        if (!all || !all['storage_meta']) return null;
-        const meta = JSON.parse(all['storage_meta']);
-        let fullStr = '';
-        for (let i = 0; i < meta.chunks; i++) {
-            fullStr += (all[`data_c_${i}`] || '');
+        const p = window.toy.getCloudStorage(['toy_stats', 'storage_meta', 'data_c_0']);
+        if (p && typeof p.catch === 'function') p.catch(() => { });
+        const all = await p;
+        if (!all) return null;
+        if (all['toy_stats']) {
+            const compact = JSON.parse(all['toy_stats']);
+            return {
+                stats: { total: compact.t || 0, correct: compact.c || 0, mistakes: {} },
+                updated: compact.u || Date.now()
+            };
         }
-        return JSON.parse(fullStr);
+        // 兼容旧版 chunk 数据
+        if (all['storage_meta']) {
+            const meta = JSON.parse(all['storage_meta']);
+            let fullStr = '';
+            for (let i = 0; i < meta.chunks; i++) {
+                fullStr += (all[`data_c_${i}`] || '');
+            }
+            return JSON.parse(fullStr);
+        }
+        return null;
     } catch (e) {
         console.warn('[ToySDK] Failed to read cloud storage:', e);
         return null;

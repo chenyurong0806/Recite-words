@@ -604,17 +604,23 @@ function checkSinglePhraseAnswer() {
         return c ? c.text.toLowerCase() : '';
     });
     const q = singlePhraseState.q;
-    let allSlotsRight = true;
+    const isMatching = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, singlePhraseState.targetWords)
+        : false;
+    let allSlotsRight = isMatching;
     const wrongSlots = [];
-    singlePhraseState.targetWords.forEach((targetToken, idx) => {
-        const userWord = placedWords[idx] || '';
-        if (String(singlePhraseState.placed[idx]).startsWith('__fixed__')) return;
-        if (!isPhraseSlotMatch(userWord, targetToken, q)) {
-            allSlotsRight = false;
-            wrongSlots.push(idx);
-        }
-    });
-    const isRight = allSlotsRight;
+    if (!allSlotsRight) {
+        allSlotsRight = true;
+        singlePhraseState.targetWords.forEach((targetToken, idx) => {
+            const userWord = placedWords[idx] || '';
+            if (String(singlePhraseState.placed[idx]).startsWith('__fixed__')) return;
+            if (!isPhraseSlotMatch(userWord, targetToken, q)) {
+                allSlotsRight = false;
+                wrongSlots.push(idx);
+            }
+        });
+    }
+    const isRight = allSlotsRight || isMatching;
 
     userStats.total++;
     singleState.total++;
@@ -927,7 +933,8 @@ function endSingleGame() {
 }
 
 function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
-    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...(dictionary || [])];
+    const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
+    let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...curDict];
     if (pool.length === 0) {
         pool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
     }
@@ -1013,7 +1020,8 @@ function shuffle(array) {
 }
 
 function generateShuffledPoolFromWords(wordsList, count = 70) {
-    const list = (wordsList && wordsList.length > 0) ? wordsList : dictionary;
+    const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
+    const list = (wordsList && wordsList.length > 0) ? wordsList : (curDict.length > 0 ? curDict : (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []));
     const unmastered = list.filter(w => !isWordMastered(w.word));
     const activeList = unmastered.length > 0 ? unmastered : list;
     const shuffled = shuffle(activeList);
@@ -1130,7 +1138,7 @@ function renderMeView() {
                 if (avatarWrap) avatarWrap.style.cursor = 'default';
             } else {
                 if (badgeEl) {
-                    badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">Supabase 云端账号</span>`;
+                    badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">云端账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'flex';
                 if (avatarEditHint) avatarEditHint.style.display = 'flex';

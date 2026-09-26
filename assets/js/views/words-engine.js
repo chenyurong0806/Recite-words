@@ -193,19 +193,19 @@ function findLookalikesFromDatabase(targetWord, maxCount = 2) {
 function isFixedPhraseToken(token) {
     if (!token || typeof token !== 'string') return false;
     const clean = token.toLowerCase().trim();
-    // 斜杠 '/' 和 ' / ' 表示同义替代槽位，绝不作为自动预填固定项！
+    if (clean === '=' || clean === '/') return true;
     if (clean.includes('/')) return false;
     // 带有括号、以括号开头结尾的说明词（如 (someone)、(sb.)、(sth.)、(...)、( ) 等）
     if (/^[（(].*[）)]$/.test(clean) || clean === '()' || clean === '（）') return true;
-    // 纯符号或常见连接符（等号、逗号、波浪号、省略号等）
-    if (/^[=,，~…\.\-]+$/.test(clean)) return true;
+    // 纯符号或常见连接符（等号、斜杠、逗号、波浪号、省略号等）
+    if (/^[=,，~…\.\-/]+$/.test(clean)) return true;
     // 常见语法占位固定项自动预填
     const fixedSet = new Set([
         '...', '…', '……',
         'sb.', 'sb', "sb's", 'sbs',
         'sth.', 'sth',
         "one's", "one’s", 'ones',
-        '=', ','
+        '=', ',', '/'
     ]);
     return fixedSet.has(clean) || clean.startsWith('...');
 }
@@ -214,10 +214,8 @@ function extractPhraseTargetWords(rawWord) {
     if (!rawWord) return [];
     let str = rawWord.trim();
 
-    // 紧凑处理 / 两侧空格，使 draw / reach 变成 draw/reach 作为单一槽位 token
-    str = str.replace(/\s*\/\s*/g, '/');
-    // 将等号、逗号隔开独立成 token
-    str = str.replace(/([=,，])/g, ' $1 ');
+    // 将等号、斜杠、逗号隔开独立成 token
+    str = str.replace(/([=,，/])/g, ' $1 ');
     str = str.replace(/（/g, ' (').replace(/）/g, ') ');
 
     // 拆分为独立的 token 单元
@@ -230,6 +228,81 @@ function extractPhraseTargetWords(rawWord) {
     }
 
     return tokens.length > 0 ? tokens : rawWord.trim().split(/\s+/).filter(Boolean);
+}
+
+// 判定词组作答是否正确（支持带有 =、/ 的题目左右两边互换）
+function isPhraseAnswerMatching(placedWords, targetWords) {
+    if (!Array.isArray(placedWords) || !Array.isArray(targetWords)) return false;
+    if (placedWords.length !== targetWords.length) return false;
+
+    const pLower = placedWords.map(w => (w || '').trim().toLowerCase());
+    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+
+    // 1. 完全一致
+    if (pLower.join(' ') === tLower.join(' ')) {
+        return true;
+    }
+
+    // 2. 带有 '=' 或 '/' 的词组，左右两边互换也算对
+    const separators = ['=', '/'];
+    for (const sep of separators) {
+        if (tLower.includes(sep)) {
+            const targetSegments = [];
+            let curSeg = [];
+            for (const token of tLower) {
+                if (token === sep) {
+                    targetSegments.push(curSeg.join(' '));
+                    curSeg = [];
+                } else {
+                    curSeg.push(token);
+                }
+            }
+            targetSegments.push(curSeg.join(' '));
+
+            const placedSegments = [];
+            curSeg = [];
+            let placedSepMatches = true;
+            for (let i = 0; i < pLower.length; i++) {
+                if (tLower[i] === sep) {
+                    if (pLower[i] !== sep) {
+                        placedSepMatches = false;
+                        break;
+                    }
+                    placedSegments.push(curSeg.join(' '));
+                    curSeg = [];
+                } else {
+                    curSeg.push(pLower[i]);
+                }
+            }
+            placedSegments.push(curSeg.join(' '));
+
+            if (!placedSepMatches || placedSegments.length !== targetSegments.length) {
+                continue;
+            }
+
+            const sortedTarget = [...targetSegments].sort();
+            const sortedPlaced = [...placedSegments].sort();
+            if (sortedTarget.join('::') === sortedPlaced.join('::')) {
+                return true;
+            }
+
+            // 嵌套分隔符（如 A = B / C）内部互换匹配
+            const otherSep = (sep === '=' ? '/' : '=');
+            const normalizeSegment = (seg) => {
+                if (seg.includes(otherSep)) {
+                    return seg.split(otherSep).map(s => s.trim()).sort().join(` ${otherSep} `);
+                }
+                return seg;
+            };
+            const deepSortedTarget = targetSegments.map(normalizeSegment).sort();
+            const deepSortedPlaced = placedSegments.map(normalizeSegment).sort();
+            if (deepSortedTarget.join('::') === deepSortedPlaced.join('::')) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 // 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，或 item.correct 中的任意一项）
@@ -367,4 +440,4 @@ function generatePhraseDistractors(targetWords, currentPool = [], currentItem = 
 
     return chips;
 }
-
+

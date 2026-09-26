@@ -179,7 +179,7 @@ function renderSettingsMain() {
         if (webRow) {
             webRow.style.display = 'flex';
             if (isLocal) {
-                webRow.href = 'https://word.chenyurong.qzz.io';
+                webRow.href = 'https://www.bilibili.com/toy/cyr/index.html';
                 if (webTip) webTip.innerText = '当前为本地环境，点击访问在线网页版';
             } else {
                 webRow.href = getGithubAssetUrl('https://github.com/chenyurong0806/Recite-words/releases');
@@ -244,61 +244,11 @@ let toyAuthorMid = '1569750390';
 let toyAuthorProfile = null;
 let isToyAuthorFollowed = false;
 async function initToyFeedbackSection() {
-    const section = document.getElementById('settings-toy-feedback-section');
-    if (!section) return;
-
-    const isToy = isBilibiliToy || (typeof window !== 'undefined' && !!window.toy);
-    if (!isToy) {
-        section.style.display = 'none';
-        return;
-    }
-
-    section.style.display = 'block';
-
+    // 静态展现作者信息，绝不发起任何需要用户登录态或触发强制授权弹窗的接口请求
     const nameEl = document.getElementById('toy-author-name');
     const descEl = document.getElementById('toy-author-desc');
-    const btnFollow = document.getElementById('btn-toy-follow');
-    const btnFollowText = document.getElementById('btn-toy-follow-text');
-
-    if (window.toy && typeof window.toy.getAuthorProfile === 'function') {
-        try {
-            const resp = await window.toy.getAuthorProfile();
-            if (resp && resp.status === 'ok' && resp.data) {
-                toyAuthorProfile = resp.data;
-                if (resp.data.mid) toyAuthorMid = String(resp.data.mid);
-                if (nameEl && resp.data.nickname) {
-                    nameEl.innerText = `关注作者 ${resp.data.nickname}`;
-                }
-                if (descEl && resp.data.follower !== undefined) {
-                    descEl.innerText = `粉丝数：${resp.data.follower} | 获取更新动态与交流互动`;
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy] getAuthorProfile error:', e);
-        }
-    }
-
-    if (window.toy && typeof window.toy.getAuthorRelation === 'function') {
-        try {
-            const rel = await window.toy.getAuthorRelation();
-            if (rel && rel.status === 'ok' && rel.data) {
-                isToyAuthorFollowed = !!rel.data.isFollowing;
-                if (btnFollow && btnFollowText) {
-                    if (isToyAuthorFollowed) {
-                        btnFollowText.innerText = '已关注';
-                        btnFollow.classList.remove('btn-filled');
-                        btnFollow.classList.add('btn-tonal');
-                    } else {
-                        btnFollowText.innerText = '关注作者';
-                        btnFollow.classList.add('btn-filled');
-                        btnFollow.classList.remove('btn-tonal');
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy] getAuthorRelation error:', e);
-        }
-    }
+    if (nameEl) nameEl.innerText = '支持一下';
+    if (descEl) descEl.innerText = '关注作者 B 站账号';
 }
 
 async function handleToyFollowAuthor() {
@@ -640,7 +590,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.4',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -1021,10 +971,6 @@ function renderSettingsViewingWordsList(words) {
                                     onclick="event.stopPropagation(); handleToggleMasteredInWordList('${escapeHtml(w.word)}', '${escapeHtml(w.pinyin || '')}', '', 'shici')">
                                     <span class="material-symbols-rounded" style="font-size:16px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
                                     <span>${isMastered ? '已掌握' : '标记熟词'}</span>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outlined" onclick="event.stopPropagation(); jumpToSearch('${escapeHtml(w.word)}')" title="在词典中查询该词" style="gap:3px; padding:0 8px;">
-                                    <span class="material-symbols-rounded" style="font-size:16px;">search</span>
-                                    <span>查词</span>
                                 </button>
                                 ${isLocalCustomBook ? `
                                 <button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation(); handleDeleteWordFromBookList('${escapeHtml(w.word)}')">
@@ -1430,8 +1376,22 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.2.4';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.4',
+        date: '2026-09-26',
+        badge: '当前版本',
+        items: [
+            '支持使用第三方账号登录。',
+            '在设置-更新日志中可以切换云端日志和本地日志。',
+            'Wordle草稿行与上方对齐，方便对照。',
+            '优化UI。',
+            '修复英语词组中带有=、/的题，左右两边互换算错的bug。',
+            '修复手机端游客账号无法保存数据的bug。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.2.0',
         date: '2026-09-25',
@@ -1615,28 +1575,67 @@ const APP_CHANGELOG = [
     }
 ];
 
-async function renderChangelogInSettings() {
+let settingsChangelogActiveTab = 'cloud';
+try {
+    const savedTab = localStorage.getItem('vocab_changelog_tab');
+    if (savedTab === 'cloud' || savedTab === 'local') {
+        settingsChangelogActiveTab = savedTab;
+    }
+} catch (e) { }
+
+let cachedCloudChangelog = null;
+let isFetchingCloudChangelog = false;
+
+function switchChangelogTab(tab) {
+    if (tab !== 'cloud' && tab !== 'local') tab = 'cloud';
+    settingsChangelogActiveTab = tab;
+    try {
+        localStorage.setItem('vocab_changelog_tab', tab);
+    } catch (e) { }
+
+    const tabCloud = document.getElementById('tab-changelog-cloud');
+    const tabLocal = document.getElementById('tab-changelog-local');
+    if (tabCloud) tabCloud.classList.toggle('active', tab === 'cloud');
+    if (tabLocal) tabLocal.classList.toggle('active', tab === 'local');
+
     const container = document.getElementById('settings-changelog-container');
     if (!container) return;
 
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const actionText = document.getElementById('btn-changelog-action-text');
-    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+    if (tab === 'local') {
+        renderChangelogItems(container, APP_CHANGELOG, false);
+    } else {
+        if (cachedCloudChangelog && cachedCloudChangelog.length > 0) {
+            renderChangelogItems(container, cachedCloudChangelog, true);
+        } else {
+            fetchAndRenderCloudChangelog();
+        }
+    }
+}
 
-    // 1. 先用本地 APP_CHANGELOG 立即秒级渲染，杜绝白屏
-    renderChangelogItems(container, APP_CHANGELOG);
+async function fetchAndRenderCloudChangelog(forceRefresh = false) {
+    const container = document.getElementById('settings-changelog-container');
+    if (!container) return;
 
-    // 2. 异步获取全量历史日志 (优先走 Worker 代理，避免大陆直连 GitHub 失败)
+    if (isFetchingCloudChangelog) return;
+    isFetchingCloudChangelog = true;
+
+    if (!cachedCloudChangelog || forceRefresh) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:36px; animation:spin 1s linear infinite; display:inline-block; color:var(--md-sys-color-primary);">sync</span>
+                <p style="margin-top:10px; font-size:0.92rem;">正在从云端获取最新发布日志...</p>
+            </div>
+        `;
+    }
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        // 关键改动：优先从自己的 Worker API 获取，Worker 连 GitHub 无论在何处都不受墙影响
         let ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
             signal: controller.signal
         }).catch(() => null);
 
-        // 如果 Worker 没有这个接口，则降级尝试走 GitHub 直连（针对海外网络）
         if (!ghRes || !ghRes.ok) {
             ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
                 signal: controller.signal
@@ -1648,7 +1647,7 @@ async function renderChangelogInSettings() {
         if (ghRes && ghRes.ok) {
             const releases = await ghRes.json();
             if (Array.isArray(releases) && releases.length > 0) {
-                const dynamicLogs = releases.map((rel, idx) => {
+                cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
                     const isCurrent = semverCompare(version, APP_VERSION) === 0;
                     const isNewer = semverCompare(version, APP_VERSION) > 0;
@@ -1670,35 +1669,70 @@ async function renderChangelogInSettings() {
                         isHighlight: isCurrent || isNewer
                     };
                 });
-                renderChangelogItems(container, dynamicLogs);
             }
         }
     } catch (err) {
-        console.warn('Failed to load changelog:', err);
+        console.warn('Failed to load cloud changelog:', err);
+    } finally {
+        isFetchingCloudChangelog = false;
+    }
+
+    if (settingsChangelogActiveTab === 'cloud') {
+        if (cachedCloudChangelog && cachedCloudChangelog.length > 0) {
+            renderChangelogItems(container, cachedCloudChangelog, true);
+        } else {
+            container.innerHTML = `
+                <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
+                    <span class="material-symbols-rounded" style="font-size:36px; opacity:0.6;">cloud_off</span>
+                    <p style="margin-top:10px; font-size:0.92rem;">未能获取到云端更新日志，可能受网络影响</p>
+                    <div style="margin-top:14px; display:flex; gap:10px; justify-content:center;">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="fetchAndRenderCloudChangelog(true)">
+                            <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
+                            <span>重试</span>
+                        </button>
+                        <button type="button" class="btn btn-filled btn-sm" onclick="switchChangelogTab('local')">
+                            <span class="material-symbols-rounded" style="font-size:16px;">folder</span>
+                            <span>查看本地日志</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
     }
 }
 
-function renderChangelogItems(container, list) {
-    container.innerHTML = list.map((entry, idx) => {
+async function renderChangelogInSettings() {
+    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const actionText = document.getElementById('btn-changelog-action-text');
+    if (actionText) actionText.innerText = isLocal ? '下载最新版本' : '同步';
+
+    switchChangelogTab(settingsChangelogActiveTab);
+}
+
+function renderChangelogItems(container, list, isCloud = false) {
+    const headerHtml = `
+    `;
+    const cardsHtml = list.map((entry, idx) => {
         const isHighlight = entry.isHighlight !== undefined ? entry.isHighlight : (idx === 0);
         return `
-                <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
-                            <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
-                            ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
-                        </div>
+            <div class="card" style="padding:18px 20px; border-left: 4px solid ${isHighlight ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'};">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700;">${escapeHtml(entry.version)}</h3>
+                        <span class="badge" style="background:${isHighlight ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container-high)'}; color:${isHighlight ? 'var(--md-sys-color-on-primary-container)' : 'var(--md-sys-color-on-surface)'}; font-size:0.75rem;">${escapeHtml(entry.badge)}</span>
                     </div>
-                    <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
-                        ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
-                    </ul>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">${escapeHtml(entry.date)}</span>
+                        ${entry.htmlUrl ? `<a href="${entry.htmlUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--md-sys-color-primary); text-decoration:none; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>Release</a>` : ''}
+                    </div>
                 </div>
-            `;
+                <ul style="padding-left:20px; font-size:0.88rem; line-height:1.7; color:var(--md-sys-color-on-surface-variant); margin:0;">
+                    ${entry.items.map(it => `<li style="margin-bottom:6px;">${escapeHtml(it)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
     }).join('');
+    container.innerHTML = headerHtml + cardsHtml;
 }
 
 function filterSettingsRows(query) {

@@ -1311,9 +1311,10 @@ async function searchYoudaoSuggest(query) {
     if (!query) return null;
     const clean = query.trim();
 
-    // 优先通过 Cloudflare Worker 代理拉取完整非截断释义
+    // 优先通过 Cloudflare Worker 代理拉取完整非截断释义（使用绝对地址，防止第三方平台 404）
+    const apiBase = (typeof BookManager !== 'undefined' && BookManager.API_BASE) ? BookManager.API_BASE : 'https://vocab-api.chenyurong.qzz.io';
     try {
-        const res = await fetch(`/api/youdao?q=${encodeURIComponent(clean)}&num=8&doctype=json`);
+        const res = await fetch(`${apiBase}/api/youdao?q=${encodeURIComponent(clean)}&num=8&doctype=json`);
         if (res.ok) {
             const data = await res.json();
             if (data && data.data && Array.isArray(data.data.entries)) {

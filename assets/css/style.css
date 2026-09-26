@@ -862,7 +862,7 @@ select.md3-select option {
     border: none;
     outline: none;
     background: transparent;
-    font-size: 0.95rem;
+    font-size: 16px; /* 阻止移动端 (iOS Safari / WebKit) 聚焦时页面自动放大 */
     color: var(--md-sys-color-on-surface);
     height: 36px;
 }
@@ -1042,7 +1042,7 @@ select.md3-select option {
     line-height: 42px;
     padding: 0;
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 16px; /* 阻止移动端 (iOS Safari / WebKit) 聚焦时页面自动放大 */
     border: none;
     outline: none;
     background: transparent;
@@ -4091,6 +4091,7 @@ body.hide-all-icons .material-symbols-rounded {
     display: flex;
     gap: 8px;
     justify-content: center;
+    align-items: center;
 }
 
 .riddle-tile {
@@ -4102,17 +4103,19 @@ body.hide-all-icons .material-symbols-rounded {
     color: var(--md-sys-color-on-surface);
     font-size: 1.5rem;
     font-weight: 800;
+    line-height: 1;
     text-transform: none;
     display: flex;
     align-items: center;
     justify-content: center;
     user-select: none;
-    transition: transform 0.15s, border-color 0.15s, background-color 0.2s;
+    transition: border-color 0.15s, background-color 0.2s, box-shadow 0.15s;
+    box-sizing: border-box;
 }
 
 .riddle-tile.active {
     border-color: var(--md-sys-color-primary);
-    transform: scale(1.06);
+    box-shadow: 0 0 0 2px rgba(0, 97, 164, 0.25);
 }
 
 .riddle-tile.correct {
@@ -4160,6 +4163,15 @@ body.hide-all-icons .material-symbols-rounded {
     100% {
         transform: scale(1);
         opacity: 1;
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
     }
 }
 
@@ -7094,7 +7106,6 @@ body.nav-hidden {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
     position: relative;
     width: 100%;
     min-height: auto;
@@ -7102,6 +7113,13 @@ body.nav-hidden {
     background: transparent;
     border: none;
     box-sizing: border-box;
+}
+
+.riddle-draft-tiles-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .riddle-draft-tiles {
@@ -7121,6 +7139,7 @@ body.nav-hidden {
     color: var(--md-sys-color-primary, #0061a4);
     font-size: 1.5rem;
     font-weight: 800;
+    line-height: 1;
     text-align: center;
     font-family: inherit;
     outline: none;
@@ -7163,16 +7182,17 @@ body.nav-hidden {
 }
 
 @media (max-width: 480px) {
-    .riddle-draft-row {
-        gap: 6px;
-    }
     .riddle-draft-tile {
-        width: 40px;
-        height: 40px;
-        font-size: 1.2rem;
+        width: 44px;
+        height: 44px;
+        font-size: 1.3rem;
     }
     .riddle-draft-tiles {
-        gap: 5px;
+        gap: 6px;
+    }
+    .riddle-draft-actions {
+        left: calc(100% + 6px) !important;
+        gap: 4px !important;
     }
     .riddle-draft-btn {
         width: 28px;
@@ -7183,17 +7203,18 @@ body.nav-hidden {
     }
 }
 
-@media (max-width: 400px) {
-    .riddle-draft-row {
-        gap: 4px;
-    }
+@media (max-width: 380px) {
     .riddle-draft-tile {
-        width: 34px;
-        height: 34px;
-        font-size: 1.05rem;
+        width: 38px;
+        height: 38px;
+        font-size: 1.15rem;
     }
     .riddle-draft-tiles {
-        gap: 3px;
+        gap: 4px;
+    }
+    .riddle-draft-actions {
+        left: calc(100% + 4px) !important;
+        gap: 3px !important;
     }
     .riddle-draft-btn {
         width: 26px;
@@ -7208,9 +7229,13 @@ body.nav-hidden {
     display: flex;
     align-items: center;
     gap: 6px;
-    position: static;
-    transform: none;
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
     flex-shrink: 0;
+    white-space: nowrap;
+    z-index: 2;
 }
 
 .riddle-draft-btn {

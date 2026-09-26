@@ -177,7 +177,7 @@ function renderBookSelectorPage() {
                             ${books.map(b => {
             const isSelected = isBookIdSelectedInCurrentMode(b.id);
             const gradient = getProceduralBookGradient(b.name, b.category);
-            const coverUrl = b.cover || (b.path ? b.path.replace(/\.json$/i, '.png') : null) || (b.id && String(b.id).endsWith('.json') ? String(b.id).replace(/\.json$/i, '.png') : null);
+            const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
             return `
                                     <div class="book-cover-card ${isSelected ? 'selected' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')">
                                         <div class="book-cover-wrap">

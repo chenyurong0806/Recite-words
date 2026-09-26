@@ -6,7 +6,7 @@
 /* ==========================================================================
    14. 系统初始化启动逻辑
    ========================================================================== */
-function bootstrapApp() {
+async function bootstrapApp() {
     initDisplaySettings();
     if (typeof renderAuthUsersList === 'function') {
         renderAuthUsersList();
@@ -16,6 +16,33 @@ function bootstrapApp() {
     checkIosSafariPwa();
     checkLocalIconFontAvailability();
     initGlobalVirtualKeyboard();
+
+    // 检查 Toy 云端是否有持久化游客身份或统计数据（防止苹果手机/Iframe环境刷新重置游客编号）
+    const isToyContainer = typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
+    if (isToyContainer) {
+        try {
+            const fetchPromise = window.toy.getCloudStorage(['guest_id', 'toy_stats']);
+            if (fetchPromise && typeof fetchPromise.catch === 'function') fetchPromise.catch(() => { });
+            const tData = await fetchPromise;
+            if (tData && tData.guest_id && /^游客_\d{4}$/.test(tData.guest_id)) {
+                window.__cachedToyGuestId = tData.guest_id;
+                SafeStorage.setItem('vocab_guest_name', tData.guest_id);
+                if (typeof setCookie === 'function') setCookie('vocab_guest_name', tData.guest_id, 365);
+                if (currentUserProfile && currentUserProfile.type === 'guest') {
+                    currentUserProfile.username = tData.guest_id;
+                }
+            }
+            if (tData && tData.toy_stats) {
+                try {
+                    const p = typeof tData.toy_stats === 'string' ? JSON.parse(tData.toy_stats) : tData.toy_stats;
+                    const gid = (tData && tData.guest_id) || SafeStorage.getItem('vocab_guest_name');
+                    if (gid && !SafeStorage.getItem(`vocab_stats_${gid}`)) {
+                        SafeStorage.setItem(`vocab_stats_${gid}`, JSON.stringify({ total: p.t || 0, correct: p.c || 0, mistakes: {} }));
+                    }
+                } catch (e) { }
+            }
+        } catch (e) { }
+    }
 
     const isLocalStartup = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocalStartup && typeof BookManager !== 'undefined' && typeof BookManager.fetchBookList === 'function') {
@@ -47,7 +74,7 @@ function bootstrapApp() {
             }).catch(() => { });
         }
     } else {
-        loadUserData(typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客');
+        loadUserData((currentUserProfile && currentUserProfile.username) || (typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客'));
     }
     switchView('view-hub');
 }

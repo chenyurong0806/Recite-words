@@ -10,12 +10,32 @@ try {
     allUsersList = [];
 }
 
-// 获取或生成专属的游客名称（如：游客_7214）
+// 获取或生成专属的游客名称（如：游客_7214），多层持久化确保苹果设备不丢编号
 function getUniqueGuestName() {
     let guestId = SafeStorage.getItem('vocab_guest_name');
     if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        if (typeof getCookie === 'function') {
+            const cId = getCookie('vocab_guest_name');
+            if (cId && /^游客_\d{4}$/.test(cId)) guestId = cId;
+        }
+    }
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
+        if (typeof window !== 'undefined' && window.__cachedToyGuestId && /^游客_\d{4}$/.test(window.__cachedToyGuestId)) {
+            guestId = window.__cachedToyGuestId;
+        }
+    }
+    if (!guestId || !/^游客_\d{4}$/.test(guestId)) {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
-        SafeStorage.setItem('vocab_guest_name', guestId);
+    }
+    SafeStorage.setItem('vocab_guest_name', guestId);
+    if (typeof setCookie === 'function') {
+        setCookie('vocab_guest_name', guestId, 365);
+    }
+    if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
+        try {
+            const p = window.toy.setCloudStorage({ 'guest_id': guestId });
+            if (p && typeof p.catch === 'function') p.catch(() => { });
+        } catch (e) { }
     }
     return guestId;
 }
@@ -42,6 +62,7 @@ try {
 
 let currentUser = currentUserProfile.username || defaultGuestName;
 let userStats = { total: 0, correct: 0, mistakes: {} };
+let dictionary = [];
 
 let gameMode = 'single';
 let realtimeChannel = null;
@@ -138,7 +159,10 @@ function loadUserData(username, profile = null) {
     }
 
     try {
-        const rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
+        let rawStats = SafeStorage.getItem(`vocab_stats_${currentUser}`);
+        if (!rawStats && typeof getCookie === 'function') {
+            rawStats = getCookie(`vocab_stats_${currentUser}`);
+        }
         userStats = rawStats ? JSON.parse(rawStats) : { total: 0, correct: 0, mistakes: {} };
         if (!userStats.mistakes) userStats.mistakes = {};
     } catch (e) {
@@ -154,14 +178,33 @@ function loadUserData(username, profile = null) {
 
 function saveCurrentUserData() {
     if (!currentUser) return;
-    SafeStorage.setItem(`vocab_stats_${currentUser}`, JSON.stringify(userStats));
+    const statsStr = JSON.stringify(userStats);
+    SafeStorage.setItem(`vocab_stats_${currentUser}`, statsStr);
+    if (currentUser.startsWith('游客_') && typeof setCookie === 'function') {
+        setCookie(`vocab_stats_${currentUser}`, statsStr, 365);
+    }
+
     // 同步到云端
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
         if (currentUserProfile.type === 'cloud' && typeof supabaseSyncUserData === 'function') {
             supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now() });
-        } else if (currentUserProfile.type === 'bilibili' && typeof biliSaveCloudData === 'function') {
-            biliSaveCloudData({ stats: userStats, updated: Date.now() });
+        } else if (currentUserProfile.type === 'bilibili') {
+            if (typeof biliSaveCloudData === 'function') {
+                biliSaveCloudData({ stats: userStats, updated: Date.now() });
+            }
+            if (typeof supabaseSyncUserData === 'function') {
+                supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now(), isBiliUser: true });
+            }
         }
+    } else if (currentUser.startsWith('游客_') && typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
+        // 在 Toy 平台中以微型体积 (< 80 字节) 持久化游客概要与编号
+        try {
+            const p = window.toy.setCloudStorage({
+                'guest_id': currentUser,
+                'toy_stats': JSON.stringify({ t: userStats.total || 0, c: userStats.correct || 0, u: Date.now() })
+            });
+            if (p && typeof p.catch === 'function') p.catch(() => { });
+        } catch (e) { }
     }
 }
 

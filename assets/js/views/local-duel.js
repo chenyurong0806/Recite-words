@@ -676,8 +676,9 @@ function checkLocalPhraseAnswer(player) {
         const c = phrState.chips.find(item => item.id === cid);
         return c ? c.text.toLowerCase() : '';
     });
-    const targetWordsLower = phrState.targetWords.map(w => w.toLowerCase());
-    const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+    const isRight = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, phrState.targetWords)
+        : (placedWords.join(' ') === phrState.targetWords.map(w => w.toLowerCase()).join(' '));
 
     if (isRight) {
         pState.answered = true;

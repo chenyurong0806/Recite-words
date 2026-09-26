@@ -146,9 +146,10 @@ async function restudyMistakes() {
         const words = Object.keys(mistakes).filter(w => !mistakes[w].isShiCi && /[a-zA-Z]/.test(w));
         if (words.length === 0) return alert('当前没有待复习的英语错题！');
 
+        const currentDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
         const pool = words.map(w => {
-            const item = dictionary.find(d => d.word === w) || { phone: '' };
-            const optData = generateOptions(w, mistakes[w].meaning, dictionary);
+            const item = currentDict.find(d => d.word === w) || { phone: '' };
+            const optData = generateOptions(w, mistakes[w].meaning, currentDict.length >= 4 ? currentDict : (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []));
             return {
                 word: w,
                 phone: item.phone || mistakes[w].phone || '',
@@ -227,4 +228,4 @@ function clearMistakes() {
     renderMistakesList();
     showToast(`已清空${typeName}错题记录`);
 }
-
+

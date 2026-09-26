@@ -38,6 +38,18 @@
             src: local('Material Symbols Rounded'), url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
         }
     </style>
+    <!-- 捕获本地/独立标签页测试时 ToySDK 找不到宿主父窗口导致的握手超时异常 -->
+    <script>
+        window.addEventListener('unhandledrejection', function (event) {
+            if (event && event.reason) {
+                var errStr = String(event.reason.message || event.reason);
+                if (errStr.includes('ToySDK') || errStr.includes('handshake') || (event.reason && event.reason.name === 'ToyError')) {
+                    event.preventDefault();
+                    console.info('[ToySDK] 提示：当前未处于 B 站宿主 Iframe 容器内，已安全忽略 SDK 握手超时。');
+                }
+            }
+        });
+    </script>
     <!-- Bilibili Toy JS SDK -->
     <script src="//s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js"></script>
     <!-- Supabase JS Client -->
@@ -421,25 +433,19 @@
                 <h1 style="font-size: 1.65rem; font-weight: 700; margin-bottom: 6px;">背单词</h1>
                 <p style="margin-bottom: 8px; color:var(--md-sys-color-outline); font-size:0.92rem;">请选择登录方式</p>
 
-                <!-- B站 Toy 专用登录卡片 (仅在 Toy 平台展示) -->
-                <div id="auth-toy-container" style="display: none; padding: 14px 0;">
-                    <div style="margin-bottom: 20px; padding: 16px; background: #fff0f5; border-radius: 16px; border: 1px solid #ffccd8;">
-                        <span class="material-symbols-rounded" style="font-size: 32px; color: #fb7299;">tv</span>
-                        <div style="font-size: 1rem; font-weight: 700; color: #fb7299; margin-top: 6px;">建议使用 B 站账号登录</div>
-                        <p style="font-size: 0.85rem; color: #666; margin: 6px 0 0;">授权后将自动同步数据至 B 站云端</p>
-                    </div>
+                <!-- B站 Toy 专用快捷登录卡片 (在 Toy 平台展示) -->
+                <div id="auth-toy-container" style="display: none; padding: 4px 0 0px;">
                     <button type="button" class="btn btn-filled auth-submit-btn" id="btn-bili-toy-login" onclick="handleBiliToyLogin()" style="background: #fb7299; color: #fff;">
                         <span class="material-symbols-rounded">login</span>
                         <span class="btn-label-text">B 站快捷授权登录</span>
                     </button>
-                    <div style="margin-top: 16px;">
-                        <button type="button" class="btn btn-outlined auth-secondary-btn" onclick="continueAsGuest()">
-                            离线模式（数据保存在本地）
-                        </button>
+                    <div style="text-align: center; margin: 20px 0 8px; font-size: 0.84rem; color: var(--md-sys-color-outline); position: relative;">
+                        <span style="background: var(--md-sys-color-surface); padding: 0 12px; position: relative; z-index: 1;">或使用第三方账号</span>
+                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--md-sys-color-outline-variant); z-index: 0;"></div>
                     </div>
                 </div>
 
-                <!-- Web 浏览器端 Supabase 云端账号卡片 (Toy 平台禁用并隐藏) -->
+                <!-- Web 浏览器端 / Supabase 云端账号卡片 -->
                 <div id="auth-web-container" style="display: block;">
                     <!-- 标签栏：登录 / 注册 -->
                     <div class="auth-tabs-row">
@@ -499,7 +505,7 @@
 
                     <div style="margin-top:24px; padding-top:18px; border-top:1px solid var(--md-sys-color-outline-variant);">
                         <button type="button" class="btn btn-outlined auth-secondary-btn" onclick="continueAsGuest()">
-                            暂不登录，以游客身份体验
+                            暂不登录（数据保存在本地）
                         </button>
                     </div>
                 </div>
@@ -2139,7 +2145,7 @@
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">open_in_new</span>
                     </a>
                     <!-- 在线网页版-->
-                    <a class="settings-row clickable" id="settings-online-web-row" href="https://word.chenyurong.qzz.io" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                    <a class="settings-row clickable" id="settings-online-web-row" href="https://www.bilibili.com/toy/cyr/index.html" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
                         <div class="settings-row-left">
                             <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
                                 <span class="material-symbols-rounded">language</span>
@@ -2148,34 +2154,25 @@
                                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                     <h4 style="margin:0;">网页版</h4>
                                 </div>
-                                <p id="settings-online-tip">https://word.chenyurong.qzz.io</p>
+                                <p id="settings-online-tip">https://www.bilibili.com/toy/cyr/index.html</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">open_in_new</span>
                     </a>
-                </div>
-
-                <!-- B 站 Toy 平台专属作者互动 -->
-                <div id="settings-toy-feedback-section" style="display: none;">
-                    <div class="settings-section-title">
-                        <span class="material-symbols-rounded" style="font-size:20px;">favorite</span>
-                        <span>作者互动</span>
-                    </div>
-                    <div class="settings-card">
-                        <div class="settings-row clickable" onclick="handleToyFollowAuthor()">
-                            <div class="settings-row-left">
-                                <div class="settings-icon-box" style="background:#ffecf1; color:#e11d48;">
-                                    <span class="material-symbols-rounded">favorite</span>
-                                </div>
-                                <div class="settings-row-text">
-                                    <h4 id="toy-author-name">支持一下</h4>
-                                    <p id="toy-author-desc">关注作者 B 站账号</p>
-                                </div>
+                    <!-- 作者互动 (并入关于卡片) -->
+                    <div class="settings-row clickable" onclick="handleToyFollowAuthor()">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:#ffecf1; color:#e11d48;">
+                                <span class="material-symbols-rounded">favorite</span>
                             </div>
-                            <button type="button" class="btn btn-filled btn-sm" id="btn-toy-follow" style="pointer-events:none;">
-                                <span class="btn-label-text" id="btn-toy-follow-text">关注作者</span>
-                            </button>
+                            <div class="settings-row-text">
+                                <h4 id="toy-author-name">支持一下</h4>
+                                <p id="toy-author-desc">关注作者 B 站账号</p>
+                            </div>
                         </div>
+                        <button type="button" class="btn btn-filled btn-sm" id="btn-toy-follow" style="pointer-events:none; background:#fb7299; color:#fff;">
+                            <span class="btn-label-text" id="btn-toy-follow-text">关注作者</span>
+                        </button>
                     </div>
                 </div>
 
@@ -2222,6 +2219,18 @@
                     <button type="button" class="btn btn-filled btn-sm" id="btn-changelog-action"
                         onclick="handleVersionUpdateAction()">
                         <span class="btn-label-text" id="btn-changelog-action-text">下载最新版本</span>
+                    </button>
+                </div>
+
+                <!-- 切换云端日志 / 本地日志 Tab -->
+                <div class="book-selector-tabs-row" style="margin: 14px 0 16px; padding-bottom: 8px;">
+                    <button type="button" class="book-selector-tab active" id="tab-changelog-cloud" onclick="switchChangelogTab('cloud')">
+                        <span class="material-symbols-rounded" style="font-size:20px;">cloud</span>
+                        <span>云端日志</span>
+                    </button>
+                    <button type="button" class="book-selector-tab" id="tab-changelog-local" onclick="switchChangelogTab('local')">
+                        <span class="material-symbols-rounded" style="font-size:20px;">folder</span>
+                        <span>本地日志</span>
                     </button>
                 </div>
 
@@ -2413,7 +2422,7 @@
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <span class="rule-label" style="margin:0;">自动发音</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api，不支持长词组</p>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api</p>
                     </div>
                     <label class="md3-switch" id="switch-dictation-autoplay-label">
                         <input type="checkbox" id="switch-dictation-autoplay" onchange="toggleDictationAutoplaySwitch(this.checked)">
@@ -2593,7 +2602,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.4</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -2714,7 +2723,7 @@
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
                     <div>
                         <span class="rule-label" style="margin:0;">自动发音</span>
-                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api，不支持长词组</p>
+                        <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">调用有道词典api</p>
                     </div>
                     <label class="md3-switch" id="switch-single-autoplay-label">
                         <input type="checkbox" id="switch-single-autoplay" onchange="toggleSingleAutoplaySwitch(this.checked)">
@@ -3353,16 +3362,15 @@
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.15rem; font-weight:700;">修改用户名</h3>
-                    <p style="font-size:0.82rem; margin-top:2px; color:var(--md-sys-color-outline);">修改后将同步更新云端账号</p>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="closeEditUsernameModal()">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 16px 20px;">
-                <div class="rule-group" style="margin-bottom: 0;">
-                    <label class="rule-label" for="input-new-username" style="display:block; margin-bottom: 6px;">新用户名</label>
-                    <input type="text" id="input-new-username" class="md3-input" placeholder="2-16位字符" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;" onkeydown="if(event.key==='Enter')confirmUpdateUsername()">
+            <div class="modal-body" style="padding: 20px 20px 8px;">
+                <div class="md3-text-field" style="margin-bottom: 8px;">
+                    <input type="text" id="input-new-username" class="md3-text-field-input" placeholder=" " maxlength="16" autocomplete="off" onkeydown="if(event.key==='Enter')confirmUpdateUsername()">
+                    <label for="input-new-username" class="md3-text-field-label">新用户名 (2-16位)</label>
                 </div>
             </div>
             <div class="modal-footer" style="display:flex; gap:8px;">
@@ -3383,24 +3391,23 @@
             <div class="modal-header">
                 <div>
                     <h3 style="font-size:1.15rem; font-weight:700;">修改密码</h3>
-                    <p style="font-size:0.82rem; margin-top:2px; color:var(--md-sys-color-outline);">用于 Supabase 云端账号凭证更新</p>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="closeEditPasswordModal()">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 16px 20px; display:flex; flex-direction:column; gap:12px;">
-                <div class="rule-group" style="margin-bottom: 0;">
-                    <label class="rule-label" for="input-old-password" style="display:block; margin-bottom: 4px;">原密码</label>
-                    <input type="password" id="input-old-password" class="md3-input" placeholder="输入原密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;">
+            <div class="modal-body" style="padding: 20px 20px 8px; display:flex; flex-direction:column; gap:16px;">
+                <div class="md3-text-field" style="margin-bottom: 0;">
+                    <input type="password" id="input-old-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password">
+                    <label for="input-old-password" class="md3-text-field-label">原密码</label>
                 </div>
-                <div class="rule-group" style="margin-bottom: 0;">
-                    <label class="rule-label" for="input-new-password" style="display:block; margin-bottom: 4px;">新密码</label>
-                    <input type="password" id="input-new-password" class="md3-input" placeholder="至少6位新密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;">
+                <div class="md3-text-field" style="margin-bottom: 0;">
+                    <input type="password" id="input-new-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="new-password">
+                    <label for="input-new-password" class="md3-text-field-label">新密码 (至少6位)</label>
                 </div>
-                <div class="rule-group" style="margin-bottom: 0;">
-                    <label class="rule-label" for="input-confirm-new-password" style="display:block; margin-bottom: 4px;">确认新密码</label>
-                    <input type="password" id="input-confirm-new-password" class="md3-input" placeholder="再次输入新密码" style="width:100%; height:40px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface); padding:0 12px; font-size:0.95rem;" onkeydown="if(event.key==='Enter')confirmUpdatePassword()">
+                <div class="md3-text-field" style="margin-bottom: 0;">
+                    <input type="password" id="input-confirm-new-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="new-password" onkeydown="if(event.key==='Enter')confirmUpdatePassword()">
+                    <label for="input-confirm-new-password" class="md3-text-field-label">确认新密码</label>
                 </div>
             </div>
             <div class="modal-footer" style="display:flex; gap:8px;">

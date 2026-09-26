@@ -1229,7 +1229,11 @@ function renderQuestion(state) {
     const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
     if (isPhrase) {
         const shiciBadge = document.getElementById('arena-shici-badge');
+        const shiciBox = document.getElementById('p1-shici-box');
+        const shiciCooldown = document.getElementById('p1-shici-cooldown-reveal');
         if (shiciBadge) shiciBadge.style.display = 'none';
+        if (shiciBox) shiciBox.style.display = 'none';
+        if (shiciCooldown) shiciCooldown.style.display = 'none';
         renderArenaPhraseQuestion(state, q);
         return;
     }
@@ -1324,9 +1328,19 @@ function renderArenaPhraseQuestion(state, q) {
     const wordEl = document.getElementById('p1-word');
     const phoneEl = document.getElementById('p1-phone');
     const optionsContainer = document.getElementById('p1-options');
+    const shiciBadge = document.getElementById('arena-shici-badge');
+    const shiciBox = document.getElementById('p1-shici-box');
+    const shiciCooldown = document.getElementById('p1-shici-cooldown-reveal');
+
+    if (shiciBadge) shiciBadge.style.display = 'none';
+    if (shiciBox) shiciBox.style.display = 'none';
+    if (shiciCooldown) shiciCooldown.style.display = 'none';
 
     const correctMeaning = (q.options && q.correctIdx !== undefined && q.options[q.correctIdx]) ? q.options[q.correctIdx].meaning : (q.meaning || '');
-    if (wordEl) wordEl.innerText = correctMeaning;
+    if (wordEl) {
+        wordEl.style.display = 'block';
+        wordEl.innerText = correctMeaning || '请拼出对应英文词组';
+    }
     if (phoneEl) {
         phoneEl.innerText = '';
         phoneEl.style.display = 'none';
@@ -1451,8 +1465,9 @@ function checkArenaPhraseAnswer() {
         const c = arenaPhraseState.chips.find(item => item.id === cid);
         return c ? c.text.toLowerCase() : '';
     });
-    const targetWordsLower = arenaPhraseState.targetWords.map(w => w.toLowerCase());
-    const isRight = (placedWords.join(' ') === targetWordsLower.join(' '));
+    const isRight = (typeof isPhraseAnswerMatching === 'function')
+        ? isPhraseAnswerMatching(placedWords, arenaPhraseState.targetWords)
+        : (placedWords.join(' ') === arenaPhraseState.targetWords.map(w => w.toLowerCase()).join(' '));
 
     const q = arenaPhraseState.q;
     userStats.total++;
