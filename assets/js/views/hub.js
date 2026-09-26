@@ -19,7 +19,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-mistakes', 'view-result'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-mistakes', 'view-result', 'view-leaderboard'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -104,12 +104,15 @@ function checkNetworkStatus(explicitState) {
     const btnOnline = document.getElementById('btn-enter-online');
 
     if (badge && badgeText) {
-        if (isNetworkOnline) {
-            badge.className = 'network-status-badge online';
-            badgeText.innerText = '在线';
-        } else {
+        if (!isNetworkOnline) {
             badge.className = 'network-status-badge offline';
             badgeText.innerText = '离线';
+        } else if (currentPresenceStatus === 'invisible') {
+            badge.className = 'network-status-badge invisible';
+            badgeText.innerText = '隐身';
+        } else {
+            badge.className = 'network-status-badge online';
+            badgeText.innerText = '在线';
         }
     }
 
@@ -144,6 +147,54 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     checkNetworkStatus(false);
     showToast('网络已断开');
+});
+
+let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
+
+function toggleHubUserDropdown(event) {
+    if (event) event.stopPropagation();
+    const dd = document.getElementById('hub-user-dropdown');
+    if (!dd) return;
+    const isVisible = dd.style.display === 'block';
+    if (isVisible) {
+        closeHubUserDropdown();
+    } else {
+        updateHub();
+        dd.style.display = 'block';
+    }
+}
+
+function closeHubUserDropdown() {
+    const dd = document.getElementById('hub-user-dropdown');
+    if (dd) dd.style.display = 'none';
+}
+
+function setUserPresenceStatus(status) {
+    currentPresenceStatus = status;
+    localStorage.setItem('vocab_presence_status', status);
+    const dot = document.getElementById('hub-user-status-dot');
+    if (dot) {
+        dot.style.background = (status === 'invisible') ? '#94a3b8' : '#22c55e';
+    }
+    const chkOnline = document.getElementById('hub-dd-status-check-online');
+    const chkInv = document.getElementById('hub-dd-status-check-invisible');
+    if (chkOnline) chkOnline.style.display = (status === 'online') ? 'inline-flex' : 'none';
+    if (chkInv) chkInv.style.display = (status === 'invisible') ? 'inline-flex' : 'none';
+
+    // 同步更新首页顶部网络徽标的状态与文字
+    checkNetworkStatus();
+
+    // 如果在线对战存在连接，通知更新状态
+    if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel && typeof updateMyLobbyPresence === 'function') {
+        updateMyLobbyPresence();
+    }
+    showToast(`状态已设为：${status === 'online' ? '在线' : '隐身'}`);
+}
+
+document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('#hub-user-pill') && !e.target.closest('#hub-user-dropdown')) {
+        closeHubUserDropdown();
+    }
 });
 
 function updateHub() {
@@ -181,6 +232,48 @@ function updateHub() {
     const isLoggedIn = currentUserProfile && currentUserProfile.isLoggedIn;
     if (loginBtnEl) {
         loginBtnEl.style.display = isLoggedIn ? 'none' : 'inline-flex';
+    }
+
+    // 更新首页右上角等级展示
+    const levelBadge = document.getElementById('hub-user-level-badge');
+    if (levelBadge) {
+        if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+            const lData = LevelManager.getLevelData(currentUser);
+            levelBadge.style.display = 'inline-flex';
+            levelBadge.innerText = `Lv. ${lData.level}`;
+            levelBadge.title = `等级 Lv.${lData.level}`;
+        } else {
+            levelBadge.style.display = 'none';
+        }
+    }
+
+    // 更新用户状态圆点与下拉菜单内容
+    const statusDot = document.getElementById('hub-user-status-dot');
+    if (statusDot) {
+        statusDot.style.background = (currentPresenceStatus === 'invisible') ? '#94a3b8' : '#22c55e';
+    }
+    const chkOnline = document.getElementById('hub-dd-status-check-online');
+    const chkInv = document.getElementById('hub-dd-status-check-invisible');
+    if (chkOnline) chkOnline.style.display = (currentPresenceStatus === 'online') ? 'inline-flex' : 'none';
+    if (chkInv) chkInv.style.display = (currentPresenceStatus === 'invisible') ? 'inline-flex' : 'none';
+
+    const ddUsername = document.getElementById('hub-dd-username');
+    const ddLevelText = document.getElementById('hub-dd-level-text');
+    const ddLogged = document.getElementById('hub-dd-logged-actions');
+    const ddGuest = document.getElementById('hub-dd-guest-actions');
+    if (ddUsername) ddUsername.innerText = currentUser || '游客';
+    if (ddLevelText) {
+        if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+            const lData = LevelManager.getLevelData(currentUser);
+            ddLevelText.innerText = `Lv.${lData.level}`;
+        } else {
+            ddLevelText.innerText = '登录后解锁等级功能';
+        }
+    }
+    if (ddLogged && ddGuest) {
+        const isLogged = currentUser && !currentUser.startsWith('游客');
+        ddLogged.style.display = isLogged ? 'block' : 'none';
+        ddGuest.style.display = isLogged ? 'none' : 'block';
     }
 
     const statTotal = document.getElementById('stat-total');

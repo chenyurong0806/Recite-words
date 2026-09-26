@@ -124,6 +124,28 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
+function isPhraseBook(b) {
+    if (!b) return false;
+    const nameStr = (b.name || b.title || b.id || '').toLowerCase();
+    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase')) {
+        return true;
+    }
+    if (Array.isArray(b.words) && b.words.length > 0) {
+        let spaceCount = 0;
+        const sample = b.words.slice(0, 30);
+        sample.forEach(w => {
+            const wordText = (w.word || w.name || '').trim();
+            if (wordText.includes(' ') || wordText.includes('...') || wordText.includes('.')) {
+                spaceCount++;
+            }
+        });
+        if (spaceCount / sample.length > 0.4) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function renderBookSelectorPage() {
     const container = document.getElementById('book-selector-content-list');
     const summaryChip = document.getElementById('book-selector-summary-chip');
@@ -178,8 +200,30 @@ function renderBookSelectorPage() {
             const isSelected = isBookIdSelectedInCurrentMode(b.id);
             const gradient = getProceduralBookGradient(b.name, b.category);
             const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
+            const isPhrase = isPhraseBook(b);
+            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isPhrase);
+
+            // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
+            let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
+            if (isBookShiCi(b) && typeof ShiCiEbbinghausEngine !== 'undefined') {
+                const shiciRecs = ShiCiEbbinghausEngine.getRecords();
+                const words = b.words || [];
+                let learned = 0, mastered = 0;
+                words.forEach(w => {
+                    if (!w || !w.word) return;
+                    const k = w.word.trim();
+                    if (ShiCiEbbinghausEngine.isWordMastered(k)) { learned++; mastered++; }
+                    else if (shiciRecs[k] && shiciRecs[k].stage >= 1) learned++;
+                });
+                const total = words.length || b.count || 1;
+                const progressPercent = Math.min(100, Math.round((learned / total) * 100));
+                prog = { progressPercent, learned, mastered, total };
+            } else if (typeof EbbinghausEngine !== 'undefined') {
+                prog = EbbinghausEngine.getBookProgress(b.id, b.words);
+            }
+
             return `
-                                    <div class="book-cover-card ${isSelected ? 'selected' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')">
+                                    <div class="book-cover-card ${isSelected ? 'selected' : ''} ${isBlockedForWordle ? 'disabled-for-wordle' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')" style="${isBlockedForWordle ? 'opacity: 0.55; cursor: not-allowed;' : ''}">
                                         <div class="book-cover-wrap">
                                              ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
                                             <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
@@ -189,17 +233,28 @@ function renderBookSelectorPage() {
                                             </div>
                                         </div>
                                         <div class="book-card-info">
-                                            <div class="book-card-header">
-                                                <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
-                                                <div class="book-card-check-badge">
-                                                    ${isSelected ? '<span class="material-symbols-rounded" style="font-size:14px;">check</span>' : ''}
-                                                </div>
-                                            </div>
-                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                                                <span class="badge" style="font-size:0.75rem;">${escapeHtml(b.category || '词书')}</span>
-                                                <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">${b.count ? `${b.count} 词` : ''}</span>
-                                            </div>
-                                        </div>
+                                             <div class="book-card-header">
+                                                 <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
+                                                 <div class="book-card-check-badge">
+                                                     ${isSelected ? '<span class="material-symbols-rounded" style="font-size:14px;">check</span>' : ''}
+                                                 </div>
+                                             </div>
+                                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                                                 ${isBlockedForWordle 
+                                                     ? '<span class="badge" style="font-size:0.72rem; background:rgba(239, 68, 68, 0.12); color:#dc2626; font-weight:700;">不支持Wordle</span>' 
+                                                     : `<span class="badge" style="font-size:0.74rem;">${escapeHtml(b.category || '词书')}</span>`}
+                                                 <span style="font-size:0.74rem; color:var(--md-sys-color-outline);">${b.count ? `${b.count} 词` : ''}</span>
+                                             </div>
+                                             <div class="book-card-mastery" style="margin-top:6px;">
+                                                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; margin-bottom:3px;">
+                                                     <span style="color:var(--md-sys-color-outline);">掌握度</span>
+                                                     <span style="font-weight:700; color:var(--md-sys-color-primary);">${prog.progressPercent || 0}%</span>
+                                                 </div>
+                                                 <div class="book-progress-mini" style="height:4px; margin:0;">
+                                                     <div class="book-progress-mini-fill" style="width:${prog.progressPercent || 0}%;"></div>
+                                                 </div>
+                                             </div>
+                                         </div>
                                     </div>
                                 `;
         }).join('')}
@@ -304,6 +359,10 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
+        if (isPhraseBook(bookMeta)) {
+            showToast('Wordle 模式不支持纯词组书籍，请选择其他单词词书');
+            return;
+        }
         riddleConfig.selectedBooks = [bookId];
         riddleConfig.bookId = bookId;
         if (typeof riddleState !== 'undefined' && riddleState) {

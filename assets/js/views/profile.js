@@ -1144,6 +1144,34 @@ function renderMeView() {
                 if (avatarEditHint) avatarEditHint.style.display = 'flex';
                 if (avatarWrap) avatarWrap.style.cursor = 'pointer';
             }
+
+            // 渲染用户等级卡片 (已简化：优化UI，不展示具体经验值，不需要等级称号)
+            if (typeof LevelManager !== 'undefined') {
+                const lData = LevelManager.getLevelData(currentUserProfile.username || currentUser);
+                const badge = document.getElementById('me-level-badge');
+                const title = document.getElementById('me-level-title');
+                const comp = document.getElementById('me-level-comparison');
+                const expText = document.getElementById('me-level-exp-text');
+                const fill = document.getElementById('me-level-progress-fill');
+
+                if (badge) badge.innerText = `Lv.${lData.level}`;
+                if (title) title.innerText = '';
+                if (expText) expText.innerText = `${lData.progressPercent}%`;
+                if (fill) fill.style.width = `${lData.progressPercent}%`;
+                if (comp) {
+                    let color = 'var(--md-sys-color-outline)';
+                    let icon = 'horizontal_rule';
+                    if (lData.comparisonType === 'up') {
+                        color = '#16a34a';
+                        icon = 'arrow_upward';
+                    } else if (lData.comparisonType === 'down') {
+                        color = '#dc2626';
+                        icon = 'arrow_downward';
+                    }
+                    comp.style.color = color;
+                    comp.innerHTML = `<span class="material-symbols-rounded" style="font-size:15px;">${icon}</span><span>${escapeHtml(lData.comparisonText)}</span>`;
+                }
+            }
         }
     }
 

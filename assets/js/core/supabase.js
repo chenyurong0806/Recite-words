@@ -276,6 +276,22 @@ async function supabaseLoginUser(arg1, arg2) {
     return data;
 }
 
+async function supabaseLoginWithHash(username, hashedPassword) {
+    if (!username || !hashedPassword) throw new Error('缺少快速登录凭证');
+    const cleanName = username.trim();
+    const { data, error } = await sbClient
+        .from('user_accounts')
+        .select('*')
+        .eq('username', cleanName)
+        .eq('password', hashedPassword)
+        .maybeSingle();
+
+    if (error || !data) {
+        throw new Error('登录凭证已失效，请重新输入密码');
+    }
+    return data;
+}
+
 async function supabaseUpdateUsername(oldUsername, newUsername) {
     if (!oldUsername || !newUsername) throw new Error('用户名不能为空');
     const cleanNew = newUsername.trim();

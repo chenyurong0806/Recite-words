@@ -10,7 +10,7 @@ let dictationConfig = {
     type: 'listen',
     batchSize: 20,
     autoPlay: true,
-    selectedBooks: []
+    selectedBooks: ['books/考纲/高考3500.json']
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_dictation_config') || '{}');
@@ -18,7 +18,11 @@ try {
         if (saved.type) dictationConfig.type = saved.type;
         if (saved.batchSize) dictationConfig.batchSize = saved.batchSize;
         if (saved.autoPlay !== undefined) dictationConfig.autoPlay = saved.autoPlay;
-        if (Array.isArray(saved.selectedBooks)) dictationConfig.selectedBooks = saved.selectedBooks;
+        if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
+            dictationConfig.selectedBooks = saved.selectedBooks;
+        } else {
+            dictationConfig.selectedBooks = ['books/考纲/高考3500.json'];
+        }
     }
 } catch (e) { }
 
@@ -512,6 +516,7 @@ function submitDictationAnswer() {
             if (feedbackMeaning) {
                 feedbackMeaning.innerText = q.meaning;
             }
+            updateDictationMasterBtn(q.word);
         }
 
         // 修改按钮为下一题，不自动下一题
@@ -608,11 +613,42 @@ function skipDictationQuestion() {
         if (feedbackMeaning) {
             feedbackMeaning.innerText = q.meaning;
         }
+        updateDictationMasterBtn(q.word);
     }
 
     if (submitBtnText) submitBtnText.innerText = '下一题';
     if (submitBtnIcon) submitBtnIcon.innerText = 'arrow_forward';
 }
+
+function updateDictationMasterBtn(word) {
+    const btn = document.getElementById('btn-dictation-master');
+    const icon = document.getElementById('btn-dictation-master-icon');
+    const text = document.getElementById('btn-dictation-master-text');
+    if (!btn || !word) return;
+    const isMastered = typeof isWordMastered === 'function' ? isWordMastered(word) : false;
+    btn.classList.toggle('active', isMastered);
+    if (isMastered) {
+        btn.style.borderColor = 'var(--md-sys-color-primary)';
+        btn.style.color = 'var(--md-sys-color-primary)';
+        btn.style.background = 'var(--md-sys-color-primary-container, rgba(0,97,164,0.1))';
+    } else {
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        btn.style.background = '';
+    }
+    if (icon) icon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
+    if (text) text.innerText = isMastered ? '已标熟词' : '标为熟词';
+}
+
+function toggleDictationMasteredWord() {
+    if (!dictationState.currentQ) return;
+    const q = dictationState.currentQ;
+    if (typeof toggleMasteredWord === 'function') {
+        toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
+        updateDictationMasterBtn(q.word);
+    }
+}
+window.toggleDictationMasteredWord = toggleDictationMasteredWord;
 
 function endDictationSession() {
     if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();

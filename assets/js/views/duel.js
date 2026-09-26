@@ -974,6 +974,8 @@ function cleanUpAndBackToHub() {
     isHost = false;
     hostName = '';
     guestName = '';
+    isPlayingMatch = false;
+    if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
     document.getElementById('online-pre-join').style.display = 'flex';
     document.getElementById('online-in-room').style.display = 'none';
@@ -1055,6 +1057,8 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
 
 function handleRemoteGameStart(payload) {
     gameMode = 'online';
+    isPlayingMatch = true;
+    if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
     if (payload.config) roomConfig = payload.config;
 
     if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
@@ -1957,6 +1961,8 @@ function endGame(msg, broadcastToPeer) {
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
+    isPlayingMatch = false;
+    if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
     if (broadcastToPeer && realtimeChannel && gameMode === 'online') {
         let peerMsg = msg;
@@ -2199,6 +2205,10 @@ let currentIncomingInvite = null;
 
 const CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
 const recentlySwitchedAccounts = new Set();
+let isPlayingMatch = false;
+let lastPresenceRefreshTime = 0;
+let lastInviteSentTimes = {};
+let lastManualRoomRefreshTime = 0;
 
 function recordSwitchedAccount(username) {
     if (!username) return;
@@ -2209,8 +2219,35 @@ function recordSwitchedAccount(username) {
 }
 window.recordSwitchedAccount = recordSwitchedAccount;
 
+async function updateMyLobbyPresence() {
+    if (!globalLobbyChannel || !currentUser) return;
+    let myLevel = 1;
+    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+        myLevel = LevelManager.getUserLevel(currentUser);
+    }
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
+    const status = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+    try {
+        await globalLobbyChannel.track({
+            username: currentUser,
+            sessionId: CLIENT_SESSION_ID,
+            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+            level: myLevel,
+            status: status,
+            joinedAt: Date.now()
+        });
+    } catch (e) { }
+}
+
 function initGlobalPresence() {
     if (!currentUser || !sbClient) return;
+
+    let myLevel = 1;
+    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+        myLevel = LevelManager.getUserLevel(currentUser);
+    }
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
+    const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
 
     // 如果 channel 存在但 key 不属于当前用户，先彻底清理
     if (globalLobbyChannel) {
@@ -2225,7 +2262,8 @@ function initGlobalPresence() {
                 username: currentUser,
                 sessionId: CLIENT_SESSION_ID,
                 avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                status: 'idle',
+                level: myLevel,
+                status: initialStatus,
                 joinedAt: Date.now()
             });
             return;
@@ -2268,7 +2306,8 @@ function initGlobalPresence() {
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
                     avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    status: 'idle',
+                    level: myLevel,
+                    status: initialStatus,
                     joinedAt: Date.now()
                 });
                 fetchOnlineRoomsList();
@@ -2276,7 +2315,7 @@ function initGlobalPresence() {
         });
 }
 
-// 修复：在线玩家过滤掉自己、当前客户端会话及近期切换账号，并支持头像加载
+// 在线玩家过滤掉自己、当前客户端会话、隐身用户，并展示等级与对局状态
 function syncGlobalPresenceState() {
     if (!globalLobbyChannel) return;
     const state = globalLobbyChannel.presenceState();
@@ -2293,6 +2332,8 @@ function syncGlobalPresenceState() {
         if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
         // 3. 过滤刚刚切换过的旧账号
         if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+        // 4. 隐身用户不展示在列表中
+        if (pres.status === 'invisible' || pres.invisible === true) return;
 
         let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
         if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -2301,6 +2342,7 @@ function syncGlobalPresenceState() {
             username: pUsername,
             avatar: avatar,
             status: pres.status || 'idle',
+            level: pres.level || 1,
             joinedAt: pres.joinedAt || Date.now()
         });
     });
@@ -2309,7 +2351,32 @@ function syncGlobalPresenceState() {
                 <div style="text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
                     <p style="margin-top:6px; font-size:0.88rem;">当前暂无其他在线玩家</p>
                 </div>
-            ` : onlineUsers.map(u => `
+            ` : onlineUsers.map(u => {
+                const isBusy = (u.status === 'playing');
+                const statusHtml = isBusy ? `
+                    <span class="online-player-status" style="color: #ea580c; font-weight:600;">
+                        <span class="online-status-dot" style="background: #ea580c;"></span>
+                        对局中
+                    </span>
+                ` : `
+                    <span class="online-player-status">
+                        <span class="online-status-dot" style="background: #22c55e;"></span>
+                        在线空闲
+                    </span>
+                `;
+                const actionBtnHtml = isBusy ? `
+                    <button type="button" class="btn btn-outlined btn-sm online-player-action-btn" disabled style="opacity:0.6; cursor:not-allowed;" title="玩家正在对局中，不可被邀请">
+                        <span class="material-symbols-rounded" style="font-size:16px;">hourglass_top</span>
+                        <span class="btn-label-text">对局中</span>
+                    </button>
+                ` : `
+                    <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
+                        <span class="material-symbols-rounded" style="font-size:16px;">swords</span>
+                        <span class="btn-label-text">发起对战</span>
+                    </button>
+                `;
+
+                return `
             <div class="online-player-card">
                 <div class="online-player-left">
                     <div class="online-player-avatar" style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container);">
@@ -2317,19 +2384,17 @@ function syncGlobalPresenceState() {
                         ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
                     </div>
                     <div class="online-player-meta">
-                        <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
-                        <span class="online-player-status">
-                            <span class="online-status-dot"></span>
-                            在线空闲
-                        </span>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
+                            <span class="user-level-badge" style="font-size:0.72rem; padding:1px 6px; font-weight:700;">Lv.${u.level}</span>
+                        </div>
+                        ${statusHtml}
                     </div>
                 </div>
-                <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
-                    <span class="material-symbols-rounded" style="font-size:16px;">swords</span>
-                    <span class="btn-label-text">发起对战</span>
-                </button>
+                ${actionBtnHtml}
             </div>
-            `).join('');
+            `;
+            }).join('');
 
     const targetSlots = [
         { list: document.getElementById('hub-online-players-list'), badge: document.getElementById('hub-online-players-count') },
@@ -2343,6 +2408,14 @@ function syncGlobalPresenceState() {
 }
 
 function syncGlobalPresence() {
+    const now = Date.now();
+    const diff = Math.ceil((5000 - (now - lastPresenceRefreshTime)) / 1000);
+    if (now - lastPresenceRefreshTime < 5000) {
+        showToast(`刷新过于频繁，请等待 ${diff} 秒后再试`);
+        return;
+    }
+    lastPresenceRefreshTime = now;
+
     if (globalLobbyChannel) {
         syncGlobalPresenceState();
         showToast('已刷新在线玩家列表');
@@ -2358,6 +2431,14 @@ function openCreateMatchInviteModal(targetUser) {
         initGlobalPresence();
         return;
     }
+
+    const state = globalLobbyChannel.presenceState();
+    const pres = (state[targetUser] && state[targetUser][0]) || {};
+    if (pres.status === 'playing') {
+        showToast('该玩家正在对局中，不可被邀请！');
+        return;
+    }
+
     activeInviteTarget = targetUser;
 
     const modal = document.getElementById('modal-create-match-invite');
@@ -2490,6 +2571,15 @@ function updateInviteBookSummaryUI() {
 
 async function confirmAndSendMatchInvite() {
     if (!activeInviteTarget || !globalLobbyChannel) return;
+
+    const now = Date.now();
+    const lastSent = lastInviteSentTimes[activeInviteTarget] || 0;
+    const diff = Math.ceil((5000 - (now - lastSent)) / 1000);
+    if (now - lastSent < 5000) {
+        showToast(`发送邀请过于频繁，请等待 ${diff} 秒后再试`);
+        return;
+    }
+    lastInviteSentTimes[activeInviteTarget] = now;
 
     const roomNameInput = document.getElementById('create-invite-room-name');
     const customName = (roomNameInput ? roomNameInput.value : '').trim();
@@ -2762,6 +2852,14 @@ async function fetchOnlineRoomsList(manual = false) {
 
     // 2. 带防抖与缓存获取云端房间列表 (防止高并发击垮 Supabase)
     const now = Date.now();
+    if (manual) {
+        const diff = Math.ceil((5000 - (now - lastManualRoomRefreshTime)) / 1000);
+        if (now - lastManualRoomRefreshTime < 5000) {
+            showToast(`刷新过于频繁，请等待 ${diff} 秒后再试`);
+            return;
+        }
+        lastManualRoomRefreshTime = now;
+    }
     let dbRooms = cachedDbRooms;
     if (manual || (now - cachedDbRoomsTime > 4000) || !dbRooms || dbRooms.length === 0) {
         try {

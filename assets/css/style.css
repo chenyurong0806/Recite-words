@@ -4402,6 +4402,11 @@ body.hide-all-icons .material-symbols-rounded {
     color: #2e7d32;
 }
 
+.network-status-badge.invisible {
+    background: rgba(100, 116, 139, 0.14);
+    color: #64748b;
+}
+
 .network-status-badge.offline {
     background: rgba(186, 26, 26, 0.12);
     color: #ba1a1a;
@@ -4419,9 +4424,32 @@ body.hide-all-icons .material-symbols-rounded {
     box-shadow: 0 0 4px rgba(46, 125, 50, 0.5);
 }
 
+.network-status-badge.invisible .network-dot {
+    background: #94a3b8;
+    box-shadow: none;
+}
+
 .network-status-badge.offline .network-dot {
     background: #ba1a1a;
     box-shadow: 0 0 4px rgba(186, 26, 26, 0.5);
+}
+
+/* 下拉菜单项样式与微交互反馈 (Google MD3规范) */
+.hub-dd-item {
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    user-select: none;
+    border-radius: 8px;
+    margin: 2px 6px;
+    width: calc(100% - 12px) !important;
+}
+
+.hub-dd-item:hover {
+    background-color: var(--md-sys-color-surface-container-high, #f1f5f9) !important;
+}
+
+.hub-dd-item:active {
+    background-color: var(--md-sys-color-surface-container-highest, #e2e8f0) !important;
+    transform: scale(0.98);
 }
 
 /* 希沃同屏作战专用样式 */

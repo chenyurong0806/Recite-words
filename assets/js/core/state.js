@@ -91,7 +91,8 @@ let singleSelectedBookIds = ['books/考纲/高考3500.json'];
 if (savedSingleBooks) {
     try {
         const parsed = JSON.parse(savedSingleBooks);
-        if (Array.isArray(parsed)) singleSelectedBookIds = parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) singleSelectedBookIds = parsed;
+        else singleSelectedBookIds = ['books/考纲/高考3500.json'];
     } catch (e) { }
 }
 

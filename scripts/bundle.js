@@ -23,6 +23,7 @@ const loadOrder = [
   'managers/book-manager.js',
   'managers/tracker.js',
   'managers/ebbinghaus.js',
+  'managers/level-manager.js',
 
   // 3. Components
   'components/virtual-keyboard.js',
@@ -35,6 +36,7 @@ const loadOrder = [
   'views/auth.js',
   'views/hub.js',
   'views/book-selector.js',
+  'views/leaderboard.js',
   'views/riddle.js',
   'views/single.js',
   'views/words-engine.js',

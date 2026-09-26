@@ -590,7 +590,7 @@ function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.5',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.2.6',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             data: {
@@ -1376,12 +1376,30 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.2.5';
+const APP_VERSION = '2.2.6';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.2.6',
+        date: '2026-09-26',
+        badge: '当前版本',
+        items: [
+            '首次打开背单词、Wordle、英语默写默认选择《高考3500》词书。',
+            '在默写练习的正确答案框中新增“标注熟词”按钮，可即时标为熟词或取消熟词。',
+            '在选择词书页面直观显示每本词书的掌握度百分比与进度指示条。',
+            'Wordle 模式选择词书限制：禁用纯词组书籍，防止非单词词组影响猜词体验。',
+            '新增“今日 Wordle”每日挑战：字母数随机（4-8字母），全网每日统一，限制6次尝试，计时挑战并在结算时直达排行榜；打开排行榜时自动暂停计时，退出时恢复计时；普通 Wordle 模式隐藏排行榜按钮。',
+            '重做风云排行榜（等级榜 & Wordle 榜）：全面仿照 Google MD3 规范；等级榜移除称号与具体经验数值，极简展示排名与等级；Wordle 榜严格禁止查看未来榜单与单词防剧透；历史挑战单词采用全小写规范展示；支持按用时与尝试次数自由排序。',
+            '动态更新每日 Wordle 单词：以 Supabase 云端为单一事实源动态拉取，管理员后台修改即时生效，全网统一且支持4-8位字母长度随机。',
+            '登录页面与多账号体验优化：移除“登录其他账号”按钮，本机记住的账号与手动输入表单同屏呈现，优化删除与快捷登录微交互。',
+            '首页用户状态同步：下拉菜单切换“在线”或“隐身”后，即时同步至首页顶部状态徽标（绿点在线、灰点隐身、离线优先）。',
+            '简化账号管理等级卡片：极简展示当前等级、较昨日升降变化及进度百分比，不展示多余经验值。',
+            'Supabase 云端全面持久化：用户等级、今日 Wordle 单词、玩家答题记录与排行榜数据均同步至 Supabase 云端。'
+        ]
+    },
     {
         version: 'v2.2.5',
         date: '2026-09-26',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '英语默写练习答错后支持自主订正与重试，不再直接展示答案。',
             '英语默写答对或公布答案后隐藏“看答案”与“提示”按钮，且不再自动跳转下一题。',

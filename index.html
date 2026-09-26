@@ -67,6 +67,7 @@
     <script src="./assets/js/managers/book-manager.js"></script>
     <script src="./assets/js/managers/tracker.js"></script>
     <script src="./assets/js/managers/ebbinghaus.js"></script>
+    <script src="./assets/js/managers/level-manager.js"></script>
 
     <!-- 共享交互组件 (Shared Components) -->
     <script src="./assets/js/components/virtual-keyboard.js"></script>
@@ -79,6 +80,7 @@
     <script src="./assets/js/views/auth.js"></script>
     <script src="./assets/js/views/hub.js"></script>
     <script src="./assets/js/views/book-selector.js"></script>
+    <script src="./assets/js/views/leaderboard.js"></script>
     <script src="./assets/js/views/riddle.js"></script>
     <script src="./assets/js/views/single.js"></script>
     <script src="./assets/js/views/words-engine.js"></script>
@@ -462,18 +464,29 @@
 
                     <!-- 登录表单 -->
                     <div id="auth-login-section" class="auth-form-body">
-                        <div class="md3-text-field">
-                            <input type="text" id="auth-login-username" class="md3-text-field-input" placeholder=" " maxlength="20" autocomplete="username">
-                            <label for="auth-login-username" class="md3-text-field-label">用户名</label>
+                        <!-- 设备已登录过的账号快捷登录区域 -->
+                        <div id="auth-saved-accounts-section" style="display:none; width:100%; margin-bottom:16px;">
+                            <div style="font-size:0.88rem; font-weight:700; color:var(--md-sys-color-on-surface); margin-bottom:10px;">
+                                <span>本机已登录过的账号</span>
+                            </div>
+                            <div id="auth-saved-accounts-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                         </div>
-                        <div class="md3-text-field">
-                            <input type="password" id="auth-login-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter') handleCloudLogin()">
-                            <label for="auth-login-password" class="md3-text-field-label">密码</label>
+
+                        <!-- 手动输入登录表单 -->
+                        <div id="auth-manual-login-form" style="width:100%; display:flex; flex-direction:column; gap:12px;">
+                            <div class="md3-text-field">
+                                <input type="text" id="auth-login-username" class="md3-text-field-input" placeholder=" " maxlength="20" autocomplete="username">
+                                <label for="auth-login-username" class="md3-text-field-label">用户名</label>
+                            </div>
+                            <div class="md3-text-field">
+                                <input type="password" id="auth-login-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter') handleCloudLogin()">
+                                <label for="auth-login-password" class="md3-text-field-label">密码</label>
+                            </div>
+                            <button type="button" class="btn btn-filled auth-submit-btn" id="btn-auth-cloud-login" onclick="handleCloudLogin()">
+                                <span class="material-symbols-rounded" style="font-size:18px;">login</span>
+                                <span class="btn-label-text">登录</span>
+                            </button>
                         </div>
-                        <button type="button" class="btn btn-filled auth-submit-btn" id="btn-auth-cloud-login" onclick="handleCloudLogin()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">login</span>
-                            <span class="btn-label-text">登录</span>
-                        </button>
                     </div>
 
                     <!-- 注册表单 (可选上传头像) -->
@@ -561,14 +574,62 @@
                     <h2 id="hub-header-title">首页</h2>
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
-                <div style="display:flex; gap: 10px; align-items:center;">
-                    <div id="hub-user-pill" class="hub-user-pill" onclick="switchView('view-me')" title="个人中心 (我)">
-                        <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap">
+                <div style="display:flex; gap: 10px; align-items:center; position: relative;">
+                    <div id="hub-user-level-badge" class="user-level-badge" style="display:none; font-weight:800; font-size:0.8rem; padding:3px 10px; border-radius:9999px;">
+                        Lv. 1
+                    </div>
+                    <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号与状态菜单" style="cursor: pointer; position: relative;">
+                        <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="position: relative;">
                             <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
                             <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                            <span id="hub-user-status-dot" class="hub-user-presence-dot online" style="position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; border: 1.5px solid var(--md-sys-color-surface);"></span>
                         </div>
                         <span id="hub-user-name" style="font-weight:600; font-size:0.9rem; color:var(--md-sys-color-on-surface);">游客</span>
+                        <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px; color: var(--md-sys-color-outline);">arrow_drop_down</span>
                     </div>
+
+                    <!-- hub-user-pill 下拉菜单 (MD3规范) -->
+                    <div id="hub-user-dropdown" class="md3-menu-dropdown" style="display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:999; min-width:210px; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:8px 0; overflow:hidden;">
+                        <div style="padding: 10px 16px 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                            <div style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);" id="hub-dd-username">用户</div>
+                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="hub-dd-level-text">Lv.1</div>
+                        </div>
+                        <div style="padding: 6px 16px 2px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-outline);">
+                            状态设置
+                        </div>
+                        <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('online')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
+                            <span style="flex:1;">在线</span>
+                            <span class="material-symbols-rounded" id="hub-dd-status-check-online" style="font-size:18px; color:var(--md-sys-color-primary);">check</span>
+                        </button>
+                        <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('invisible')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
+                            <span style="flex:1;">隐身</span>
+                            <span class="material-symbols-rounded" id="hub-dd-status-check-invisible" style="font-size:18px; color:var(--md-sys-color-primary); display:none;">check</span>
+                        </button>
+                        <div style="height: 1px; background: var(--md-sys-color-outline-variant, #e2e8f0); margin: 6px 0;"></div>
+                        <button type="button" class="hub-dd-item" onclick="switchView('view-me'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">person</span>
+                            <span>个人中心</span>
+                        </button>
+                        <div id="hub-dd-logged-actions" style="display:none;">
+                            <button type="button" class="hub-dd-item" onclick="handleSwitchAccount(); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                                <span class="material-symbols-rounded" style="font-size:18px;">switch_account</span>
+                                <span>切换账号</span>
+                            </button>
+                            <button type="button" class="hub-dd-item" onclick="handleAuthLogout(); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:#dc2626; text-align:left;">
+                                <span class="material-symbols-rounded" style="font-size:18px;">logout</span>
+                                <span>退出登录</span>
+                            </button>
+                        </div>
+                        <div id="hub-dd-guest-actions" style="display:block;">
+                            <button type="button" class="hub-dd-item" onclick="switchView('view-auth'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-primary); text-align:left;">
+                                <span class="material-symbols-rounded" style="font-size:18px;">login</span>
+                                <span>登录账号</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <button type="button" class="btn btn-filled btn-sm" id="btn-hub-login" onclick="switchView('view-auth')" title="登录账号">
                         <span class="material-symbols-rounded" style="font-size:16px;">login</span>
                         <span class="btn-label-text">登录</span>
@@ -713,6 +774,10 @@
                             <span class="material-symbols-rounded">play_arrow</span>
                             <span class="btn-label-text" id="btn-hub-riddle-text">开始解谜</span>
                         </button>
+                        <button class="btn btn-tonal" style="color: #6750A4; background: #E8DEF8;" onclick="startDailyWordleGame();">
+                            <span class="material-symbols-rounded">today</span>
+                            <span class="btn-label-text">今日Wordle</span>
+                        </button>
                         <button class="btn btn-outlined" onclick="openBookSelectorPage('riddle');">
                             <span class="material-symbols-rounded">auto_stories</span>
                             <span class="btn-label-text">选择词书</span>
@@ -777,6 +842,92 @@
                 </div>
             </div>
 
+            <!-- 排行榜入口卡片 (MD3规范) -->
+            <div class="card leaderboard-entry-card" onclick="openLeaderboardView()" style="margin-top: 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                        <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">排行榜</h4>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
+                    <span>查看</span>
+                    <span class="material-symbols-rounded" style="font-size: 18px;">arrow_forward</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- VIEW: 排行榜 (全网等级榜与Wordle竞速榜) -->
+        <div id="view-leaderboard" class="view">
+            <div class="leaderboard-wrapper" style="max-width: 820px; margin: 0 auto; width: 100%; padding: 12px 16px 40px;">
+                <!-- 顶部栏：返回按钮与标题 -->
+                <div class="app-bar" style="padding: 12px 0 16px; margin-bottom: 8px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <button type="button" class="md3-icon-btn" onclick="exitLeaderboardView()" title="返回上一个页面">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <h2 style="margin:0; font-size:1.35rem; font-weight:700;">排行榜</h2>
+                    </div>
+                </div>
+
+                <!-- 顶部分类 Tabs (仿 Google MD3 规范) -->
+                <div class="auth-tabs-row" style="margin-bottom: 16px; max-width: 420px;">
+                    <button type="button" class="auth-tab-btn active" id="tab-lb-level" onclick="switchLeaderboardTab('level')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">military_tech</span>
+                        <span>等级榜</span>
+                    </button>
+                    <button type="button" class="auth-tab-btn" id="tab-lb-wordle" onclick="switchLeaderboardTab('wordle')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">grid_view</span>
+                        <span>Wordle</span>
+                    </button>
+                </div>
+
+                <!-- 1. 等级榜板块 -->
+                <div id="lb-level-section">
+                    <!-- 我的当前排名横幅 -->
+                    <div id="lb-level-my-rank" style="display:none; justify-content:space-between; align-items:center; padding:12px 16px; border-radius:14px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); margin-bottom:14px;">
+                    </div>
+                    <!-- 排行榜列表 -->
+                    <div id="lb-level-list"></div>
+                </div>
+
+                <!-- 2. Wordle 榜板块 -->
+                <div id="lb-wordle-section" style="display:none;">
+                    <!-- 日期选择与排序控制栏 -->
+                    <div class="card" style="padding: 14px 18px; margin-bottom: 14px; display:flex; flex-direction:column; gap:12px; border-radius:18px; background:var(--md-sys-color-surface-container-low, #ffffff); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button type="button" class="md3-icon-btn" id="btn-lb-wordle-prev" onclick="shiftWordleLeaderboardDate(-1)" title="前一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
+                                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_left</span>
+                                </button>
+                                <span id="lb-wordle-date-label" style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface); min-width:140px; text-align:center;">2026-09-26 (今日)</span>
+                                <button type="button" class="md3-icon-btn" id="btn-lb-wordle-next" onclick="shiftWordleLeaderboardDate(1)" title="后一天" style="width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container, #f1f5f9); border:none; cursor:pointer;">
+                                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-on-surface);">chevron_right</span>
+                                </button>
+                            </div>
+                            <button type="button" class="btn btn-tonal btn-sm" id="btn-lb-wordle-today" onclick="resetWordleLeaderboardDate()" style="border-radius:9999px; height:30px; padding:0 14px; font-size:0.8rem; font-weight:600; display:none;">
+                                回到今日
+                            </button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">排序依据：</span>
+                            <div class="chip-group" style="margin:0; gap:8px;">
+                                <div class="md3-chip selected" id="btn-lb-sort-time" onclick="setWordleLeaderboardSort('time')" style="height:30px; padding:0 12px; font-size:0.8rem; border-radius:8px;">按用时最快</div>
+                                <div class="md3-chip" id="btn-lb-sort-attempts" onclick="setWordleLeaderboardSort('attempts')" style="height:30px; padding:0 12px; font-size:0.8rem; border-radius:8px;">按尝试次数最少</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Wordle 目标词状态或历史词展示卡片 -->
+                    <div id="lb-wordle-word-card" style="margin-bottom: 12px;"></div>
+
+                    <!-- Wordle 排行榜列表 -->
+                    <div id="lb-wordle-list"></div>
+                </div>
+            </div>
         </div>
 
         <!-- VIEW: 个人中心 (我) -->
@@ -804,13 +955,17 @@
                                 </div>
                                 <div>
                                     <h4 style="margin: 0; font-size: 1rem; font-weight: 700;">未登录</h4>
-                                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">登录账号以同步学习数据</p>
+                                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">登录账号以同步学习数据与开启等级系统</p>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius: var(--md-shape-full); padding: 0 20px;">
                                 <span class="material-symbols-rounded" style="font-size: 16px;">login</span>
                                 <span class="btn-label-text">去登录</span>
                             </button>
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--md-sys-color-outline-variant, #e2e8f0); font-size: 0.78rem; color: var(--md-sys-color-outline); display: flex; align-items: center; gap: 4px;">
+                            <span class="material-symbols-rounded" style="font-size: 16px;">lock</span>
+                            <span>游客状态下不支持等级功能，登录账号即可开启等级成长与排行榜</span>
                         </div>
                     </div>
 
@@ -844,10 +999,35 @@
                                         <span class="btn-label-text">修改密码</span>
                                     </button>
                                 </div>
+                                <button type="button" class="btn btn-outlined btn-sm" onclick="handleSwitchAccount()">
+                                    <span class="material-symbols-rounded" style="font-size: 16px;">switch_account</span>
+                                    <span class="btn-label-text">切换账号</span>
+                                </button>
                                 <button type="button" class="btn btn-outlined btn-danger btn-sm" onclick="handleAuthLogout()">
                                     <span class="material-symbols-rounded" style="font-size: 16px;">logout</span>
                                     <span class="btn-label-text">退出登录</span>
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- 用户等级卡片 -->
+                        <div id="me-user-level-card" style="margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="user-level-badge" id="me-level-badge" style="font-size:0.88rem; font-weight:800; padding:2px 10px;">Lv. 1</span>
+                                    <span id="me-level-title" style="display:none;"></span>
+                                </div>
+                                <div id="me-level-comparison" style="font-size:0.78rem; font-weight:600; display:flex; align-items:center; gap:4px; color:var(--md-sys-color-outline);">
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.76rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
+                                    <span>升级进度</span>
+                                    <span id="me-level-exp-text" style="font-weight:600; color:var(--md-sys-color-primary);">0%</span>
+                                </div>
+                                <div class="book-progress-mini" style="height: 6px; margin: 0; background: var(--md-sys-color-surface-container-high, #e2e8f0);">
+                                    <div id="me-level-progress-fill" class="book-progress-mini-fill" style="width: 0%;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1568,11 +1748,19 @@
                     </div>
 
                     <div class="riddle-top-actions">
+                        <div id="riddle-daily-timer-box" style="display:none; align-items:center; gap:4px; font-weight:700; font-size:0.9rem; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:4px 10px; border-radius:9999px;">
+                            <span class="material-symbols-rounded" style="font-size:16px;">timer</span>
+                            <span id="riddle-daily-timer-text">00:00</span>
+                        </div>
                         <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-select-book" onclick="openBookSelectorPage('riddle')" title="选择词书">
                             <span class="material-symbols-rounded" style="font-size:18px;">auto_stories</span>
                             <span class="btn-label-text" id="riddle-top-book-name">高考3500</span>
                         </button>
-                        <button class="btn btn-outlined btn-sm" onclick="openRiddleSettings()">
+                        <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-leaderboard" onclick="openLeaderboardView('wordle')" title="查看排行榜">
+                            <span class="material-symbols-rounded" style="font-size:18px;">leaderboard</span>
+                            <span class="btn-label-text">排行榜</span>
+                        </button>
+                        <button class="btn btn-outlined btn-sm" id="btn-riddle-settings" onclick="openRiddleSettings()">
                             <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
                             <span class="btn-label-text">设置</span>
                         </button>
@@ -1637,11 +1825,11 @@
                         <span class="btn-label-text">提示</span>
                         <span class="btn-hint-badge">(<span id="riddle-hint-count">0/4</span>)</span>
                     </button>
-                    <button class="btn btn-tonal btn-sm" onclick="startWordRiddleGame(true)">
+                    <button class="btn btn-tonal btn-sm" id="btn-riddle-shuffle" onclick="startWordRiddleGame(true)">
                         <span class="material-symbols-rounded" style="font-size:18px;">shuffle</span>
                         <span class="btn-label-text">换一题</span>
                     </button>
-                    <button class="btn btn-outlined btn-sm" onclick="giveUpRiddle()">
+                    <button class="btn btn-outlined btn-sm" id="btn-riddle-giveup" onclick="giveUpRiddle()">
                         <span class="material-symbols-rounded" style="font-size:18px;">visibility</span>
                         <span class="btn-label-text">揭晓答案</span>
                     </button>
@@ -1868,8 +2056,15 @@
 
                     <div id="dictation-feedback-card"
                         style="display:none; padding:12px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="font-size:0.85rem; color:var(--md-sys-color-outline);"
-                            id="dictation-feedback-title">正确答案：</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <div style="font-size:0.85rem; color:var(--md-sys-color-outline);"
+                                id="dictation-feedback-title">正确答案：</div>
+                            <button type="button" class="btn btn-outlined btn-sm" id="btn-dictation-master"
+                                onclick="toggleDictationMasteredWord()" style="height:26px; padding:0 10px; font-size:0.75rem; border-radius:9999px; gap:4px; display:inline-flex; align-items:center;">
+                                <span class="material-symbols-rounded" id="btn-dictation-master-icon" style="font-size:16px;">check_circle_outline</span>
+                                <span class="btn-label-text" id="btn-dictation-master-text">标为熟词</span>
+                            </button>
+                        </div>
                         <div style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary); display:flex; align-items:center; gap:8px; flex-wrap:wrap;"
                             id="dictation-feedback-word"></div>
                         <div style="font-size:0.9rem; font-weight:500; color:var(--md-sys-color-on-surface);"
@@ -2603,7 +2798,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.5</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.2.6</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -2861,7 +3056,7 @@
             </div>
 
             <div class="modal-body">
-                <div class="rule-group">
+                <div class="rule-group" id="riddle-settings-group-len">
                     <span class="rule-label">单词长度</span>
                     <div class="chip-group" id="chips-riddle-len">
                         <div class="md3-chip" data-len="4" onclick="selectRiddleLength(4)">4 字母</div>
@@ -2874,7 +3069,7 @@
                     </div>
                 </div>
 
-                <div class="rule-group">
+                <div class="rule-group" id="riddle-settings-group-att">
                     <span class="rule-label">可尝试次数</span>
                     <div class="chip-group" id="chips-riddle-attempts">
                         <div class="md3-chip" data-att="4" onclick="selectRiddleAttempts(4)">4 次</div>
