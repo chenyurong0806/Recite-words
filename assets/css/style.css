@@ -5990,16 +5990,15 @@ body.nav-hidden {
     align-items: center;
     gap: 6px;
     min-width: 0;
+    flex-wrap: wrap;
 }
 
 .online-player-name {
     font-size: 0.92rem;
     font-weight: 700;
     color: #1a1c1e;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     line-height: 1.25;
+    word-break: break-word;
 }
 
 .online-player-rank {

@@ -35,4 +35,20 @@ const isBilibiliToy = (() => {
     return false;
 })();
 
+// 沙箱环境（如 B 站 Toy）防护：避免 alert() 在无 allow-modals 的 iframe 中报错
+if (typeof window !== 'undefined') {
+    const _origAlert = window.alert;
+    window.alert = function (msg) {
+        if (typeof showToast === 'function') {
+            showToast(String(msg));
+        } else {
+            try {
+                if (_origAlert) _origAlert.call(window, msg);
+            } catch (e) {
+                console.warn('[Sandbox Alert Ignored]:', msg);
+            }
+        }
+    };
+}
+
 

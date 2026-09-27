@@ -214,8 +214,10 @@ function extractPhraseTargetWords(rawWord) {
     if (!rawWord) return [];
     let str = rawWord.trim();
 
-    // 将等号、斜杠、逗号隔开独立成 token
-    str = str.replace(/([=,，/])/g, ' $1 ');
+    // 带有 / 的多候选项保持为单个词块，例如 "about/over"，去除斜杠两侧多余空格
+    str = str.replace(/\s*\/\s*/g, '/');
+    // 将等号、逗号隔开独立成 token
+    str = str.replace(/([=,，])/g, ' $1 ');
     str = str.replace(/（/g, ' (').replace(/）/g, ') ');
 
     // 拆分为独立的 token 单元
@@ -230,74 +232,77 @@ function extractPhraseTargetWords(rawWord) {
     return tokens.length > 0 ? tokens : rawWord.trim().split(/\s+/).filter(Boolean);
 }
 
-// 判定词组作答是否正确（支持带有 =、/ 的题目左右两边互换）
+// 判定词组作答是否正确（支持带有 = 的词组左右两边调换，及 / 分隔候选项任意一个放入均算对）
 function isPhraseAnswerMatching(placedWords, targetWords) {
     if (!Array.isArray(placedWords) || !Array.isArray(targetWords)) return false;
     if (placedWords.length !== targetWords.length) return false;
 
-    const pLower = placedWords.map(w => (w || '').trim().toLowerCase());
-    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+    const matchSlice = (pSlice, tSlice) => {
+        if (pSlice.length !== tSlice.length) return false;
+        for (let i = 0; i < pSlice.length; i++) {
+            if (!isPhraseSlotMatch(pSlice[i], tSlice[i])) {
+                return false;
+            }
+        }
+        return true;
+    };
 
-    // 1. 完全一致
-    if (pLower.join(' ') === tLower.join(' ')) {
+    // 1. 直线顺序匹配（完全一致或 / 候选匹配）
+    if (matchSlice(placedWords, targetWords)) {
         return true;
     }
 
-    // 2. 带有 '=' 或 '/' 的词组，左右两边互换也算对
-    const separators = ['=', '/'];
-    for (const sep of separators) {
-        if (tLower.includes(sep)) {
-            const targetSegments = [];
-            let curSeg = [];
-            for (const token of tLower) {
-                if (token === sep) {
-                    targetSegments.push(curSeg.join(' '));
-                    curSeg = [];
-                } else {
-                    curSeg.push(token);
-                }
+    // 2. 带有 '=' 的词组，左右两边调换都算对
+    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+    if (tLower.includes('=')) {
+        const targetSegments = [];
+        let cur = [];
+        for (const token of targetWords) {
+            if (token.trim() === '=') {
+                targetSegments.push(cur);
+                cur = [];
+            } else {
+                cur.push(token);
             }
-            targetSegments.push(curSeg.join(' '));
+        }
+        targetSegments.push(cur);
 
-            const placedSegments = [];
-            curSeg = [];
-            let placedSepMatches = true;
-            for (let i = 0; i < pLower.length; i++) {
-                if (tLower[i] === sep) {
-                    if (pLower[i] !== sep) {
-                        placedSepMatches = false;
+        const placedSegments = [];
+        cur = [];
+        for (const token of placedWords) {
+            if ((token || '').trim() === '=') {
+                placedSegments.push(cur);
+                cur = [];
+            } else {
+                cur.push(token);
+            }
+        }
+        placedSegments.push(cur);
+
+        if (placedSegments.length === targetSegments.length) {
+            if (targetSegments.length === 2) {
+                if (matchSlice(placedSegments[0], targetSegments[1]) &&
+                    matchSlice(placedSegments[1], targetSegments[0])) {
+                    return true;
+                }
+            } else {
+                const used = new Array(targetSegments.length).fill(false);
+                let allMatched = true;
+                for (let i = 0; i < placedSegments.length; i++) {
+                    let found = false;
+                    for (let j = 0; j < targetSegments.length; j++) {
+                        if (!used[j] && matchSlice(placedSegments[i], targetSegments[j])) {
+                            used[j] = true;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        allMatched = false;
                         break;
                     }
-                    placedSegments.push(curSeg.join(' '));
-                    curSeg = [];
-                } else {
-                    curSeg.push(pLower[i]);
                 }
-            }
-            placedSegments.push(curSeg.join(' '));
-
-            if (!placedSepMatches || placedSegments.length !== targetSegments.length) {
-                continue;
-            }
-
-            const sortedTarget = [...targetSegments].sort();
-            const sortedPlaced = [...placedSegments].sort();
-            if (sortedTarget.join('::') === sortedPlaced.join('::')) {
-                return true;
-            }
-
-            // 嵌套分隔符（如 A = B / C）内部互换匹配
-            const otherSep = (sep === '=' ? '/' : '=');
-            const normalizeSegment = (seg) => {
-                if (seg.includes(otherSep)) {
-                    return seg.split(otherSep).map(s => s.trim()).sort().join(` ${otherSep} `);
-                }
-                return seg;
-            };
-            const deepSortedTarget = targetSegments.map(normalizeSegment).sort();
-            const deepSortedPlaced = placedSegments.map(normalizeSegment).sort();
-            if (deepSortedTarget.join('::') === deepSortedPlaced.join('::')) {
-                return true;
+                if (allMatched) return true;
             }
         }
     }
@@ -305,133 +310,128 @@ function isPhraseAnswerMatching(placedWords, targetWords) {
     return false;
 }
 
-// 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，或 item.correct 中的任意一项）
-function isPhraseSlotMatch(userWord, targetToken, item = null) {
+// 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，都算对）
+function isPhraseSlotMatch(userWord, targetToken) {
     if (!userWord || !targetToken) return false;
     const u = userWord.trim().toLowerCase();
     const candidates = targetToken.toLowerCase().split('/').map(s => s.trim());
-    if (item && Array.isArray(item.correct)) {
-        item.correct.forEach(c => {
-            if (c) candidates.push(String(c).trim().toLowerCase());
-        });
-    }
     return candidates.includes(u);
 }
 
 function generatePhraseDistractors(targetWords, currentPool = [], currentItem = null) {
-    const chipsCandidates = new Set();
-
-    // 1. 对于替代项（/ 分隔），随机选一个候选项放入备选 chips
-    targetWords.forEach(token => {
-        if (token.includes('/')) {
-            const parts = token.split('/').map(p => p.trim()).filter(Boolean);
-            if (parts.length > 0) {
-                const pick = parts[Math.floor(Math.random() * parts.length)];
-                chipsCandidates.add(pick.toLowerCase());
-            }
-        }
-    });
-
-    // 2. 如果词条含有 "correct": []，随机选一个放入候选词 chips
-    if (currentItem && Array.isArray(currentItem.correct) && currentItem.correct.length > 0) {
-        const pick = currentItem.correct[Math.floor(Math.random() * currentItem.correct.length)];
-        if (pick) chipsCandidates.add(String(pick).trim().toLowerCase());
-    }
-
-    // 过滤掉固定词块，只针对核心词生成干扰项
     const nonFixedTargetWords = targetWords.filter(w => !isFixedPhraseToken(w));
     const rawTargetSet = new Set(targetWords.map(w => w.toLowerCase()));
-    const distractors = new Set(chipsCandidates);
+    const distractors = new Set();
 
-    // 3. 如果词条含有 "mistake": []，全部放入备选 chips 作为干扰项
-    if (currentItem && Array.isArray(currentItem.mistake) && currentItem.mistake.length > 0) {
+    // 1. 如果词条含有 "mistake": []，全部放入备选词框作为混淆项，不用另外抽取混淆项
+    const hasCustomMistakes = Boolean(
+        currentItem &&
+        Array.isArray(currentItem.mistake) &&
+        currentItem.mistake.length > 0
+    );
+
+    if (hasCustomMistakes) {
         currentItem.mistake.forEach(m => {
             if (m && typeof m === 'string') {
                 distractors.add(m.trim().toLowerCase());
             }
         });
-    }
+    } else {
+        const targetTotal = Math.min(8, Math.max(nonFixedTargetWords.length + 3, 4));
 
-    const targetTotal = Math.min(8, Math.max(nonFixedTargetWords.length + 3, 4));
+        const REFLEXIVE_PRONOUNS = new Set([
+            'oneself', 'himself', 'herself', 'themselves', 'myself', 'yourself', 'yourselves', 'itself', 'ourselves'
+        ]);
+        const POSSESSIVE_PRONOUNS = new Set(['his', 'her', 'their', 'my', 'your', 'our', 'its']);
 
-    const REFLEXIVE_PRONOUNS = new Set([
-        'oneself', 'himself', 'herself', 'themselves', 'myself', 'yourself', 'yourselves', 'itself', 'ourselves'
-    ]);
-    const POSSESSIVE_PRONOUNS = new Set(['his', 'her', 'their', 'my', 'your', 'our', 'its']);
+        const hasOneself = rawTargetSet.has('oneself');
+        const hasOnesPossessive = rawTargetSet.has("one's") || rawTargetSet.has('ones');
 
-    const hasOneself = rawTargetSet.has('oneself');
-    const hasOnesPossessive = rawTargetSet.has("one's") || rawTargetSet.has('ones');
+        const tryAddDistractor = (w) => {
+            if (!w || typeof w !== 'string') return false;
+            const clean = w.trim().toLowerCase();
+            if (clean.length < 1 || isFixedPhraseToken(clean) || rawTargetSet.has(clean) || distractors.has(clean)) return false;
 
-    const tryAddDistractor = (w) => {
-        if (!w || typeof w !== 'string') return false;
-        const clean = w.trim().toLowerCase();
-        if (clean.length < 1 || isFixedPhraseToken(clean) || rawTargetSet.has(clean) || distractors.has(clean)) return false;
+            if (hasOneself && REFLEXIVE_PRONOUNS.has(clean)) return false;
+            if (hasOnesPossessive && POSSESSIVE_PRONOUNS.has(clean)) return false;
 
-        if (hasOneself && REFLEXIVE_PRONOUNS.has(clean)) return false;
-        if (hasOnesPossessive && POSSESSIVE_PRONOUNS.has(clean)) return false;
+            distractors.add(clean);
+            return true;
+        };
 
-        distractors.add(clean);
-        return true;
-    };
+        nonFixedTargetWords.forEach(w => {
+            const base = (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, '');
+            if (PREPOSITION_COLLOCATION_MAP[base]) {
+                const candidatePreps = PREPOSITION_COLLOCATION_MAP[base];
+                let added = 0;
+                for (const cp of candidatePreps) {
+                    if (added >= 3) break;
+                    if (tryAddDistractor(cp)) added++;
+                }
+            }
+        });
 
-    nonFixedTargetWords.forEach(w => {
-        const lower = w.toLowerCase().replace(/[^a-z]/g, '');
-        if (PREPOSITION_COLLOCATION_MAP[lower]) {
-            const candidatePreps = PREPOSITION_COLLOCATION_MAP[lower];
-            let added = 0;
-            for (const cp of candidatePreps) {
-                if (added >= 3) break;
-                if (tryAddDistractor(cp)) added++;
+        const contentWords = nonFixedTargetWords
+            .map(w => (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, ''))
+            .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
+            .sort((a, b) => b.length - a.length);
+
+        const wordsToProcess = contentWords.length > 0
+            ? contentWords
+            : nonFixedTargetWords.map(w => (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
+
+        wordsToProcess.forEach(cw => {
+            if (distractors.size >= targetTotal) return;
+            if (PHRASE_LOOKALIKE_MAP[cw]) {
+                for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
+                    if (distractors.size >= targetTotal) break;
+                    tryAddDistractor(sw);
+                }
+            }
+            if (distractors.size < targetTotal) {
+                const dbLookalikes = findLookalikesFromDatabase(cw, 3);
+                for (const sim of dbLookalikes) {
+                    if (distractors.size >= targetTotal) break;
+                    tryAddDistractor(sim);
+                }
+            }
+        });
+
+        if (distractors.size + nonFixedTargetWords.length < targetTotal && Array.isArray(currentPool)) {
+            for (const item of currentPool) {
+                if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
+                const w = (item.word || '').trim().toLowerCase();
+                if (w && !w.includes(' ') && !isFixedPhraseToken(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
+                    tryAddDistractor(w);
+                }
             }
         }
-    });
 
-    const contentWords = nonFixedTargetWords
-        .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
-        .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
-        .sort((a, b) => b.length - a.length);
-
-    const wordsToProcess = contentWords.length > 0
-        ? contentWords
-        : nonFixedTargetWords.map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
-
-    wordsToProcess.forEach(cw => {
-        if (distractors.size >= targetTotal) return;
-        if (PHRASE_LOOKALIKE_MAP[cw]) {
-            for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
-                if (distractors.size >= targetTotal) break;
-                tryAddDistractor(sw);
-            }
-        }
-        if (distractors.size < targetTotal) {
-            const dbLookalikes = findLookalikesFromDatabase(cw, 3);
-            for (const sim of dbLookalikes) {
-                if (distractors.size >= targetTotal) break;
-                tryAddDistractor(sim);
-            }
-        }
-    });
-
-    if (distractors.size + nonFixedTargetWords.length < targetTotal && Array.isArray(currentPool)) {
-        for (const item of currentPool) {
+        const safeFallbackWords = ['make', 'take', 'get', 'well', 'all', 'set', 'out', 'up', 'back', 'just'];
+        for (const fw of safeFallbackWords) {
             if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
-            const w = (item.word || '').trim().toLowerCase();
-            if (w && !w.includes(' ') && !isFixedPhraseToken(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
-                tryAddDistractor(w);
-            }
+            tryAddDistractor(fw);
         }
     }
 
-    const safeFallbackWords = ['make', 'take', 'get', 'well', 'all', 'set', 'out', 'up', 'back', 'just'];
-    for (const fw of safeFallbackWords) {
-        if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
-        tryAddDistractor(fw);
-    }
+    // 2. 组装 chips：目标词（带有 / 的词组，在其中选一个放入词框）+ 混淆项
+    const targetChips = nonFixedTargetWords.map((w, idx) => {
+        let text = w;
+        if (w.includes('/')) {
+            const parts = w.split('/').map(p => p.trim()).filter(Boolean);
+            if (parts.length > 0) {
+                text = parts[Math.floor(Math.random() * parts.length)];
+            }
+        }
+        return { id: `tw_${idx}`, text: text };
+    });
 
-    const chips = [
-        ...nonFixedTargetWords.map((w, idx) => ({ id: `tw_${idx}`, text: w })),
-        ...Array.from(distractors).map((w, idx) => ({ id: `dis_${idx}`, text: w }))
-    ];
+    const distractorChips = Array.from(distractors).map((w, idx) => ({
+        id: `dis_${idx}`,
+        text: w
+    }));
+
+    const chips = [...targetChips, ...distractorChips];
 
     for (let i = chips.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));

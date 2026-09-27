@@ -635,12 +635,26 @@ const ShiCiManager = {
         } catch (e) { }
 
         // 2. 候选加载路径
-        const urls = [
-            './books/实词/实词.json',
-            'books/实词/实词.json',
-            'https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json',
-            'https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json'
-        ];
+        const scRel = 'books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json';
+        const urls = [];
+        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
+            urls.push(
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                './books/实词/实词.json',
+                'books/实词/实词.json'
+            );
+        } else {
+            urls.push(
+                './books/实词/实词.json',
+                'books/实词/实词.json',
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${scRel}`
+            );
+        }
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`);
         }

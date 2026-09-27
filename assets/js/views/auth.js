@@ -296,7 +296,7 @@ async function handleCloudLogin() {
         if (passwordInput) passwordInput.value = '';
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || '登录失败，请检查网络或用户名密码');
+        showToast(err.message || '登录失败，请检查网络或用户名密码');
     } finally {
         if (loginBtn) {
             loginBtn.disabled = false;
@@ -369,7 +369,7 @@ async function handleCloudRegister() {
         regAvatarDataUrl = '';
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || '注册失败');
+        showToast(err.message || '注册失败');
     } finally {
         if (regBtn) {
             regBtn.disabled = false;
@@ -420,7 +420,7 @@ async function handleBiliToyLogin() {
         showToast(`登录成功：${biliProfile.username}`);
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || 'B 站授权登录失败');
+        showToast(err.message || 'B 站授权登录失败');
     } finally {
         if (btn) {
             btn.disabled = false;

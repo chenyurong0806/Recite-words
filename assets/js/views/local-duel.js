@@ -723,7 +723,7 @@ function checkLocalPhraseAnswer(player) {
             const chipId = phrState.placed[i];
             const chip = chipId ? phrState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');

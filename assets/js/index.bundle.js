@@ -36,6 +36,22 @@ const isBilibiliToy = (() => {
     return false;
 })();
 
+// 沙箱环境（如 B 站 Toy）防护：避免 alert() 在无 allow-modals 的 iframe 中报错
+if (typeof window !== 'undefined') {
+    const _origAlert = window.alert;
+    window.alert = function (msg) {
+        if (typeof showToast === 'function') {
+            showToast(String(msg));
+        } else {
+            try {
+                if (_origAlert) _origAlert.call(window, msg);
+            } catch (e) {
+                console.warn('[Sandbox Alert Ignored]:', msg);
+            }
+        }
+    };
+}
+
 
 
 /* --- End: core/env.js --- */
@@ -1791,14 +1807,16 @@ const BookManager = {
     cloudFetchSuccess: false,
     fallbackBooks: [
         { id: 'builtin_default', name: '默认词书', category: '内置', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS, path: '', isCloud: false },
-        { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3893, path: 'books/考纲/高考3500.json', isCloud: true },
+        { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3892, path: 'books/考纲/高考3500.json', isCloud: true },
         { id: 'books/考纲/518.json', name: '518', category: '考纲', count: 570, path: 'books/考纲/518.json', isCloud: true },
-        { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1201, path: 'books/考纲/考纲词组.json', isCloud: true },
-        { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 68, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
-        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 58, path: 'books/Doris/翻译.json', isCloud: true },
+        { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1200, path: 'books/考纲/考纲词组.json', isCloud: true },
+        { id: 'books/Doris/weekly 3.json', name: 'weekly 3', category: 'Doris', count: 24, path: 'books/Doris/weekly 3.json', isCloud: true },
+        { id: 'books/Doris/wordbank 3.json', name: 'wordbank 3', category: 'Doris', count: 41, path: 'books/Doris/wordbank 3.json', isCloud: true },
+        { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 67, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
+        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 117, path: 'books/Doris/翻译.json', isCloud: true },
         { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
-        { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1039, path: 'books/Doris/高一高二笔记.json', isCloud: true },
-        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 31, path: 'books/Doris/高三笔记.json', isCloud: true },
+        { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1021, path: 'books/Doris/高一高二笔记.json', isCloud: true },
+        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 225, path: 'books/Doris/高三笔记.json', isCloud: true },
         { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
         { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true },
         { id: 'books/实词/实词.json', name: '实词', category: '实词', count: 300, path: 'books/实词/实词.json', isCloud: true }
@@ -2005,11 +2023,27 @@ const BookManager = {
             else relPath = `books/${bookMeta.category || '其他'}/${bookMeta.name || bookId}.json`;
         }
 
-        const sources = [
-            `./${relPath}`,
-            `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(relPath)}`,
-            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(relPath)}`
-        ];
+        const encodedRel = encodeURI(relPath);
+        const sources = [];
+        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
+            // 在 B 站 Toy 平台优先通过国内稳定 CDN 镜像读取，避免本地静态相对路径 404
+            sources.push(
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `./${relPath}`,
+                `./${encodedRel}`
+            );
+        } else {
+            sources.push(
+                `./${relPath}`,
+                `./${encodedRel}`,
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
+            );
+        }
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             sources.push(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
         }
@@ -4452,7 +4486,7 @@ async function handleCloudLogin() {
         if (passwordInput) passwordInput.value = '';
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || '登录失败，请检查网络或用户名密码');
+        showToast(err.message || '登录失败，请检查网络或用户名密码');
     } finally {
         if (loginBtn) {
             loginBtn.disabled = false;
@@ -4525,7 +4559,7 @@ async function handleCloudRegister() {
         regAvatarDataUrl = '';
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || '注册失败');
+        showToast(err.message || '注册失败');
     } finally {
         if (regBtn) {
             regBtn.disabled = false;
@@ -4576,7 +4610,7 @@ async function handleBiliToyLogin() {
         showToast(`登录成功：${biliProfile.username}`);
         switchView('view-hub');
     } catch (err) {
-        alert(err.message || 'B 站授权登录失败');
+        showToast(err.message || 'B 站授权登录失败');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -8980,8 +9014,10 @@ function extractPhraseTargetWords(rawWord) {
     if (!rawWord) return [];
     let str = rawWord.trim();
 
-    // 将等号、斜杠、逗号隔开独立成 token
-    str = str.replace(/([=,，/])/g, ' $1 ');
+    // 带有 / 的多候选项保持为单个词块，例如 "about/over"，去除斜杠两侧多余空格
+    str = str.replace(/\s*\/\s*/g, '/');
+    // 将等号、逗号隔开独立成 token
+    str = str.replace(/([=,，])/g, ' $1 ');
     str = str.replace(/（/g, ' (').replace(/）/g, ') ');
 
     // 拆分为独立的 token 单元
@@ -8996,74 +9032,77 @@ function extractPhraseTargetWords(rawWord) {
     return tokens.length > 0 ? tokens : rawWord.trim().split(/\s+/).filter(Boolean);
 }
 
-// 判定词组作答是否正确（支持带有 =、/ 的题目左右两边互换）
+// 判定词组作答是否正确（支持带有 = 的词组左右两边调换，及 / 分隔候选项任意一个放入均算对）
 function isPhraseAnswerMatching(placedWords, targetWords) {
     if (!Array.isArray(placedWords) || !Array.isArray(targetWords)) return false;
     if (placedWords.length !== targetWords.length) return false;
 
-    const pLower = placedWords.map(w => (w || '').trim().toLowerCase());
-    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+    const matchSlice = (pSlice, tSlice) => {
+        if (pSlice.length !== tSlice.length) return false;
+        for (let i = 0; i < pSlice.length; i++) {
+            if (!isPhraseSlotMatch(pSlice[i], tSlice[i])) {
+                return false;
+            }
+        }
+        return true;
+    };
 
-    // 1. 完全一致
-    if (pLower.join(' ') === tLower.join(' ')) {
+    // 1. 直线顺序匹配（完全一致或 / 候选匹配）
+    if (matchSlice(placedWords, targetWords)) {
         return true;
     }
 
-    // 2. 带有 '=' 或 '/' 的词组，左右两边互换也算对
-    const separators = ['=', '/'];
-    for (const sep of separators) {
-        if (tLower.includes(sep)) {
-            const targetSegments = [];
-            let curSeg = [];
-            for (const token of tLower) {
-                if (token === sep) {
-                    targetSegments.push(curSeg.join(' '));
-                    curSeg = [];
-                } else {
-                    curSeg.push(token);
-                }
+    // 2. 带有 '=' 的词组，左右两边调换都算对
+    const tLower = targetWords.map(w => (w || '').trim().toLowerCase());
+    if (tLower.includes('=')) {
+        const targetSegments = [];
+        let cur = [];
+        for (const token of targetWords) {
+            if (token.trim() === '=') {
+                targetSegments.push(cur);
+                cur = [];
+            } else {
+                cur.push(token);
             }
-            targetSegments.push(curSeg.join(' '));
+        }
+        targetSegments.push(cur);
 
-            const placedSegments = [];
-            curSeg = [];
-            let placedSepMatches = true;
-            for (let i = 0; i < pLower.length; i++) {
-                if (tLower[i] === sep) {
-                    if (pLower[i] !== sep) {
-                        placedSepMatches = false;
+        const placedSegments = [];
+        cur = [];
+        for (const token of placedWords) {
+            if ((token || '').trim() === '=') {
+                placedSegments.push(cur);
+                cur = [];
+            } else {
+                cur.push(token);
+            }
+        }
+        placedSegments.push(cur);
+
+        if (placedSegments.length === targetSegments.length) {
+            if (targetSegments.length === 2) {
+                if (matchSlice(placedSegments[0], targetSegments[1]) &&
+                    matchSlice(placedSegments[1], targetSegments[0])) {
+                    return true;
+                }
+            } else {
+                const used = new Array(targetSegments.length).fill(false);
+                let allMatched = true;
+                for (let i = 0; i < placedSegments.length; i++) {
+                    let found = false;
+                    for (let j = 0; j < targetSegments.length; j++) {
+                        if (!used[j] && matchSlice(placedSegments[i], targetSegments[j])) {
+                            used[j] = true;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        allMatched = false;
                         break;
                     }
-                    placedSegments.push(curSeg.join(' '));
-                    curSeg = [];
-                } else {
-                    curSeg.push(pLower[i]);
                 }
-            }
-            placedSegments.push(curSeg.join(' '));
-
-            if (!placedSepMatches || placedSegments.length !== targetSegments.length) {
-                continue;
-            }
-
-            const sortedTarget = [...targetSegments].sort();
-            const sortedPlaced = [...placedSegments].sort();
-            if (sortedTarget.join('::') === sortedPlaced.join('::')) {
-                return true;
-            }
-
-            // 嵌套分隔符（如 A = B / C）内部互换匹配
-            const otherSep = (sep === '=' ? '/' : '=');
-            const normalizeSegment = (seg) => {
-                if (seg.includes(otherSep)) {
-                    return seg.split(otherSep).map(s => s.trim()).sort().join(` ${otherSep} `);
-                }
-                return seg;
-            };
-            const deepSortedTarget = targetSegments.map(normalizeSegment).sort();
-            const deepSortedPlaced = placedSegments.map(normalizeSegment).sort();
-            if (deepSortedTarget.join('::') === deepSortedPlaced.join('::')) {
-                return true;
+                if (allMatched) return true;
             }
         }
     }
@@ -9071,133 +9110,128 @@ function isPhraseAnswerMatching(placedWords, targetWords) {
     return false;
 }
 
-// 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，或 item.correct 中的任意一项）
-function isPhraseSlotMatch(userWord, targetToken, item = null) {
+// 判断用户输入的词是否与槽位目标匹配（支持 / 分隔多候选，都算对）
+function isPhraseSlotMatch(userWord, targetToken) {
     if (!userWord || !targetToken) return false;
     const u = userWord.trim().toLowerCase();
     const candidates = targetToken.toLowerCase().split('/').map(s => s.trim());
-    if (item && Array.isArray(item.correct)) {
-        item.correct.forEach(c => {
-            if (c) candidates.push(String(c).trim().toLowerCase());
-        });
-    }
     return candidates.includes(u);
 }
 
 function generatePhraseDistractors(targetWords, currentPool = [], currentItem = null) {
-    const chipsCandidates = new Set();
-
-    // 1. 对于替代项（/ 分隔），随机选一个候选项放入备选 chips
-    targetWords.forEach(token => {
-        if (token.includes('/')) {
-            const parts = token.split('/').map(p => p.trim()).filter(Boolean);
-            if (parts.length > 0) {
-                const pick = parts[Math.floor(Math.random() * parts.length)];
-                chipsCandidates.add(pick.toLowerCase());
-            }
-        }
-    });
-
-    // 2. 如果词条含有 "correct": []，随机选一个放入候选词 chips
-    if (currentItem && Array.isArray(currentItem.correct) && currentItem.correct.length > 0) {
-        const pick = currentItem.correct[Math.floor(Math.random() * currentItem.correct.length)];
-        if (pick) chipsCandidates.add(String(pick).trim().toLowerCase());
-    }
-
-    // 过滤掉固定词块，只针对核心词生成干扰项
     const nonFixedTargetWords = targetWords.filter(w => !isFixedPhraseToken(w));
     const rawTargetSet = new Set(targetWords.map(w => w.toLowerCase()));
-    const distractors = new Set(chipsCandidates);
+    const distractors = new Set();
 
-    // 3. 如果词条含有 "mistake": []，全部放入备选 chips 作为干扰项
-    if (currentItem && Array.isArray(currentItem.mistake) && currentItem.mistake.length > 0) {
+    // 1. 如果词条含有 "mistake": []，全部放入备选词框作为混淆项，不用另外抽取混淆项
+    const hasCustomMistakes = Boolean(
+        currentItem &&
+        Array.isArray(currentItem.mistake) &&
+        currentItem.mistake.length > 0
+    );
+
+    if (hasCustomMistakes) {
         currentItem.mistake.forEach(m => {
             if (m && typeof m === 'string') {
                 distractors.add(m.trim().toLowerCase());
             }
         });
-    }
+    } else {
+        const targetTotal = Math.min(8, Math.max(nonFixedTargetWords.length + 3, 4));
 
-    const targetTotal = Math.min(8, Math.max(nonFixedTargetWords.length + 3, 4));
+        const REFLEXIVE_PRONOUNS = new Set([
+            'oneself', 'himself', 'herself', 'themselves', 'myself', 'yourself', 'yourselves', 'itself', 'ourselves'
+        ]);
+        const POSSESSIVE_PRONOUNS = new Set(['his', 'her', 'their', 'my', 'your', 'our', 'its']);
 
-    const REFLEXIVE_PRONOUNS = new Set([
-        'oneself', 'himself', 'herself', 'themselves', 'myself', 'yourself', 'yourselves', 'itself', 'ourselves'
-    ]);
-    const POSSESSIVE_PRONOUNS = new Set(['his', 'her', 'their', 'my', 'your', 'our', 'its']);
+        const hasOneself = rawTargetSet.has('oneself');
+        const hasOnesPossessive = rawTargetSet.has("one's") || rawTargetSet.has('ones');
 
-    const hasOneself = rawTargetSet.has('oneself');
-    const hasOnesPossessive = rawTargetSet.has("one's") || rawTargetSet.has('ones');
+        const tryAddDistractor = (w) => {
+            if (!w || typeof w !== 'string') return false;
+            const clean = w.trim().toLowerCase();
+            if (clean.length < 1 || isFixedPhraseToken(clean) || rawTargetSet.has(clean) || distractors.has(clean)) return false;
 
-    const tryAddDistractor = (w) => {
-        if (!w || typeof w !== 'string') return false;
-        const clean = w.trim().toLowerCase();
-        if (clean.length < 1 || isFixedPhraseToken(clean) || rawTargetSet.has(clean) || distractors.has(clean)) return false;
+            if (hasOneself && REFLEXIVE_PRONOUNS.has(clean)) return false;
+            if (hasOnesPossessive && POSSESSIVE_PRONOUNS.has(clean)) return false;
 
-        if (hasOneself && REFLEXIVE_PRONOUNS.has(clean)) return false;
-        if (hasOnesPossessive && POSSESSIVE_PRONOUNS.has(clean)) return false;
+            distractors.add(clean);
+            return true;
+        };
 
-        distractors.add(clean);
-        return true;
-    };
+        nonFixedTargetWords.forEach(w => {
+            const base = (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, '');
+            if (PREPOSITION_COLLOCATION_MAP[base]) {
+                const candidatePreps = PREPOSITION_COLLOCATION_MAP[base];
+                let added = 0;
+                for (const cp of candidatePreps) {
+                    if (added >= 3) break;
+                    if (tryAddDistractor(cp)) added++;
+                }
+            }
+        });
 
-    nonFixedTargetWords.forEach(w => {
-        const lower = w.toLowerCase().replace(/[^a-z]/g, '');
-        if (PREPOSITION_COLLOCATION_MAP[lower]) {
-            const candidatePreps = PREPOSITION_COLLOCATION_MAP[lower];
-            let added = 0;
-            for (const cp of candidatePreps) {
-                if (added >= 3) break;
-                if (tryAddDistractor(cp)) added++;
+        const contentWords = nonFixedTargetWords
+            .map(w => (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, ''))
+            .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
+            .sort((a, b) => b.length - a.length);
+
+        const wordsToProcess = contentWords.length > 0
+            ? contentWords
+            : nonFixedTargetWords.map(w => (w.includes('/') ? w.split('/')[0] : w).toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
+
+        wordsToProcess.forEach(cw => {
+            if (distractors.size >= targetTotal) return;
+            if (PHRASE_LOOKALIKE_MAP[cw]) {
+                for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
+                    if (distractors.size >= targetTotal) break;
+                    tryAddDistractor(sw);
+                }
+            }
+            if (distractors.size < targetTotal) {
+                const dbLookalikes = findLookalikesFromDatabase(cw, 3);
+                for (const sim of dbLookalikes) {
+                    if (distractors.size >= targetTotal) break;
+                    tryAddDistractor(sim);
+                }
+            }
+        });
+
+        if (distractors.size + nonFixedTargetWords.length < targetTotal && Array.isArray(currentPool)) {
+            for (const item of currentPool) {
+                if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
+                const w = (item.word || '').trim().toLowerCase();
+                if (w && !w.includes(' ') && !isFixedPhraseToken(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
+                    tryAddDistractor(w);
+                }
             }
         }
-    });
 
-    const contentWords = nonFixedTargetWords
-        .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
-        .filter(w => w && (!STOP_FUNCTION_WORDS.has(w) || w.length >= 5))
-        .sort((a, b) => b.length - a.length);
-
-    const wordsToProcess = contentWords.length > 0
-        ? contentWords
-        : nonFixedTargetWords.map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
-
-    wordsToProcess.forEach(cw => {
-        if (distractors.size >= targetTotal) return;
-        if (PHRASE_LOOKALIKE_MAP[cw]) {
-            for (const sw of PHRASE_LOOKALIKE_MAP[cw]) {
-                if (distractors.size >= targetTotal) break;
-                tryAddDistractor(sw);
-            }
-        }
-        if (distractors.size < targetTotal) {
-            const dbLookalikes = findLookalikesFromDatabase(cw, 3);
-            for (const sim of dbLookalikes) {
-                if (distractors.size >= targetTotal) break;
-                tryAddDistractor(sim);
-            }
-        }
-    });
-
-    if (distractors.size + nonFixedTargetWords.length < targetTotal && Array.isArray(currentPool)) {
-        for (const item of currentPool) {
+        const safeFallbackWords = ['make', 'take', 'get', 'well', 'all', 'set', 'out', 'up', 'back', 'just'];
+        for (const fw of safeFallbackWords) {
             if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
-            const w = (item.word || '').trim().toLowerCase();
-            if (w && !w.includes(' ') && !isFixedPhraseToken(w) && w.length <= 8 && /^[a-z]+$/.test(w)) {
-                tryAddDistractor(w);
-            }
+            tryAddDistractor(fw);
         }
     }
 
-    const safeFallbackWords = ['make', 'take', 'get', 'well', 'all', 'set', 'out', 'up', 'back', 'just'];
-    for (const fw of safeFallbackWords) {
-        if (distractors.size + nonFixedTargetWords.length >= targetTotal) break;
-        tryAddDistractor(fw);
-    }
+    // 2. 组装 chips：目标词（带有 / 的词组，在其中选一个放入词框）+ 混淆项
+    const targetChips = nonFixedTargetWords.map((w, idx) => {
+        let text = w;
+        if (w.includes('/')) {
+            const parts = w.split('/').map(p => p.trim()).filter(Boolean);
+            if (parts.length > 0) {
+                text = parts[Math.floor(Math.random() * parts.length)];
+            }
+        }
+        return { id: `tw_${idx}`, text: text };
+    });
 
-    const chips = [
-        ...nonFixedTargetWords.map((w, idx) => ({ id: `tw_${idx}`, text: w })),
-        ...Array.from(distractors).map((w, idx) => ({ id: `dis_${idx}`, text: w }))
-    ];
+    const distractorChips = Array.from(distractors).map((w, idx) => ({
+        id: `dis_${idx}`,
+        text: w
+    }));
+
+    const chips = [...targetChips, ...distractorChips];
 
     for (let i = chips.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -9686,7 +9720,7 @@ function renderSinglePhraseQuestion(q) {
         placed: placed,
         chips: (q.phraseChips && q.phraseChips.length > 0)
             ? q.phraseChips.filter(c => !isFixedPhraseToken(c.text))
-            : generatePhraseDistractors(targetWords, singleState.pool),
+            : generatePhraseDistractors(targetWords, singleState.pool, q),
         q: q
     };
 
@@ -9923,8 +9957,8 @@ function checkSinglePhraseAnswer() {
             if (isFixedPhraseToken(tw)) return -1;
             const cid = singlePhraseState.placed[i];
             const chip = cid ? singlePhraseState.chips.find(c => c.id === cid) : null;
-            const uWord = chip ? chip.text.toLowerCase() : '';
-            return (uWord === tw.toLowerCase()) ? -1 : i;
+            const uWord = chip ? chip.text : '';
+            return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
@@ -9936,7 +9970,7 @@ function checkSinglePhraseAnswer() {
             const chipId = singlePhraseState.placed[i];
             const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');
@@ -9994,7 +10028,7 @@ function revealSingleAnswer() {
             const chipId = singlePhraseState.placed[i];
             const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
 
             slotEl.classList.remove('empty');
             if (isSlotRight) {
@@ -10307,7 +10341,7 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
         correctIdx = optData.correctIdx;
 
         const isPhrase = w.word && w.word.trim().includes(' ') && !w.senses;
-        const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list) : null;
+        const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list, w) : null;
         return {
             word: w.word,
             phone: w.phone || w.pinyin || '',
@@ -10318,7 +10352,8 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
             options: options,
             correctIdx: correctIdx,
             phraseChips: phraseChips,
-            isShiCi: false
+            isShiCi: false,
+            mistake: w.mistake || null
         };
     });
 }
@@ -12485,7 +12520,7 @@ function renderArenaPhraseQuestion(state, q) {
     arenaPhraseState = {
         targetWords: targetWords,
         placed: placed,
-        chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, state.pool),
+        chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, state.pool, q),
         q: q
     };
 
@@ -12682,7 +12717,7 @@ function checkArenaPhraseAnswer() {
             const chipId = arenaPhraseState.placed[i];
             const chip = chipId ? arenaPhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');
@@ -15105,6 +15140,7 @@ function updateAiDuelSettingsChips() {
 
     // 对战模式切换 (排位赛 vs 友谊赛)
     document.querySelectorAll('#chips-ai-match-type .md3-chip').forEach(c => {
+        c.classList.toggle('selected', c.getAttribute('data-type') === (aiDuelConfig.matchType || 'ranked'));
         const t = c.getAttribute('data-type');
         c.classList.toggle('selected', t === (aiDuelConfig.matchType || 'friendly'));
         if (isGuest && t === 'ranked') {
@@ -16428,7 +16464,7 @@ function checkLocalPhraseAnswer(player) {
             const chipId = phrState.placed[i];
             const chip = chipId ? phrState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');
@@ -18299,12 +18335,26 @@ const ShiCiManager = {
         } catch (e) { }
 
         // 2. 候选加载路径
-        const urls = [
-            './books/实词/实词.json',
-            'books/实词/实词.json',
-            'https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json',
-            'https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json'
-        ];
+        const scRel = 'books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json';
+        const urls = [];
+        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
+            urls.push(
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                './books/实词/实词.json',
+                'books/实词/实词.json'
+            );
+        } else {
+            urls.push(
+                './books/实词/实词.json',
+                'books/实词/实词.json',
+                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
+                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${scRel}`
+            );
+        }
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`);
         }
@@ -20538,10 +20588,10 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.4.3';
+const APP_VERSION = '2.4.5';
 const APP_CHANGELOG = [
     {
-        version: 'v2.4.3',
+        version: 'v2.4.5',
         date: '2026-09-26',
         badge: '当前版本',
         items: [

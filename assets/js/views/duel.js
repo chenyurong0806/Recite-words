@@ -1810,7 +1810,7 @@ function renderArenaPhraseQuestion(state, q) {
     arenaPhraseState = {
         targetWords: targetWords,
         placed: placed,
-        chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, state.pool),
+        chips: (q.phraseChips && q.phraseChips.length > 0) ? q.phraseChips : generatePhraseDistractors(targetWords, state.pool, q),
         q: q
     };
 
@@ -2007,7 +2007,7 @@ function checkArenaPhraseAnswer() {
             const chipId = arenaPhraseState.placed[i];
             const chip = chipId ? arenaPhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');

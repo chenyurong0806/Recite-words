@@ -473,7 +473,7 @@ function renderSinglePhraseQuestion(q) {
         placed: placed,
         chips: (q.phraseChips && q.phraseChips.length > 0)
             ? q.phraseChips.filter(c => !isFixedPhraseToken(c.text))
-            : generatePhraseDistractors(targetWords, singleState.pool),
+            : generatePhraseDistractors(targetWords, singleState.pool, q),
         q: q
     };
 
@@ -710,8 +710,8 @@ function checkSinglePhraseAnswer() {
             if (isFixedPhraseToken(tw)) return -1;
             const cid = singlePhraseState.placed[i];
             const chip = cid ? singlePhraseState.chips.find(c => c.id === cid) : null;
-            const uWord = chip ? chip.text.toLowerCase() : '';
-            return (uWord === tw.toLowerCase()) ? -1 : i;
+            const uWord = chip ? chip.text : '';
+            return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
@@ -723,7 +723,7 @@ function checkSinglePhraseAnswer() {
             const chipId = singlePhraseState.placed[i];
             const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
             if (isSlotRight) {
                 slotEl.classList.remove('wrong');
                 slotEl.classList.add('correct');
@@ -781,7 +781,7 @@ function revealSingleAnswer() {
             const chipId = singlePhraseState.placed[i];
             const chip = chipId ? singlePhraseState.chips.find(c => c.id === chipId) : null;
             const userWord = chip ? chip.text : '';
-            const isSlotRight = (userWord.toLowerCase() === tw.toLowerCase());
+            const isSlotRight = isPhraseSlotMatch(userWord, tw);
 
             slotEl.classList.remove('empty');
             if (isSlotRight) {
@@ -1094,7 +1094,7 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
         correctIdx = optData.correctIdx;
 
         const isPhrase = w.word && w.word.trim().includes(' ') && !w.senses;
-        const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list) : null;
+        const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list, w) : null;
         return {
             word: w.word,
             phone: w.phone || w.pinyin || '',
@@ -1105,7 +1105,8 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
             options: options,
             correctIdx: correctIdx,
             phraseChips: phraseChips,
-            isShiCi: false
+            isShiCi: false,
+            mistake: w.mistake || null
         };
     });
 }
