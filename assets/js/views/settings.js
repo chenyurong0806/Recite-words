@@ -270,15 +270,19 @@ async function handleToyFollowAuthor() {
 function switchAccount(name) {
     if (!name || name === currentUser) return;
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, name);
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
     loadUserData(name);
     renderSettingsMain();
@@ -301,15 +305,19 @@ function createAndSwitchAccount() {
         return;
     }
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, name);
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
     allUsersList.push(name);
     localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
@@ -331,15 +339,19 @@ function handleDeleteCurrentAccount() {
     if (!isConfirmed) return;
 
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, '');
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
 
     // 清除该用户在 localStorage 中的所有相关数据

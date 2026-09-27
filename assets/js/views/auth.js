@@ -137,28 +137,17 @@ function showManualLoginForm(prefUsername = '') {
 async function prepareUserSwitch(newUser) {
     const prevUser = currentUser;
     if (prevUser && prevUser !== newUser) {
-        if (typeof recordSwitchedAccount === 'function') {
+        if (typeof cleanAccountSwitchPresence === 'function') {
+            await cleanAccountSwitchPresence(prevUser, newUser);
+        } else if (typeof recordSwitchedAccount === 'function') {
             recordSwitchedAccount(prevUser);
         }
         const localGuest = SafeStorage.getItem('vocab_guest_name');
-        if (localGuest && typeof recordSwitchedAccount === 'function') {
-            recordSwitchedAccount(localGuest);
-        }
-        if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel) {
-            try {
-                await globalLobbyChannel.untrack();
-            } catch (e) { }
-            try {
-                if (typeof sbClient !== 'undefined' && sbClient) {
-                    sbClient.removeChannel(globalLobbyChannel);
-                }
-            } catch (e) { }
-            globalLobbyChannel = null;
-        }
-        if (typeof sbClient !== 'undefined' && sbClient) {
-            sbClient.from('rooms').delete().eq('host', prevUser).then(() => { }).catch(() => { });
-            if (localGuest) {
-                sbClient.from('rooms').delete().eq('host', localGuest).then(() => { }).catch(() => { });
+        if (localGuest && localGuest !== newUser) {
+            if (typeof cleanAccountSwitchPresence === 'function') {
+                await cleanAccountSwitchPresence(localGuest, newUser);
+            } else if (typeof recordSwitchedAccount === 'function') {
+                recordSwitchedAccount(localGuest);
             }
         }
     }
@@ -456,6 +445,11 @@ function continueAsGuest() {
 function handleAuthLogout(notify = true) {
     const prevUser = currentUser;
     const guestName = getUniqueGuestName();
+    if (typeof cleanAccountSwitchPresence === 'function' && prevUser) {
+        cleanAccountSwitchPresence(prevUser, guestName);
+    } else if (typeof recordSwitchedAccount === 'function') {
+        recordSwitchedAccount(prevUser);
+    }
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
@@ -466,9 +460,6 @@ function handleAuthLogout(notify = true) {
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
     loadUserData(guestName, currentUserProfile);
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(prevUser);
-    }
     if (notify) {
         showToast('已退出登录');
     }

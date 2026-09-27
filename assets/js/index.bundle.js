@@ -2764,7 +2764,7 @@ const LevelManager = {
             level: data.rank, // 兼容现有调用 level 的字段
             score: data.rating, // 兼容 score
             progressPercent: data.rating, // 满分 100，百分比即当前分数
-            comparisonText: data.isPromotionReady ? '🔥 满分升段赛就绪' : `${data.rating} / 100 分`
+            comparisonText: data.isPromotionReady ? '请完成升段赛' : `${data.rating} / 100 分`
         };
     },
 
@@ -4232,28 +4232,17 @@ function showManualLoginForm(prefUsername = '') {
 async function prepareUserSwitch(newUser) {
     const prevUser = currentUser;
     if (prevUser && prevUser !== newUser) {
-        if (typeof recordSwitchedAccount === 'function') {
+        if (typeof cleanAccountSwitchPresence === 'function') {
+            await cleanAccountSwitchPresence(prevUser, newUser);
+        } else if (typeof recordSwitchedAccount === 'function') {
             recordSwitchedAccount(prevUser);
         }
         const localGuest = SafeStorage.getItem('vocab_guest_name');
-        if (localGuest && typeof recordSwitchedAccount === 'function') {
-            recordSwitchedAccount(localGuest);
-        }
-        if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel) {
-            try {
-                await globalLobbyChannel.untrack();
-            } catch (e) { }
-            try {
-                if (typeof sbClient !== 'undefined' && sbClient) {
-                    sbClient.removeChannel(globalLobbyChannel);
-                }
-            } catch (e) { }
-            globalLobbyChannel = null;
-        }
-        if (typeof sbClient !== 'undefined' && sbClient) {
-            sbClient.from('rooms').delete().eq('host', prevUser).then(() => { }).catch(() => { });
-            if (localGuest) {
-                sbClient.from('rooms').delete().eq('host', localGuest).then(() => { }).catch(() => { });
+        if (localGuest && localGuest !== newUser) {
+            if (typeof cleanAccountSwitchPresence === 'function') {
+                await cleanAccountSwitchPresence(localGuest, newUser);
+            } else if (typeof recordSwitchedAccount === 'function') {
+                recordSwitchedAccount(localGuest);
             }
         }
     }
@@ -4551,6 +4540,11 @@ function continueAsGuest() {
 function handleAuthLogout(notify = true) {
     const prevUser = currentUser;
     const guestName = getUniqueGuestName();
+    if (typeof cleanAccountSwitchPresence === 'function' && prevUser) {
+        cleanAccountSwitchPresence(prevUser, guestName);
+    } else if (typeof recordSwitchedAccount === 'function') {
+        recordSwitchedAccount(prevUser);
+    }
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
@@ -4561,9 +4555,6 @@ function handleAuthLogout(notify = true) {
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
     loadUserData(guestName, currentUserProfile);
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(prevUser);
-    }
     if (notify) {
         showToast('已退出登录');
     }
@@ -10642,17 +10633,32 @@ let hostRank = 1, hostRating = 0;
 let guestRank = 1, guestRating = 0;
 let currentMatchOppoRank = 1, currentMatchOppoRating = 50;
 
+function safeBroadcast(channel, event, payload) {
+    if (!channel) return;
+    const msg = { type: 'broadcast', event: event, payload: payload };
+    try {
+        if (channel.state === 'joined') {
+            channel.send(msg);
+        } else if (typeof channel.httpSend === 'function') {
+            channel.httpSend(msg).catch(() => {});
+        }
+    } catch (e) {
+        try {
+            if (typeof channel.httpSend === 'function') {
+                channel.httpSend(msg).catch(() => {});
+            }
+        } catch (err) {}
+    }
+}
+window.safeBroadcast = safeBroadcast;
+
 function toggleGuestReady(ready) {
     if (isHost) return;
     guestReady = (ready !== undefined) ? Boolean(ready) : !guestReady;
     if (realtimeChannel) {
-        realtimeChannel.send({
-            type: 'broadcast',
-            event: 'player_ready_state',
-            payload: {
-                isReady: guestReady,
-                username: currentUser
-            }
+        safeBroadcast(realtimeChannel, 'player_ready_state', {
+            isReady: guestReady,
+            username: currentUser
         });
     }
     refreshRoomPlayerCards();
@@ -10922,19 +10928,15 @@ async function enterMyExclusiveRoom() {
     } catch (e) { }
 
     if (globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'room_state_change',
-            payload: {
-                action: 'ready',
-                room: {
-                    code: roomCode,
-                    name: customRoomName,
-                    host: currentUser,
-                    capacity: 2,
-                    playerCount: 1,
-                    status: 'waiting'
-                }
+        safeBroadcast(globalLobbyChannel, 'room_state_change', {
+            action: 'ready',
+            room: {
+                code: roomCode,
+                name: customRoomName,
+                host: currentUser,
+                capacity: 2,
+                playerCount: 1,
+                status: 'waiting'
             }
         });
     }
@@ -10999,21 +11001,25 @@ function renderRoomInvitePlayersList() {
     container.innerHTML = onlineUsers.map(u => `
         <div class="online-player-card">
             <div class="online-player-left">
-                <div class="online-player-avatar" style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container);">
-                    <span class="material-symbols-rounded" style="font-size:22px; color:var(--md-sys-color-primary);">person</span>
-                    ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
+                <div class="online-player-avatar">
+                    <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0061a4);">person</span>
+                    ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';">` : ''}
                 </div>
                 <div class="online-player-meta">
-                    <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
-                    <span class="online-player-status">
+                    <div class="online-player-user-row">
+                        <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
+                        ${u.isBili ? `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 5px; border-radius:8px; line-height:1.2; flex-shrink:0;"><svg style="width:10px; height:10px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>` : ''}
+                        <span class="online-player-rank">${u.rank || u.level || 1}段</span>
+                    </div>
+                    <div class="online-player-status">
                         <span class="online-status-dot"></span>
                         在线空闲
-                    </span>
+                    </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="invitePlayerFromRoom('${escapeHtml(u.username)}')">
-                <span class="material-symbols-rounded" style="font-size:16px;">send</span>
-                <span class="btn-label-text">邀请</span>
+            <button type="button" class="btn online-player-action-btn" onclick="invitePlayerFromRoom('${escapeHtml(u.username)}')">
+                <span class="material-symbols-rounded">send</span>
+                <span>邀请</span>
             </button>
         </div>
     `).join('');
@@ -11030,18 +11036,14 @@ function invitePlayerFromRoom(targetUser) {
     const selected = roomConfig.selectedBooks || [];
     const bookNames = selected.map(id => bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id));
 
-    globalLobbyChannel.send({
-        type: 'broadcast',
-        event: 'invite_match',
-        payload: {
-            from: currentUser,
-            fromAvatar: getUserAvatar(currentUser),
-            to: targetUser,
-            roomCode: roomCode,
-            roomName: customRoomName || `${currentUser}的房间`,
-            config: roomConfig,
-            bookNames: bookNames.join(', ') || '未选词书'
-        }
+    safeBroadcast(globalLobbyChannel, 'invite_match', {
+        from: currentUser,
+        fromAvatar: getUserAvatar(currentUser),
+        to: targetUser,
+        roomCode: roomCode,
+        roomName: customRoomName || `${currentUser}的房间`,
+        config: roomConfig,
+        bookNames: bookNames.join(', ') || '未选词书'
     });
 
     closeRoomInvitePlayersModal();
@@ -11050,11 +11052,7 @@ function invitePlayerFromRoom(targetUser) {
 
 function kickPlayerFromRoom(targetUser) {
     if (!isHost || !realtimeChannel || !targetUser) return;
-    realtimeChannel.send({
-        type: 'broadcast',
-        event: 'kick_player',
-        payload: { target: targetUser, reason: '您已被房主移出房间' }
-    });
+    safeBroadcast(realtimeChannel, 'kick_player', { target: targetUser, reason: '您已被房主移出房间' });
     guestName = '';
     guestAvatar = '';
     refreshRoomPlayerCards();
@@ -11247,25 +11245,42 @@ function renderRuleChips() {
 
     document.querySelectorAll('#chips-match-type .md3-chip').forEach(el => {
         const val = el.getAttribute('data-match-type') || el.getAttribute('data-type');
-        el.classList.toggle('selected', val === (roomConfig.matchType || 'ranked'));
-        el.classList.toggle('disabled', !isHost);
+        const isSel = (val === (roomConfig.matchType || 'ranked'));
+        el.classList.toggle('selected', isSel);
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.cursor = 'default';
+            el.style.opacity = isSel ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+            el.style.opacity = '1';
+        }
     });
 
     document.querySelectorAll('#chips-duel-rule .md3-chip').forEach(el => {
         const val = el.getAttribute('data-rule');
+        const isLead = (val === 'lead');
         el.classList.toggle('selected', val === (roomConfig.mode || 'lead'));
-        if (!isHost) {
-            el.classList.add('disabled');
-            el.style.pointerEvents = 'none';
-        } else if (isRanked) {
-            const isLead = (val === 'lead');
+        if (isRanked) {
             el.classList.toggle('disabled', !isLead);
-            el.style.pointerEvents = isLead ? 'auto' : 'none';
-            el.style.opacity = isLead ? '1' : '0.4';
+            el.style.pointerEvents = (isHost && isLead) ? 'auto' : 'none';
+            el.style.cursor = (isHost && isLead) ? 'pointer' : 'default';
+            el.style.opacity = isLead ? '1' : '0.35';
         } else {
-            el.classList.remove('disabled');
-            el.style.pointerEvents = 'auto';
-            el.style.opacity = '1';
+            if (!isHost) {
+                el.classList.add('disabled');
+                el.style.pointerEvents = 'none';
+                el.style.cursor = 'default';
+                el.style.opacity = '1';
+            } else {
+                el.classList.remove('disabled');
+                el.style.pointerEvents = 'auto';
+                el.style.cursor = 'pointer';
+                el.style.opacity = '1';
+            }
         }
     });
 
@@ -11276,32 +11291,57 @@ function renderRuleChips() {
 
     document.querySelectorAll('#chips-time .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-time'));
-        el.classList.toggle('selected', val === (roomConfig.duration || 120));
-        el.classList.toggle('disabled', !isHost);
+        const isSel = (val === (roomConfig.duration || 120));
+        el.classList.toggle('selected', isSel);
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.cursor = 'default';
+            el.style.opacity = isSel ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+            el.style.opacity = '1';
+        }
     });
 
     document.querySelectorAll('#chips-lead .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-lead'));
+        const isFixed6 = (val === 6);
         el.classList.toggle('selected', val === (roomConfig.winLead || 6));
-        if (!isHost) {
-            el.classList.add('disabled');
-            el.style.pointerEvents = 'none';
-        } else if (isRanked) {
-            const isFixed6 = (val === 6);
+        if (isRanked) {
             el.classList.toggle('disabled', !isFixed6);
-            el.style.pointerEvents = isFixed6 ? 'auto' : 'none';
-            el.style.opacity = isFixed6 ? '1' : '0.4';
+            el.style.pointerEvents = (isHost && isFixed6) ? 'auto' : 'none';
+            el.style.cursor = (isHost && isFixed6) ? 'pointer' : 'default';
+            el.style.opacity = isFixed6 ? '1' : '0.35';
         } else {
-            el.classList.remove('disabled');
-            el.style.pointerEvents = 'auto';
-            el.style.opacity = '1';
+            if (!isHost) {
+                el.classList.add('disabled');
+                el.style.pointerEvents = 'none';
+                el.style.cursor = 'default';
+                el.style.opacity = '1';
+            } else {
+                el.classList.remove('disabled');
+                el.style.pointerEvents = 'auto';
+                el.style.cursor = 'pointer';
+                el.style.opacity = '1';
+            }
         }
     });
 
     document.querySelectorAll('#chips-gauge-style .md3-chip').forEach(el => {
         const val = el.getAttribute('data-gauge');
         el.classList.toggle('selected', val === (roomConfig.gaugeStyle || 'tug'));
-        el.classList.toggle('disabled', !isHost);
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.cursor = 'default';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+        }
     });
 
     renderRoomBookChips();
@@ -11323,11 +11363,7 @@ function broadcastRuleChange() {
     });
     roomConfig.selectedBookNames = bookNames;
 
-    realtimeChannel.send({
-        type: 'broadcast',
-        event: 'rule_update',
-        payload: { config: roomConfig }
-    });
+    safeBroadcast(realtimeChannel, 'rule_update', { config: roomConfig });
     refreshRoomPlayerCards();
 }
 
@@ -11383,11 +11419,7 @@ async function joinOnlineRoom() {
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
-                testChannel.send({
-                    type: 'broadcast',
-                    event: 'room_ping',
-                    payload: { from: currentUser }
-                });
+                safeBroadcast(testChannel, 'room_ping', { from: currentUser });
             }
         });
 }
@@ -11566,11 +11598,7 @@ function sendRoomChatMessage() {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isHost: isHost
     };
-    realtimeChannel.send({
-        type: 'broadcast',
-        event: 'room_chat',
-        payload: msgPayload
-    });
+    safeBroadcast(realtimeChannel, 'room_chat', msgPayload);
     appendRoomChatMessage(msgPayload, true);
     input.value = '';
 }
@@ -11615,11 +11643,7 @@ function connectSupabaseChannel(code) {
     realtimeChannel
         .on('broadcast', { event: 'room_ping' }, () => {
             if (isHost) {
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'room_ack',
-                    payload: { isHost: true, hostName: currentUser, config: roomConfig }
-                });
+                safeBroadcast(realtimeChannel, 'room_ack', { isHost: true, hostName: currentUser, config: roomConfig });
             }
         })
         .on('broadcast', { event: 'player_ready_state' }, ({ payload }) => {
@@ -11642,20 +11666,16 @@ function connectSupabaseChannel(code) {
                     const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
                     hostRank = myRankData.rank;
                     hostRating = myRankData.rating;
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'room_sync',
-                        payload: {
-                            hostName: currentUser,
-                            hostAvatar: getUserAvatar(currentUser),
-                            hostRank: hostRank,
-                            hostRating: hostRating,
-                            guestName: guestName,
-                            guestAvatar: guestAvatar,
-                            guestRank: guestRank,
-                            guestRating: guestRating,
-                            config: roomConfig
-                        }
+                    safeBroadcast(realtimeChannel, 'room_sync', {
+                        hostName: currentUser,
+                        hostAvatar: getUserAvatar(currentUser),
+                        hostRank: hostRank,
+                        hostRating: hostRating,
+                        guestName: guestName,
+                        guestAvatar: guestAvatar,
+                        guestRank: guestRank,
+                        guestRating: guestRating,
+                        config: roomConfig
                     });
                 }
             }
@@ -11771,16 +11791,12 @@ function connectSupabaseChannel(code) {
                     const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
                     guestRank = myRankData.rank;
                     guestRating = myRankData.rating;
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'player_joined',
-                        payload: {
-                            name: currentUser,
-                            avatar: getUserAvatar(currentUser),
-                            role: 'guest',
-                            rank: myRankData.rank,
-                            rating: myRankData.rating
-                        }
+                    safeBroadcast(realtimeChannel, 'player_joined', {
+                        name: currentUser,
+                        avatar: getUserAvatar(currentUser),
+                        role: 'guest',
+                        rank: myRankData.rank,
+                        rating: myRankData.rating
                     });
                 }
             }
@@ -11800,9 +11816,9 @@ async function leaveOnlineLobby(confirmNeeded = false) {
 
     if (realtimeChannel) {
         if (wasHost) {
-            realtimeChannel.send({ type: 'broadcast', event: 'room_closed', payload: {} });
+            safeBroadcast(realtimeChannel, 'room_closed', {});
         } else {
-            realtimeChannel.send({ type: 'broadcast', event: 'player_left', payload: { name: currentUser, role: 'guest' } });
+            safeBroadcast(realtimeChannel, 'player_left', { name: currentUser, role: 'guest' });
         }
     }
 
@@ -11822,11 +11838,7 @@ async function leaveOnlineLobby(confirmNeeded = false) {
 
         // 2. 广播通知他人立刻移除该房间
         if (globalLobbyChannel) {
-            globalLobbyChannel.send({
-                type: 'broadcast',
-                event: 'room_state_change',
-                payload: { action: 'hide', code: codeToLeave }
-            });
+            safeBroadcast(globalLobbyChannel, 'room_state_change', { action: 'hide', code: codeToLeave });
         }
     }
 
@@ -11906,11 +11918,7 @@ async function startOnlineGame() {
             guestRating: (guestRating !== undefined) ? guestRating : 0,
             config: roomConfig
         };
-        realtimeChannel.send({
-            type: 'broadcast',
-            event: 'game_start',
-            payload: startPayload
-        });
+        safeBroadcast(realtimeChannel, 'game_start', startPayload);
         handleRemoteGameStart(startPayload);
     } catch (err) {
         alert('准备词库失败：' + err.message);
@@ -12027,13 +12035,7 @@ function handleRemoteGameStart(payload) {
                     myMsg = "💔 遗憾战败！";
                     peerMsg = "🎉 恭喜获胜！";
                 }
-                if (realtimeChannel) {
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'game_over',
-                        payload: { msg: peerMsg }
-                    });
-                }
+                safeBroadcast(realtimeChannel, 'game_over', { msg: peerMsg });
                 endGame(myMsg, false);
             }
         }, 1000);
@@ -12418,13 +12420,7 @@ function checkArenaPhraseAnswer() {
 
         if (gameMode === 'online') {
             renderSnakeRing();
-            if (realtimeChannel) {
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'score_update',
-                    payload: { score: p1State.score, user: currentUser }
-                });
-            }
+            safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
             if (checkOnlineWinCondition()) return;
         } else if (gameMode === 'ai_duel') {
             renderSnakeRing();
@@ -12657,13 +12653,7 @@ function handleAnswer(idx, clickX, clickY) {
 
     if (gameMode === 'online') {
         renderSnakeRing();
-        if (realtimeChannel) {
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'score_update',
-                payload: { score: p1State.score, user: currentUser }
-            });
-        }
+        safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
         if (checkOnlineWinCondition()) return;
     } else if (gameMode === 'ai_duel') {
         renderSnakeRing();
@@ -12870,13 +12860,7 @@ function checkOnlineWinCondition() {
 
     if (diff >= winLead) {
         const winMsg = `🎉 恭喜领先达到 ${winLead} 题，获得胜利！`;
-        if (realtimeChannel) {
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'game_over',
-                payload: { msg: `💔 对手领先达到 ${winLead} 题，遗憾战败！` }
-            });
-        }
+        safeBroadcast(realtimeChannel, 'game_over', { msg: `💔 对手领先达到 ${winLead} 题，遗憾战败！` });
         endGame(winMsg, false);
         return true;
     } else if (diff <= -winLead) {
@@ -12962,11 +12946,7 @@ function endGame(msg, broadcastToPeer) {
             else if (diff < 0) peerMsg = "🎉 恭喜获胜！";
             else peerMsg = "🤝 势均力敌，握手言和！";
         }
-        realtimeChannel.send({
-            type: 'broadcast',
-            event: 'game_over',
-            payload: { msg: peerMsg }
-        });
+        safeBroadcast(realtimeChannel, 'game_over', { msg: peerMsg });
     }
 
     let matchResult = null;
@@ -13154,13 +13134,7 @@ function handleBackToRoom() {
     resetAllGameAlertsAndFeedback();
     if (gameMode === 'online') {
         if (isHost) {
-            if (realtimeChannel) {
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'sync_back_to_room',
-                    payload: {}
-                });
-            }
+            safeBroadcast(realtimeChannel, 'sync_back_to_room', {});
             setupRoomLobbyUI(roomCode);
             switchView('view-online');
         }
@@ -13175,17 +13149,9 @@ async function handleResultBackToHub() {
 
     if (gameMode === 'online') {
         if (wasHost && realtimeChannel) {
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'room_closed',
-                payload: { reason: 'host_left' }
-            });
+            safeBroadcast(realtimeChannel, 'room_closed', { reason: 'host_left' });
         } else if (!wasHost && realtimeChannel) {
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'player_left',
-                payload: { name: currentUser, role: 'guest' }
-            });
+            safeBroadcast(realtimeChannel, 'player_left', { name: currentUser, role: 'guest' });
         }
 
         // 房主从对决结算页面退出，彻底删除房间
@@ -13195,11 +13161,7 @@ async function handleResultBackToHub() {
             discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.code !== codeToClean);
 
             if (globalLobbyChannel) {
-                globalLobbyChannel.send({
-                    type: 'broadcast',
-                    event: 'room_state_change',
-                    payload: { action: 'delete', code: codeToClean }
-                });
+                safeBroadcast(globalLobbyChannel, 'room_state_change', { action: 'delete', code: codeToClean });
             }
 
             try {
@@ -13244,11 +13206,7 @@ function applyForfeitPenalty() {
     }
 
     if (!isAi && realtimeChannel) {
-        realtimeChannel.send({
-            type: 'broadcast',
-            event: 'game_over',
-            payload: { msg: '🎉 对方中途退出了对战，你获得了胜利！' }
-        });
+        safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出了对战，你获得了胜利！' });
     }
 }
 window.applyForfeitPenalty = applyForfeitPenalty;
@@ -13284,12 +13242,17 @@ let customRoomName = '';
 let matchInviteTimer = null;
 let currentIncomingInvite = null;
 
-const CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
+let CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
 const recentlySwitchedAccounts = new Set();
 let isPlayingMatch = false;
 let lastPresenceRefreshTime = 0;
 let lastInviteSentTimes = {};
 let lastManualRoomRefreshTime = 0;
+
+let isConnectingLobby = false;
+let intentionalLobbyClose = false;
+let lobbyReconnectTimer = null;
+let lobbyCurrentChannelUser = '';
 
 function recordSwitchedAccount(username) {
     if (!username) return;
@@ -13299,6 +13262,32 @@ function recordSwitchedAccount(username) {
     }, 120000);
 }
 window.recordSwitchedAccount = recordSwitchedAccount;
+
+async function cleanAccountSwitchPresence(oldUser, newUser) {
+    if (!oldUser) return;
+    recordSwitchedAccount(oldUser);
+    cachedRestOnlineUsers = cachedRestOnlineUsers.filter(u => u.username !== oldUser);
+
+    if (globalLobbyChannel) {
+        safeBroadcast(globalLobbyChannel, 'account_switched', { oldUser: oldUser, newUser: newUser });
+        try {
+            intentionalLobbyClose = true;
+            await globalLobbyChannel.untrack();
+            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+        } catch (e) { }
+        globalLobbyChannel = null;
+    }
+
+    if (sbClient) {
+        sbClient.from('user_accounts').update({ updated_at: new Date(0).toISOString() }).eq('username', oldUser).then(() => {}).catch(() => {});
+        sbClient.from('rooms').delete().eq('host', oldUser).then(() => {}).catch(() => {});
+    }
+
+    CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
+    syncGlobalPresenceState();
+    fetchOnlineRoomsList();
+}
+window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
 async function updateMyLobbyPresence() {
     if (!globalLobbyChannel || !currentUser) return;
@@ -13341,32 +13330,42 @@ function initGlobalPresence() {
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
     const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
 
-    // 如果 channel 存在但 key 不属于当前用户，先彻底清理
     if (globalLobbyChannel) {
-        if (globalLobbyChannel.params && globalLobbyChannel.params.config && globalLobbyChannel.params.config.presence && globalLobbyChannel.params.config.presence.key !== currentUser) {
+        if (globalLobbyChannel.state === 'joined' && lobbyCurrentChannelUser === currentUser) {
             try {
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    sessionId: CLIENT_SESSION_ID,
+                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                    level: myRank,
+                    rank: myRank,
+                    rating: myRating,
+                    isBili: isBili,
+                    status: initialStatus,
+                    joinedAt: Date.now()
+                });
+            } catch (e) { }
+            return;
+        } else {
+            try {
+                intentionalLobbyClose = true;
                 globalLobbyChannel.untrack();
                 sbClient.removeChannel(globalLobbyChannel);
             } catch (e) { }
             globalLobbyChannel = null;
-        } else {
-            globalLobbyChannel.track({
-                username: currentUser,
-                sessionId: CLIENT_SESSION_ID,
-                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                level: myRank,
-                rank: myRank,
-                rating: myRating,
-                isBili: isBili,
-                status: initialStatus,
-                joinedAt: Date.now()
-            });
-            return;
         }
     }
 
+    if (isConnectingLobby) return;
+    isConnectingLobby = true;
+    intentionalLobbyClose = false;
+    lobbyCurrentChannelUser = currentUser;
+
     globalLobbyChannel = sbClient.channel('global_lobby', {
-        config: { presence: { key: currentUser } }
+        config: {
+            broadcast: { ack: true, self: false },
+            presence: { key: currentUser }
+        }
     });
 
     globalLobbyChannel
@@ -13386,6 +13385,13 @@ function initGlobalPresence() {
             syncGlobalPresenceState();
             fetchOnlineRoomsList();
         })
+        .on('broadcast', { event: 'account_switched' }, ({ payload }) => {
+            if (payload && payload.oldUser) {
+                recordSwitchedAccount(payload.oldUser);
+                cachedRestOnlineUsers = cachedRestOnlineUsers.filter(u => u.username !== payload.oldUser);
+                syncGlobalPresenceState();
+            }
+        })
         .on('broadcast', { event: 'invite_match' }, ({ payload }) => {
             handleReceivedMatchInvite(payload);
         })
@@ -13396,7 +13402,12 @@ function initGlobalPresence() {
             handleRoomStateBroadcast(payload);
         })
         .subscribe(async (status) => {
+            isConnectingLobby = false;
             if (status === 'SUBSCRIBED') {
+                if (lobbyReconnectTimer) {
+                    clearTimeout(lobbyReconnectTimer);
+                    lobbyReconnectTimer = null;
+                }
                 await globalLobbyChannel.track({
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
@@ -13411,10 +13422,17 @@ function initGlobalPresence() {
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                if (intentionalLobbyClose) {
+                    return;
+                }
                 console.warn('[Presence] Lobby channel disconnected, status:', status, 'scheduling reconnect...');
-                setTimeout(() => {
-                    initGlobalPresence();
-                }, 3000);
+                globalLobbyChannel = null;
+                if (!lobbyReconnectTimer) {
+                    lobbyReconnectTimer = setTimeout(() => {
+                        lobbyReconnectTimer = null;
+                        initGlobalPresence();
+                    }, 3000);
+                }
             }
         });
 
@@ -13425,13 +13443,13 @@ let presenceHeartbeatTimer = null;
 function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
-        if (!currentUser || (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(currentUser))) return;
-        // 1. WebSocket Presence 续期
+        if (!currentUser) return;
+        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连）
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
                 let myRank = 1;
                 let myRating = 0;
-                if (typeof LevelManager !== 'undefined') {
+                if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
                     const rd = LevelManager.getUserRankData(currentUser);
                     myRank = rd.rank;
                     myRating = rd.rating;
@@ -13451,10 +13469,10 @@ function startPresenceHeartbeat() {
                     joinedAt: Date.now()
                 });
             } catch (e) { }
-        } else if (!globalLobbyChannel || globalLobbyChannel.state !== 'joining') {
+        } else if (!isConnectingLobby && (!globalLobbyChannel || globalLobbyChannel.state === 'closed' || globalLobbyChannel.state === 'errored')) {
             initGlobalPresence();
         }
-        // 2. REST 在线心跳更新，保证跨网络环境下可被其他玩家检索到
+        // 2. REST 在线心跳更新，保证跨网络环境下可被其他玩家检索到（仅登录用户写入数据库）
         try {
             if (sbClient && currentUserProfile && currentUserProfile.isLoggedIn) {
                 sbClient.from('user_accounts').update({
@@ -13462,7 +13480,7 @@ function startPresenceHeartbeat() {
                 }).eq('username', currentUser).then(() => { }).catch(() => { });
             }
         } catch (e) { }
-    }, 25000);
+    }, 20000);
 }
 
 let cachedRestOnlineUsers = [];
@@ -13594,40 +13612,40 @@ async function syncGlobalPresenceState() {
             ` : onlineUsers.map(u => {
                 const isBusy = (u.status === 'playing');
                 const statusHtml = isBusy ? `
-                    <span class="online-player-status" style="color: #ea580c; font-weight:600;">
+                    <div class="online-player-status" style="color: #ea580c; font-weight:600;">
                         <span class="online-status-dot" style="background: #ea580c;"></span>
                         对局中
-                    </span>
+                    </div>
                 ` : `
-                    <span class="online-player-status">
-                        <span class="online-status-dot" style="background: #22c55e;"></span>
+                    <div class="online-player-status">
+                        <span class="online-status-dot"></span>
                         在线空闲
-                    </span>
+                    </div>
                 `;
                 const actionBtnHtml = isBusy ? `
-                    <button type="button" class="btn btn-outlined btn-sm online-player-action-btn" disabled style="opacity:0.6; cursor:not-allowed;" title="玩家正在对局中，不可被邀请">
-                        <span class="material-symbols-rounded" style="font-size:16px;">hourglass_top</span>
-                        <span class="btn-label-text">对局中</span>
+                    <button type="button" class="btn online-player-action-btn" disabled style="opacity:0.6; cursor:not-allowed; background:#94a3b8 !important; color:#fff;" title="玩家正在对局中，不可被邀请">
+                        <span class="material-symbols-rounded">hourglass_top</span>
+                        <span>对局中</span>
                     </button>
                 ` : `
-                    <button type="button" class="btn btn-filled btn-sm online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
-                        <span class="material-symbols-rounded" style="font-size:16px;">swords</span>
-                        <span class="btn-label-text">发起对战</span>
+                    <button type="button" class="btn online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
+                        <span class="material-symbols-rounded">swords</span>
+                        <span>发起对战</span>
                     </button>
                 `;
 
                 return `
             <div class="online-player-card">
                 <div class="online-player-left">
-                    <div class="online-player-avatar" style="position:relative; width:36px; height:36px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--md-sys-color-surface-container);">
-                        <span class="material-symbols-rounded" style="font-size:22px; color:var(--md-sys-color-primary);">person</span>
-                        ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
+                    <div class="online-player-avatar">
+                        <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0061a4);">person</span>
+                        ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';">` : ''}
                     </div>
                     <div class="online-player-meta">
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <div class="online-player-user-row">
                             <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
-                            ${u.isBili ? `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 6px; border-radius:10px; box-shadow:0 1px 3px rgba(251,114,153,0.3);"><svg style="width:11px; height:11px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>` : ''}
-                            <span class="user-level-badge" style="font-size:0.72rem; padding:1px 6px; font-weight:700;">${u.rank || u.level || 1}段</span>
+                            ${u.isBili ? `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 5px; border-radius:8px; line-height:1.2; flex-shrink:0;"><svg style="width:10px; height:10px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>` : ''}
+                            <span class="online-player-rank">${u.rank || u.level || 1}段</span>
                         </div>
                         ${statusHtml}
                     </div>
@@ -13915,6 +13933,8 @@ async function confirmAndSendMatchInvite() {
         duration: activeInviteRules.duration || 60,
         winLead: activeInviteRules.winLead || 6,
         gaugeStyle: activeInviteRules.gaugeStyle || 'tug',
+        matchType: activeInviteRules.matchType || 'ranked',
+        targetUser: activeInviteTarget,
         selectedBooks: activeInviteRules.selectedBooks || ['GaoKao3500']
     };
 
@@ -13933,18 +13953,14 @@ async function confirmAndSendMatchInvite() {
         }, { onConflict: 'code' });
     } catch (e) { }
 
-    globalLobbyChannel.send({
-        type: 'broadcast',
-        event: 'invite_match',
-        payload: {
-            from: currentUser,
-            fromAvatar: getUserAvatar(currentUser),
-            to: activeInviteTarget,
-            roomCode: finalRoomCode,
-            roomName: finalRoomName,
-            config: matchConfig,
-            bookNames: getBookNamesSummary(matchConfig.selectedBooks)
-        }
+    safeBroadcast(globalLobbyChannel, 'invite_match', {
+        from: currentUser,
+        fromAvatar: getUserAvatar(currentUser),
+        to: activeInviteTarget,
+        roomCode: finalRoomCode,
+        roomName: finalRoomName,
+        config: matchConfig,
+        bookNames: getBookNamesSummary(matchConfig.selectedBooks)
     });
 
     const target = activeInviteTarget;
@@ -14019,20 +14035,23 @@ function acceptMatchInvite() {
     currentIncomingInvite = null;
 
     if (globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'invite_response',
-            payload: {
-                from: currentUser,
-                fromAvatar: getUserAvatar(currentUser),
-                to: invite.from,
-                accepted: true,
-                roomCode: invite.roomCode,
-                roomName: invite.roomName,
-                config: invite.config
-            }
+        safeBroadcast(globalLobbyChannel, 'invite_response', {
+            from: currentUser,
+            fromAvatar: getUserAvatar(currentUser),
+            to: invite.from,
+            accepted: true,
+            roomCode: invite.roomCode,
+            roomName: invite.roomName,
+            config: invite.config
         });
     }
+
+    // 更新云端房间状态，支持跨网直达
+    try {
+        if (sbClient && invite.roomCode) {
+            sbClient.from('rooms').update({ player_count: 2 }).eq('code', invite.roomCode).then(() => {}).catch(() => {});
+        }
+    } catch (e) { }
 
     isHost = false;
     roomCode = invite.roomCode;
@@ -14055,15 +14074,11 @@ function declineMatchInvite(isTimeout = false) {
     if (modal) modal.classList.remove('active');
 
     if (currentIncomingInvite && globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'invite_response',
-            payload: {
-                from: currentUser,
-                to: currentIncomingInvite.from,
-                accepted: false,
-                isTimeout: isTimeout
-            }
+        safeBroadcast(globalLobbyChannel, 'invite_response', {
+            from: currentUser,
+            to: currentIncomingInvite.from,
+            accepted: false,
+            isTimeout: isTimeout
         });
     }
     currentIncomingInvite = null;
@@ -14110,11 +14125,7 @@ async function handleHostDeleteRoom(targetCode) {
 
     if (roomCode === codeToDelete) {
         if (realtimeChannel) {
-            realtimeChannel.send({
-                type: 'broadcast',
-                event: 'room_disbanded',
-                payload: { code: codeToDelete, message: '房主已解散并删除该房间' }
-            });
+            safeBroadcast(realtimeChannel, 'room_disbanded', { code: codeToDelete, message: '房主已解散并删除该房间' });
             realtimeChannel.unsubscribe();
             realtimeChannel = null;
         }
@@ -14127,11 +14138,7 @@ async function handleHostDeleteRoom(targetCode) {
     }
 
     if (globalLobbyChannel) {
-        globalLobbyChannel.send({
-            type: 'broadcast',
-            event: 'room_state_change',
-            payload: { action: 'delete', code: codeToDelete }
-        });
+        safeBroadcast(globalLobbyChannel, 'room_state_change', { action: 'delete', code: codeToDelete });
     }
 
     try {
@@ -14238,14 +14245,37 @@ async function fetchOnlineRoomsList(manual = false) {
     }
 
     // 其他在线房间：房主必须在线，且状态为 waiting，且不是自己的专属房间
+    // 其他在线房间：房主处于在线状态、或最近在云端活跃且状态为 waiting，且不是自己的专属房间
     roomMap.forEach(r => {
         if (isLogged && r.code === myCode) return;
         if (r.host === currentUser) return;
         const isHostOnline = onlineUserSet.has(r.host);
-        if (isHostOnline && r.status === 'waiting') {
+        const isHostInRest = (cachedRestOnlineUsers || []).some(u => u.username === r.host);
+        const isRecentlyActive = (now - (r.createdAt || now)) < 120000;
+        if ((isHostOnline || isHostInRest || isRecentlyActive) && r.status === 'waiting') {
             resultRooms.push(r);
         }
     });
+
+    // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，自动调出邀请弹窗
+    const myInviteRoom = (dbRooms || []).find(r => {
+        if (r.status !== 'waiting' || r.host === currentUser) return false;
+        const cfg = r.config || {};
+        if (cfg.targetUser !== currentUser) return false;
+        const age = now - new Date(r.updated_at || r.created_at || now).getTime();
+        return age < 25000;
+    });
+    if (myInviteRoom && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInviteRoom.code)) {
+        handleReceivedMatchInvite({
+            from: myInviteRoom.host,
+            fromAvatar: getUserAvatar(myInviteRoom.host),
+            to: currentUser,
+            roomCode: myInviteRoom.code,
+            roomName: myInviteRoom.name,
+            config: myInviteRoom.config,
+            bookNames: getBookNamesSummary(myInviteRoom.config?.selectedBooks || [])
+        });
+    }
 
     if (resultRooms.length === 0) {
         container.innerHTML = `
@@ -14356,22 +14386,14 @@ window.addEventListener('beforeunload', () => {
         // 1. 立即向房间内的对手发送强制踢人广播
         if (realtimeChannel) {
             try {
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'host_closed_and_kick',
-                    payload: { roomCode: roomCode }
-                });
+                safeBroadcast(realtimeChannel, 'host_closed_and_kick', { roomCode: roomCode });
             } catch (e) { }
         }
 
         // 2. 广播通知大厅其他人隐藏该房间
         if (globalLobbyChannel) {
             try {
-                globalLobbyChannel.send({
-                    type: 'broadcast',
-                    event: 'room_state_change',
-                    payload: { action: 'hide', code: roomCode }
-                });
+                safeBroadcast(globalLobbyChannel, 'room_state_change', { action: 'hide', code: roomCode });
             } catch (e) { }
         }
 
@@ -14590,7 +14612,7 @@ function renderAiDuelBookChips() {
     const summaryEl = document.getElementById('ai-duel-books-summary');
     if (summaryEl) {
         const totalCount = (aiDuelConfig.selectedBooks || []).length;
-        summaryEl.innerText = `已选 ${totalCount} 本词书 (人机对战仅支持云端词书)`;
+        summaryEl.innerText = `已选 ${totalCount} 本词书 (仅支持云端词书)`;
     }
     updateAiDuelStartButtonState();
 }
@@ -14637,13 +14659,13 @@ function updateAiDuelSliderHint() {
             }
         } else {
             const diff = aiRank - userRank;
-            let diffTxt = '与我方持平 (胜负均衡)';
-            if (diff > 0) diffTxt = '挑战更高段位 (获胜奖励更多分，战败扣分较少)';
-            else if (diff < 0) diffTxt = '挑战较低段位 (获胜奖励较少，战败扣分较多)';
-            hintEl.innerHTML = `<span>排位限制：相差 1 段以内 (我方: ${userRank}段，${diffTxt})</span>`;
+            let diffTxt = '';
+            if (diff > 0) diffTxt = '(获胜加分更多)';
+            else if (diff < 0) diffTxt = '(战败扣分更多)';
+            hintEl.innerHTML = `<span>限制：±1 段  当前：${userRank}段 vs ${aiRank}段(AI)  ${diffTxt}</span>`;
         }
     } else {
-        hintEl.innerHTML = `<span style="color:var(--md-sys-color-outline);">友谊赛模式：自由选择 1段~9段 人机切磋，不增减段位积分</span>`;
+        hintEl.innerHTML = `<span style="color:var(--md-sys-color-outline);">无段位限制，输赢不影响等级分</span>`;
     }
 }
 
@@ -14791,7 +14813,7 @@ async function startAiDuel() {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
     if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-        showToast('人机对战仅支持云端词书，请先选择词书');
+        showToast('请选择词书');
         return;
     }
     gameMode = 'ai_duel';
@@ -17374,7 +17396,7 @@ function renderSingleSummaryHtml(pool) {
                     <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词查看辨析项</p>
                 </div>
                 <div class="settlement-filter-group">
-                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">错题 (${mistakeCount})</button>
+                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
                     <button type="button" class="settlement-filter-btn ${!hasMistakes ? 'active' : ''}" onclick="filterSettlementList('all', this)">全部 (${uniquePool.length})</button>
                 </div>
             </div>
@@ -18949,15 +18971,19 @@ async function handleToyFollowAuthor() {
 function switchAccount(name) {
     if (!name || name === currentUser) return;
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, name);
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
     loadUserData(name);
     renderSettingsMain();
@@ -18980,15 +19006,19 @@ function createAndSwitchAccount() {
         return;
     }
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, name);
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
     allUsersList.push(name);
     localStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
@@ -19010,15 +19040,19 @@ function handleDeleteCurrentAccount() {
     if (!isConfirmed) return;
 
     const oldUser = currentUser;
-    if (typeof recordSwitchedAccount === 'function') {
-        recordSwitchedAccount(oldUser);
-    }
-    if (globalLobbyChannel) {
-        try {
-            globalLobbyChannel.untrack();
-            if (sbClient) sbClient.removeChannel(globalLobbyChannel);
-        } catch (e) { }
-        globalLobbyChannel = null;
+    if (typeof cleanAccountSwitchPresence === 'function') {
+        cleanAccountSwitchPresence(oldUser, '');
+    } else {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(oldUser);
+        }
+        if (globalLobbyChannel) {
+            try {
+                globalLobbyChannel.untrack();
+                if (sbClient) sbClient.removeChannel(globalLobbyChannel);
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
     }
 
     // 清除该用户在 localStorage 中的所有相关数据
