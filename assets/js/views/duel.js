@@ -1381,6 +1381,9 @@ function handleRemoteGameStart(payload) {
     const modeBadgeTxt = (roomConfig.matchType === 'friendly') ? '【友谊赛】' : '【排位赛】';
     const ruleSummaryText = isTimed ? `${modeBadgeTxt} 限时抢分 (${Math.round((roomConfig.duration || 120) / 60)}分钟)` : `${modeBadgeTxt} 领先 ${roomConfig.winLead || 6} 题胜出`;
 
+    const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
+    const tugWrap = document.getElementById('arena-gauge-tug-wrap');
+
     if (gaugeStyle === 'tug') {
         if (snakeWrap) snakeWrap.style.display = 'none';
         if (tugWrap) tugWrap.style.display = 'flex';
@@ -2759,10 +2762,11 @@ function initGlobalPresence() {
             syncGlobalPresenceState();
             fetchOnlineRoomsList();
         })
-        .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
             if (Array.isArray(leftPresences)) {
                 leftPresences.forEach(p => {
-                    const leftUser = p.key;
+                    const leftUser = p.username || key;
+                    if (!leftUser) return;
                     discoveredLobbyRooms = discoveredLobbyRooms.filter(r => r.host !== leftUser);
                     sbClient.from('rooms').update({ status: 'closed', player_count: 0 }).eq('host', leftUser).eq('is_temporary', false).then(() => { }).catch(() => { });
                     sbClient.from('rooms').delete().eq('host', leftUser).eq('is_temporary', true).then(() => { }).catch(() => { });
@@ -2812,6 +2816,9 @@ function initGlobalPresence() {
                     return;
                 }
                 console.warn('[Presence] Lobby channel disconnected, status:', status, 'scheduling reconnect...');
+                try {
+                    if (globalLobbyChannel) sbClient.removeChannel(globalLobbyChannel);
+                } catch (e) { }
                 globalLobbyChannel = null;
                 if (!lobbyReconnectTimer) {
                     lobbyReconnectTimer = setTimeout(() => {
@@ -2855,7 +2862,16 @@ function startPresenceHeartbeat() {
                     joinedAt: Date.now()
                 });
             } catch (e) { }
-        } else if (!isConnectingLobby && (!globalLobbyChannel || globalLobbyChannel.state === 'closed' || globalLobbyChannel.state === 'errored')) {
+        } else if (!isConnectingLobby) {
+            // 兜底：任何非 joined 状态（包括 leaving、joining 卡死等）均重连
+            if (globalLobbyChannel) {
+                try {
+                    intentionalLobbyClose = true;
+                    globalLobbyChannel.untrack();
+                    sbClient.removeChannel(globalLobbyChannel);
+                } catch (e) { }
+                globalLobbyChannel = null;
+            }
             initGlobalPresence();
         }
         // 2. REST 在线心跳更新，保证跨网络环境下可被其他玩家检索到（仅登录用户写入数据库）
