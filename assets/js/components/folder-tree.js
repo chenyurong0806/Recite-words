@@ -18,10 +18,12 @@ function renderBookFolderTree(containerId, options = {}) {
     const filterType = options.filterType || (mode === 'shici' ? 'shici' : 'english');
 
     const isDuel = (mode === 'ai_duel' || mode === 'local_duel');
+    const isMultiplayer = (mode === 'room' || mode === 'preset' || mode === 'invite');
+    const excludeLocal = options.excludeLocal || isMultiplayer || (mode === 'ai_duel');
     const canFetchCloud = !!BookManager.cloudFetchSuccess;
     const hasSelection = Array.isArray(selectedIds) && selectedIds.length > 0;
     // 人机对战、同屏对决：默认内置词书仅在无法获取云端词书和未选择任何词书时显示
-    const hideBuiltin = isDuel && (canFetchCloud || hasSelection);
+    const hideBuiltin = (isDuel || isMultiplayer) && (canFetchCloud || hasSelection);
 
     let allBooks = BookManager.availableBooks.length > 0 ? BookManager.availableBooks : BookManager.fallbackBooks;
     if (hideBuiltin) {
@@ -32,8 +34,8 @@ function renderBookFolderTree(containerId, options = {}) {
 
     // 云端词书：包括 Worker/GitHub 云端词书以及从云端下载到本地持久化的词书（过滤掉 GaoKao3500 重复项）
     const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500' && bookMatches(b));
-    // 本地词书：用户自主导入的本地词书
-    const localCustomBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b));
+    // 本地词书：用户自主导入的本地词书 (远程联机、人机对战禁止选择本地词书)
+    const localCustomBooks = excludeLocal ? [] : (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b));
 
     if (cloudBooks.length === 0 && localCustomBooks.length === 0) {
         container.innerHTML = `

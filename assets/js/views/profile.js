@@ -1178,27 +1178,13 @@ function renderMeView() {
                 const lData = LevelManager.getLevelData(currentUserProfile.username || currentUser);
                 const badge = document.getElementById('me-level-badge');
                 const title = document.getElementById('me-level-title');
-                const comp = document.getElementById('me-level-comparison');
                 const expText = document.getElementById('me-level-exp-text');
                 const fill = document.getElementById('me-level-progress-fill');
 
-                if (badge) badge.innerText = `Lv.${lData.level}`;
+                if (badge) badge.innerText = `${lData.rank}段`;
                 if (title) title.innerText = '';
-                if (expText) expText.innerText = `${lData.progressPercent}%`;
-                if (fill) fill.style.width = `${lData.progressPercent}%`;
-                if (comp) {
-                    let color = 'var(--md-sys-color-outline)';
-                    let icon = 'horizontal_rule';
-                    if (lData.comparisonType === 'up') {
-                        color = '#16a34a';
-                        icon = 'arrow_upward';
-                    } else if (lData.comparisonType === 'down') {
-                        color = '#dc2626';
-                        icon = 'arrow_downward';
-                    }
-                    comp.style.color = color;
-                    comp.innerHTML = `<span class="material-symbols-rounded" style="font-size:15px;">${icon}</span><span>${escapeHtml(lData.comparisonText)}</span>`;
-                }
+                if (expText) expText.innerText = `${lData.rating}/100分`;
+                if (fill) fill.style.width = `${Math.min(100, Math.max(0, lData.rating))}%`;
             }
         }
     }

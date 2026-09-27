@@ -1,14 +1,15 @@
 /**
- * 人机对战引擎 (拔河机制)
+ * 人机对战引擎 (拔河机制 & 段位匹配)
  * Module: assets/js/views/ai-duel.js
  */
 
 /* ==========================================================================
-   7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR)
+   7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR & RANK MATCHING)
    ========================================================================== */
 let aiDuelConfig = {
-    selectedBooks: ['GaoKao3500'],
-    difficulty: 'normal',
+    selectedBooks: ['books/考纲/高考3500.json'],
+    matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
+    aiRank: 1, // 1段 ~ 9段
     speedMode: 'smart',
     mode: 'lead', // 默认为拔河不限时模式 ('lead' 或 'timed')
     winLead: 6,
@@ -17,14 +18,80 @@ let aiDuelConfig = {
 
 try {
     const savedAi = JSON.parse(localStorage.getItem('vocab_ai_duel_config') || '{}');
-    if (savedAi) Object.assign(aiDuelConfig, savedAi);
+    if (savedAi) {
+        Object.assign(aiDuelConfig, savedAi);
+        // 确保过滤掉本地自定义词书
+        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (aiDuelConfig.selectedBooks.length === 0) {
+                aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            }
+        }
+        if (typeof aiDuelConfig.aiRank !== 'number') {
+            aiDuelConfig.aiRank = 1;
+        }
+        aiDuelConfig.aiRank = Math.max(1, Math.min(9, aiDuelConfig.aiRank));
+        if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
+    }
 } catch (e) { }
 
 function selectAiRule(rule) {
     aiDuelConfig.mode = rule;
+    if (aiDuelConfig.matchType === 'ranked') {
+        if (rule === 'lead') {
+            aiDuelConfig.winLead = 6;
+        } else if (rule === 'timed') {
+            aiDuelConfig.duration = 120;
+        }
+    }
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
+
+function selectAiMatchType(type) {
+    aiDuelConfig.matchType = type;
+    const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
+    if (type === 'ranked') {
+        const minR = Math.max(1, userRank - 1);
+        const maxR = Math.min(9, userRank + 1);
+        if (aiDuelConfig.aiRank < minR || aiDuelConfig.aiRank > maxR) {
+            aiDuelConfig.aiRank = userRank;
+        }
+        aiDuelConfig.speedMode = 'smart';
+        if (aiDuelConfig.mode === 'lead') {
+            aiDuelConfig.winLead = 6;
+        } else if (aiDuelConfig.mode === 'timed') {
+            aiDuelConfig.duration = 120;
+        }
+    }
+    updateAiDuelSettingsChips();
+    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
+}
+window.selectAiMatchType = selectAiMatchType;
+
+function handleAiDifficultySliderChange(val) {
+    let num = Math.max(1, Math.min(9, parseInt(val) || 1));
+    const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
+    if (aiDuelConfig.matchType === 'ranked') {
+        const minR = Math.max(1, userRank - 1);
+        const maxR = Math.min(9, userRank + 1);
+        if (num < minR) {
+            num = minR;
+        } else if (num > maxR) {
+            num = maxR;
+        }
+        const slider = document.getElementById('ai-difficulty-slider');
+        if (slider && parseInt(slider.value) !== num) {
+            slider.value = num;
+        }
+    }
+    aiDuelConfig.aiRank = num;
+    const disp = document.getElementById('ai-difficulty-display');
+    if (disp) disp.innerText = `${num}段`;
+    updateAiDuelSliderHint();
+    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
+}
+window.handleAiDifficultySliderChange = handleAiDifficultySliderChange;
 
 let aiDuelState = {
     pool: [],
@@ -35,10 +102,28 @@ let aiDuelState = {
 let aiDuelTimer = null;
 
 function openAiDuelSettings() {
-    // 打开弹窗时，默认折叠所有分类文件夹
     folderTreeCollapseMap = {};
     const modal = document.getElementById('modal-ai-duel-settings');
     if (!modal) return;
+
+    // 清理可能误存的本地词书
+    if (Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+        if (aiDuelConfig.selectedBooks.length === 0) {
+            aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
+        }
+    }
+
+    // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
+    const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
+    if (aiDuelConfig.matchType === 'ranked') {
+        const minR = Math.max(1, userRank - 1);
+        const maxR = Math.min(9, userRank + 1);
+        if (aiDuelConfig.aiRank < minR || aiDuelConfig.aiRank > maxR) {
+            aiDuelConfig.aiRank = userRank;
+        }
+    }
+
     renderAiDuelBookChips();
     updateAiDuelSettingsChips();
     modal.classList.add('active');
@@ -56,22 +141,6 @@ function switchAiDuelBookCategory(cat) {
     document.querySelectorAll('#ai-duel-book-category-tabs .settings-cat-tab').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
     });
-    const importLabel = document.getElementById('ai-duel-import-label');
-    if (importLabel) importLabel.innerText = cat === 'shici' ? '导入文言' : '导入词书';
-    renderAiDuelBookChips();
-}
-
-function triggerAiDuelBookImport() {
-    const input = document.getElementById('ai-duel-custom-book-input');
-    if (input) input.click();
-}
-
-async function handleAiDuelCustomBookUpload(e) {
-    if (currentAiDuelCategory === 'shici') {
-        await loadCustomShiCiBook(e);
-    } else {
-        await loadCustomBook(e);
-    }
     renderAiDuelBookChips();
 }
 
@@ -79,8 +148,8 @@ function selectAllAiDuelBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)))
-        .concat((window.customBooks || []).filter(b => currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    // 人机对战禁止选择本地词书，且不选择单机默认测试词书
+    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && !String(b.id).startsWith('custom_') && (currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
     if (selectAll) {
         targetBooks.forEach(b => {
@@ -102,18 +171,21 @@ function renderAiDuelBookChips() {
     if (!Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = [];
     }
+    // 过滤本地词书
+    aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
 
     renderBookFolderTree('chips-ai-duel-books', {
         selectedIds: aiDuelConfig.selectedBooks,
         onToggle: 'toggleAiDuelBook',
         mode: 'ai_duel',
-        filterType: 'all'
+        filterType: 'all',
+        excludeLocal: true
     });
 
     const summaryEl = document.getElementById('ai-duel-books-summary');
     if (summaryEl) {
         const totalCount = (aiDuelConfig.selectedBooks || []).length;
-        summaryEl.innerText = `已选 ${totalCount} 本词书`;
+        summaryEl.innerText = `已选 ${totalCount} 本词书 (仅支持云端词书)`;
     }
     updateAiDuelStartButtonState();
 }
@@ -127,6 +199,10 @@ function updateAiDuelStartButtonState() {
 }
 
 function toggleAiDuelBook(bookId) {
+    if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
+        showToast('人机对战禁止选择本地词书');
+        return;
+    }
     if (!Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = [];
     }
@@ -140,12 +216,86 @@ function toggleAiDuelBook(bookId) {
     renderAiDuelBookChips();
 }
 
+function updateAiDuelSliderHint() {
+    const hintEl = document.getElementById('ai-difficulty-hint');
+    if (!hintEl) return;
+    const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
+    const rankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0, isPromotionReady: false };
+    const aiRank = aiDuelConfig.aiRank || 1;
+
+    if (aiDuelConfig.matchType === 'ranked') {
+        if (rankData.isPromotionReady) {
+            if (aiRank === userRank + 1) {
+                hintEl.innerHTML = `<span style="color:#16a34a; font-weight:700;">🔥 升段赛目标：挑战 ${userRank + 1}段 人机并获胜即可成功晋升！(输了不扣分)</span>`;
+            } else {
+                hintEl.innerHTML = `<span style="color:#eab308; font-weight:700;">⚠️ 升段赛就绪：需挑战高于自身1段（${userRank + 1}段）人机才能升段！</span>`;
+            }
+        } else {
+            const diff = aiRank - userRank;
+            let diffTxt = '';
+            if (diff > 0) diffTxt = '(获胜加分更多)';
+            else if (diff < 0) diffTxt = '(战败扣分更多)';
+            hintEl.innerHTML = `<span>限制：±1 段  当前：${userRank}段 vs ${aiRank}段(AI)  ${diffTxt}</span>`;
+        }
+    } else {
+        hintEl.innerHTML = `<span style="color:var(--md-sys-color-outline);">无段位限制，输赢不影响等级分</span>`;
+    }
+}
+
 function updateAiDuelSettingsChips() {
-    document.querySelectorAll('#chips-ai-difficulty .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-diff') === aiDuelConfig.difficulty);
+    const isRanked = (aiDuelConfig.matchType === 'ranked');
+    const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
+
+    // 对战模式切换 (排位赛 vs 友谊赛)
+    document.querySelectorAll('#chips-ai-match-type .md3-chip').forEach(c => {
+        c.classList.toggle('selected', c.getAttribute('data-type') === (aiDuelConfig.matchType || 'ranked'));
     });
+
+    // 段位滑块更新：物理滑动条始终固定为 1~9，绝不缩短滑块轨道
+    const slider = document.getElementById('ai-difficulty-slider');
+    const disp = document.getElementById('ai-difficulty-display');
+
+    if (slider) {
+        slider.min = 1;
+        slider.max = 9;
+        if (isRanked) {
+            const minR = Math.max(1, userRank - 1);
+            const maxR = Math.min(9, userRank + 1);
+            if (aiDuelConfig.aiRank < minR || aiDuelConfig.aiRank > maxR) {
+                aiDuelConfig.aiRank = userRank;
+            }
+        }
+        slider.value = aiDuelConfig.aiRank || 1;
+    }
+    if (disp) {
+        disp.innerText = `${aiDuelConfig.aiRank || 1}段`;
+    }
+    updateAiDuelSliderHint();
+
+    // 排位模式下固定规则强制设置
+    if (isRanked) {
+        aiDuelConfig.speedMode = 'smart';
+        if (aiDuelConfig.mode === 'timed') {
+            aiDuelConfig.duration = 120; // 2分钟
+        } else {
+            aiDuelConfig.winLead = 6; // 领先6题
+        }
+    }
+
+    // AI 答题速度
     document.querySelectorAll('#chips-ai-speed-mode .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-speed') === aiDuelConfig.speedMode);
+        const spd = c.getAttribute('data-speed');
+        c.classList.toggle('selected', spd === (aiDuelConfig.speedMode || 'smart'));
+        if (isRanked) {
+            const isSmart = (spd === 'smart');
+            c.classList.toggle('disabled', !isSmart);
+            c.style.pointerEvents = isSmart ? 'auto' : 'none';
+            c.style.opacity = isSmart ? '1' : '0.4';
+        } else {
+            c.classList.remove('disabled');
+            c.style.pointerEvents = 'auto';
+            c.style.opacity = '1';
+        }
     });
 
     // 规则模式切换（不限时 vs 限时）
@@ -158,33 +308,64 @@ function updateAiDuelSettingsChips() {
     if (groupLead) groupLead.style.display = (aiDuelConfig.mode === 'timed') ? 'none' : 'block';
     if (groupTimed) groupTimed.style.display = (aiDuelConfig.mode === 'timed') ? 'block' : 'none';
 
+    // 领先题数选择
     document.querySelectorAll('#chips-ai-lead .md3-chip').forEach(c => {
-        c.classList.toggle('selected', parseInt(c.getAttribute('data-lead')) === aiDuelConfig.winLead);
+        const leadVal = parseInt(c.getAttribute('data-lead'));
+        c.classList.toggle('selected', leadVal === (aiDuelConfig.winLead || 6));
+        if (isRanked) {
+            const isFixedLead = (leadVal === 6);
+            c.classList.toggle('disabled', !isFixedLead);
+            c.style.pointerEvents = isFixedLead ? 'auto' : 'none';
+            c.style.opacity = isFixedLead ? '1' : '0.4';
+        } else {
+            c.classList.remove('disabled');
+            c.style.pointerEvents = 'auto';
+            c.style.opacity = '1';
+        }
     });
-    document.querySelectorAll('#chips-ai-duration .md3-chip').forEach(c => {
-        c.classList.toggle('selected', parseInt(c.getAttribute('data-time')) === aiDuelConfig.duration);
-    });
-}
 
-function selectAiDifficulty(diff) {
-    aiDuelConfig.difficulty = diff;
-    updateAiDuelSettingsChips();
-    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
+    // 限时时长选择
+    document.querySelectorAll('#chips-ai-duration .md3-chip').forEach(c => {
+        const durVal = parseInt(c.getAttribute('data-time'));
+        c.classList.toggle('selected', durVal === (aiDuelConfig.duration || 120));
+        if (isRanked) {
+            const isFixedDur = (durVal === 120);
+            c.classList.toggle('disabled', !isFixedDur);
+            c.style.pointerEvents = isFixedDur ? 'auto' : 'none';
+            c.style.opacity = isFixedDur ? '1' : '0.4';
+        } else {
+            c.classList.remove('disabled');
+            c.style.pointerEvents = 'auto';
+            c.style.opacity = '1';
+        }
+    });
 }
 
 function selectAiSpeedMode(speed) {
+    if (aiDuelConfig.matchType === 'ranked' && speed !== 'smart') {
+        showToast('排位模式下AI答题速度固定为智能');
+        return;
+    }
     aiDuelConfig.speedMode = speed;
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
 
 function selectAiLead(lead) {
+    if (aiDuelConfig.matchType === 'ranked' && lead !== 6) {
+        showToast('排位模式下获胜条件固定为领先6题');
+        return;
+    }
     aiDuelConfig.winLead = lead;
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
 
 function selectAiDuration(dur) {
+    if (aiDuelConfig.matchType === 'ranked' && dur !== 120) {
+        showToast('排位模式下限时固定为2分钟');
+        return;
+    }
     aiDuelConfig.duration = dur;
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
@@ -200,8 +381,12 @@ async function startAiDuelFromModal() {
 }
 
 async function startAiDuel() {
+    // 强制过滤掉本地词书
+    if (Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+    }
     if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-        showToast('请至少选择一本词书！');
+        showToast('请选择词书');
         return;
     }
     gameMode = 'ai_duel';
@@ -228,13 +413,14 @@ async function startAiDuel() {
         aiFrozenUntil: 0
     };
 
+    const aiTitle = `系统AI (${aiDuelConfig.aiRank || 1}段)`;
     if (typeof renderArenaPlayersUI === 'function') {
-        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), '系统AI', '');
+        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, '');
     } else {
         const myBadge = document.getElementById('arena-my-badge');
         const oppoBadge = document.getElementById('arena-oppo-badge');
         if (myBadge) myBadge.innerText = '🔴 ' + (currentUser || '我方');
-        if (oppoBadge) oppoBadge.innerText = '🔵 系统AI';
+        if (oppoBadge) oppoBadge.innerText = '🔵 ' + aiTitle;
     }
     document.getElementById('arena-my-score').innerText = '0';
     document.getElementById('arena-oppo-score').innerText = '0';
@@ -248,8 +434,9 @@ async function startAiDuel() {
     const timerEl = document.getElementById('arena-tug-timer');
 
     const isTimed = (aiDuelConfig.mode === 'timed');
+    const modeBadgeTxt = (aiDuelConfig.matchType === 'ranked') ? '【排位赛】' : '【友谊赛】';
     if (ruleSum) {
-        ruleSum.innerText = isTimed ? `限时抢分` : `领先 ${aiDuelConfig.winLead} 题胜出`;
+        ruleSum.innerText = isTimed ? `${modeBadgeTxt} 限时抢分` : `${modeBadgeTxt} 领先 ${aiDuelConfig.winLead} 题胜出`;
     }
     if (timerEl) {
         timerEl.style.display = isTimed ? 'inline-block' : 'none';
@@ -270,18 +457,20 @@ async function startAiDuel() {
                 if (aiDuelTimer) clearTimeout(aiDuelTimer);
                 const diff = p1State.score - p2State.score;
                 let myMsg = "🤝 势均力敌，握手言和！";
-                if (diff > 0) myMsg = "🎉 恭喜战胜系统AI！";
-                else if (diff < 0) myMsg = "💔 遗憾惜败系统AI！";
+                if (diff > 0) myMsg = `🎉 恭喜战胜系统AI (${aiDuelConfig.aiRank}段)！`;
+                else if (diff < 0) myMsg = `💔 遗憾惜败系统AI (${aiDuelConfig.aiRank}段)！`;
                 endGame(myMsg, false);
             }
         }, 1000);
     }
 
+    isPlayingMatch = true;
+    if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
     scheduleNextAiAnswer();
     switchView('view-game');
 }
 
-// 计算下一次 AI 作答时间 (兼顾单词与词组，并引入动态难度自适应调节)
+// 计算下一次 AI 作答时间 (兼顾单词与词组，按 1段~9段 指数式调整基准延迟)
 function scheduleNextAiAnswer() {
     if (gameMode !== 'ai_duel' || timeLeft <= 0) return;
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
@@ -293,7 +482,6 @@ function scheduleNextAiAnswer() {
     if (aiDuelConfig.speedMode === 'smart') {
         if (isPhrase) {
             const tokens = extractPhraseTargetWords(q.word);
-            // 词组每增加一格词块，延长更多时间 (基础 4200ms + 每词块 1800ms)
             delay = 4200 + (tokens.length * 1800) + (Math.random() * 1000 - 500);
         } else {
             const len = (q.word || '').length;
@@ -308,23 +496,22 @@ function scheduleNextAiAnswer() {
         }
     }
 
-    // 根据难度基准微调
-    if (aiDuelConfig.difficulty === 'easy') delay *= 1.45;
-    else if (aiDuelConfig.difficulty === 'hard') delay *= 0.85;
+    // 1段~9段速度倍率：1段为 1.6 倍慢速，9段为 0.65 倍超快速
+    const aiRank = aiDuelConfig.aiRank || 1;
+    const delayFactor = Math.max(0.60, 1.60 - (aiRank - 1) * 0.11875);
+    delay *= delayFactor;
 
-    // 动态难度系统：根据玩家领先/落后分差自适应调节 AI 作答速度
+    // 动态自适应追赶/放缓调节
     const playerLead = p1State.score - p2State.score;
     if (playerLead >= 3) {
-        // 玩家领先 3 题及以上，AI 适度提速追赶
         const speedFactor = Math.max(0.68, 1 - (playerLead - 2) * 0.08);
         delay *= speedFactor;
     } else if (playerLead <= -3) {
-        // 玩家落后 3 题及以上，AI 适度降速放缓
         const slowFactor = Math.min(1.50, 1 + (Math.abs(playerLead) - 2) * 0.10);
         delay *= slowFactor;
     }
 
-    delay = Math.max(isPhrase ? 3200 : 1500, delay);
+    delay = Math.max(isPhrase ? 3000 : 1300, delay);
 
     aiDuelTimer = setTimeout(() => {
         handleAiAnswerStep();
@@ -334,27 +521,24 @@ function scheduleNextAiAnswer() {
 function handleAiAnswerStep() {
     if (gameMode !== 'ai_duel' || timeLeft <= 0) return;
 
-    // 如果当前处于答错冻结冷却期，跳过并进入下个周期
     if (Date.now() < aiDuelState.aiFrozenUntil) {
         scheduleNextAiAnswer();
         return;
     }
 
-    let baseAccuracy = 0.80;
-    if (aiDuelConfig.difficulty === 'easy') baseAccuracy = 0.65;
-    else if (aiDuelConfig.difficulty === 'hard') baseAccuracy = 0.95;
+    // 1段~9段基础正确率：1段 60%，5段 79%，9段 98%
+    const aiRank = aiDuelConfig.aiRank || 1;
+    let baseAccuracy = Math.min(0.98, Math.max(0.58, 0.58 + (aiRank - 1) * 0.05));
 
-    // 动态难度系统：根据玩家领先分差自适应调节 AI 正确率
+    // 动态自适应调节
     const playerLead = p1State.score - p2State.score;
     let dynamicAccuracy = baseAccuracy;
     if (playerLead >= 3) {
-        // 玩家领先较大，适度提高 AI 正确率
-        const boost = Math.min(0.18, (playerLead - 2) * 0.04);
-        dynamicAccuracy = Math.min(0.98, baseAccuracy + boost);
+        const boost = Math.min(0.15, (playerLead - 2) * 0.03);
+        dynamicAccuracy = Math.min(0.99, baseAccuracy + boost);
     } else if (playerLead <= -3) {
-        // 玩家落后较多，适度降低 AI 正确率
-        const drop = Math.min(0.25, (Math.abs(playerLead) - 2) * 0.06);
-        dynamicAccuracy = Math.max(0.50, baseAccuracy - drop);
+        const drop = Math.min(0.25, (Math.abs(playerLead) - 2) * 0.05);
+        dynamicAccuracy = Math.max(0.45, baseAccuracy - drop);
     }
 
     const isCorrect = Math.random() < dynamicAccuracy;
@@ -376,18 +560,31 @@ function handleAiAnswerStep() {
 }
 
 function checkAiDuelWinCondition() {
+    if (aiDuelConfig.mode === 'timed') {
+        return false;
+    }
     const winLead = aiDuelConfig.winLead || 6;
     const diff = p1State.score - p2State.score;
 
     if (diff >= winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`🎉 恭喜领先达到 ${winLead} 题，战胜系统AI！`, false);
+        endGame(`🎉 恭喜领先达到 ${winLead} 题，战胜系统AI (${aiDuelConfig.aiRank}段)！`, false);
         return true;
     } else if (diff <= -winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`💔 系统AI领先达到 ${winLead} 题，遗憾惜败！`, false);
+        endGame(`💔 系统AI (${aiDuelConfig.aiRank}段) 领先达到 ${winLead} 题，遗憾惜败！`, false);
         return true;
     }
     return false;
 }
 
+window.openAiDuelSettings = openAiDuelSettings;
+window.closeAiDuelSettings = closeAiDuelSettings;
+window.switchAiDuelBookCategory = switchAiDuelBookCategory;
+window.selectAllAiDuelBooks = selectAllAiDuelBooks;
+window.toggleAiDuelBook = toggleAiDuelBook;
+window.selectAiSpeedMode = selectAiSpeedMode;
+window.selectAiRule = selectAiRule;
+window.selectAiLead = selectAiLead;
+window.selectAiDuration = selectAiDuration;
+window.startAiDuelFromModal = startAiDuelFromModal;

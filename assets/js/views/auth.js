@@ -134,6 +134,36 @@ function showManualLoginForm(prefUsername = '') {
     }
 }
 
+async function prepareUserSwitch(newUser) {
+    const prevUser = currentUser;
+    if (prevUser && prevUser !== newUser) {
+        if (typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(prevUser);
+        }
+        const localGuest = SafeStorage.getItem('vocab_guest_name');
+        if (localGuest && typeof recordSwitchedAccount === 'function') {
+            recordSwitchedAccount(localGuest);
+        }
+        if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel) {
+            try {
+                await globalLobbyChannel.untrack();
+            } catch (e) { }
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient) {
+                    sbClient.removeChannel(globalLobbyChannel);
+                }
+            } catch (e) { }
+            globalLobbyChannel = null;
+        }
+        if (typeof sbClient !== 'undefined' && sbClient) {
+            sbClient.from('rooms').delete().eq('host', prevUser).then(() => { }).catch(() => { });
+            if (localGuest) {
+                sbClient.from('rooms').delete().eq('host', localGuest).then(() => { }).catch(() => { });
+            }
+        }
+    }
+}
+
 async function selectSavedAccountToLogin(username) {
     const list = getSavedDeviceAccounts();
     const acc = list.find(a => a.username === username);
@@ -150,6 +180,7 @@ async function selectSavedAccountToLogin(username) {
 
     try {
         const user = await supabaseLoginWithHash(acc.username, acc.hashedPassword);
+        await prepareUserSwitch(user.username);
         acc.lastLoginTime = Date.now();
         localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 
@@ -167,6 +198,9 @@ async function selectSavedAccountToLogin(username) {
             } catch (e) { }
         }
         loadUserData(user.username, profile);
+        if (typeof initGlobalPresence === 'function') {
+            initGlobalPresence();
+        }
         showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
     } catch (e) {
@@ -245,6 +279,7 @@ async function handleCloudLogin() {
     try {
         const hashedPassword = await hashPassword(password);
         const user = await supabaseLoginUser({ username, password });
+        await prepareUserSwitch(user.username);
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
         const profile = {
@@ -264,6 +299,9 @@ async function handleCloudLogin() {
         }
 
         loadUserData(user.username, profile);
+        if (typeof initGlobalPresence === 'function') {
+            initGlobalPresence();
+        }
         showToast(`欢迎回来 ${user.username}！`);
 
         if (passwordInput) passwordInput.value = '';
@@ -320,6 +358,7 @@ async function handleCloudRegister() {
             password: password,
             avatar: regAvatarDataUrl
         });
+        await prepareUserSwitch(newUser.username);
 
         const hashedPassword = await hashPassword(password);
         const profile = {
@@ -331,6 +370,9 @@ async function handleCloudRegister() {
         recordDeviceAccount(newUser.username, newUser.avatar_url || '', 'cloud', hashedPassword);
 
         loadUserData(newUser.username, profile);
+        if (typeof initGlobalPresence === 'function') {
+            initGlobalPresence();
+        }
         showToast(`注册成功！已为您登录云端账号`);
 
         if (passwordInput) passwordInput.value = '';
@@ -360,6 +402,8 @@ async function handleBiliToyLogin() {
 
     try {
         const biliProfile = await biliLogin();
+        await prepareUserSwitch(biliProfile.username);
+
         const profile = {
             isLoggedIn: true,
             type: 'bilibili',
@@ -369,15 +413,21 @@ async function handleBiliToyLogin() {
         };
         recordDeviceAccount(biliProfile.username, biliProfile.avatar || '', 'bilibili', '');
 
-        // 从 B 站云存储尝试拉取数据
-        const cloudData = await biliLoadCloudData();
-        if (cloudData && cloudData.stats) {
-            try {
-                SafeStorage.setItem(`vocab_stats_${biliProfile.username}`, JSON.stringify(cloudData.stats));
-            } catch (e) { }
+        // 从 Supabase 恢复/同步 B 站用户学习记录、词书掌握度与段位（不使用 Toy 云储存）
+        if (typeof supabaseSyncBiliUser === 'function') {
+            const cloudUser = await supabaseSyncBiliUser(biliProfile);
+            if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
+                restoreUserDataFromCloud(cloudUser);
+            }
         }
 
         loadUserData(biliProfile.username, profile);
+        if (typeof initGlobalPresence === 'function') {
+            initGlobalPresence();
+        }
+        if (typeof syncAllUserDataToCloud === 'function') {
+            syncAllUserDataToCloud(biliProfile.username);
+        }
         showToast(`登录成功：${biliProfile.username}`);
         switchView('view-hub');
     } catch (err) {

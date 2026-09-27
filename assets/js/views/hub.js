@@ -172,10 +172,6 @@ function closeHubUserDropdown() {
 function setUserPresenceStatus(status) {
     currentPresenceStatus = status;
     localStorage.setItem('vocab_presence_status', status);
-    const dot = document.getElementById('hub-user-status-dot');
-    if (dot) {
-        dot.style.background = (status === 'invisible') ? '#94a3b8' : '#22c55e';
-    }
     const chkOnline = document.getElementById('hub-dd-status-check-online');
     const chkInv = document.getElementById('hub-dd-status-check-invisible');
     if (chkOnline) chkOnline.style.display = (status === 'online') ? 'inline-flex' : 'none';
@@ -240,18 +236,14 @@ function updateHub() {
         if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
             const lData = LevelManager.getLevelData(currentUser);
             levelBadge.style.display = 'inline-flex';
-            levelBadge.innerText = `Lv. ${lData.level}`;
-            levelBadge.title = `等级 Lv.${lData.level}`;
+            levelBadge.innerText = `${lData.rank}段`;
+            levelBadge.title = `段位 ${lData.rank}段 (${lData.rating}/100分)`;
         } else {
             levelBadge.style.display = 'none';
         }
     }
 
-    // 更新用户状态圆点与下拉菜单内容
-    const statusDot = document.getElementById('hub-user-status-dot');
-    if (statusDot) {
-        statusDot.style.background = (currentPresenceStatus === 'invisible') ? '#94a3b8' : '#22c55e';
-    }
+    // 更新下拉菜单内容
     const chkOnline = document.getElementById('hub-dd-status-check-online');
     const chkInv = document.getElementById('hub-dd-status-check-invisible');
     if (chkOnline) chkOnline.style.display = (currentPresenceStatus === 'online') ? 'inline-flex' : 'none';
@@ -265,9 +257,9 @@ function updateHub() {
     if (ddLevelText) {
         if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
             const lData = LevelManager.getLevelData(currentUser);
-            ddLevelText.innerText = `Lv.${lData.level}`;
+            ddLevelText.innerText = `${lData.rank}段 (${lData.rating}/100分)`;
         } else {
-            ddLevelText.innerText = '登录后解锁等级功能';
+            ddLevelText.innerText = '登录后解锁段位功能';
         }
     }
     if (ddLogged && ddGuest) {

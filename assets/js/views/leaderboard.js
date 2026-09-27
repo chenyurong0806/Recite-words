@@ -102,37 +102,47 @@ async function renderLevelLeaderboard() {
         });
     }
 
-    // 3. 计算所有玩家等级数据并排序（不显示称号与具体经验）
+    // 3. 计算所有玩家段位和等级分数据并排序
     const userScores = accounts.map(acc => {
-        let level = acc.level || 1;
-        let score = 0;
+        let rank = 1;
+        let rating = 0;
 
         if (acc.username === currUser && typeof LevelManager !== 'undefined') {
-            const lData = LevelManager.getLevelData(currUser);
-            level = lData.level || 1;
-            score = lData.score || 0;
+            const rData = LevelManager.getUserRankData(currUser);
+            rank = rData.rank || 1;
+            rating = rData.rating || 0;
+        } else if (acc.user_data && acc.user_data.rank_data) {
+            rank = acc.user_data.rank_data.rank || acc.level || 1;
+            rating = acc.user_data.rank_data.rating || 0;
         } else if (acc.user_data && acc.user_data.levelData) {
-            level = acc.user_data.levelData.level || acc.level || 1;
-            score = acc.user_data.levelData.score || 0;
-        } else if (acc.user_data && acc.user_data.stats) {
-            const stats = acc.user_data.stats;
-            score = (stats.correct || 0) * 5 + (stats.total || 0) * 2;
-            level = (typeof LevelManager !== 'undefined') ? LevelManager.getLevelFromScore(score) : Math.min(60, Math.max(1, Math.floor(score / 50)));
+            rank = acc.user_data.levelData.level || acc.level || 1;
+            rating = acc.user_data.levelData.score || 0;
+        } else if (acc.level) {
+            rank = acc.level || 1;
+            if (acc.user_data && typeof acc.user_data.score === 'number') {
+                rating = acc.user_data.score;
+            }
         }
+
+        rank = Math.max(1, Math.min(9, parseInt(rank) || 1));
+        rating = Math.max(0, Math.min(100, parseInt(rating) || 0));
+        const totalRating = (rank - 1) * 100 + rating;
 
         return {
             username: acc.username,
             avatar: acc.avatar_url || '',
-            level,
-            score,
+            rank,
+            rating,
+            totalRating,
             isMe: acc.username === currUser
         };
     });
 
-    // 降序排序：等级优先，经验次之
+    // 降序排序：按总等级分排序 (总等级分 = (段位-1)*100 + 当前分)
     userScores.sort((a, b) => {
-        if (b.level !== a.level) return b.level - a.level;
-        return b.score - a.score;
+        if (b.totalRating !== a.totalRating) return b.totalRating - a.totalRating;
+        if (b.rank !== a.rank) return b.rank - a.rank;
+        return b.rating - a.rating;
     });
 
     if (userScores.length === 0) {
@@ -146,7 +156,7 @@ async function renderLevelLeaderboard() {
         return;
     }
 
-    // 渲染“我的排名”横幅（完全贴合设计图：无称号，无经验数字）
+    // 渲染“我的排名”横幅（展示段位与等级分）
     const myIndex = userScores.findIndex(u => u.isMe);
     if (myRankBanner) {
         if (myIndex >= 0 && !currUser.startsWith('游客')) {
@@ -164,7 +174,7 @@ async function renderLevelLeaderboard() {
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.05rem; font-weight:800; color:#0f172a;">Lv.${myData.level}</span>
+                    <span style="font-size:1.05rem; font-weight:800; color:#0369a1;">${myData.rank}段   ${myData.rating}分</span>
                 </div>
             `;
         } else {
@@ -180,7 +190,7 @@ async function renderLevelLeaderboard() {
         }
     }
 
-    // 渲染排行榜列表（完全贴合设计图：金银铜勋章图标，圆角列表，Lv.X右对齐，无称号，无经验）
+    // 渲染排行榜列表（展示段位和等级分）
     listContainer.innerHTML = userScores.map((u, idx) => {
         const rank = idx + 1;
         let rankBadge = '';
@@ -215,7 +225,7 @@ async function renderLevelLeaderboard() {
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; flex-shrink:0;">
-                    <span style="font-size:1.05rem; font-weight:800; color:#0f172a;">Lv.${u.level}</span>
+                    <span style="font-size:1.05rem; font-weight:800; color:#0f172a;">${u.rank}段   ${u.rating}分</span>
                 </div>
             </div>
         `;
@@ -468,7 +478,7 @@ async function renderWordleLeaderboard() {
         listContainer.innerHTML = `
             <div style="text-align:center; padding:48px 16px; color:var(--md-sys-color-outline);">
                 <span class="material-symbols-rounded" style="font-size:42px; opacity:0.35;">grid_view</span>
-                <p style="margin-top:10px; font-size:0.95rem;">${wordleLeaderboardDate} 暂无玩家通关上榜</p>
+                <p style="margin-top:10px; font-size:0.95rem;">${wordleLeaderboardDate} 无玩家上榜</p>
                 ${isToday ? `
                 <button type="button" class="btn btn-filled btn-sm" onclick="startDailyWordleGame()" style="margin-top:12px; border-radius:9999px;">
                     <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
@@ -530,7 +540,7 @@ async function renderWordleLeaderboard() {
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                    <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.8rem; font-weight:700; padding:4px 10px; border-radius:9999px;">${r.attempts}/6 猜出</span>
+                    <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.8rem; font-weight:700; padding:4px 10px; border-radius:9999px;">${r.attempts}次猜出</span>
                     <span style="font-size:0.9rem; font-weight:800; color:#0284c7;">${timeFormatted}</span>
                 </div>
             </div>

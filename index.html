@@ -188,10 +188,14 @@
             <!-- 对局规则与信息 -->
             <div style="background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m); padding:10px 14px; margin-bottom:14px; text-align:left; font-size:0.84rem; line-height:1.7; border:1px solid var(--md-sys-color-outline-variant);">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--md-sys-color-outline);">每局限时:</span>
-                    <span id="invite-rule-time" style="font-weight:600; color:var(--md-sys-color-on-surface);">1 分钟</span>
+                    <span style="color:var(--md-sys-color-outline);">对战模式:</span>
+                    <span id="invite-rule-match-type" style="font-weight:600; color:var(--md-sys-color-primary);">排位赛</span>
                 </div>
-                <div style="display:flex; justify-content:space-between;">
+                <div style="display:flex; justify-content:space-between;" id="invite-rule-row-time">
+                    <span style="color:var(--md-sys-color-outline);">每局限时:</span>
+                    <span id="invite-rule-time" style="font-weight:600; color:var(--md-sys-color-on-surface);">2 分钟</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;" id="invite-rule-row-lead">
                     <span style="color:var(--md-sys-color-outline);">获胜条件:</span>
                     <span id="invite-rule-lead" style="font-weight:600; color:var(--md-sys-color-on-surface);">领先 6 题</span>
                 </div>
@@ -243,16 +247,20 @@
                     </div>
                 </div>
                 <div>
-                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">每局限时</label>
-                    <div class="chip-group" id="preset-chips-time">
-                        <div class="md3-chip selected" data-time="60" onclick="selectPresetTime(60)">1 分钟</div>
-                        <div class="md3-chip" data-time="120" onclick="selectPresetTime(120)">2 分钟</div>
-                        <div class="md3-chip" data-time="180" onclick="selectPresetTime(180)">3 分钟</div>
-                        <div class="md3-chip" data-time="240" onclick="selectPresetTime(240)">4 分钟</div>
-                        <div class="md3-chip" data-time="300" onclick="selectPresetTime(300)">5 分钟</div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对战模式</label>
+                    <div class="chip-group" id="preset-chips-match-type">
+                        <div class="md3-chip selected" data-type="ranked" onclick="selectPresetMatchType('ranked')">排位赛</div>
+                        <div class="md3-chip" data-type="friendly" onclick="selectPresetMatchType('friendly')">友谊赛</div>
                     </div>
                 </div>
                 <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">选择规则</label>
+                    <div class="chip-group" id="preset-chips-rule">
+                        <div class="md3-chip selected" data-rule="lead" onclick="selectPresetRule('lead')">不限时</div>
+                        <div class="md3-chip" data-rule="timed" onclick="selectPresetRule('timed')">限时</div>
+                    </div>
+                </div>
+                <div id="preset-group-lead">
                     <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">获胜条件</label>
                     <div class="chip-group" id="preset-chips-lead">
                         <div class="md3-chip" data-lead="3" onclick="selectPresetLead(3)">领先 3 题</div>
@@ -262,6 +270,16 @@
                         <div class="md3-chip" data-lead="7" onclick="selectPresetLead(7)">7 题</div>
                         <div class="md3-chip" data-lead="8" onclick="selectPresetLead(8)">8 题</div>
                         <div class="md3-chip" data-lead="10" onclick="selectPresetLead(10)">10 题</div>
+                    </div>
+                </div>
+                <div id="preset-group-timed" style="display: none;">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">每局限时</label>
+                    <div class="chip-group" id="preset-chips-time">
+                        <div class="md3-chip" data-time="60" onclick="selectPresetTime(60)">1 分钟</div>
+                        <div class="md3-chip selected" data-time="120" onclick="selectPresetTime(120)">2 分钟</div>
+                        <div class="md3-chip" data-time="180" onclick="selectPresetTime(180)">3 分钟</div>
+                        <div class="md3-chip" data-time="240" onclick="selectPresetTime(240)">4 分钟</div>
+                        <div class="md3-chip" data-time="300" onclick="selectPresetTime(300)">5 分钟</div>
                     </div>
                 </div>
                 <div>
@@ -341,16 +359,20 @@
                         <input type="text" id="create-invite-room-name" class="input-field" maxlength="20" placeholder="例如：对决挑战房" style="width:100%; height:38px; border-radius:var(--md-shape-full);">
                     </div>
                     <div>
-                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">每局限时</label>
-                        <div class="chip-group" id="invite-chips-time">
-                            <div class="md3-chip selected" data-time="60" onclick="selectInviteRuleTime(60)">1 分钟</div>
-                            <div class="md3-chip" data-time="120" onclick="selectInviteRuleTime(120)">2 分钟</div>
-                            <div class="md3-chip" data-time="180" onclick="selectInviteRuleTime(180)">3 分钟</div>
-                            <div class="md3-chip" data-time="240" onclick="selectInviteRuleTime(240)">4 分钟</div>
-                            <div class="md3-chip" data-time="300" onclick="selectInviteRuleTime(300)">5 分钟</div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">对战模式</label>
+                        <div class="chip-group" id="invite-chips-match-type">
+                            <div class="md3-chip selected" data-type="ranked" onclick="selectInviteRuleMatchType('ranked')">排位赛</div>
+                            <div class="md3-chip" data-type="friendly" onclick="selectInviteRuleMatchType('friendly')">友谊赛</div>
                         </div>
                     </div>
                     <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">选择规则</label>
+                        <div class="chip-group" id="invite-chips-rule">
+                            <div class="md3-chip selected" data-rule="lead" onclick="selectInviteRuleMode('lead')">不限时</div>
+                            <div class="md3-chip" data-rule="timed" onclick="selectInviteRuleMode('timed')">限时</div>
+                        </div>
+                    </div>
+                    <div id="invite-group-lead">
                         <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">获胜条件</label>
                         <div class="chip-group" id="invite-chips-lead">
                             <div class="md3-chip" data-lead="3" onclick="selectInviteRuleLead(3)">领先 3 题</div>
@@ -360,6 +382,16 @@
                             <div class="md3-chip" data-lead="7" onclick="selectInviteRuleLead(7)">7 题</div>
                             <div class="md3-chip" data-lead="8" onclick="selectInviteRuleLead(8)">8 题</div>
                             <div class="md3-chip" data-lead="10" onclick="selectInviteRuleLead(10)">10 题</div>
+                        </div>
+                    </div>
+                    <div id="invite-group-timed" style="display: none;">
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">每局限时</label>
+                        <div class="chip-group" id="invite-chips-time">
+                            <div class="md3-chip" data-time="60" onclick="selectInviteRuleTime(60)">1 分钟</div>
+                            <div class="md3-chip selected" data-time="120" onclick="selectInviteRuleTime(120)">2 分钟</div>
+                            <div class="md3-chip" data-time="180" onclick="selectInviteRuleTime(180)">3 分钟</div>
+                            <div class="md3-chip" data-time="240" onclick="selectInviteRuleTime(240)">4 分钟</div>
+                            <div class="md3-chip" data-time="300" onclick="selectInviteRuleTime(300)">5 分钟</div>
                         </div>
                     </div>
                     <div>
@@ -579,10 +611,11 @@
                         Lv. 1
                     </div>
                     <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号与状态菜单" style="cursor: pointer; position: relative;">
-                        <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="position: relative;">
-                            <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
-                            <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
-                            <span id="hub-user-status-dot" class="hub-user-presence-dot online" style="position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; border: 1.5px solid var(--md-sys-color-surface);"></span>
+                        <div style="position: relative; width: 28px; height: 28px; flex-shrink: 0; display: inline-flex;">
+                            <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="width: 100%; height: 100%;">
+                                <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
+                                <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                            </div>
                         </div>
                         <span id="hub-user-name" style="font-weight:600; font-size:0.9rem; color:var(--md-sys-color-on-surface);">游客</span>
                         <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px; color: var(--md-sys-color-outline);">arrow_drop_down</span>
@@ -974,7 +1007,7 @@
                         </div>
                         <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--md-sys-color-outline-variant, #e2e8f0); font-size: 0.78rem; color: var(--md-sys-color-outline); display: flex; align-items: center; gap: 4px;">
                             <span class="material-symbols-rounded" style="font-size: 16px;">lock</span>
-                            <span>登录解锁等级系统</span>
+                            <span>登录解锁段位系统</span>
                         </div>
                     </div>
 
@@ -1021,14 +1054,13 @@
 
                         <!-- 用户等级显示 (简化：无外边框包裹，无“升级进度”文字，直接在一行展示) -->
                         <div id="me-user-level-card" style="margin-top: 14px; display: flex; align-items: center; gap: 12px; width: 100%;">
-                            <span id="me-level-badge" style="font-size: 0.95rem; font-weight: 800; color: var(--md-sys-color-on-surface); white-space: nowrap;">Lv. 1</span>
+                            <span id="me-level-badge" style="font-size: 0.95rem; font-weight: 800; color: var(--md-sys-color-on-surface); white-space: nowrap;">1段</span>
                             <span id="me-level-title" style="display: none;"></span>
                             <div class="book-progress-mini" style="flex: 1; height: 6px; margin: 0; background: var(--md-sys-color-surface-container-high, #e2e8f0); border-radius: 999px; overflow: hidden;">
                                 <div id="me-level-progress-fill" class="book-progress-mini-fill" style="width: 0%; height: 100%; border-radius: 999px;"></div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
                                 <span id="me-level-exp-text" style="color: var(--md-sys-color-primary, #006495); font-weight: 700;">0%</span>
-                                <span id="me-level-comparison" style="display: inline-flex; align-items: center; gap: 2px; color: var(--md-sys-color-outline);"></span>
                             </div>
                         </div>
                     </div>
@@ -1384,17 +1416,24 @@
                         </div>
 
                         <div class="rule-group">
-                            <span class="rule-label">每局限时</span>
-                            <div class="chip-group" id="chips-time">
-                                <div class="md3-chip selected" data-time="60" onclick="changeRuleTime(60)">1 分钟</div>
-                                <div class="md3-chip" data-time="120" onclick="changeRuleTime(120)">2 分钟</div>
-                                <div class="md3-chip" data-time="180" onclick="changeRuleTime(180)">3 分钟</div>
-                                <div class="md3-chip" data-time="240" onclick="changeRuleTime(240)">4 分钟</div>
-                                <div class="md3-chip" data-time="300" onclick="changeRuleTime(300)">5 分钟</div>
+                            <span class="rule-label">对战模式</span>
+                            <div class="chip-group" id="chips-match-type">
+                                <div class="md3-chip selected" data-type="ranked" onclick="changeRuleMatchType('ranked')">排位赛</div>
+                                <div class="md3-chip" data-type="friendly" onclick="changeRuleMatchType('friendly')">友谊赛</div>
                             </div>
                         </div>
 
+                        <!-- 统一规则：选择规则（不限时/限时） -->
                         <div class="rule-group">
+                            <span class="rule-label">选择规则</span>
+                            <div class="chip-group" id="chips-duel-rule">
+                                <div class="md3-chip selected" data-rule="lead" onclick="changeRuleMode('lead')">不限时</div>
+                                <div class="md3-chip" data-rule="timed" onclick="changeRuleMode('timed')">限时</div>
+                            </div>
+                        </div>
+
+                        <!-- 选“不限时”时显示获胜条件 -->
+                        <div class="rule-group" id="group-duel-lead">
                             <span class="rule-label">获胜条件</span>
                             <div class="chip-group" id="chips-lead">
                                 <div class="md3-chip" data-lead="3" onclick="changeRuleLead(3)">领先 3 题</div>
@@ -1404,6 +1443,18 @@
                                 <div class="md3-chip" data-lead="7" onclick="changeRuleLead(7)">7 题</div>
                                 <div class="md3-chip" data-lead="8" onclick="changeRuleLead(8)">8 题</div>
                                 <div class="md3-chip" data-lead="10" onclick="changeRuleLead(10)">10 题</div>
+                            </div>
+                        </div>
+
+                        <!-- 选“限时”时显示对决时长 -->
+                        <div class="rule-group" id="group-duel-timed" style="display: none;">
+                            <span class="rule-label">每局限时</span>
+                            <div class="chip-group" id="chips-time">
+                                <div class="md3-chip" data-time="60" onclick="changeRuleTime(60)">1 分钟</div>
+                                <div class="md3-chip selected" data-time="120" onclick="changeRuleTime(120)">2 分钟</div>
+                                <div class="md3-chip" data-time="180" onclick="changeRuleTime(180)">3 分钟</div>
+                                <div class="md3-chip" data-time="240" onclick="changeRuleTime(240)">4 分钟</div>
+                                <div class="md3-chip" data-time="300" onclick="changeRuleTime(300)">5 分钟</div>
                             </div>
                         </div>
 
@@ -2508,13 +2559,6 @@
                                 <span class="btn-label-text">清空</span>
                             </button>
                         </div>
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="triggerAiDuelBookImport()">
-                                <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                                <span class="btn-label-text" id="ai-duel-import-label">导入词书</span>
-                            </button>
-                            <input type="file" id="ai-duel-custom-book-input" accept=".json" multiple style="display:none;" onchange="handleAiDuelCustomBookUpload(event)">
-                        </div>
                     </div>
 
                     <div class="chip-group book-selection-list" id="chips-ai-duel-books"></div>
@@ -2522,12 +2566,27 @@
                 </div>
 
                 <div class="rule-group">
-                    <span class="rule-label">AI 难度等级</span>
-                    <div class="chip-group" id="chips-ai-difficulty">
-                        <div class="md3-chip" data-diff="easy" onclick="selectAiDifficulty('easy')">简单</div>
-                        <div class="md3-chip selected" data-diff="normal" onclick="selectAiDifficulty('normal')">中等</div>
-                        <div class="md3-chip" data-diff="hard" onclick="selectAiDifficulty('hard')">困难</div>
+                    <span class="rule-label">对战模式</span>
+                    <div class="chip-group" id="chips-ai-match-type">
+                        <div class="md3-chip selected" data-type="ranked" onclick="selectAiMatchType('ranked')">排位赛</div>
+                        <div class="md3-chip" data-type="friendly" onclick="selectAiMatchType('friendly')">友谊赛</div>
                     </div>
+                </div>
+
+                <div class="rule-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="rule-label" style="margin-bottom:0;">AI 难度段位</span>
+                        <span id="ai-difficulty-display" style="font-weight:800; font-size:1.05rem; color:var(--md-sys-color-primary);">1段</span>
+                    </div>
+                    <div style="padding:10px 4px 4px 4px;">
+                        <input type="range" id="ai-difficulty-slider" min="1" max="9" step="1" value="1" style="width:100%; cursor:pointer;" oninput="handleAiDifficultySliderChange(this.value)">
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:4px;">
+                            <span>1段</span>
+                            <span>5段</span>
+                            <span>9段</span>
+                        </div>
+                    </div>
+                    <div id="ai-difficulty-hint" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:4px; line-height:1.4;"></div>
                 </div>
 
                 <div class="rule-group">
@@ -2810,7 +2869,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.3.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">

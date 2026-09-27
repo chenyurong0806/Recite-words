@@ -354,6 +354,28 @@ async function supabaseSyncUserData(username, userData) {
     return syncAllUserDataToCloud(username);
 }
 
+function getCloudBooksMasterySummary() {
+    const summary = {};
+    try {
+        const books = (typeof BookManager !== 'undefined' && BookManager.availableBooks) ? BookManager.availableBooks : [];
+        books.forEach(b => {
+            if (b && !String(b.id).startsWith('custom_') && b.id !== 'builtin_default') {
+                if (typeof EbbinghausEngine !== 'undefined') {
+                    const prog = EbbinghausEngine.getBookProgress(b.id, b.words);
+                    summary[b.id] = {
+                        name: b.name || b.id,
+                        mastered: prog.mastered || 0,
+                        learned: prog.learned || 0,
+                        total: prog.total || b.count || 0,
+                        percent: prog.progressPercent || 0
+                    };
+                }
+            }
+        });
+    } catch (e) { }
+    return summary;
+}
+
 // 全量同步用户学习数据、等级与统计至 Supabase 云端
 async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     const u = targetUsername || (typeof currentUser !== 'undefined' ? currentUser : null);
@@ -363,8 +385,11 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
     // 检查是否为云端用户或已注册账号
     const isCloudUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && currentUserProfile.type === 'cloud')
+    // 检查是否为已登录用户 (支持云端账号与 B 站账号)
+    const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'))
         || (!u.startsWith('游客'));
     if (!isCloudUser) return;
+    if (!isRegisteredUser) return;
 
     let stats = null;
     try {
@@ -407,12 +432,32 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     } catch (e) { }
 
     let levelData = null;
+    let rankData = null;
     if (typeof LevelManager !== 'undefined') {
         levelData = LevelManager.getLevelData(u);
+        rankData = LevelManager.getUserRankData(u);
     }
+
+    const isBiliAccount = Boolean(currentUserProfile && currentUserProfile.username === u && currentUserProfile.type === 'bilibili');
+    const cloudMastery = getCloudBooksMasterySummary();
+    const mistakesCount = Object.keys((stats && stats.mistakes) || {}).length;
+    const accuracyPercent = (stats && stats.total > 0) ? Math.round(((stats.correct || 0) / stats.total) * 100) : 0;
 
     const payload = {
         stats: stats || {},
+        total_answered: (stats && stats.total) || 0,
+        correct_count: (stats && stats.correct) || 0,
+        accuracy_percent: accuracyPercent,
+        mistakes_count: mistakesCount,
+        cloud_books_mastery: cloudMastery,
+        rank_data: rankData ? {
+            rank: rankData.rank,
+            rating: rankData.rating,
+            isPromotionReady: rankData.isPromotionReady,
+            battles: rankData.battles
+        } : { rank: 1, rating: 0, isPromotionReady: false, battles: {} },
+        account_type: isBiliAccount ? 'bilibili' : 'cloud',
+        isBili: isBiliAccount,
         ebbinghaus: ebbinghaus || {},
         daily_logs: daily_logs || {},
         mastered_words: mastered_words || [],
@@ -420,6 +465,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         shici_progress: shici_progress || {},
         level: levelData ? levelData.level : 1,
         score: levelData ? levelData.score : 0,
+        level: rankData ? rankData.rank : 1,
+        score: rankData ? rankData.rating : 0,
         updated_at: new Date().toISOString()
     };
 
@@ -469,6 +516,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 }
 
 // 从 Supabase 云端恢复用户全量学习记录与等级
+// 从 Supabase 云端恢复用户全量学习记录、词书掌握度、段位与等级分
 function restoreUserDataFromCloud(user) {
     if (!user || !user.username) return;
     const u = user.username;
@@ -481,6 +529,22 @@ function restoreUserDataFromCloud(user) {
             if (typeof currentUser !== 'undefined' && currentUser === u && typeof userStats !== 'undefined') {
                 userStats = ud.stats;
             }
+        } catch (e) { }
+    }
+    if (ud.rank_data) {
+        try {
+            SafeStorage.setItem(`vocab_rank_data_${u}`, JSON.stringify(ud.rank_data));
+        } catch (e) { }
+    } else if (ud.level || user.level) {
+        try {
+            const r = Math.max(1, Math.min(9, ud.level || user.level || 1));
+            const s = Math.max(0, Math.min(100, ud.score || 0));
+            SafeStorage.setItem(`vocab_rank_data_${u}`, JSON.stringify({
+                rank: r,
+                rating: s,
+                isPromotionReady: (r < 9 && s >= 100),
+                battles: { total: 0, wins: 0, losses: 0, draws: 0 }
+            }));
         } catch (e) { }
     }
     if (ud.ebbinghaus) {
@@ -515,10 +579,67 @@ function restoreUserDataFromCloud(user) {
     if (typeof updateHubLevelUI === 'function') {
         try { updateHubLevelUI(); } catch (e) { }
     }
+    if (typeof updateHub === 'function') {
+        try { updateHub(); } catch (e) { }
+    }
+}
+
+// B 站用户登录同步至 Supabase (不使用 Toy 云储存)
+async function supabaseSyncBiliUser(biliProfile) {
+    if (!biliProfile || !biliProfile.username || !sbClient) return null;
+    const u = biliProfile.username;
+    try {
+        const { data: existing, error: findErr } = await sbClient
+            .from('user_accounts')
+            .select('*')
+            .eq('username', u)
+            .maybeSingle();
+
+        if (existing) {
+            // 已有记录：恢复云端进度与段位
+            const ud = existing.user_data || {};
+            ud.account_type = 'bilibili';
+            ud.isBili = true;
+            if (biliProfile.toyOpenId) ud.open_id = biliProfile.toyOpenId;
+            sbClient.from('user_accounts').update({
+                avatar_url: biliProfile.avatar || existing.avatar_url || '',
+                user_data: ud,
+                updated_at: new Date().toISOString()
+            }).eq('username', u).then(() => { }).catch(() => { });
+            return existing;
+        } else {
+            // 新建记录
+            const newUserData = {
+                account_type: 'bilibili',
+                isBili: true,
+                open_id: biliProfile.toyOpenId || '',
+                rank_data: { rank: 1, rating: 0, isPromotionReady: false, battles: { total: 0, wins: 0, losses: 0, draws: 0 } },
+                stats: { total: 0, correct: 0, mistakes: {} }
+            };
+            const { data: created, error: insErr } = await sbClient
+                .from('user_accounts')
+                .insert([{
+                    username: u,
+                    password: '',
+                    avatar_url: biliProfile.avatar || '',
+                    level: 1,
+                    user_data: newUserData,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+            return created || null;
+        }
+    } catch (e) {
+        console.warn('[Supabase] supabaseSyncBiliUser error:', e);
+        return null;
+    }
 }
 
 window.syncAllUserDataToCloud = syncAllUserDataToCloud;
 window.restoreUserDataFromCloud = restoreUserDataFromCloud;
+window.supabaseSyncBiliUser = supabaseSyncBiliUser;
 
 async function supabaseFetchUserData(username) {
     if (!username) return null;
@@ -556,51 +677,15 @@ async function biliLogin() {
     };
 }
 
+// 依用户需求已停用 Toy 云储存，全量迁移至 Supabase
 async function biliSaveCloudData(data) {
-    if (typeof window.toy === 'undefined' || typeof window.toy.setCloudStorage !== 'function') return;
-    try {
-        // 极简存储：Toy 云存储严格限制空间，仅存储极轻量概要指标（< 100 字节），杜绝海量分片耗尽配额
-        const compact = {
-            t: (data && data.stats && data.stats.total) || 0,
-            c: (data && data.stats && data.stats.correct) || 0,
-            u: Date.now()
-        };
-        const p = window.toy.setCloudStorage({ 'toy_stats': JSON.stringify(compact) });
-        if (p && typeof p.catch === 'function') p.catch(() => { });
-        await p;
-    } catch (e) {
-        console.warn('[ToySDK] Failed to save cloud storage:', e);
+    if (typeof syncAllUserDataToCloud === 'function' && typeof currentUser !== 'undefined') {
+        syncAllUserDataToCloud(currentUser);
     }
 }
 
 async function biliLoadCloudData() {
-    if (typeof window.toy === 'undefined' || typeof window.toy.getCloudStorage !== 'function') return null;
-    try {
-        const p = window.toy.getCloudStorage(['toy_stats', 'storage_meta', 'data_c_0']);
-        if (p && typeof p.catch === 'function') p.catch(() => { });
-        const all = await p;
-        if (!all) return null;
-        if (all['toy_stats']) {
-            const compact = JSON.parse(all['toy_stats']);
-            return {
-                stats: { total: compact.t || 0, correct: compact.c || 0, mistakes: {} },
-                updated: compact.u || Date.now()
-            };
-        }
-        // 兼容旧版 chunk 数据
-        if (all['storage_meta']) {
-            const meta = JSON.parse(all['storage_meta']);
-            let fullStr = '';
-            for (let i = 0; i < meta.chunks; i++) {
-                fullStr += (all[`data_c_${i}`] || '');
-            }
-            return JSON.parse(fullStr);
-        }
-        return null;
-    } catch (e) {
-        console.warn('[ToySDK] Failed to read cloud storage:', e);
-        return null;
-    }
+    return null;
 }
 
 /**

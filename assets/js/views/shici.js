@@ -177,8 +177,8 @@ function renderSingleSummaryHtml(pool) {
         <div class="settlement-summary-card">
             <div class="settlement-summary-header">
                 <div>
-                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组题目小结</h3>
-                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词可展开查看选项辨析与干扰项</p>
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组小结</h3>
+                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词查看辨析项</p>
                 </div>
                 <div class="settlement-filter-group">
                     <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>

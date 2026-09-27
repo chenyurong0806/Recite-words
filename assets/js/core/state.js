@@ -244,29 +244,13 @@ function saveCurrentUserData() {
         setCookie(`vocab_stats_${currentUser}`, statsStr, 365);
     }
 
-    // 同步到云端
+    // 同步到 Supabase 云端 (B站用户与云端注册用户均统一同步至 Supabase)
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
-        if (currentUserProfile.type === 'cloud') {
-            if (typeof syncAllUserDataToCloud === 'function') {
-                syncAllUserDataToCloud(currentUser);
-            }
-        } else if (currentUserProfile.type === 'bilibili') {
-            if (typeof biliSaveCloudData === 'function') {
-                biliSaveCloudData({ stats: userStats, updated: Date.now() });
-            }
+        if (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili') {
             if (typeof syncAllUserDataToCloud === 'function') {
                 syncAllUserDataToCloud(currentUser);
             }
         }
-    } else if (currentUser.startsWith('游客_') && typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
-        // 在 Toy 平台中以微型体积 (< 80 字节) 持久化游客概要与编号
-        try {
-            const p = window.toy.setCloudStorage({
-                'guest_id': currentUser,
-                'toy_stats': JSON.stringify({ t: userStats.total || 0, c: userStats.correct || 0, u: Date.now() })
-            });
-            if (p && typeof p.catch === 'function') p.catch(() => { });
-        } catch (e) { }
     }
 }
 

@@ -1,23 +1,14 @@
 /**
- * 用户等级与经验成长系统 (Lv.1 - Lv.60)
+ * 用户等级与经验成长系统 (段位与等级分竞技系统 1段 - 9段)
  * Module: assets/js/managers/level-manager.js
  */
 
 const LevelManager = {
-    MAX_LEVEL: 60,
+    MAX_LEVEL: 9,
     MIN_LEVEL: 1,
-
-    // 计算特定等级所需的累计经验阈值 (平滑指数曲线)
-    getExpThresholdForLevel(level) {
-        if (level <= 1) return 0;
-        if (level > this.MAX_LEVEL) level = this.MAX_LEVEL;
-        return Math.floor(25 * Math.pow(level - 1, 1.4));
-    },
-
-    // 等级称号 (已停用)
-    getLevelTitle(level) {
-        return '';
-    },
+    MIN_RANK: 1,
+    MAX_RANK: 9,
+    MAX_RATING: 100, // 每一段满分为 100 分
 
     // 检查是否为游客
     isGuestUser(username) {
@@ -29,237 +20,390 @@ const LevelManager = {
         return false;
     },
 
-    // 计算用户的总经验分值 (可增加和减少)
-    calculateUserScore(username) {
-        if (!username || this.isGuestUser(username)) return 0;
-
-        let totalScore = 0;
-
-        // 1. 学习打卡与复习活跃度 (+分)
-        let studyActions = 0;
-        try {
-            const rawLogs = localStorage.getItem(`vocab_daily_logs_${username}`);
-            if (rawLogs) {
-                const logs = JSON.parse(rawLogs);
-                Object.values(logs).forEach(log => {
-                    studyActions += (log.learned || 0) + (log.reviewed || 0) + (log.riddle || 0) + (log.dictation || 0);
-                });
-            }
-        } catch (e) { }
-        totalScore += Math.floor(studyActions * 2.5);
-
-        // 2. 学习词数与熟词掌握 (+分)
-        let learnedCount = 0;
-        let overdueCount = 0;
-        try {
-            const rawEbb = localStorage.getItem(`vocab_ebbinghaus_db_${username}`);
-            if (rawEbb) {
-                const ebb = JSON.parse(rawEbb);
-                const now = Date.now();
-                Object.values(ebb).forEach(r => {
-                    if (r && r.stage >= 1) {
-                        learnedCount++;
-                        // 逾期未复习惩罚扣分 (-分)
-                        if (r.stage < 5 && r.nextReview && now > r.nextReview) {
-                            overdueCount++;
-                        }
-                    }
-                });
-            }
-        } catch (e) { }
-        totalScore += learnedCount * 8;
-        totalScore -= overdueCount * 5; // 逾期扣分
-
-        // 3. 熟词记录 (+分)
-        let masteredCount = 0;
-        try {
-            const rawMast = localStorage.getItem(`vocab_mastered_words_${username}`);
-            if (rawMast) {
-                const mast = JSON.parse(rawMast);
-                masteredCount = Array.isArray(mast) ? mast.length : 0;
-            }
-        } catch (e) { }
-        totalScore += masteredCount * 12;
-
-        // 4. 正确答题数与错题堆积惩罚
-        try {
-            let stats = null;
-            if (typeof userStats !== 'undefined' && currentUser === username) {
-                stats = userStats;
-            } else {
-                const rawStats = localStorage.getItem(`vocab_stats_${username}`);
-                if (rawStats) stats = JSON.parse(rawStats);
-            }
-            if (stats) {
-                totalScore += (stats.correct || 0) * 3;
-                const mistakesCount = Object.keys(stats.mistakes || {}).length;
-                totalScore -= mistakesCount * 4; // 错题过多未消灭扣分 (-分)
-            }
-        } catch (e) { }
-
-        // 5. 今日 Wordle 成果 (+分)
-        try {
-            const rawWordle = localStorage.getItem(`vocab_wordle_history_${username}`);
-            if (rawWordle) {
-                const history = JSON.parse(rawWordle);
-                const wonCount = Object.values(history).filter(h => h && h.isWon).length;
-                totalScore += wonCount * 25;
-            }
-        } catch (e) { }
-
-        return Math.max(0, Math.floor(totalScore));
-    },
-
-    // 根据分值反推等级
-    getLevelFromScore(score) {
-        if (score <= 0) return this.MIN_LEVEL;
-        for (let l = this.MAX_LEVEL; l >= 1; l--) {
-            if (score >= this.getExpThresholdForLevel(l)) {
-                return l;
-            }
-        }
-        return this.MIN_LEVEL;
-    },
-
-    // 获取完整等级数据包
-    getLevelData(username) {
+    // 获取用户段位数据
+    getUserRankData(username) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         if (!u || this.isGuestUser(u)) {
             return {
                 isGuest: true,
-                level: 0,
+                rank: 1,
+                rating: 0,
+                isPromotionReady: false,
+                battles: { total: 0, wins: 0, losses: 0, draws: 0 },
+                level: 1,
                 score: 0,
-                title: '',
                 progressPercent: 0,
-                currentLevelExp: 0,
-                neededExp: 0,
-                comparisonText: '游客状态下不支持等级功能'
+                comparisonText: '游客状态下不参与排位'
             };
         }
 
-        const score = this.calculateUserScore(u);
-        const level = this.getLevelFromScore(score);
-        const title = '';
+        const key = `vocab_rank_data_${u}`;
+        let data = null;
+        try {
+            const raw = SafeStorage.getItem(key);
+            if (raw) data = JSON.parse(raw);
+        } catch (e) { }
 
-        const currentThreshold = this.getExpThresholdForLevel(level);
-        const nextThreshold = level < this.MAX_LEVEL ? this.getExpThresholdForLevel(level + 1) : currentThreshold;
-        const neededExp = Math.max(1, nextThreshold - currentThreshold);
-        const currentLevelExp = Math.max(0, score - currentThreshold);
-        const progressPercent = level >= this.MAX_LEVEL ? 100 : Math.min(100, Math.floor((currentLevelExp / neededExp) * 100));
+        // 如果本地没有但 currentUserProfile 里有，从 profile 恢复
+        if (!data && typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.rank_data) {
+            data = currentUserProfile.user_data.rank_data;
+        }
 
-        // 对比昨日 / 上一次登录数据
-        const comparison = this.getHistoryComparison(u, level, score);
+        if (!data || typeof data.rank !== 'number') {
+            data = {
+                rank: 1,
+                rating: 0,
+                isPromotionReady: false,
+                battles: { total: 0, wins: 0, losses: 0, draws: 0 }
+            };
+            this.saveUserRankData(u, data);
+        }
+
+        // 数据范围安全保护
+        data.rank = Math.max(this.MIN_RANK, Math.min(this.MAX_RANK, parseInt(data.rank) || 1));
+        data.rating = Math.max(0, Math.min(this.MAX_RATING, parseInt(data.rating) || 0));
+        data.isPromotionReady = (data.rank < this.MAX_RANK && data.rating >= this.MAX_RATING);
 
         return {
             isGuest: false,
-            level,
-            score,
-            title,
-            currentThreshold,
-            nextThreshold,
-            currentLevelExp,
-            neededExp,
-            progressPercent,
-            deltaLevel: comparison.deltaLevel,
-            deltaScore: comparison.deltaScore,
-            comparisonText: comparison.text,
-            comparisonType: comparison.type // 'up' | 'down' | 'neutral'
+            rank: data.rank,
+            rating: data.rating,
+            isPromotionReady: data.isPromotionReady,
+            battles: data.battles || { total: 0, wins: 0, losses: 0, draws: 0 },
+            level: data.rank, // 兼容现有调用 level 的字段
+            score: data.rating, // 兼容 score
+            progressPercent: data.rating, // 满分 100，百分比即当前分数
+            comparisonText: data.isPromotionReady ? '请完成升段赛' : `${data.rating} / 100 分`
         };
     },
 
-    // 仅获取等级数字
-    getUserLevel(username) {
-        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
-        if (!u || this.isGuestUser(u)) return 0;
-        const score = this.calculateUserScore(u);
-        return this.getLevelFromScore(score);
+    // 保存用户段位数据
+    saveUserRankData(username, data) {
+        if (!username || this.isGuestUser(username)) return;
+        try {
+            SafeStorage.setItem(`vocab_rank_data_${username}`, JSON.stringify(data));
+        } catch (e) { }
     },
 
-    // 记录并对比昨日与上一次登录 (简化显示，不展示具体经验值)
-    getHistoryComparison(username, currentLevel, currentScore) {
-        const todayStr = (new Date()).toISOString().slice(0, 10);
-        const key = `vocab_level_history_${username}`;
-        let history = null;
-        try {
-            history = JSON.parse(localStorage.getItem(key) || 'null');
-        } catch (e) { }
+    // 仅获取当前段位数 (1 ~ 9)
+    getUserLevel(username) {
+        return this.getUserRankData(username).rank;
+    },
 
-        if (!history) {
-            // 初次初始化记录
-            const initRecord = {
-                lastLoginDate: todayStr,
-                yesterdayDate: '',
-                yesterdayLevel: currentLevel,
-                yesterdayScore: currentScore,
-                prevLoginLevel: currentLevel,
-                prevLoginScore: currentScore
+    // 仅获取当前等级分 (0 ~ 100)
+    getUserRating(username) {
+        return this.getUserRankData(username).rating;
+    },
+
+    // 获取完整等级与段位信息
+    getLevelData(username) {
+        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+        const rankData = this.getUserRankData(u);
+        return {
+            ...rankData,
+            title: `${rankData.rank}段`,
+            neededExp: this.MAX_RATING,
+            currentLevelExp: rankData.rating,
+            currentThreshold: 0,
+            nextThreshold: this.MAX_RATING
+        };
+    },
+
+    // 根据分值反推等级（兼容旧接口）
+    getLevelFromScore(score) {
+        if (!score || score <= 0) return 1;
+        const r = Math.floor(score / 100) + 1;
+        return Math.max(1, Math.min(9, r));
+    },
+
+    /**
+     * 智能计算排位对局得分与失分
+     * @param {Object} params
+     * @param {boolean} params.isRanked - 是否为排位赛模式
+     * @param {boolean} params.isAi - 是否为人机对战
+     * @param {boolean} params.playerWin - 我方是否获胜
+     * @param {boolean} params.isDraw - 是否平局
+     * @param {number} params.userRank - 我方段位 (1~9)
+     * @param {number} params.userRating - 我方等级分 (0~100)
+     * @param {number} params.oppoRank - 对手段位 (1~9)
+     * @param {number} params.oppoRating - 对手等级分 (0~100)
+     */
+    calculateMatchResult({
+        isRanked = true,
+        isAi = false,
+        playerWin = false,
+        isDraw = false,
+        userRank = 1,
+        userRating = 0,
+        oppoRank = 1,
+        oppoRating = 50
+    } = {}) {
+        // 1. 友谊赛模式不增减积分
+        if (!isRanked) {
+            return {
+                isRanked: false,
+                deltaPoints: 0,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: userRank,
+                newRating: userRating,
+                isPromoted: false,
+                isDemoted: false,
+                isPromotionMatch: false,
+                reason: '友谊赛模式：不计段位与等级分'
             };
-            try {
-                localStorage.setItem(key, JSON.stringify(initRecord));
-            } catch (e) { }
-            return { deltaLevel: 0, deltaScore: 0, text: '与昨日持平', type: 'neutral' };
         }
 
-        // 判断日期更替
-        if (history.lastLoginDate !== todayStr) {
-            // 发生跨日，将上一日的记录归档为 yesterday
-            history.yesterdayDate = history.lastLoginDate;
-            history.yesterdayLevel = history.prevLoginLevel || currentLevel;
-            history.yesterdayScore = history.prevLoginScore || currentScore;
-            history.prevLoginLevel = currentLevel;
-            history.prevLoginScore = currentScore;
-            history.lastLoginDate = todayStr;
-            try {
-                localStorage.setItem(key, JSON.stringify(history));
-            } catch (e) { }
+        // 2. 平局不增减积分
+        if (isDraw) {
+            return {
+                isRanked: true,
+                deltaPoints: 0,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: userRank,
+                newRating: userRating,
+                isPromoted: false,
+                isDemoted: false,
+                isPromotionMatch: false,
+                reason: '双方战平：等级分保持不变'
+            };
         }
 
-        const baseLevel = history.yesterdayLevel || history.prevLoginLevel || currentLevel;
-        const deltaLevel = currentLevel - baseLevel;
+        const isPromotionState = (userRating >= this.MAX_RATING && userRank < this.MAX_RANK);
+        // 升段赛条件：对局对手为人机且高于自己1段，或玩家且高于自己段位
+        const isPromotionMatch = isPromotionState && (isAi ? (oppoRank === userRank + 1) : (oppoRank > userRank));
 
-        let text = '与昨日持平';
-        let type = 'neutral';
+        // 双方综合评分差值 (每段等于 100 分)
+        const myTotal = (userRank - 1) * 100 + userRating;
+        const oppoTotal = (oppoRank - 1) * 100 + oppoRating;
+        const ratingDiff = oppoTotal - myTotal; // 正数表示对手更强，负数表示对手更弱
 
-        if (deltaLevel > 0) {
-            text = `较昨日 +${deltaLevel} 级`;
-            type = 'up';
-        } else if (deltaLevel < 0) {
-            text = `较昨日 -${deltaLevel} 级`;
-            type = 'down';
+        // 3. 升段赛专属结算
+        if (isPromotionMatch) {
+            if (playerWin) {
+                // 升段赛获胜：成功升至下一段，并获得升段初始积分（按分差智能计算获胜得分）
+                const bonusGain = Math.max(15, Math.min(35, Math.round(20 + ratingDiff * 0.1)));
+                const newRank = Math.min(this.MAX_RANK, userRank + 1);
+                const newRating = bonusGain;
+                return {
+                    isRanked: true,
+                    deltaPoints: bonusGain,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: newRank,
+                    newRating: newRating,
+                    isPromoted: true,
+                    isDemoted: false,
+                    isPromotionMatch: true,
+                    reason: `🔥 升段赛大捷！成功晋升至 ${newRank}段，奖励 ${bonusGain} 分！`
+                };
+            } else {
+                // 升段赛失败：“输了不会倒扣等级分”
+                return {
+                    isRanked: true,
+                    deltaPoints: 0,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: userRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: true,
+                    reason: '升段赛惜败：等级分受段位保护，不扣除分值'
+                };
+            }
+        }
+
+        // 如果处于满分升段就绪状态，但挑战的对手不符合升段要求（未挑战更高段位）：
+        if (isPromotionState) {
+            if (playerWin) {
+                return {
+                    isRanked: true,
+                    deltaPoints: 0,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: userRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    reason: '当前等级分已达上限 (100分)，请挑战更高段位进行升段赛！'
+                };
+            } else {
+                // 非升段赛对局战败扣分，退出满分状态
+                const lossBase = Math.max(5, Math.min(30, Math.round(15 - ratingDiff * 0.1)));
+                const newRating = Math.max(0, userRating - lossBase);
+                return {
+                    isRanked: true,
+                    deltaPoints: -lossBase,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: newRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    reason: `战败扣除 ${lossBase} 分`
+                };
+            }
+        }
+
+        // 4. 常规排位赛结算
+        if (playerWin) {
+            // 获胜加分：根据双方分差自适应浮动 [10, 40]
+            const winGain = Math.max(10, Math.min(40, Math.round(20 + ratingDiff * 0.1)));
+            const prospective = userRating + winGain;
+            let newRank = userRank;
+            let newRating = prospective;
+            let promotionReady = false;
+
+            if (prospective >= this.MAX_RATING) {
+                newRating = this.MAX_RATING;
+                if (userRank < this.MAX_RANK) {
+                    promotionReady = true;
+                }
+            }
+
+            return {
+                isRanked: true,
+                deltaPoints: winGain,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: newRank,
+                newRating: newRating,
+                isPromoted: false,
+                isDemoted: false,
+                isPromotionMatch: false,
+                isPromotionReady: promotionReady,
+                reason: promotionReady ? '🎉 满分达成！已解锁升段赛资格！' : `排位胜利，获得 +${winGain} 分！`
+            };
         } else {
-            text = '与昨日持平';
-            type = 'neutral';
+            // 战败扣分：根据双方分差自适应浮动 [5, 30]
+            const lossDeduct = Math.max(5, Math.min(30, Math.round(15 - ratingDiff * 0.1)));
+            const prospective = userRating - lossDeduct;
+
+            if (prospective < 0) {
+                // 等级分掉光自动掉段
+                if (userRank > this.MIN_RANK) {
+                    const newRank = userRank - 1;
+                    // 掉段后降到前一段位，保留基础分数（如 80分 或 100 - 超出扣除分）
+                    const newRating = Math.max(0, Math.min(90, 100 + prospective));
+                    return {
+                        isRanked: true,
+                        deltaPoints: -lossDeduct,
+                        oldRank: userRank,
+                        oldRating: userRating,
+                        newRank: newRank,
+                        newRating: newRating,
+                        isPromoted: false,
+                        isDemoted: true,
+                        isPromotionMatch: false,
+                        reason: `💔 积分不足已自动掉段至 ${newRank}段 (${newRating}分)`
+                    };
+                } else {
+                    // 1段最低分保护
+                    return {
+                        isRanked: true,
+                        deltaPoints: -userRating,
+                        oldRank: 1,
+                        oldRating: userRating,
+                        newRank: 1,
+                        newRating: 0,
+                        isPromoted: false,
+                        isDemoted: false,
+                        isPromotionMatch: false,
+                        reason: `积分已归零 (1段保底)`
+                    };
+                }
+            } else {
+                return {
+                    isRanked: true,
+                    deltaPoints: -lossDeduct,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: prospective,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    reason: `排位战败，扣除 ${lossDeduct} 分`
+                };
+            }
+        }
+    },
+
+    // 应用结算结果并持久化与云端同步
+    async applyMatchResult(username, matchResult) {
+        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+        if (!u || this.isGuestUser(u)) return matchResult;
+
+        const current = this.getUserRankData(u);
+        const battles = current.battles || { total: 0, wins: 0, losses: 0, draws: 0 };
+        battles.total = (battles.total || 0) + 1;
+
+        if (matchResult.isRanked) {
+            if (matchResult.deltaPoints > 0 || matchResult.isPromoted) {
+                battles.wins = (battles.wins || 0) + 1;
+            } else if (matchResult.deltaPoints < 0 || matchResult.isDemoted) {
+                battles.losses = (battles.losses || 0) + 1;
+            } else {
+                battles.draws = (battles.draws || 0) + 1;
+            }
         }
 
-        return { deltaLevel, deltaScore: 0, text, type };
+        const updatedData = {
+            rank: matchResult.newRank,
+            rating: matchResult.newRating,
+            isPromotionReady: (matchResult.newRank < this.MAX_RANK && matchResult.newRating >= this.MAX_RATING),
+            battles: battles
+        };
+
+        this.saveUserRankData(u, updatedData);
+
+        if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn) {
+            currentUserProfile.level = matchResult.newRank;
+            if (!currentUserProfile.user_data) currentUserProfile.user_data = {};
+            currentUserProfile.user_data.rank_data = updatedData;
+        }
+
+        // 同步至 Supabase 云端
+        await this.syncUserLevelCloud(u);
+
+        // 刷新 Hub 与 Profile 界面展示
+        if (typeof updateHub === 'function') {
+            try { updateHub(); } catch (e) { }
+        }
+        if (typeof renderMeView === 'function') {
+            try { renderMeView(); } catch (e) { }
+        }
+
+        return matchResult;
     },
 
     // 更新并在必要时同步到 Supabase 云端
     async syncUserLevelCloud(username) {
-        if (!username || this.isGuestUser(username)) return;
-        const data = this.getLevelData(username);
+        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+        if (!u || this.isGuestUser(u)) return;
+
+        const data = this.getUserRankData(u);
         if (typeof sbClient !== 'undefined' && sbClient) {
             try {
                 await sbClient.from('user_accounts').update({
-                    level: data.level,
+                    level: data.rank,
                     updated_at: new Date().toISOString()
-                }).eq('username', username);
+                }).eq('username', u);
             } catch (e) {
-                console.warn('[LevelManager] Failed to sync level column to Supabase:', e);
+                console.warn('[LevelManager] Failed to sync rank column to Supabase:', e);
             }
         }
-        if (typeof supabaseSyncUserData === 'function') {
-            supabaseSyncUserData(username, {
-                levelData: {
-                    level: data.level,
-                    score: data.score,
-                    updatedAt: Date.now()
-                }
-            });
+
+        if (typeof syncAllUserDataToCloud === 'function') {
+            syncAllUserDataToCloud(u);
         }
     },
 
-    // 记录每日任务并触发等级云端同步
+    // 记录每日任务并触发等级云端同步 (保持兼容)
     recordDailyTask(taskType) {
         if (!currentUser || this.isGuestUser(currentUser)) return;
         this.syncUserLevelCloud(currentUser);
@@ -267,4 +411,3 @@ const LevelManager = {
 };
 
 window.LevelManager = LevelManager;
-

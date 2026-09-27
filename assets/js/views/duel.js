@@ -14,6 +14,27 @@ let pendingSentInvite = null;
 let cachedDbRooms = [];
 let cachedDbRoomsTime = 0;
 let fetchRoomsDebounceTimer = null;
+let guestReady = false;
+let hostRank = 1, hostRating = 0;
+let guestRank = 1, guestRating = 0;
+let currentMatchOppoRank = 1, currentMatchOppoRating = 50;
+
+function toggleGuestReady(ready) {
+    if (isHost) return;
+    guestReady = (ready !== undefined) ? Boolean(ready) : !guestReady;
+    if (realtimeChannel) {
+        realtimeChannel.send({
+            type: 'broadcast',
+            event: 'player_ready_state',
+            payload: {
+                isReady: guestReady,
+                username: currentUser
+            }
+        });
+    }
+    refreshRoomPlayerCards();
+}
+window.toggleGuestReady = toggleGuestReady;
 
 function isCurrentUserLoggedIn() {
     if (typeof currentUserProfile === 'undefined' || !currentUserProfile) return false;
@@ -37,13 +58,15 @@ function getDefaultRoomPreset(user) {
     const name = user ? `${user}的房间` : '对战房间';
     const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
-        : ['GaoKao3500'];
+        : ['books/考纲/高考3500.json'];
     return {
         name: name,
         capacity: 2,
-        duration: 60,
+        mode: 'lead',
+        duration: 120,
         winLead: 6,
         gaugeStyle: 'tug',
+        matchType: 'ranked',
         selectedBooks: books
     };
 }
@@ -89,14 +112,55 @@ function closeRoomPresetModal() {
 
 function renderPresetChips() {
     if (!activeEditingPreset) return;
+    const isRanked = (activeEditingPreset.matchType === 'ranked');
+    if (isRanked) {
+        activeEditingPreset.mode = 'lead';
+        activeEditingPreset.winLead = 6;
+    }
+
+    document.querySelectorAll('#preset-chips-match-type .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-type');
+        el.classList.toggle('selected', val === (activeEditingPreset.matchType || 'ranked'));
+    });
+
+    document.querySelectorAll('#preset-chips-rule .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-rule');
+        el.classList.toggle('selected', val === (activeEditingPreset.mode || 'lead'));
+        if (isRanked) {
+            const isLead = (val === 'lead');
+            el.classList.toggle('disabled', !isLead);
+            el.style.pointerEvents = isLead ? 'auto' : 'none';
+            el.style.opacity = isLead ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
+    });
+
+    const groupLead = document.getElementById('preset-group-lead');
+    const groupTimed = document.getElementById('preset-group-timed');
+    if (groupLead) groupLead.style.display = (activeEditingPreset.mode === 'timed') ? 'none' : 'block';
+    if (groupTimed) groupTimed.style.display = (activeEditingPreset.mode === 'timed') ? 'block' : 'none';
+
     document.querySelectorAll('#preset-chips-time .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-time'));
-        el.classList.toggle('selected', val === (activeEditingPreset.duration || 60));
+        el.classList.toggle('selected', val === (activeEditingPreset.duration || 120));
     });
 
     document.querySelectorAll('#preset-chips-lead .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-lead'));
         el.classList.toggle('selected', val === (activeEditingPreset.winLead || 6));
+        if (isRanked) {
+            const isFixed6 = (val === 6);
+            el.classList.toggle('disabled', !isFixed6);
+            el.style.pointerEvents = isFixed6 ? 'auto' : 'none';
+            el.style.opacity = isFixed6 ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
     });
 
     document.querySelectorAll('#preset-chips-gauge .md3-chip').forEach(el => {
@@ -105,23 +169,52 @@ function renderPresetChips() {
     });
 }
 
+function selectPresetRule(val) {
+    if (!activeEditingPreset) return;
+    if (activeEditingPreset.matchType === 'ranked' && val !== 'lead') {
+        showToast('排位模式下规则固定为不限时');
+        return;
+    }
+    activeEditingPreset.mode = val;
+    renderPresetChips();
+}
+window.selectPresetRule = selectPresetRule;
+
+function selectPresetMatchType(val) {
+    if (!activeEditingPreset) return;
+    activeEditingPreset.matchType = val;
+    if (val === 'ranked') {
+        activeEditingPreset.mode = 'lead';
+        activeEditingPreset.winLead = 6;
+    }
+    renderPresetChips();
+}
+window.selectPresetMatchType = selectPresetMatchType;
+
 function selectPresetTime(val) {
     if (!activeEditingPreset) return;
     activeEditingPreset.duration = parseInt(val);
     renderPresetChips();
 }
+window.selectPresetTime = selectPresetTime;
 
 function selectPresetLead(val) {
     if (!activeEditingPreset) return;
+    if (activeEditingPreset.matchType === 'ranked' && parseInt(val) !== 6) {
+        showToast('排位模式下获胜条件固定为领先6题');
+        return;
+    }
     activeEditingPreset.winLead = parseInt(val);
     renderPresetChips();
 }
+window.selectPresetLead = selectPresetLead;
 
 function selectPresetGauge(val) {
     if (!activeEditingPreset) return;
     activeEditingPreset.gaugeStyle = val;
     renderPresetChips();
 }
+window.selectPresetGauge = selectPresetGauge;
 
 function updatePresetBookSummaryUI() {
     if (!activeEditingPreset) return;
@@ -365,19 +458,47 @@ function getBookNamesSummary(bookIds) {
     return `${names[0]} 等 ${names.length} 本`;
 }
 
-function changeRuleTime(seconds) {
+function changeRuleMode(mode) {
     if (!isHost) return;
-    roomConfig.duration = seconds;
+    if (roomConfig.matchType === 'ranked' && mode !== 'lead') {
+        showToast('排位模式下规则固定为不限时');
+        return;
+    }
+    roomConfig.mode = mode;
+    guestReady = false;
     renderRuleChips();
+    refreshRoomPlayerCards();
     broadcastRuleChange();
 }
+window.changeRuleMode = changeRuleMode;
+
+function changeRuleTime(seconds) {
+    if (!isHost) return;
+    if (roomConfig.matchType === 'ranked') {
+        showToast('排位模式下规则固定为不限时');
+        return;
+    }
+    roomConfig.duration = seconds;
+    guestReady = false;
+    renderRuleChips();
+    refreshRoomPlayerCards();
+    broadcastRuleChange();
+}
+window.changeRuleTime = changeRuleTime;
 
 function changeRuleLead(leads) {
     if (!isHost) return;
+    if (roomConfig.matchType === 'ranked' && leads !== 6) {
+        showToast('排位模式下获胜条件固定为领先6题');
+        return;
+    }
     roomConfig.winLead = leads;
+    guestReady = false;
     renderRuleChips();
+    refreshRoomPlayerCards();
     broadcastRuleChange();
 }
+window.changeRuleLead = changeRuleLead;
 
 function changeRuleGaugeStyle(style) {
     if (!isHost) return;
@@ -416,22 +537,11 @@ function switchRoomBookCategory(cat) {
 }
 
 function triggerRoomBookImport() {
-    if (!isHost) {
-        showToast('仅房主可导入和设置词书');
-        return;
-    }
-    const input = document.getElementById('room-custom-book-input');
-    if (input) input.click();
+    showToast('远程联机禁止选择本地词书');
 }
 
 async function handleRoomCustomBookUpload(e) {
-    if (currentRoomBookCategory === 'shici') {
-        await loadCustomShiCiBook(e);
-    } else {
-        await loadCustomBook(e);
-    }
-    renderRoomBookChips();
-    broadcastRuleChange();
+    showToast('远程联机禁止选择本地词书');
 }
 
 function selectAllRoomBooks(selectAll = true) {
@@ -442,8 +552,8 @@ function selectAllRoomBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    const targetBooks = allBooks.filter(b => currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b))
-        .concat((window.customBooks || []).filter(b => currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    // 远程联机禁止选择本地词书，且不选择内置单机测试词书
+    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && !String(b.id).startsWith('custom_') && (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
     if (selectAll) {
         targetBooks.forEach(b => {
@@ -483,7 +593,7 @@ function updateRoomBookSummaryUI() {
 
     if (selectBtn) selectBtn.style.display = 'inline-flex';
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书 (远程联机仅支持云端词书)`;
 }
 
 function renderRoomBookChips() {
@@ -491,18 +601,78 @@ function renderRoomBookChips() {
     refreshRoomPlayerCards();
 }
 
+function changeRuleMatchType(type) {
+    if (!isHost) return;
+    roomConfig.matchType = type;
+    if (type === 'ranked') {
+        roomConfig.mode = 'lead';
+        roomConfig.winLead = 6;
+    }
+    guestReady = false;
+    renderRuleChips();
+    refreshRoomPlayerCards();
+    broadcastRuleChange();
+}
+window.changeRuleMatchType = changeRuleMatchType;
 
 function renderRuleChips() {
+    const isRanked = (roomConfig.matchType === 'ranked');
+    if (isRanked) {
+        roomConfig.mode = 'lead';
+        roomConfig.winLead = 6;
+    }
+
+    document.querySelectorAll('#chips-match-type .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-match-type') || el.getAttribute('data-type');
+        el.classList.toggle('selected', val === (roomConfig.matchType || 'ranked'));
+        el.classList.toggle('disabled', !isHost);
+    });
+
+    document.querySelectorAll('#chips-duel-rule .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-rule');
+        el.classList.toggle('selected', val === (roomConfig.mode || 'lead'));
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+        } else if (isRanked) {
+            const isLead = (val === 'lead');
+            el.classList.toggle('disabled', !isLead);
+            el.style.pointerEvents = isLead ? 'auto' : 'none';
+            el.style.opacity = isLead ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
+    });
+
+    const groupLead = document.getElementById('group-duel-lead');
+    const groupTimed = document.getElementById('group-duel-timed');
+    if (groupLead) groupLead.style.display = (roomConfig.mode === 'timed') ? 'none' : 'block';
+    if (groupTimed) groupTimed.style.display = (roomConfig.mode === 'timed') ? 'block' : 'none';
+
     document.querySelectorAll('#chips-time .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-time'));
-        el.classList.toggle('selected', val === roomConfig.duration);
+        el.classList.toggle('selected', val === (roomConfig.duration || 120));
         el.classList.toggle('disabled', !isHost);
     });
 
     document.querySelectorAll('#chips-lead .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-lead'));
-        el.classList.toggle('selected', val === roomConfig.winLead);
-        el.classList.toggle('disabled', !isHost);
+        el.classList.toggle('selected', val === (roomConfig.winLead || 6));
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+        } else if (isRanked) {
+            const isFixed6 = (val === 6);
+            el.classList.toggle('disabled', !isFixed6);
+            el.style.pointerEvents = isFixed6 ? 'auto' : 'none';
+            el.style.opacity = isFixed6 ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
     });
 
     document.querySelectorAll('#chips-gauge-style .md3-chip').forEach(el => {
@@ -600,6 +770,7 @@ async function joinOnlineRoom() {
 }
 
 function setupRoomLobbyUI(code, customName) {
+    guestReady = false;
     document.getElementById('online-pre-join').style.display = 'none';
     document.getElementById('online-in-room').style.display = 'block';
     document.getElementById('display-room-code').innerText = code;
@@ -682,7 +853,17 @@ function refreshRoomPlayerCards() {
 
     if (guestName) {
         if (p2NameEl) p2NameEl.innerText = guestName;
-        if (p2Badge) p2Badge.innerText = isHost ? '挑战者' : '挑战者';
+        if (p2Badge) {
+            if (guestReady) {
+                p2Badge.innerText = '● 已准备';
+                p2Badge.style.color = 'var(--md-sys-color-primary, #007aff)';
+                p2Badge.style.fontWeight = 'bold';
+            } else {
+                p2Badge.innerText = '○ 未准备';
+                p2Badge.style.color = 'var(--md-sys-color-outline, #888)';
+                p2Badge.style.fontWeight = 'normal';
+            }
+        }
         let p2Avatar = guestAvatar || (guestName ? getUserAvatar(guestName) : '');
         if (p2Avatar && p2Avatar.startsWith('//')) p2Avatar = 'https:' + p2Avatar;
         if (p2Avatar && p2Img && p2Icon) {
@@ -696,7 +877,11 @@ function refreshRoomPlayerCards() {
         }
     } else {
         if (p2NameEl) p2NameEl.innerText = isHost ? '点击邀请玩家' : '等待对手加入...';
-        if (p2Badge) p2Badge.innerText = isHost ? '邀请对手' : '等待加入';
+        if (p2Badge) {
+            p2Badge.innerText = isHost ? '邀请对手' : '等待加入';
+            p2Badge.style.color = '';
+            p2Badge.style.fontWeight = 'normal';
+        }
         if (p2Img) p2Img.style.display = 'none';
         if (p2Icon) {
             p2Icon.style.display = 'inline-flex';
@@ -708,19 +893,36 @@ function refreshRoomPlayerCards() {
     if (!startBtn) return;
     const totalBooks = (roomConfig.selectedBooks || []).length;
     if (isHost) {
+        startBtn.classList.remove('btn-tonal');
+        startBtn.classList.add('btn-filled');
         if (!guestName) {
             startBtn.disabled = true;
-            startBtn.innerText = '等待对手加入...';
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">hourglass_empty</span><span class="btn-label-text">等待对手加入...</span>';
+        } else if (!guestReady) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">hourglass_top</span><span class="btn-label-text">等待对手准备...</span>';
         } else if (totalBooks === 0) {
             startBtn.disabled = true;
-            startBtn.innerText = '请至少选择一本词书';
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">menu_book</span><span class="btn-label-text">请至少选择一本词书</span>';
         } else {
             startBtn.disabled = false;
-            startBtn.innerText = '开始对局';
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">play_arrow</span><span class="btn-label-text">开始对局</span>';
         }
     } else {
-        startBtn.disabled = true;
-        startBtn.innerText = guestName ? '已在房间内，等待房主开始...' : '正在连接...';
+        if (!guestName) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">sync</span><span class="btn-label-text">正在连接房间...</span>';
+        } else if (guestReady) {
+            startBtn.disabled = false;
+            startBtn.classList.remove('btn-filled');
+            startBtn.classList.add('btn-tonal');
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">check_circle</span><span class="btn-label-text">已准备 (点击取消)</span>';
+        } else {
+            startBtn.disabled = false;
+            startBtn.classList.remove('btn-tonal');
+            startBtn.classList.add('btn-filled');
+            startBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">done</span><span class="btn-label-text">准备</span>';
+        }
     }
 }
 
@@ -797,21 +999,38 @@ function connectSupabaseChannel(code) {
                 });
             }
         })
+        .on('broadcast', { event: 'player_ready_state' }, ({ payload }) => {
+            if (isHost && payload) {
+                guestReady = Boolean(payload.isReady);
+                refreshRoomPlayerCards();
+                showToast(guestReady ? `对手 [${payload.username || guestName}] 已准备！` : `对手取消了准备`);
+            }
+        })
         .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
             if (payload.role === 'guest') {
                 guestName = payload.name;
                 guestAvatar = payload.avatar || (guestName ? getUserAvatar(guestName) : '');
+                if (payload.rank) guestRank = payload.rank;
+                if (payload.rating !== undefined) guestRating = payload.rating;
+                guestReady = false;
                 showToast(`玩家${guestName}已就位！`);
                 refreshRoomPlayerCards();
                 if (isHost) {
+                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                    hostRank = myRankData.rank;
+                    hostRating = myRankData.rating;
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'room_sync',
                         payload: {
                             hostName: currentUser,
                             hostAvatar: getUserAvatar(currentUser),
+                            hostRank: hostRank,
+                            hostRating: hostRating,
                             guestName: guestName,
                             guestAvatar: guestAvatar,
+                            guestRank: guestRank,
+                            guestRating: guestRating,
                             config: roomConfig
                         }
                     });
@@ -823,6 +1042,10 @@ function connectSupabaseChannel(code) {
             guestName = payload.guestName;
             if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
             if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
+            if (payload.hostRank) hostRank = payload.hostRank;
+            if (payload.hostRating !== undefined) hostRating = payload.hostRating;
+            if (payload.guestRank) guestRank = payload.guestRank;
+            if (payload.guestRating !== undefined) guestRating = payload.guestRating;
             if (payload.roomName) {
                 customRoomName = payload.roomName;
                 const titleEl = document.getElementById('display-room-name');
@@ -835,8 +1058,14 @@ function connectSupabaseChannel(code) {
         .on('broadcast', { event: 'rule_update' }, ({ payload }) => {
             if (!isHost && payload.config) {
                 roomConfig = payload.config;
+                if (guestReady) {
+                    toggleGuestReady(false);
+                    showToast('房主更新了规则，已重置准备状态');
+                } else {
+                    showToast(`规则已更新`);
+                }
                 renderRuleChips();
-                showToast(`规则已更新`);
+                refreshRoomPlayerCards();
             }
         })
         .on('broadcast', { event: 'sync_back_to_room' }, () => {
@@ -850,6 +1079,7 @@ function connectSupabaseChannel(code) {
             if (payload.role === 'guest') {
                 showToast(`玩家${guestName}已退出房间`);
                 guestName = '';
+                guestReady = false;
                 refreshRoomPlayerCards();
             }
         })
@@ -892,13 +1122,22 @@ function connectSupabaseChannel(code) {
         // === 核心心跳兜底：当房主断网、浏览器崩溃导致心跳消失时，对手被自动踢出 ===
         .on('presence', { event: 'leave' }, ({ leftPresences }) => {
             leftPresences.forEach(p => {
-                if (isHost && p.key === guestName) {
-                    showToast(`玩家${guestName}已断开连接`);
-                    guestName = '';
-                    refreshRoomPlayerCards();
-                } else if (!isHost && p.key === hostName) {
-                    alert('房主已断开连接并离开房间，您已被移出房间。');
-                    cleanUpAndBackToHub();
+                if (isPlayingMatch) {
+                    if (isHost && p.key === guestName) {
+                        endGame('🎉 对手断开连接退出房间，你获得了胜利！', false);
+                    } else if (!isHost && p.key === hostName) {
+                        endGame('🎉 房主断开连接退出房间，你获得了胜利！', false);
+                    }
+                } else {
+                    if (isHost && p.key === guestName) {
+                        showToast(`玩家${guestName}已断开连接`);
+                        guestName = '';
+                        guestReady = false;
+                        refreshRoomPlayerCards();
+                    } else if (!isHost && p.key === hostName) {
+                        alert('房主已断开连接并离开房间，您已被移出房间。');
+                        cleanUpAndBackToHub();
+                    }
                 }
             });
         })
@@ -906,10 +1145,19 @@ function connectSupabaseChannel(code) {
             if (status === 'SUBSCRIBED') {
                 await realtimeChannel.track({ name: currentUser, isHost });
                 if (!isHost) {
+                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                    guestRank = myRankData.rank;
+                    guestRating = myRankData.rating;
                     realtimeChannel.send({
                         type: 'broadcast',
                         event: 'player_joined',
-                        payload: { name: currentUser, avatar: getUserAvatar(currentUser), role: 'guest' }
+                        payload: {
+                            name: currentUser,
+                            avatar: getUserAvatar(currentUser),
+                            role: 'guest',
+                            rank: myRankData.rank,
+                            rating: myRankData.rating
+                        }
                     });
                 }
             }
@@ -918,6 +1166,11 @@ function connectSupabaseChannel(code) {
 
 async function leaveOnlineLobby(confirmNeeded = false) {
     if (confirmNeeded && !confirm('确认退出当前房间吗？')) return;
+
+    if (isPlayingMatch) {
+        applyForfeitPenalty();
+        isPlayingMatch = false;
+    }
 
     const codeToLeave = roomCode;
     const wasHost = isHost;
@@ -988,25 +1241,46 @@ function cleanUpAndBackToHub() {
 }
 
 async function startOnlineGame() {
-    if (!isHost || !guestName) return;
+    if (!isHost) {
+        toggleGuestReady();
+        return;
+    }
+    if (!guestName) {
+        showToast('等待对手加入...');
+        return;
+    }
+    if (!guestReady) {
+        showToast('请等待对手准备完成！');
+        return;
+    }
     if (!roomConfig.selectedBooks || roomConfig.selectedBooks.length === 0) {
         showToast('请至少选择一本词书！');
         refreshRoomPlayerCards();
         return;
     }
     const startBtn = document.getElementById('online-start-btn');
-    startBtn.disabled = true;
-    startBtn.innerText = '正在准备词库...';
+    if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.innerText = '正在准备词库...';
+    }
 
     try {
         const words = await BookManager.loadMultipleBooks(roomConfig.selectedBooks);
         const sharedPool = generateShuffledPoolFromWords(words, 80);
+        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+        hostRank = myRankData.rank;
+        hostRating = myRankData.rating;
+
         const startPayload = {
             pool: sharedPool,
             hostName: currentUser,
             hostAvatar: getUserAvatar(currentUser),
+            hostRank: hostRank,
+            hostRating: hostRating,
             guestName: guestName,
             guestAvatar: guestAvatar || (guestName ? getUserAvatar(guestName) : ''),
+            guestRank: guestRank || 1,
+            guestRating: (guestRating !== undefined) ? guestRating : 0,
             config: roomConfig
         };
         realtimeChannel.send({
@@ -1063,6 +1337,18 @@ function handleRemoteGameStart(payload) {
 
     if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
     if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
+    if (payload.hostRank) hostRank = payload.hostRank;
+    if (payload.hostRating !== undefined) hostRating = payload.hostRating;
+    if (payload.guestRank) guestRank = payload.guestRank;
+    if (payload.guestRating !== undefined) guestRating = payload.guestRating;
+
+    if (isHost) {
+        currentMatchOppoRank = payload.guestRank || guestRank || 1;
+        currentMatchOppoRating = (payload.guestRating !== undefined) ? payload.guestRating : (guestRating || 0);
+    } else {
+        currentMatchOppoRank = payload.hostRank || hostRank || 1;
+        currentMatchOppoRating = (payload.hostRating !== undefined) ? payload.hostRating : (hostRating || 0);
+    }
 
     const oppoName = isHost ? payload.guestName : payload.hostName;
     const oppoAvatar = isHost ? (guestAvatar || getUserAvatar(oppoName)) : (hostAvatar || getUserAvatar(oppoName));
@@ -1074,18 +1360,22 @@ function handleRemoteGameStart(payload) {
     document.getElementById('arena-oppo-score').innerText = '0';
 
     const gaugeStyle = roomConfig.gaugeStyle || 'tug';
-    const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
-    const tugWrap = document.getElementById('arena-gauge-tug-wrap');
+    const isTimed = (roomConfig.mode === 'timed');
+    const modeBadgeTxt = (roomConfig.matchType === 'friendly') ? '【友谊赛】' : '【排位赛】';
+    const ruleSummaryText = isTimed ? `${modeBadgeTxt} 限时抢分 (${Math.round((roomConfig.duration || 120) / 60)}分钟)` : `${modeBadgeTxt} 领先 ${roomConfig.winLead || 6} 题胜出`;
+
     if (gaugeStyle === 'tug') {
         if (snakeWrap) snakeWrap.style.display = 'none';
         if (tugWrap) tugWrap.style.display = 'flex';
         const ruleSum = document.getElementById('arena-tug-rule-summary');
-        if (ruleSum) ruleSum.innerText = `领先 ${roomConfig.winLead} 题胜出`;
+        if (ruleSum) ruleSum.innerText = ruleSummaryText;
+        const timerEl = document.getElementById('arena-tug-timer');
+        if (timerEl) timerEl.style.display = isTimed ? 'inline-block' : 'none';
     } else {
         if (snakeWrap) snakeWrap.style.display = 'flex';
         if (tugWrap) tugWrap.style.display = 'none';
         const ruleSum = document.getElementById('arena-rule-summary');
-        if (ruleSum) ruleSum.innerText = `领先 ${roomConfig.winLead} 题胜出`;
+        if (ruleSum) ruleSum.innerText = ruleSummaryText;
     }
 
     const playerShuffledPool = shuffle([...payload.pool]);
@@ -1095,35 +1385,36 @@ function handleRemoteGameStart(payload) {
 
     renderQuestion(p1State);
 
-    timeLeft = roomConfig.duration;
+    timeLeft = roomConfig.duration || 120;
     renderSnakeRing();
     clearInterval(gameTimer);
-    gameTimer = setInterval(() => {
-        timeLeft--;
-        renderSnakeRing();
-        if (timeLeft <= 0) {
-            endGame("时间到！以当前能量决出胜负", true);
-            clearInterval(gameTimer);
-            const diff = p1State.score - p2State.score;
-            let myMsg = "🤝 势均力敌，握手言和！";
-            let peerMsg = "🤝 势均力敌，握手言和！";
-            if (diff > 0) {
-                myMsg = "🎉 恭喜获胜！";
-                peerMsg = "💔 遗憾战败！";
-            } else if (diff < 0) {
-                myMsg = "💔 遗憾战败！";
-                peerMsg = "🎉 恭喜获胜！";
+    if (isTimed) {
+        gameTimer = setInterval(() => {
+            timeLeft--;
+            renderSnakeRing();
+            if (timeLeft <= 0) {
+                clearInterval(gameTimer);
+                const diff = p1State.score - p2State.score;
+                let myMsg = "🤝 势均力敌，握手言和！";
+                let peerMsg = "🤝 势均力敌，握手言和！";
+                if (diff > 0) {
+                    myMsg = "🎉 恭喜获胜！";
+                    peerMsg = "💔 遗憾战败！";
+                } else if (diff < 0) {
+                    myMsg = "💔 遗憾战败！";
+                    peerMsg = "🎉 恭喜获胜！";
+                }
+                if (realtimeChannel) {
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'game_over',
+                        payload: { msg: peerMsg }
+                    });
+                }
+                endGame(myMsg, false);
             }
-            if (realtimeChannel) {
-                realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'game_over',
-                    payload: { msg: peerMsg }
-                });
-            }
-            endGame(myMsg, false);
-        }
-    }, 1000);
+        }, 1000);
+    }
 
     switchView('view-game');
 }
@@ -1924,9 +2215,18 @@ function updateArenaTugGauge(timerStr) {
     const timerEl = document.getElementById('arena-tug-timer');
     const ruleSummary = document.getElementById('arena-tug-rule-summary');
 
-    const winLead = (gameMode === 'ai_duel') ? (aiDuelConfig.winLead || 6) : (roomConfig.winLead || 6);
-    if (ruleSummary) ruleSummary.innerText = `领先 ${winLead} 题胜出`;
-    if (timerEl && timerStr) timerEl.innerText = timerStr;
+    const isAi = (gameMode === 'ai_duel');
+    const isTimed = isAi ? (aiDuelConfig.mode === 'timed') : (roomConfig.mode === 'timed');
+    const winLead = isAi ? (aiDuelConfig.winLead || 6) : (roomConfig.winLead || 6);
+    const modeBadge = isAi ? (aiDuelConfig.matchType === 'friendly' ? '【友谊赛】' : '【排位赛】') : (roomConfig.matchType === 'friendly' ? '【友谊赛】' : '【排位赛】');
+
+    if (ruleSummary) {
+        ruleSummary.innerText = isTimed ? `${modeBadge} 限时抢分` : `${modeBadge} 领先 ${winLead} 题胜出`;
+    }
+    if (timerEl) {
+        timerEl.style.display = isTimed ? 'inline-block' : 'none';
+        if (timerStr) timerEl.innerText = timerStr;
+    }
 
     const diff = p1State.score - p2State.score;
     const ratio = 0.5 + (diff / (winLead * 2));
@@ -1939,26 +2239,85 @@ function updateArenaTugGauge(timerStr) {
 }
 
 function checkOnlineWinCondition() {
+    if (roomConfig.mode === 'timed') {
+        return false;
+    }
     const winLead = roomConfig.winLead || 6;
     const diff = p1State.score - p2State.score;
 
     if (diff >= winLead) {
-        const winMsg = `🎉 恭喜获胜！`;
+        const winMsg = `🎉 恭喜领先达到 ${winLead} 题，获得胜利！`;
         if (realtimeChannel) {
             realtimeChannel.send({
                 type: 'broadcast',
                 event: 'game_over',
-                payload: { msg: `💔 遗憾战败！` }
+                payload: { msg: `💔 对手领先达到 ${winLead} 题，遗憾战败！` }
             });
         }
         endGame(winMsg, false);
         return true;
     } else if (diff <= -winLead) {
-        const loseMsg = `💔 遗憾战败！`;
+        const loseMsg = `💔 对手领先达到 ${winLead} 题，遗憾战败！`;
         endGame(loseMsg, false);
         return true;
     }
     return false;
+}
+
+function renderMatchResultBadgeHtml(matchResult) {
+    if (!matchResult) return '';
+    if (!matchResult.isRanked) {
+        return `
+            <div style="margin-top:14px; padding:12px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m); text-align:center;">
+                <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:var(--md-sys-color-primary);">
+                    <span class="material-symbols-rounded" style="font-size:18px;">handshake</span>
+                    <span>友谊赛模式</span>
+                </div>
+                <div style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">友谊第一，比赛第二！不计段位与等级分</div>
+            </div>
+        `;
+    }
+
+    const isPromoted = matchResult.isPromoted;
+    const isDemoted = matchResult.isDemoted;
+    const delta = matchResult.deltaPoints;
+    let badgeColor = 'var(--md-sys-color-primary)';
+    let deltaText = delta > 0 ? `+${delta} 分` : (delta < 0 ? `${delta} 分` : `+0 分`);
+    let titleText = `${matchResult.newRank}段`;
+
+    if (isPromoted) {
+        badgeColor = '#eab308';
+        titleText = `🎉 恭喜晋升至 ${matchResult.newRank}段！`;
+    } else if (isDemoted) {
+        badgeColor = '#ef4444';
+        titleText = `💔 掉段至 ${matchResult.newRank}段`;
+    }
+
+    return `
+        <div style="margin-top:14px; padding:14px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="user-level-badge" style="background:${badgeColor}; font-size:0.85rem; font-weight:800; padding:3px 10px;">${matchResult.newRank}段</span>
+                    <span style="font-weight:700; font-size:0.95rem;">${titleText}</span>
+                </div>
+                <div style="font-weight:800; font-size:1.1rem; color:${delta > 0 ? 'var(--md-sys-color-success, #22c55e)' : (delta < 0 ? 'var(--md-sys-color-error, #ef4444)' : 'var(--md-sys-color-outline)')};">
+                    ${deltaText}
+                </div>
+            </div>
+            <div style="margin-top:10px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
+                    <span>等级分进度</span>
+                    <span>${matchResult.newRating} / 100 分</span>
+                </div>
+                <div style="height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
+                    <div style="width:${Math.min(100, Math.max(0, matchResult.newRating))}%; height:100%; background:${badgeColor}; border-radius:3px; transition:width 0.4s ease;"></div>
+                </div>
+            </div>
+            <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:8px; line-height:1.4;">
+                ${matchResult.reason || ''}
+            </div>
+        </div>
+    `;
 }
 
 function endGame(msg, broadcastToPeer) {
@@ -1987,11 +2346,52 @@ function endGame(msg, broadcastToPeer) {
         });
     }
 
+    let matchResult = null;
+    if (typeof LevelManager !== 'undefined' && (gameMode === 'online' || gameMode === 'ai_duel')) {
+        const isAi = (gameMode === 'ai_duel');
+        const isRanked = isAi 
+            ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : true)
+            : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+        
+        let playerWin = false;
+        let isDraw = false;
+        if (msg && msg.includes('获胜')) {
+            playerWin = true;
+        } else if (msg && msg.includes('战败')) {
+            playerWin = false;
+        } else {
+            const diff = p1State.score - p2State.score;
+            if (diff > 0) playerWin = true;
+            else if (diff < 0) playerWin = false;
+            else isDraw = true;
+        }
+
+        const myRankData = LevelManager.getUserRankData(currentUser);
+        const oppoRank = isAi 
+            ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
+            : (currentMatchOppoRank || 1);
+        const oppoRating = isAi ? 50 : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+
+        matchResult = LevelManager.calculateMatchResult({
+            isRanked,
+            isAi,
+            playerWin,
+            isDraw,
+            userRank: myRankData.rank,
+            userRating: myRankData.rating,
+            oppoRank,
+            oppoRating
+        });
+
+        LevelManager.applyMatchResult(currentUser, matchResult);
+    }
+
     gameResult = {
         mode: gameMode,
         msg: msg,
         p1Score: p1State.score,
-        p2Score: p2State.score
+        p2Score: p2State.score,
+        matchResult: matchResult
     };
     renderResult();
     switchView('view-result');
@@ -2079,6 +2479,7 @@ function renderResult() {
         btnBackRoom.onclick = () => startAiDuelFromModal();
         if (btnResultHub) btnResultHub.innerText = '返回主页';
 
+        const aiRank = (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1;
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div>
@@ -2087,10 +2488,11 @@ function renderResult() {
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
                     <div>
-                        <div style="font-weight:700; color:var(--p2-sys-color);">系统AI</div>
+                        <div style="font-weight:700; color:var(--p2-sys-color);">系统AI (${aiRank}段)</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
                     </div>
                 </div>
+                ${renderMatchResultBadgeHtml(gameResult.matchResult)}
             `;
     } else {
         btnBackRoom.style.display = 'inline-flex';
@@ -2107,6 +2509,7 @@ function renderResult() {
         }
 
         const oppoTitle = isHost ? guestName : hostName;
+        const oppoRankDisplay = currentMatchOppoRank ? ` (${currentMatchOppoRank}段)` : '';
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div>
@@ -2115,10 +2518,11 @@ function renderResult() {
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
                     <div>
-                        <div style="font-weight:700; color:var(--p2-sys-color);">${oppoTitle || '对手'}</div>
+                        <div style="font-weight:700; color:var(--p2-sys-color);">${oppoTitle || '对手'}${oppoRankDisplay}</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
                     </div>
                 </div>
+                ${renderMatchResultBadgeHtml(gameResult.matchResult)}
             `;
     }
 }
@@ -2184,10 +2588,60 @@ async function handleResultBackToHub() {
     cleanUpAndBackToHub();
 }
 
+function applyForfeitPenalty() {
+    if (typeof LevelManager === 'undefined' || !currentUser) return;
+    const isAi = (gameMode === 'ai_duel');
+    const isRanked = isAi 
+        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : true)
+        : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+
+    if (!isRanked) return;
+
+    const myRankData = LevelManager.getUserRankData(currentUser);
+    const oppoRank = isAi 
+        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
+        : (currentMatchOppoRank || 1);
+    const oppoRating = isAi ? 50 : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+
+    const matchResult = LevelManager.calculateMatchResult({
+        isRanked: true,
+        isAi,
+        playerWin: false,
+        isDraw: false,
+        userRank: myRankData.rank,
+        userRating: myRankData.rating,
+        oppoRank,
+        oppoRating
+    });
+
+    LevelManager.applyMatchResult(currentUser, matchResult);
+
+    if (typeof showToast === 'function') {
+        showToast(`中途退出判定战败，扣除 ${Math.abs(matchResult.deltaPoints)} 等级分`);
+    }
+
+    if (!isAi && realtimeChannel) {
+        realtimeChannel.send({
+            type: 'broadcast',
+            event: 'game_over',
+            payload: { msg: '🎉 对方中途退出了对战，你获得了胜利！' }
+        });
+    }
+}
+window.applyForfeitPenalty = applyForfeitPenalty;
+
 function confirmExitGame() {
+    if (isPlayingMatch) {
+        if (!confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？')) {
+            return;
+        }
+        applyForfeitPenalty();
+    }
+
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
+    isPlayingMatch = false;
 
     if (gameMode === 'online') {
         leaveOnlineLobby(false);
@@ -2225,10 +2679,14 @@ window.recordSwitchedAccount = recordSwitchedAccount;
 
 async function updateMyLobbyPresence() {
     if (!globalLobbyChannel || !currentUser) return;
-    let myLevel = 1;
+    let myRank = 1;
+    let myRating = 0;
     if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
-        myLevel = LevelManager.getUserLevel(currentUser);
+        const rd = LevelManager.getUserRankData(currentUser);
+        myRank = rd.rank;
+        myRating = rd.rating;
     }
+    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
     const status = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
     try {
@@ -2236,7 +2694,10 @@ async function updateMyLobbyPresence() {
             username: currentUser,
             sessionId: CLIENT_SESSION_ID,
             avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-            level: myLevel,
+            level: myRank,
+            rank: myRank,
+            rating: myRating,
+            isBili: isBili,
             status: status,
             joinedAt: Date.now()
         });
@@ -2246,10 +2707,14 @@ async function updateMyLobbyPresence() {
 function initGlobalPresence() {
     if (!currentUser || !sbClient) return;
 
-    let myLevel = 1;
+    let myRank = 1;
+    let myRating = 0;
     if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
-        myLevel = LevelManager.getUserLevel(currentUser);
+        const rd = LevelManager.getUserRankData(currentUser);
+        myRank = rd.rank;
+        myRating = rd.rating;
     }
+    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
     const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
 
@@ -2266,7 +2731,10 @@ function initGlobalPresence() {
                 username: currentUser,
                 sessionId: CLIENT_SESSION_ID,
                 avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                level: myLevel,
+                level: myRank,
+                rank: myRank,
+                rating: myRating,
+                isBili: isBili,
                 status: initialStatus,
                 joinedAt: Date.now()
             });
@@ -2310,7 +2778,10 @@ function initGlobalPresence() {
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
                     avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myLevel,
+                    level: myRank,
+                    rank: myRank,
+                    rating: myRating,
+                    isBili: isBili,
                     status: initialStatus,
                     joinedAt: Date.now()
                 });
@@ -2335,15 +2806,24 @@ function startPresenceHeartbeat() {
         // 1. WebSocket Presence 续期
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
-                let myLevel = 1;
-                if (typeof LevelManager !== 'undefined') myLevel = LevelManager.getUserLevel(currentUser);
+                let myRank = 1;
+                let myRating = 0;
+                if (typeof LevelManager !== 'undefined') {
+                    const rd = LevelManager.getUserRankData(currentUser);
+                    myRank = rd.rank;
+                    myRating = rd.rating;
+                }
+                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
                 const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
                 const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
                 globalLobbyChannel.track({
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
                     avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myLevel,
+                    level: myRank,
+                    rank: myRank,
+                    rating: myRating,
+                    isBili: isBili,
                     status: initialStatus,
                     joinedAt: Date.now()
                 });
@@ -2375,7 +2855,7 @@ async function fetchRestOnlineUsers() {
         const threshold = new Date(now - 120 * 1000).toISOString();
         const { data, error } = await sbClient
             .from('user_accounts')
-            .select('username, avatar_url, level, updated_at')
+            .select('username, avatar_url, level, user_data, updated_at')
             .gt('updated_at', threshold)
             .limit(50);
         if (!error && Array.isArray(data)) {
@@ -2391,6 +2871,8 @@ async function fetchRestOnlineUsers() {
 async function syncGlobalPresenceState() {
     const state = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
     const onlineUsersMap = new Map();
+    const isLogged = isCurrentUserLoggedIn();
+    const savedGuestName = (typeof SafeStorage !== 'undefined') ? SafeStorage.getItem('vocab_guest_name') : null;
 
     // 1. WebSocket 实时 Presence 用户
     Object.keys(state).forEach(k => {
@@ -2404,17 +2886,26 @@ async function syncGlobalPresenceState() {
         if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
         // 3. 过滤刚刚切换过的旧账号
         if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
-        // 4. 隐身用户不展示在列表中
+        // 4. 已登录用户：彻底过滤本地历史游客账号
+        if (isLogged && savedGuestName && (k === savedGuestName || pUsername === savedGuestName)) return;
+        // 5. 隐身用户不展示在列表中
         if (pres.status === 'invisible' || pres.invisible === true) return;
 
         let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
         if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
 
+        const rankVal = pres.rank || pres.level || 1;
+        const ratingVal = pres.rating || 0;
+        const isBiliVal = Boolean(pres.isBili);
+
         onlineUsersMap.set(pUsername, {
             username: pUsername,
             avatar: avatar,
             status: pres.status || 'idle',
-            level: pres.level || 1,
+            level: rankVal,
+            rank: rankVal,
+            rating: ratingVal,
+            isBili: isBiliVal,
             joinedAt: pres.joinedAt || Date.now()
         });
     });
@@ -2426,14 +2917,22 @@ async function syncGlobalPresenceState() {
             const uName = ru.username;
             if (!uName || uName === currentUser) return;
             if (recentlySwitchedAccounts.has(uName)) return;
+            if (isLogged && savedGuestName && uName === savedGuestName) return;
             if (!onlineUsersMap.has(uName)) {
                 let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
                 if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
+                const uData = ru.user_data || {};
+                const rankVal = uData.rank_data?.rank || ru.level || 1;
+                const ratingVal = uData.rank_data?.rating || 0;
+                const isBiliVal = (uData.account_type === 'bilibili' || uData.isBili === true);
                 onlineUsersMap.set(uName, {
                     username: uName,
                     avatar: avatar,
                     status: 'idle',
-                    level: ru.level || 1,
+                    level: rankVal,
+                    rank: rankVal,
+                    rating: ratingVal,
+                    isBili: isBiliVal,
                     joinedAt: new Date(ru.updated_at || Date.now()).getTime()
                 });
             }
@@ -2445,6 +2944,7 @@ async function syncGlobalPresenceState() {
         const now = Date.now();
         cachedDbRooms.forEach(r => {
             if (r.host && r.host !== currentUser && r.status === 'waiting') {
+                if (isLogged && savedGuestName && r.host === savedGuestName) return;
                 const roomAge = now - new Date(r.updated_at || r.created_at || now).getTime();
                 if (roomAge < 120000 && !onlineUsersMap.has(r.host)) {
                     onlineUsersMap.set(r.host, {
@@ -2452,6 +2952,9 @@ async function syncGlobalPresenceState() {
                         avatar: typeof getUserAvatar === 'function' ? getUserAvatar(r.host) : '',
                         status: 'idle',
                         level: 1,
+                        rank: 1,
+                        rating: 0,
+                        isBili: false,
                         joinedAt: now - roomAge
                     });
                 }
@@ -2498,9 +3001,10 @@ async function syncGlobalPresenceState() {
                         ${u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';" style="position:absolute; width:100%; height:100%; object-fit:cover; border-radius:50%;">` : ''}
                     </div>
                     <div class="online-player-meta">
-                        <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                             <span class="online-player-name" title="${escapeHtml(u.username)}">${escapeHtml(u.username)}</span>
-                            <span class="user-level-badge" style="font-size:0.72rem; padding:1px 6px; font-weight:700;">Lv.${u.level}</span>
+                            ${u.isBili ? `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 6px; border-radius:10px; box-shadow:0 1px 3px rgba(251,114,153,0.3);"><svg style="width:11px; height:11px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>` : ''}
+                            <span class="user-level-badge" style="font-size:0.72rem; padding:1px 6px; font-weight:700;">${u.rank || u.level || 1}段</span>
                         </div>
                         ${statusHtml}
                     </div>
@@ -2587,11 +3091,11 @@ function openCreateMatchInviteModal(targetUser) {
             const presetNameEl = document.getElementById('create-invite-preset-name');
             const presetSummaryEl = document.getElementById('create-invite-preset-summary');
             if (presetNameEl) presetNameEl.innerText = `专属房间预设：《${activeInviteRules.name || currentUser + '的房间'}》`;
-            if (presetSummaryEl) {
                 const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
                 const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
-                presetSummaryEl.innerText = `限时: ${Math.round((activeInviteRules.duration || 60) / 60)} 分钟 | 胜出: 领先 ${activeInviteRules.winLead || 6} 题 | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
-            }
+                const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
+                const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
+                presetSummaryEl.innerText = `${modeTxt} | ${ruleTxt} | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
@@ -2640,14 +3144,55 @@ function toggleEditInviteRules() {
 
 function renderInviteRuleChips() {
     if (!activeInviteRules) return;
+    const isRanked = (activeInviteRules.matchType === 'ranked');
+    if (isRanked) {
+        activeInviteRules.mode = 'lead';
+        activeInviteRules.winLead = 6;
+    }
+
+    document.querySelectorAll('#invite-chips-match-type .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-type');
+        el.classList.toggle('selected', val === (activeInviteRules.matchType || 'ranked'));
+    });
+
+    document.querySelectorAll('#invite-chips-rule .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-rule');
+        el.classList.toggle('selected', val === (activeInviteRules.mode || 'lead'));
+        if (isRanked) {
+            const isLead = (val === 'lead');
+            el.classList.toggle('disabled', !isLead);
+            el.style.pointerEvents = isLead ? 'auto' : 'none';
+            el.style.opacity = isLead ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
+    });
+
+    const groupLead = document.getElementById('invite-group-lead');
+    const groupTimed = document.getElementById('invite-group-timed');
+    if (groupLead) groupLead.style.display = (activeInviteRules.mode === 'timed') ? 'none' : 'block';
+    if (groupTimed) groupTimed.style.display = (activeInviteRules.mode === 'timed') ? 'block' : 'none';
+
     document.querySelectorAll('#invite-chips-time .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-time'));
-        el.classList.toggle('selected', val === (activeInviteRules.duration || 60));
+        el.classList.toggle('selected', val === (activeInviteRules.duration || 120));
     });
 
     document.querySelectorAll('#invite-chips-lead .md3-chip').forEach(el => {
         const val = parseInt(el.getAttribute('data-lead'));
         el.classList.toggle('selected', val === (activeInviteRules.winLead || 6));
+        if (isRanked) {
+            const isFixed6 = (val === 6);
+            el.classList.toggle('disabled', !isFixed6);
+            el.style.pointerEvents = isFixed6 ? 'auto' : 'none';
+            el.style.opacity = isFixed6 ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+        }
     });
 
     document.querySelectorAll('#invite-chips-gauge .md3-chip').forEach(el => {
@@ -2656,23 +3201,52 @@ function renderInviteRuleChips() {
     });
 }
 
+function selectInviteRuleMode(val) {
+    if (!activeInviteRules) return;
+    if (activeInviteRules.matchType === 'ranked' && val !== 'lead') {
+        showToast('排位模式下规则固定为不限时');
+        return;
+    }
+    activeInviteRules.mode = val;
+    renderInviteRuleChips();
+}
+window.selectInviteRuleMode = selectInviteRuleMode;
+
+function selectInviteRuleMatchType(val) {
+    if (!activeInviteRules) return;
+    activeInviteRules.matchType = val;
+    if (val === 'ranked') {
+        activeInviteRules.mode = 'lead';
+        activeInviteRules.winLead = 6;
+    }
+    renderInviteRuleChips();
+}
+window.selectInviteRuleMatchType = selectInviteRuleMatchType;
+
 function selectInviteRuleTime(val) {
     if (!activeInviteRules) return;
     activeInviteRules.duration = parseInt(val);
     renderInviteRuleChips();
 }
+window.selectInviteRuleTime = selectInviteRuleTime;
 
 function selectInviteRuleLead(val) {
     if (!activeInviteRules) return;
+    if (activeInviteRules.matchType === 'ranked' && parseInt(val) !== 6) {
+        showToast('排位模式下获胜条件固定为领先6题');
+        return;
+    }
     activeInviteRules.winLead = parseInt(val);
     renderInviteRuleChips();
 }
+window.selectInviteRuleLead = selectInviteRuleLead;
 
 function selectInviteRuleGauge(val) {
     if (!activeInviteRules) return;
     activeInviteRules.gaugeStyle = val;
     renderInviteRuleChips();
 }
+window.selectInviteRuleGauge = selectInviteRuleGauge;
 
 function updateInviteBookSummaryUI() {
     if (!activeInviteRules) return;
@@ -2775,7 +3349,13 @@ function handleReceivedMatchInvite(payload) {
     if (roomEl) roomEl.innerText = payload.roomName || '对决房间';
 
     const cfg = payload.config || {};
-    if (timeEl) timeEl.innerText = `${Math.round((cfg.duration || 60) / 60)} 分钟`;
+    const matchTypeEl = document.getElementById('invite-rule-match-type');
+    const rowTime = document.getElementById('invite-rule-row-time');
+    const rowLead = document.getElementById('invite-rule-row-lead');
+    if (matchTypeEl) matchTypeEl.innerText = (cfg.matchType === 'friendly') ? '友谊赛' : '排位赛';
+    if (rowTime) rowTime.style.display = (cfg.mode === 'timed') ? 'flex' : 'none';
+    if (rowLead) rowLead.style.display = (cfg.mode === 'timed') ? 'none' : 'flex';
+    if (timeEl) timeEl.innerText = `${Math.round((cfg.duration || 120) / 60)} 分钟`;
     if (leadEl) leadEl.innerText = `领先 ${cfg.winLead || 6} 题`;
     if (gaugeEl) gaugeEl.innerText = cfg.gaugeStyle === 'snake' ? '盘龙' : '拔河';
     if (bookEl) bookEl.innerText = payload.bookNames || getBookNamesSummary(cfg.selectedBooks);
@@ -3061,8 +3641,8 @@ async function fetchOnlineRoomsList(manual = false) {
         const isHostInRoom = isMine ? isCurrentlyInMyRoom : (r.status === 'waiting');
 
         const cfg = r.config || {};
-        const durationText = cfg.duration ? `${Math.round(cfg.duration / 60)}分钟` : '1分钟';
-        const winLeadText = cfg.winLead ? `领先${cfg.winLead}题` : '领先6题';
+        const modeTxt = (cfg.matchType === 'friendly') ? '友谊赛' : '排位赛';
+        const ruleTxt = (cfg.mode === 'timed') ? `${Math.round((cfg.duration || 120) / 60)}分钟` : `领先${cfg.winLead || 6}题`;
         const gaugeText = cfg.gaugeStyle === 'snake' ? '盘龙' : '拔河';
         const bookText = getBookNamesSummary(cfg.selectedBooks || ['GaoKao3500']);
 
@@ -3084,7 +3664,7 @@ async function fetchOnlineRoomsList(manual = false) {
                             <span class="material-symbols-rounded" style="font-size:15px; color:var(--md-sys-color-primary);">badge</span>
                             <span>房主：<strong>${escapeHtml(r.host)}</strong></span>
                         </span>
-                        <span style="color:var(--md-sys-color-outline); font-size:0.78rem;">${durationText} · ${winLeadText} · ${gaugeText}</span>
+                        <span style="color:var(--md-sys-color-outline); font-size:0.78rem;">${modeTxt} · ${ruleTxt} · ${gaugeText}</span>
                     </div>
                     <div style="font-size:0.78rem; color:var(--md-sys-color-outline); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         词书：${escapeHtml(bookText)}
@@ -3143,6 +3723,12 @@ function closeWelcomeUpdateModal() {
 }
 
 window.addEventListener('beforeunload', () => {
+    if (isPlayingMatch) {
+        try {
+            applyForfeitPenalty();
+        } catch (e) { }
+    }
+
     if (isHost && roomCode) {
         // 1. 立即向房间内的对手发送强制踢人广播
         if (realtimeChannel) {

@@ -178,9 +178,15 @@ function renderBookSelectorPage() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (!container) return;
 
+    const isMultiplayer = (bookSelectorMode === 'room' || bookSelectorMode === 'preset' || bookSelectorMode === 'invite');
     const allBooks = getAllUniqueBooks();
     const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
-    const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
+    let filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
+
+    // 远程联机禁止选择本地词书
+    if (isMultiplayer) {
+        filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
+    }
 
     const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
     if (summaryChip) summaryChip.textContent = `已选 ${selectedCount} 本词书`;
@@ -204,7 +210,9 @@ function renderBookSelectorPage() {
         folderGroups[folder].push(b);
     });
 
-    const folderOrder = ['内置', '考纲', 'Doris', '精选', '实词', '其他', '自定义词书'];
+    const folderOrder = isMultiplayer
+        ? ['考纲', 'Doris', '精选', '实词', '其他']
+        : ['内置', '考纲', 'Doris', '精选', '实词', '其他', '自定义词书'];
     const sortedFolderKeys = Object.keys(folderGroups).sort((a, b) => {
         let idxA = folderOrder.indexOf(a);
         let idxB = folderOrder.indexOf(b);
@@ -453,6 +461,10 @@ async function handleBookSelectorToggle(bookId) {
         const badge = document.getElementById('dictation-book-badge');
         if (badge) badge.innerText = bookMeta.name;
     } else if (bookSelectorMode === 'room') {
+        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
+            showToast('远程联机禁止选择本地词书');
+            return;
+        }
         if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.includes(bookId);
         if (isSel) {
@@ -468,6 +480,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updateRoomBookSummaryUI === 'function') updateRoomBookSummaryUI();
         if (typeof broadcastRuleChange === 'function' && isHost) broadcastRuleChange();
     } else if (bookSelectorMode === 'preset') {
+        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
+            showToast('远程联机禁止选择本地词书');
+            return;
+        }
         if (!window.activeEditingPreset) window.activeEditingPreset = { selectedBooks: [] };
         if (!activeEditingPreset.selectedBooks) activeEditingPreset.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeEditingPreset.selectedBooks, bookId) : activeEditingPreset.selectedBooks.includes(bookId);
@@ -483,6 +499,10 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
     } else if (bookSelectorMode === 'invite') {
+        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
+            showToast('远程联机禁止选择本地词书');
+            return;
+        }
         if (!window.activeInviteRules) window.activeInviteRules = { selectedBooks: [] };
         if (!activeInviteRules.selectedBooks) activeInviteRules.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeInviteRules.selectedBooks, bookId) : activeInviteRules.selectedBooks.includes(bookId);
