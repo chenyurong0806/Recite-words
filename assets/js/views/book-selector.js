@@ -47,6 +47,21 @@ function openBookSelectorPage(mode = 'single') {
 
     switchView('view-book-selector');
     renderBookSelectorPage();
+
+    // 异步预加载前排重点词书并实时刷新 DOM 掌握度
+    setTimeout(async () => {
+        if (typeof BookManager !== 'undefined' && BookManager.availableBooks) {
+            const candidates = (BookManager.availableBooks || []).slice(0, 10);
+            for (const b of candidates) {
+                if (!BookManager.bookCache[b.id]) {
+                    try { await BookManager.loadBookData(b.id); } catch (e) { }
+                }
+            }
+            if (typeof refreshBookSelectorMasteryDOM === 'function') {
+                refreshBookSelectorMasteryDOM();
+            }
+        }
+    }, 100);
 }
 
 function exitBookSelectorPage() {
@@ -260,10 +275,10 @@ function renderBookSelectorPage() {
                                              <div class="book-card-mastery" style="margin-top:6px;">
                                                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; margin-bottom:3px;">
                                                      <span style="color:var(--md-sys-color-outline);">掌握度</span>
-                                                     <span style="font-weight:700; color:var(--md-sys-color-primary);">${prog.progressPercent || 0}%</span>
+                                                     <span class="book-card-mastery-text" style="font-weight:700; color:var(--md-sys-color-primary);">${prog.progressPercent || 0}%</span>
                                                  </div>
                                                  <div class="book-progress-mini" style="height:4px; margin:0;">
-                                                     <div class="book-progress-mini-fill" style="width:${prog.progressPercent || 0}%;"></div>
+                                                     <div class="book-progress-mini-fill" style="width:${Math.max((prog.progressPercent > 0 ? 3 : 0), Math.min(100, prog.progressPercent || 0))}%;"></div>
                                                  </div>
                                              </div>
                                          </div>
@@ -274,6 +289,40 @@ function renderBookSelectorPage() {
                     </div>
                 `;
     }).join('');
+}
+
+function refreshBookSelectorMasteryDOM() {
+    const cards = document.querySelectorAll('.book-cover-card[data-book-id]');
+    cards.forEach(card => {
+        const bId = card.getAttribute('data-book-id');
+        const b = (BookManager.availableBooks || []).find(x => x.id === bId) || (BookManager.fallbackBooks || []).find(x => x.id === bId) || (window.customBooks || []).find(x => x.id === bId);
+        if (!b) return;
+        let prog = { progressPercent: 0 };
+        if (isBookShiCi(b) && typeof ShiCiEbbinghausEngine !== 'undefined') {
+            const shiciRecs = ShiCiEbbinghausEngine.getRecords();
+            const words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null) || [];
+            let learned = 0, mastered = 0;
+            words.forEach(w => {
+                if (!w || !w.word) return;
+                const k = w.word.trim();
+                if (ShiCiEbbinghausEngine.isWordMastered(k)) { learned++; mastered++; }
+                else if (shiciRecs[k] && shiciRecs[k].stage >= 1) learned++;
+            });
+            const total = words.length || b.count || 1;
+            let progressPercent = 0;
+            if (total > 0 && learned > 0) {
+                const raw = (learned / total) * 100;
+                progressPercent = raw < 1 ? Number(raw.toFixed(1)) || 0.1 : Math.min(100, Math.round(raw));
+            }
+            prog = { progressPercent, learned, mastered, total };
+        } else if (typeof EbbinghausEngine !== 'undefined') {
+            prog = EbbinghausEngine.getBookProgress(b.id, b.words);
+        }
+        const textEl = card.querySelector('.book-card-mastery-text');
+        const fillEl = card.querySelector('.book-progress-mini-fill');
+        if (textEl) textEl.innerText = `${prog.progressPercent || 0}%`;
+        if (fillEl) fillEl.style.width = `${Math.max((prog.progressPercent > 0 ? 3 : 0), Math.min(100, prog.progressPercent || 0))}%`;
+    });
 }
 
 function updateBookSelectorDOM() {

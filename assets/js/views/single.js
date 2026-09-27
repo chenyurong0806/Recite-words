@@ -899,6 +899,9 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
 // 退出单人练习：直接退出无需二次确认，并实时保存进度
 function confirmExitSingle() {
     saveSingleProgress();
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     switchView('view-hub');
 }
 

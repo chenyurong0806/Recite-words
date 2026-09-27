@@ -61,12 +61,23 @@ const EbbinghausEngine = {
         let words = bookWords;
         if (!words && BookManager.bookCache) {
             words = BookManager.bookCache[bookId];
+            if (!words) {
+                // 尝试归一化匹配别名
+                const normId = (bookId || '').replace(/^books\//, '').replace(/\.json$/, '');
+                for (const k in BookManager.bookCache) {
+                    const normK = k.replace(/^books\//, '').replace(/\.json$/, '');
+                    if (normK === normId) {
+                        words = BookManager.bookCache[k];
+                        break;
+                    }
+                }
+            }
         }
         if (!words && window.customBooks) {
-            const cb = window.customBooks.find(b => b.id === bookId);
+            const cb = window.customBooks.find(b => b.id === bookId || (b.name && b.name === bookId));
             if (cb && cb.words) words = cb.words;
         }
-        if (!words && (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json')) {
+        if (!words && bookId === 'builtin_default') {
             words = DEFAULT_WORDS;
         }
 
@@ -96,21 +107,36 @@ const EbbinghausEngine = {
                 }
             });
 
-            const effective = Math.max(0, learned - due);
-            const progressPercent = Math.min(100, Math.round((effective / total) * 100));
+            // 掌握度计算：已学习/掌握的单词数占总词数比例
+            let progressPercent = 0;
+            if (total > 0 && learned > 0) {
+                const rawPercent = (learned / total) * 100;
+                if (rawPercent < 1) {
+                    progressPercent = Number(rawPercent.toFixed(1));
+                    if (progressPercent <= 0) progressPercent = 0.1;
+                } else {
+                    progressPercent = Math.min(100, Math.round(rawPercent));
+                }
+            }
             return { total, learned, due, mastered, progressPercent };
         }
 
         // 若词汇列表尚未加载到内存，尝试通过元数据与已学记录计算
         let metaCount = 0;
-        const meta = (BookManager.availableBooks || []).find(b => b.id === bookId) ||
-            (BookManager.fallbackBooks || []).find(b => b.id === bookId) ||
+        const normId = (bookId || '').replace(/^books\//, '').replace(/\.json$/, '');
+        const meta = (BookManager.availableBooks || []).find(b => b.id === bookId || (b.id && b.id.replace(/^books\//, '').replace(/\.json$/, '') === normId)) ||
+            (BookManager.fallbackBooks || []).find(b => b.id === bookId || (b.id && b.id.replace(/^books\//, '').replace(/\.json$/, '') === normId)) ||
             (window.customBooks || []).find(b => b.id === bookId);
         if (meta && meta.count) {
             metaCount = parseInt(meta.count) || 0;
         }
 
-        const recs = Object.values(records).filter(r => r && r.bookId === bookId);
+        const recs = Object.values(records).filter(r => {
+            if (!r) return false;
+            if (r.bookId === bookId) return true;
+            if (r.bookId && normId && r.bookId.replace(/^books\//, '').replace(/\.json$/, '') === normId) return true;
+            return false;
+        });
         let learned = 0;
         let due = 0;
         let mastered = 0;
@@ -127,9 +153,17 @@ const EbbinghausEngine = {
             }
         });
 
-        const total = metaCount || learned;
-        const effective = Math.max(0, learned - due);
-        const progressPercent = total > 0 ? Math.min(100, Math.round((effective / total) * 100)) : 0;
+        const total = metaCount || learned || 1;
+        let progressPercent = 0;
+        if (total > 0 && learned > 0) {
+            const rawPercent = (learned / total) * 100;
+            if (rawPercent < 1) {
+                progressPercent = Number(rawPercent.toFixed(1));
+                if (progressPercent <= 0) progressPercent = 0.1;
+            } else {
+                progressPercent = Math.min(100, Math.round(rawPercent));
+            }
+        }
         return { total, learned, due, mastered, progressPercent };
     },
     async resetBookProgress(bookId) {

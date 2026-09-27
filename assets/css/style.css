@@ -467,8 +467,8 @@ select.md3-select option {
 }
 
 .card-tool-btn.active {
-    background: #E8F5E9;
-    color: #2E7D32;
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
 }
 
 .card-tool-btn.danger:hover {

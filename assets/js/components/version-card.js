@@ -20,13 +20,15 @@ async function checkCloudVersion(manual = false) {
     let data = null;
 
     // 1. 优先从 Worker 获取 (不走任何浏览器本地缓存)
-    try {
-        const res = await fetch(`${BookManager.API_BASE}/api/version?t=${Date.now()}`, {
-            cache: 'no-store'
-        });
-        if (res.ok) data = await res.json();
-    } catch (e) {
-        console.warn('Worker version check failed:', e);
+    if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
+        try {
+            const res = await fetch(`${BookManager.API_BASE}/api/version?t=${Date.now()}`, {
+                cache: 'no-store'
+            });
+            if (res.ok) data = await res.json();
+        } catch (e) {
+            console.warn('Worker version check failed:', e);
+        }
     }
 
     // 2. 备选：Worker 不可用时尝试直连

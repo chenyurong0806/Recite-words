@@ -639,9 +639,11 @@ const ShiCiManager = {
             './books/实词/实词.json',
             'books/实词/实词.json',
             'https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json',
-            'https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json',
-            `${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`
+            'https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json'
         ];
+        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
+            urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`);
+        }
 
         for (const u of urls) {
             try {
@@ -1313,6 +1315,9 @@ function endShiCiGame() {
         pool: shiciState.pool,
         total: shiciState.pool.length
     };
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     renderResult();
     switchView('view-result');
 }
@@ -1322,6 +1327,9 @@ function confirmExitShiCi() {
     saveShiCiState();
     updateHubShiCiBadge();
     updateHubShiCiResumeButton();
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     switchView('view-hub');
 }
 

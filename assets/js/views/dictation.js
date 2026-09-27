@@ -144,6 +144,9 @@ function saveDictationSettings() {
 
 function confirmExitDictation() {
     if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     switchView('view-hub');
 }
 
@@ -660,8 +663,8 @@ function updateDictationToolbar() {
             const isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
             masterBtn.classList.toggle('active', isMastered);
             if (masterIcon) {
-                masterIcon.innerText = 'check_circle';
-                masterIcon.style.color = isMastered ? 'var(--md-sys-color-primary, #0061a4)' : '';
+                masterIcon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
+                masterIcon.style.color = '';
             }
         }
     }
@@ -696,6 +699,9 @@ window.jumpToSearchFromDictation = jumpToSearchFromDictation;
 
 function endDictationSession() {
     if (typeof closeGlobalVirtualKeyboard === 'function') closeGlobalVirtualKeyboard();
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     const accuracy = dictationState.total > 0 ? Math.round((dictationState.score / dictationState.total) * 100) : 0;
     alert(`🎉 默写练习完成！\n\n总题数：${dictationState.total} 题\n正确数：${dictationState.score} 题\n正确率：${accuracy}%\n\n错题已自动录入个人错题本。`);
     switchView('view-hub');

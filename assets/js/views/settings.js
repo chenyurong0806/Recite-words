@@ -1647,9 +1647,12 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        let ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
-            signal: controller.signal
-        }).catch(() => null);
+        let ghRes = null;
+        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
+            ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
+                signal: controller.signal
+            }).catch(() => null);
+        }
 
         if (!ghRes || !ghRes.ok) {
             ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {

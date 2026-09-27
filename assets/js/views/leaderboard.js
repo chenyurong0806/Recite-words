@@ -245,12 +245,51 @@ function resetWordleLeaderboardDate() {
     renderWordleLeaderboard();
 }
 
+function toggleWordleSortDropdown(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('menu-lb-wordle-sort');
+    if (!menu) return;
+    const isHidden = menu.style.display === 'none' || !menu.style.display;
+    if (isHidden) {
+        updateWordleSortDropdownUI();
+        menu.style.display = 'block';
+    } else {
+        menu.style.display = 'none';
+    }
+}
+
+function chooseWordleLeaderboardSort(sortType) {
+    const menu = document.getElementById('menu-lb-wordle-sort');
+    if (menu) menu.style.display = 'none';
+    setWordleLeaderboardSort(sortType);
+}
+
+function updateWordleSortDropdownUI() {
+    const labelEl = document.getElementById('lb-wordle-sort-label');
+    if (labelEl) {
+        labelEl.innerText = wordleLeaderboardSort === 'attempts' ? '按尝试次数最少' : '按用时最快';
+    }
+    const optTime = document.getElementById('opt-wordle-sort-time');
+    const optAttempts = document.getElementById('opt-wordle-sort-attempts');
+    if (optTime) {
+        const isTime = wordleLeaderboardSort === 'time';
+        optTime.className = `md3-custom-select-option ${isTime ? 'selected' : ''}`;
+        optTime.innerHTML = `<span>按用时最快</span>${isTime ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
+    }
+    if (optAttempts) {
+        const isAtt = wordleLeaderboardSort === 'attempts';
+        optAttempts.className = `md3-custom-select-option ${isAtt ? 'selected' : ''}`;
+        optAttempts.innerHTML = `<span>按尝试次数最少</span>${isAtt ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
+    }
+}
+
 function setWordleLeaderboardSort(sortType) {
     wordleLeaderboardSort = sortType;
     const sortSelect = document.getElementById('select-lb-wordle-sort');
     if (sortSelect && sortSelect.value !== sortType) {
         sortSelect.value = sortType;
     }
+    updateWordleSortDropdownUI();
     renderWordleLeaderboard();
 }
 
@@ -268,6 +307,7 @@ async function renderWordleLeaderboard() {
     }
     const isToday = wordleLeaderboardDate === todayStr;
 
+    updateWordleSortDropdownUI();
     const sortSelect = document.getElementById('select-lb-wordle-sort');
     if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
@@ -504,5 +544,7 @@ window.switchLeaderboardTab = switchLeaderboardTab;
 window.shiftWordleLeaderboardDate = shiftWordleLeaderboardDate;
 window.resetWordleLeaderboardDate = resetWordleLeaderboardDate;
 window.setWordleLeaderboardSort = setWordleLeaderboardSort;
+window.toggleWordleSortDropdown = toggleWordleSortDropdown;
+window.chooseWordleLeaderboardSort = chooseWordleLeaderboardSort;
 window.renderLevelLeaderboard = renderLevelLeaderboard;
 window.renderWordleLeaderboard = renderWordleLeaderboard;

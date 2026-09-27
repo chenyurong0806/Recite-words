@@ -350,16 +350,175 @@ async function supabaseUpdateAvatar(username, avatarUrl) {
 }
 
 async function supabaseSyncUserData(username, userData) {
-    if (!username || !userData) return;
+    if (!username) return;
+    return syncAllUserDataToCloud(username);
+}
+
+// 全量同步用户学习数据、等级与统计至 Supabase 云端
+async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
+    const u = targetUsername || (typeof currentUser !== 'undefined' ? currentUser : null);
+    if (!u) return;
+    if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return;
+    if (u.startsWith('游客_') || u.startsWith('游客')) return;
+
+    // 检查是否为云端用户或已注册账号
+    const isCloudUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && currentUserProfile.type === 'cloud')
+        || (!u.startsWith('游客'));
+    if (!isCloudUser) return;
+
+    let stats = null;
     try {
-        await sbClient
-            .from('user_accounts')
-            .update({ user_data: userData, updated_at: new Date().toISOString() })
-            .eq('username', username);
-    } catch (e) {
-        console.warn('[Supabase] Failed to sync user data:', e);
+        if (typeof userStats !== 'undefined' && currentUser === u) {
+            stats = userStats;
+        } else {
+            const raw = SafeStorage.getItem(`vocab_stats_${u}`);
+            if (raw) stats = JSON.parse(raw);
+        }
+    } catch (e) { }
+
+    let ebbinghaus = null;
+    try {
+        const raw = SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`);
+        if (raw) ebbinghaus = JSON.parse(raw);
+    } catch (e) { }
+
+    let daily_logs = null;
+    try {
+        const raw = SafeStorage.getItem(`vocab_daily_logs_${u}`);
+        if (raw) daily_logs = JSON.parse(raw);
+    } catch (e) { }
+
+    let mastered_words = null;
+    try {
+        const raw = SafeStorage.getItem(`vocab_mastered_words_${u}`);
+        if (raw) mastered_words = JSON.parse(raw);
+    } catch (e) { }
+
+    let wordle_history = null;
+    try {
+        const raw = SafeStorage.getItem(`vocab_wordle_history_${u}`);
+        if (raw) wordle_history = JSON.parse(raw);
+    } catch (e) { }
+
+    let shici_progress = null;
+    try {
+        const raw = SafeStorage.getItem(`vocab_shici_progress_${u}`);
+        if (raw) shici_progress = JSON.parse(raw);
+    } catch (e) { }
+
+    let levelData = null;
+    if (typeof LevelManager !== 'undefined') {
+        levelData = LevelManager.getLevelData(u);
+    }
+
+    const payload = {
+        stats: stats || {},
+        ebbinghaus: ebbinghaus || {},
+        daily_logs: daily_logs || {},
+        mastered_words: mastered_words || [],
+        wordle_history: wordle_history || {},
+        shici_progress: shici_progress || {},
+        level: levelData ? levelData.level : 1,
+        score: levelData ? levelData.score : 0,
+        updated_at: new Date().toISOString()
+    };
+
+    const updateObj = {
+        user_data: payload,
+        level: payload.level,
+        updated_at: payload.updated_at
+    };
+
+    if (options.keepalive && typeof fetch === 'function') {
+        try {
+            fetch(`${SUPABASE_URL}/rest/v1/user_accounts?username=eq.${encodeURIComponent(u)}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(updateObj),
+                keepalive: true
+            }).catch(() => { });
+            return;
+        } catch (e) { }
+    }
+
+    if (typeof sbClient !== 'undefined' && sbClient) {
+        try {
+            const { error } = await sbClient
+                .from('user_accounts')
+                .update(updateObj)
+                .eq('username', u);
+            if (error) {
+                if (error.message && error.message.includes('level')) {
+                    await sbClient
+                        .from('user_accounts')
+                        .update({ user_data: payload, updated_at: payload.updated_at })
+                        .eq('username', u);
+                } else {
+                    console.warn('[Supabase] syncAllUserDataToCloud error:', error);
+                }
+            }
+        } catch (e) {
+            console.warn('[Supabase] syncAllUserDataToCloud exception:', e);
+        }
     }
 }
+
+// 从 Supabase 云端恢复用户全量学习记录与等级
+function restoreUserDataFromCloud(user) {
+    if (!user || !user.username) return;
+    const u = user.username;
+    const ud = user.user_data;
+    if (!ud || typeof ud !== 'object') return;
+
+    if (ud.stats) {
+        try {
+            SafeStorage.setItem(`vocab_stats_${u}`, JSON.stringify(ud.stats));
+            if (typeof currentUser !== 'undefined' && currentUser === u && typeof userStats !== 'undefined') {
+                userStats = ud.stats;
+            }
+        } catch (e) { }
+    }
+    if (ud.ebbinghaus) {
+        try {
+            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, JSON.stringify(ud.ebbinghaus));
+        } catch (e) { }
+    }
+    if (ud.daily_logs) {
+        try {
+            SafeStorage.setItem(`vocab_daily_logs_${u}`, JSON.stringify(ud.daily_logs));
+        } catch (e) { }
+    }
+    if (ud.mastered_words) {
+        try {
+            SafeStorage.setItem(`vocab_mastered_words_${u}`, JSON.stringify(ud.mastered_words));
+        } catch (e) { }
+    }
+    if (ud.wordle_history) {
+        try {
+            SafeStorage.setItem(`vocab_wordle_history_${u}`, JSON.stringify(ud.wordle_history));
+        } catch (e) { }
+    }
+    if (ud.shici_progress) {
+        try {
+            SafeStorage.setItem(`vocab_shici_progress_${u}`, JSON.stringify(ud.shici_progress));
+        } catch (e) { }
+    }
+
+    if (window.EbbinghausEngine) {
+        try { window.EbbinghausEngine.updateDueBadge(); } catch (e) { }
+    }
+    if (typeof updateHubLevelUI === 'function') {
+        try { updateHubLevelUI(); } catch (e) { }
+    }
+}
+
+window.syncAllUserDataToCloud = syncAllUserDataToCloud;
+window.restoreUserDataFromCloud = restoreUserDataFromCloud;
 
 async function supabaseFetchUserData(username) {
     if (!username) return null;

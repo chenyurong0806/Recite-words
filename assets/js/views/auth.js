@@ -159,7 +159,9 @@ async function selectSavedAccountToLogin(username) {
             username: user.username,
             avatar: user.avatar_url || ''
         };
-        if (user.user_data && user.user_data.stats) {
+        if (typeof restoreUserDataFromCloud === 'function') {
+            restoreUserDataFromCloud(user);
+        } else if (user.user_data && user.user_data.stats) {
             try {
                 SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
             } catch (e) { }
@@ -252,8 +254,10 @@ async function handleCloudLogin() {
             avatar: user.avatar_url || ''
         };
 
-        // 如果用户有云端存储的数据，则合并恢复
-        if (user.user_data && user.user_data.stats) {
+        // 如果用户有云端存储的数据，则全量恢复（学习进度、等级、艾宾浩斯记忆库）
+        if (typeof restoreUserDataFromCloud === 'function') {
+            restoreUserDataFromCloud(user);
+        } else if (user.user_data && user.user_data.stats) {
             try {
                 SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
             } catch (e) { }

@@ -196,3 +196,19 @@ function closeIosPwaModal() {
     if (modal) modal.classList.remove('active');
 }
 
+// 页面关闭或切入后台时，通过 keepalive 保证将全量学习数据与等级同步至 Supabase
+window.addEventListener('beforeunload', () => {
+    if (typeof syncAllUserDataToCloud === 'function' && typeof currentUser !== 'undefined' && currentUser) {
+        syncAllUserDataToCloud(currentUser, { keepalive: true });
+    }
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        if (typeof syncAllUserDataToCloud === 'function' && typeof currentUser !== 'undefined' && currentUser) {
+            syncAllUserDataToCloud(currentUser, { keepalive: true });
+        }
+    }
+});
+
+

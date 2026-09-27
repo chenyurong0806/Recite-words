@@ -257,6 +257,12 @@ const LevelManager = {
                 }
             });
         }
+    },
+
+    // 记录每日任务并触发等级云端同步
+    recordDailyTask(taskType) {
+        if (!currentUser || this.isGuestUser(currentUser)) return;
+        this.syncUserLevelCloud(currentUser);
     }
 };
 

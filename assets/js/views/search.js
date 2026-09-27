@@ -1107,6 +1107,13 @@ function exitSearchPage() {
     searchPreviousView = null;
     searchPreviousSettingsBookId = null;
     switchView(targetView);
+    if (targetView === 'view-dictation') {
+        if (typeof dictationState !== 'undefined' && dictationState && dictationState.answered && dictationState.currentQ) {
+            const feedbackCard = document.getElementById('dictation-feedback-card');
+            if (feedbackCard) feedbackCard.style.display = 'block';
+            if (typeof updateDictationToolbar === 'function') updateDictationToolbar();
+        }
+    }
     if (targetView === 'view-settings' && targetBookId) {
         setTimeout(() => viewBookWordsInSettings(targetBookId), 50);
     }
@@ -1311,19 +1318,7 @@ async function searchYoudaoSuggest(query) {
     if (!query) return null;
     const clean = query.trim();
 
-    // 优先通过 Cloudflare Worker 代理拉取完整非截断释义（使用绝对地址，防止第三方平台 404）
-    const apiBase = (typeof BookManager !== 'undefined' && BookManager.API_BASE) ? BookManager.API_BASE : 'https://vocab-api.chenyurong.qzz.io';
-    try {
-        const res = await fetch(`${apiBase}/api/youdao?q=${encodeURIComponent(clean)}&num=8&doctype=json`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.data && Array.isArray(data.data.entries)) {
-                return data.data;
-            }
-        }
-    } catch (e) { }
-
-    // 备用通过 JSONP 直连有道接口
+    // 直接通过 JSONP 拉取有道词典建议（不请求不存在的第三方代理后端，杜绝 CORS 报错）
     try {
         const jsonpData = await fetchYoudaoSuggestJsonp(clean, 8);
         if (jsonpData && jsonpData.entries && jsonpData.entries.length > 0) {
@@ -1331,7 +1326,6 @@ async function searchYoudaoSuggest(query) {
         }
     } catch (e) { }
 
-    return null;
 }
 
 function searchLocalBooks(query) {

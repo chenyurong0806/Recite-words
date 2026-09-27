@@ -69,6 +69,10 @@ function selectMd3Option(selectId, val, label, onChangeFnName) {
 
 function closeAllMd3Selects() {
     document.querySelectorAll('.md3-custom-select-menu.open').forEach(m => m.classList.remove('open'));
+    const wordleMenu = document.getElementById('menu-lb-wordle-sort');
+    if (wordleMenu) wordleMenu.style.display = 'none';
+    const reviewMenu = document.getElementById('single-review-book-menu');
+    if (reviewMenu) reviewMenu.style.display = 'none';
 }
 
 document.addEventListener('pointerdown', (e) => {
@@ -76,4 +80,4 @@ document.addEventListener('pointerdown', (e) => {
         closeAllMd3Selects();
     }
 });
-
+

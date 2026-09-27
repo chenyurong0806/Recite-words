@@ -1184,9 +1184,13 @@ function resetAllGameAlertsAndFeedback() {
         if (phraseComp) phraseComp.style.display = 'none';
     });
 
-    // 4. 默写模式结果反馈卡片清理
+    // 4. 默写模式结果反馈卡片清理（若处于已答题状态，保留答案卡展示）
     const dictFeedback = document.getElementById('dictation-feedback-card');
-    if (dictFeedback) dictFeedback.style.display = 'none';
+    if (dictFeedback) {
+        if (!(typeof dictationState !== 'undefined' && dictationState && dictationState.answered && dictationState.currentQ)) {
+            dictFeedback.style.display = 'none';
+        }
+    }
 
     // 5. 单人练习词组比对卡片清理
     const singleComp = document.getElementById('single-phrase-compare');
@@ -2311,16 +2315,84 @@ function initGlobalPresence() {
                     joinedAt: Date.now()
                 });
                 fetchOnlineRoomsList();
+                syncGlobalPresenceState();
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                console.warn('[Presence] Lobby channel disconnected, status:', status, 'scheduling reconnect...');
+                setTimeout(() => {
+                    initGlobalPresence();
+                }, 3000);
             }
         });
+
+    startPresenceHeartbeat();
 }
 
-// 在线玩家过滤掉自己、当前客户端会话、隐身用户，并展示等级与对局状态
-function syncGlobalPresenceState() {
-    if (!globalLobbyChannel) return;
-    const state = globalLobbyChannel.presenceState();
-    const onlineUsers = [];
+let presenceHeartbeatTimer = null;
+function startPresenceHeartbeat() {
+    if (presenceHeartbeatTimer) return;
+    presenceHeartbeatTimer = setInterval(async () => {
+        if (!currentUser || (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(currentUser))) return;
+        // 1. WebSocket Presence 续期
+        if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
+            try {
+                let myLevel = 1;
+                if (typeof LevelManager !== 'undefined') myLevel = LevelManager.getUserLevel(currentUser);
+                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
+                const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    sessionId: CLIENT_SESSION_ID,
+                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                    level: myLevel,
+                    status: initialStatus,
+                    joinedAt: Date.now()
+                });
+            } catch (e) { }
+        } else if (!globalLobbyChannel || globalLobbyChannel.state !== 'joining') {
+            initGlobalPresence();
+        }
+        // 2. REST 在线心跳更新，保证跨网络环境下可被其他玩家检索到
+        try {
+            if (sbClient && currentUserProfile && currentUserProfile.isLoggedIn) {
+                sbClient.from('user_accounts').update({
+                    updated_at: new Date().toISOString()
+                }).eq('username', currentUser).then(() => { }).catch(() => { });
+            }
+        } catch (e) { }
+    }, 25000);
+}
 
+let cachedRestOnlineUsers = [];
+let lastRestOnlineFetchTime = 0;
+
+async function fetchRestOnlineUsers() {
+    if (!sbClient) return [];
+    const now = Date.now();
+    if (now - lastRestOnlineFetchTime < 8000 && cachedRestOnlineUsers.length > 0) {
+        return cachedRestOnlineUsers;
+    }
+    try {
+        const threshold = new Date(now - 120 * 1000).toISOString();
+        const { data, error } = await sbClient
+            .from('user_accounts')
+            .select('username, avatar_url, level, updated_at')
+            .gt('updated_at', threshold)
+            .limit(50);
+        if (!error && Array.isArray(data)) {
+            cachedRestOnlineUsers = data;
+            lastRestOnlineFetchTime = now;
+            return data;
+        }
+    } catch (e) { }
+    return cachedRestOnlineUsers;
+}
+
+// 在线玩家过滤掉自己、当前客户端会话、隐身用户，跨网络融合并展示等级与对局状态
+async function syncGlobalPresenceState() {
+    const state = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
+    const onlineUsersMap = new Map();
+
+    // 1. WebSocket 实时 Presence 用户
     Object.keys(state).forEach(k => {
         const presList = state[k] || [];
         const pres = presList[0] || {};
@@ -2338,7 +2410,7 @@ function syncGlobalPresenceState() {
         let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
         if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
 
-        onlineUsers.push({
+        onlineUsersMap.set(pUsername, {
             username: pUsername,
             avatar: avatar,
             status: pres.status || 'idle',
@@ -2346,6 +2418,48 @@ function syncGlobalPresenceState() {
             joinedAt: pres.joinedAt || Date.now()
         });
     });
+
+    // 2. 跨网络兜底：融合 REST 活跃用户（即使不同网络环境 WebSocket 连接不畅也能互相发现）
+    try {
+        const restUsers = await fetchRestOnlineUsers();
+        restUsers.forEach(ru => {
+            const uName = ru.username;
+            if (!uName || uName === currentUser) return;
+            if (recentlySwitchedAccounts.has(uName)) return;
+            if (!onlineUsersMap.has(uName)) {
+                let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
+                if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
+                onlineUsersMap.set(uName, {
+                    username: uName,
+                    avatar: avatar,
+                    status: 'idle',
+                    level: ru.level || 1,
+                    joinedAt: new Date(ru.updated_at || Date.now()).getTime()
+                });
+            }
+        });
+    } catch (e) { }
+
+    // 3. 融合活跃房间房主（房主处于在线等待对战状态）
+    if (cachedDbRooms && cachedDbRooms.length > 0) {
+        const now = Date.now();
+        cachedDbRooms.forEach(r => {
+            if (r.host && r.host !== currentUser && r.status === 'waiting') {
+                const roomAge = now - new Date(r.updated_at || r.created_at || now).getTime();
+                if (roomAge < 120000 && !onlineUsersMap.has(r.host)) {
+                    onlineUsersMap.set(r.host, {
+                        username: r.host,
+                        avatar: typeof getUserAvatar === 'function' ? getUserAvatar(r.host) : '',
+                        status: 'idle',
+                        level: 1,
+                        joinedAt: now - roomAge
+                    });
+                }
+            }
+        });
+    }
+
+    const onlineUsers = Array.from(onlineUsersMap.values());
 
     const cardsHtml = onlineUsers.length === 0 ? `
                 <div style="text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
@@ -2426,17 +2540,17 @@ function syncGlobalPresence() {
 
 function openCreateMatchInviteModal(targetUser) {
     if (!targetUser || targetUser === currentUser) return;
-    if (!globalLobbyChannel) {
-        showToast('正在连接大厅服务器...');
+    if (!globalLobbyChannel || globalLobbyChannel.state !== 'joined') {
         initGlobalPresence();
-        return;
     }
 
-    const state = globalLobbyChannel.presenceState();
-    const pres = (state[targetUser] && state[targetUser][0]) || {};
-    if (pres.status === 'playing') {
-        showToast('该玩家正在对局中，不可被邀请！');
-        return;
+    if (globalLobbyChannel) {
+        const state = globalLobbyChannel.presenceState();
+        const pres = (state[targetUser] && state[targetUser][0]) || {};
+        if (pres.status === 'playing') {
+            showToast('该玩家正在对局中，不可被邀请！');
+            return;
+        }
     }
 
     activeInviteTarget = targetUser;

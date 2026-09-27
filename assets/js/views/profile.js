@@ -953,6 +953,9 @@ function endSingleGame() {
         pool: singleState.pool,
         total: singleState.total || (singleState.pool ? singleState.pool.length : 0)
     };
+    if (typeof syncAllUserDataToCloud === 'function') {
+        syncAllUserDataToCloud();
+    }
     renderResult();
     switchView('view-result');
 }

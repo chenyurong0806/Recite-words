@@ -912,10 +912,21 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="font-size:0.82rem; font-weight:600; color:var(--md-sys-color-outline);">排序：</span>
-                            <select id="select-lb-wordle-sort" onchange="setWordleLeaderboardSort(this.value)" style="height:32px; padding:0 12px; border-radius:10px; border:1px solid var(--md-sys-color-outline-variant, #cbd5e1); background:var(--md-sys-color-surface-container-low, #ffffff); font-size:0.82rem; font-weight:600; color:var(--md-sys-color-on-surface); cursor:pointer; outline:none;">
-                                <option value="time">按用时</option>
-                                <option value="attempts">按尝试次数</option>
-                            </select>
+                            <div class="md3-custom-select" id="select-lb-wordle-sort-container" style="position:relative; display:inline-block;">
+                                <button type="button" class="btn btn-outlined btn-sm" id="btn-lb-wordle-sort-trigger" onclick="toggleWordleSortDropdown(event)" style="display:inline-flex; align-items:center; gap:6px; height:32px; border-radius:10px; font-size:0.82rem; font-weight:600;" title="选择排序方式">
+                                    <span id="lb-wordle-sort-label">按用时最快</span>
+                                    <span class="material-symbols-rounded" style="font-size:18px;">arrow_drop_down</span>
+                                </button>
+                                <div id="menu-lb-wordle-sort" class="md3-custom-select-menu" style="display:none; right:0; left:auto; min-width:140px;">
+                                    <div class="md3-custom-select-option selected" id="opt-wordle-sort-time" onclick="chooseWordleLeaderboardSort('time')">
+                                        <span>按用时最快</span>
+                                        <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                                    </div>
+                                    <div class="md3-custom-select-option" id="opt-wordle-sort-attempts" onclick="chooseWordleLeaderboardSort('attempts')">
+                                        <span>按尝试次数最少</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -953,7 +964,7 @@
                                 </div>
                                 <div>
                                     <h4 style="margin: 0; font-size: 1rem; font-weight: 700;">未登录</h4>
-                                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">登录账号以同步学习数据与开启等级系统</p>
+                                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--md-sys-color-outline);">登录账号以同步学习数据</p>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius: var(--md-shape-full); padding: 0 20px;">
@@ -963,7 +974,7 @@
                         </div>
                         <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--md-sys-color-outline-variant, #e2e8f0); font-size: 0.78rem; color: var(--md-sys-color-outline); display: flex; align-items: center; gap: 4px;">
                             <span class="material-symbols-rounded" style="font-size: 16px;">lock</span>
-                            <span>游客状态下不支持等级功能，登录账号即可开启等级成长与排行榜</span>
+                            <span>登录解锁等级系统</span>
                         </div>
                     </div>
 
@@ -2418,7 +2429,7 @@
                 </div>
 
                 <!-- 切换云端日志 / 本地日志 Tab -->
-                <div class="book-selector-tabs-row" style="margin: 14px 0 16px; padding-bottom: 8px;">
+                <div class="book-selector-tabs-row" style="margin: 14px 0 16px; padding-bottom: 8px; justify-content: flex-start; gap: 8px; border-bottom: none;">
                     <button type="button" class="book-selector-tab active" id="tab-changelog-cloud" onclick="switchChangelogTab('cloud')">
                         <span class="material-symbols-rounded" style="font-size:20px;">cloud</span>
                         <span>云端日志</span>

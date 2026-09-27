@@ -124,7 +124,7 @@ const BookManager = {
         }
 
         // 2. 若 GitHub API 受限或失败，尝试从 Cloudflare Worker 获取 (且必须是包含 books/ 规范路径的新结构)
-        if (!fetchedBooks || fetchedBooks.length === 0) {
+        if ((!fetchedBooks || fetchedBooks.length === 0) && !(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -236,9 +236,11 @@ const BookManager = {
         const sources = [
             `./${relPath}`,
             `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodeURI(relPath)}`,
-            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(relPath)}`,
-            `${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`
+            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodeURI(relPath)}`
         ];
+        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
+            sources.push(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
+        }
 
         for (const url of sources) {
             try {

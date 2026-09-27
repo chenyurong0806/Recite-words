@@ -222,6 +222,18 @@ function loadUserData(username, profile = null) {
         window.EbbinghausEngine.updateDueBadge();
     }
     updateHubResumeButtons();
+
+    // 如果为云端登录用户，且本地缺少艾宾浩斯记录（例如清除本地缓存后重新打开），主动从云端恢复全量数据
+    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.type === 'cloud') {
+        const hasLocalEbb = !!SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
+        if (!hasLocalEbb && typeof supabaseFetchUserData === 'function') {
+            supabaseFetchUserData(currentUser).then(cloudUser => {
+                if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
+                    restoreUserDataFromCloud(cloudUser);
+                }
+            }).catch(() => { });
+        }
+    }
 }
 
 function saveCurrentUserData() {
@@ -234,14 +246,16 @@ function saveCurrentUserData() {
 
     // 同步到云端
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
-        if (currentUserProfile.type === 'cloud' && typeof supabaseSyncUserData === 'function') {
-            supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now() });
+        if (currentUserProfile.type === 'cloud') {
+            if (typeof syncAllUserDataToCloud === 'function') {
+                syncAllUserDataToCloud(currentUser);
+            }
         } else if (currentUserProfile.type === 'bilibili') {
             if (typeof biliSaveCloudData === 'function') {
                 biliSaveCloudData({ stats: userStats, updated: Date.now() });
             }
-            if (typeof supabaseSyncUserData === 'function') {
-                supabaseSyncUserData(currentUser, { stats: userStats, updated: Date.now(), isBiliUser: true });
+            if (typeof syncAllUserDataToCloud === 'function') {
+                syncAllUserDataToCloud(currentUser);
             }
         }
     } else if (currentUser.startsWith('游客_') && typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
