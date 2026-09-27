@@ -23,23 +23,29 @@ function safeBroadcast(channel, event, payload) {
     if (!channel) return;
     const msg = { type: 'broadcast', event: event, payload: payload };
     try {
-        if (channel.state === 'joined') {
-            channel.send(msg);
-        } else if (typeof channel.httpSend === 'function') {
-            channel.httpSend(msg).catch(() => {});
+        if (typeof channel.send === 'function') {
+            const res = channel.send(msg);
+            if (res && typeof res.catch === 'function') {
+                res.catch(err => {
+                    console.warn(`[safeBroadcast] Broadcast ${event} error:`, err);
+                });
+            }
         }
     } catch (e) {
-        try {
-            if (typeof channel.httpSend === 'function') {
-                channel.httpSend(msg).catch(() => {});
-            }
-        } catch (err) {}
+        console.warn(`[safeBroadcast] Broadcast ${event} exception:`, e);
     }
 }
 window.safeBroadcast = safeBroadcast;
 
 function toggleGuestReady(ready) {
     if (isHost) return;
+    if (roomConfig && roomConfig.matchType === 'ranked') {
+        const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        if (isMeGuest) {
+            showToast('游客禁止参与排位赛，请提醒房主切换为友谊赛或登录账号');
+            return;
+        }
+    }
     guestReady = (ready !== undefined) ? Boolean(ready) : !guestReady;
     if (realtimeChannel) {
         safeBroadcast(realtimeChannel, 'player_ready_state', {
@@ -70,6 +76,7 @@ function getUserRoomCode(username) {
 }
 
 function getDefaultRoomPreset(user) {
+    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(user) : (!user || user.startsWith('游客'));
     const name = user ? `${user}的房间` : '对战房间';
     const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
@@ -81,7 +88,7 @@ function getDefaultRoomPreset(user) {
         duration: 120,
         winLead: 6,
         gaugeStyle: 'tug',
-        matchType: 'ranked',
+        matchType: isGuest ? 'friendly' : 'ranked',
         selectedBooks: books
     };
 }
@@ -127,6 +134,10 @@ function closeRoomPresetModal() {
 
 function renderPresetChips() {
     if (!activeEditingPreset) return;
+    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    if (isGuest && activeEditingPreset.matchType === 'ranked') {
+        activeEditingPreset.matchType = 'friendly';
+    }
     const isRanked = (activeEditingPreset.matchType === 'ranked');
     if (isRanked) {
         activeEditingPreset.mode = 'lead';
@@ -135,7 +146,19 @@ function renderPresetChips() {
 
     document.querySelectorAll('#preset-chips-match-type .md3-chip').forEach(el => {
         const val = el.getAttribute('data-type');
-        el.classList.toggle('selected', val === (activeEditingPreset.matchType || 'ranked'));
+        const isSel = (val === (activeEditingPreset.matchType || 'ranked'));
+        el.classList.toggle('selected', isSel);
+        if (isGuest && val === 'ranked') {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.4';
+            el.title = '游客无法参与排位赛';
+        } else if (val === 'ranked') {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+            el.title = '';
+        }
     });
 
     document.querySelectorAll('#preset-chips-rule .md3-chip').forEach(el => {
@@ -197,6 +220,13 @@ window.selectPresetRule = selectPresetRule;
 
 function selectPresetMatchType(val) {
     if (!activeEditingPreset) return;
+    if (val === 'ranked') {
+        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        if (isGuest) {
+            showToast('游客禁止参与排位赛，请先登录账号');
+            return;
+        }
+    }
     activeEditingPreset.matchType = val;
     if (val === 'ranked') {
         activeEditingPreset.mode = 'lead';
@@ -357,34 +387,40 @@ function closeRoomInvitePlayersModal() {
 function renderRoomInvitePlayersList() {
     const container = document.getElementById('room-invite-players-list');
     if (!container) return;
-    if (!globalLobbyChannel) {
-        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--md-sys-color-outline);">未连接到大厅</div>`;
-        return;
-    }
-    const state = globalLobbyChannel.presenceState();
-    const onlineUsers = [];
-    Object.keys(state).forEach(k => {
-        const presList = state[k] || [];
-        const pres = presList[0] || {};
-        const pUsername = pres.username || k;
-        if (k === currentUser || pUsername === currentUser) return;
-        if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
-        if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
-        let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
-        if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
-        onlineUsers.push({
-            username: pUsername,
-            avatar: avatar,
-            status: pres.status || 'idle'
-        });
-    });
 
-    if (onlineUsers.length === 0) {
+    let onlineUsers = Array.isArray(window.lastFusedOnlineUsers) && window.lastFusedOnlineUsers.length > 0
+        ? window.lastFusedOnlineUsers
+        : [];
+
+    if (onlineUsers.length === 0 && globalLobbyChannel) {
+        const state = globalLobbyChannel.presenceState();
+        Object.keys(state).forEach(k => {
+            const presList = state[k] || [];
+            const pres = presList[0] || {};
+            const pUsername = pres.username || k;
+            if (pUsername === currentUser) return;
+            if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
+            if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+            let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
+            if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
+            onlineUsers.push({
+                username: pUsername,
+                avatar: avatar,
+                status: pres.status || 'idle',
+                rank: pres.rank || pres.level || 1,
+                isBili: Boolean(pres.isBili)
+            });
+        });
+    }
+
+    const filtered = onlineUsers.filter(u => u.username !== currentUser);
+
+    if (filtered.length === 0) {
         container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); font-size:0.88rem;">当前暂无其他在线玩家</div>`;
         return;
     }
 
-    container.innerHTML = onlineUsers.map(u => `
+    container.innerHTML = filtered.map(u => `
         <div class="online-player-card">
             <div class="online-player-left">
                 <div class="online-player-avatar">
@@ -610,6 +646,20 @@ function renderRoomBookChips() {
 
 function changeRuleMatchType(type) {
     if (!isHost) return;
+    if (type === 'ranked') {
+        const isHostGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        if (isHostGuest) {
+            showToast('游客禁止参与排位赛，请先登录账号');
+            return;
+        }
+        if (guestName) {
+            const isGuestUser = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(guestName) : (guestName.startsWith('游客'));
+            if (isGuestUser) {
+                showToast('对手为游客，不可选择排位赛（游客禁止参与排位赛）');
+                return;
+            }
+        }
+    }
     roomConfig.matchType = type;
     if (type === 'ranked') {
         roomConfig.mode = 'lead';
@@ -623,6 +673,15 @@ function changeRuleMatchType(type) {
 window.changeRuleMatchType = changeRuleMatchType;
 
 function renderRuleChips() {
+    const hasGuestInRoom = (typeof LevelManager !== 'undefined')
+        ? (LevelManager.isGuestUser(currentUser) || (guestName && LevelManager.isGuestUser(guestName)))
+        : (!currentUser || currentUser.startsWith('游客') || (guestName && guestName.startsWith('游客')));
+
+    if (hasGuestInRoom && roomConfig.matchType === 'ranked') {
+        roomConfig.matchType = 'friendly';
+        if (isHost) broadcastRuleChange();
+    }
+
     const isRanked = (roomConfig.matchType === 'ranked');
     if (isRanked) {
         roomConfig.mode = 'lead';
@@ -633,16 +692,20 @@ function renderRuleChips() {
         const val = el.getAttribute('data-match-type') || el.getAttribute('data-type');
         const isSel = (val === (roomConfig.matchType || 'ranked'));
         el.classList.toggle('selected', isSel);
-        if (!isHost) {
+        if (!isHost || (val === 'ranked' && hasGuestInRoom)) {
             el.classList.add('disabled');
             el.style.pointerEvents = 'none';
             el.style.cursor = 'default';
             el.style.opacity = isSel ? '1' : '0.4';
+            if (val === 'ranked' && hasGuestInRoom) {
+                el.title = '游客禁止参与排位赛';
+            }
         } else {
             el.classList.remove('disabled');
             el.style.pointerEvents = 'auto';
             el.style.cursor = 'pointer';
             el.style.opacity = '1';
+            el.title = '';
         }
     });
 
@@ -776,7 +839,10 @@ async function joinOnlineRoom() {
     let verified = false;
     const timeoutTimer = setTimeout(() => {
         if (!verified) {
-            testChannel.unsubscribe();
+            try {
+                testChannel.unsubscribe();
+                sbClient.removeChannel(testChannel);
+            } catch (e) {}
             btnJoin.disabled = false;
             btnJoin.innerText = '加入房间';
             alert(`房间 ${codeInput} 不存在或房主已离线！`);
@@ -784,11 +850,14 @@ async function joinOnlineRoom() {
     }, 2600);
 
     testChannel
-        .on('broadcast', { event: 'room_ack' }, ({ payload }) => {
+        .on('broadcast', { event: 'room_ack' }, async ({ payload }) => {
             if (payload && payload.isHost) {
                 verified = true;
                 clearTimeout(timeoutTimer);
-                testChannel.unsubscribe();
+                try {
+                    testChannel.unsubscribe();
+                    sbClient.removeChannel(testChannel);
+                } catch (e) {}
 
                 isHost = false;
                 roomCode = codeInput;
@@ -809,6 +878,8 @@ async function joinOnlineRoom() {
             }
         });
 }
+
+let guestRoomPollTimer = null;
 
 function setupRoomLobbyUI(code, customName) {
     guestReady = false;
@@ -864,6 +935,49 @@ function setupRoomLobbyUI(code, customName) {
     const chatMessages = document.getElementById('room-chat-messages');
     if (chatMessages) {
         chatMessages.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--md-sys-color-outline); margin:auto;">房间已创建，欢迎和对手交流！</div>`;
+    }
+
+    // 核心兜底：P2 处于等待状态时，通过轻量轮询云端 rooms 表，确保即使跨网络环境下 WebSocket 丢弃了 game_start，也能立即感知开局并进入游戏
+    if (guestRoomPollTimer) {
+        clearInterval(guestRoomPollTimer);
+        guestRoomPollTimer = null;
+    }
+    if (!isHost) {
+        guestRoomPollTimer = setInterval(async () => {
+            if (isPlayingMatch || !roomCode || isHost) {
+                if (guestRoomPollTimer) {
+                    clearInterval(guestRoomPollTimer);
+                    guestRoomPollTimer = null;
+                }
+                return;
+            }
+            try {
+                const { data } = await sbClient
+                    .from('rooms')
+                    .select('status, config')
+                    .eq('code', roomCode)
+                    .maybeSingle();
+                if (data && data.status === 'playing' && data.config && data.config.pool && !isPlayingMatch) {
+                    console.log('[Duel] P2 detected host started game via DB poll fallback');
+                    if (guestRoomPollTimer) {
+                        clearInterval(guestRoomPollTimer);
+                        guestRoomPollTimer = null;
+                    }
+                    handleRemoteGameStart({
+                        pool: data.config.pool,
+                        hostName: hostName,
+                        hostAvatar: hostAvatar,
+                        hostRank: data.config.hostRank || hostRank || 1,
+                        hostRating: (data.config.hostRating !== undefined) ? data.config.hostRating : (hostRating || 0),
+                        guestName: currentUser,
+                        guestAvatar: guestAvatar || (currentUser ? getUserAvatar(currentUser) : ''),
+                        guestRank: guestRank || 1,
+                        guestRating: (guestRating !== undefined) ? guestRating : 0,
+                        config: data.config
+                    });
+                }
+            } catch (e) { }
+        }, 1200);
     }
 
     renderRuleChips();
@@ -1020,10 +1134,19 @@ function appendRoomChatMessage(data, isMine) {
 }
 
 function connectSupabaseChannel(code) {
-    if (realtimeChannel) realtimeChannel.unsubscribe();
+    if (realtimeChannel) {
+        try {
+            realtimeChannel.unsubscribe();
+            sbClient.removeChannel(realtimeChannel);
+        } catch (e) { }
+        realtimeChannel = null;
+    }
 
     realtimeChannel = sbClient.channel(`duel_${code}`, {
-        config: { presence: { key: currentUser } }
+        config: {
+            broadcast: { ack: true, self: false },
+            presence: { key: currentUser }
+        }
     });
 
     realtimeChannel
@@ -1236,12 +1359,19 @@ async function leaveOnlineLobby(confirmNeeded = false) {
 }
 
 function cleanUpAndBackToHub() {
+    if (guestRoomPollTimer) {
+        clearInterval(guestRoomPollTimer);
+        guestRoomPollTimer = null;
+    }
     if (gameTimer) clearInterval(gameTimer);
     if (p1State && p1State.timerId) clearInterval(p1State.timerId);
     resetAllGameAlertsAndFeedback();
 
     if (realtimeChannel) {
-        realtimeChannel.unsubscribe();
+        try {
+            realtimeChannel.unsubscribe();
+            sbClient.removeChannel(realtimeChannel);
+        } catch (e) { }
         realtimeChannel = null;
     }
     roomCode = null;
@@ -1274,6 +1404,14 @@ async function startOnlineGame() {
         showToast('请等待对手准备完成！');
         return;
     }
+    if (roomConfig.matchType === 'ranked') {
+        const hostIsGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const guestIsGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(guestName) : (!guestName || guestName.startsWith('游客'));
+        if (hostIsGuest || guestIsGuest) {
+            showToast('检测到游客玩家，游客禁止参与排位赛！请切换为友谊赛');
+            return;
+        }
+    }
     if (!roomConfig.selectedBooks || roomConfig.selectedBooks.length === 0) {
         showToast('请至少选择一本词书！');
         refreshRoomPlayerCards();
@@ -1304,7 +1442,32 @@ async function startOnlineGame() {
             guestRating: (guestRating !== undefined) ? guestRating : 0,
             config: roomConfig
         };
+
+        // 1. 实时 WebSocket 广播开局
         safeBroadcast(realtimeChannel, 'game_start', startPayload);
+        setTimeout(() => {
+            if (isPlayingMatch && realtimeChannel) {
+                safeBroadcast(realtimeChannel, 'game_start', startPayload);
+            }
+        }, 300);
+
+        // 2. 双保险：在云端 rooms 表写入 playing 状态和出题题库，确保跨网或网络抖动时 P2 通过轻量轮询也能 100% 进入游戏
+        if (sbClient && roomCode) {
+            sbClient.from('rooms').update({
+                status: 'playing',
+                config: {
+                    ...roomConfig,
+                    gameStartedAt: Date.now(),
+                    hostRank: hostRank,
+                    hostRating: hostRating,
+                    guestRank: startPayload.guestRank,
+                    guestRating: startPayload.guestRating,
+                    pool: startPayload.pool
+                },
+                updated_at: new Date().toISOString()
+            }).eq('code', roomCode).then(() => { }).catch(() => { });
+        }
+
         handleRemoteGameStart(startPayload);
     } catch (err) {
         alert('准备词库失败：' + err.message);
@@ -1347,90 +1510,103 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
 }
 
 function handleRemoteGameStart(payload) {
-    gameMode = 'online';
-    isPlayingMatch = true;
-    if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
-    if (payload.config) roomConfig = payload.config;
+    if (!payload) return;
+    try {
+        gameMode = 'online';
+        isPlayingMatch = true;
+        if (guestRoomPollTimer) {
+            clearInterval(guestRoomPollTimer);
+            guestRoomPollTimer = null;
+        }
+        if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
+        if (payload.config) roomConfig = payload.config;
 
-    if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
-    if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
-    if (payload.hostRank) hostRank = payload.hostRank;
-    if (payload.hostRating !== undefined) hostRating = payload.hostRating;
-    if (payload.guestRank) guestRank = payload.guestRank;
-    if (payload.guestRating !== undefined) guestRating = payload.guestRating;
+        if (payload.hostAvatar) hostAvatar = payload.hostAvatar;
+        if (payload.guestAvatar) guestAvatar = payload.guestAvatar;
+        if (payload.hostRank) hostRank = payload.hostRank;
+        if (payload.hostRating !== undefined) hostRating = payload.hostRating;
+        if (payload.guestRank) guestRank = payload.guestRank;
+        if (payload.guestRating !== undefined) guestRating = payload.guestRating;
 
-    if (isHost) {
-        currentMatchOppoRank = payload.guestRank || guestRank || 1;
-        currentMatchOppoRating = (payload.guestRating !== undefined) ? payload.guestRating : (guestRating || 0);
-    } else {
-        currentMatchOppoRank = payload.hostRank || hostRank || 1;
-        currentMatchOppoRating = (payload.hostRating !== undefined) ? payload.hostRating : (hostRating || 0);
-    }
+        if (isHost) {
+            currentMatchOppoRank = payload.guestRank || guestRank || 1;
+            currentMatchOppoRating = (payload.guestRating !== undefined) ? payload.guestRating : (guestRating || 0);
+        } else {
+            currentMatchOppoRank = payload.hostRank || hostRank || 1;
+            currentMatchOppoRating = (payload.hostRating !== undefined) ? payload.hostRating : (hostRating || 0);
+        }
 
-    const oppoName = isHost ? payload.guestName : payload.hostName;
-    const oppoAvatar = isHost ? (guestAvatar || getUserAvatar(oppoName)) : (hostAvatar || getUserAvatar(oppoName));
-    const myAvatar = getUserAvatar(currentUser);
+        const oppoName = isHost ? payload.guestName : payload.hostName;
+        const oppoAvatar = isHost ? (guestAvatar || getUserAvatar(oppoName)) : (hostAvatar || getUserAvatar(oppoName));
+        const myAvatar = getUserAvatar(currentUser);
 
-    renderArenaPlayersUI(currentUser, myAvatar, oppoName, oppoAvatar);
+        renderArenaPlayersUI(currentUser, myAvatar, oppoName, oppoAvatar);
 
-    document.getElementById('arena-my-score').innerText = '0';
-    document.getElementById('arena-oppo-score').innerText = '0';
+        const myScoreEl = document.getElementById('arena-my-score');
+        const oppoScoreEl = document.getElementById('arena-oppo-score');
+        if (myScoreEl) myScoreEl.innerText = '0';
+        if (oppoScoreEl) oppoScoreEl.innerText = '0';
 
-    const gaugeStyle = roomConfig.gaugeStyle || 'tug';
-    const isTimed = (roomConfig.mode === 'timed');
-    const modeBadgeTxt = (roomConfig.matchType === 'friendly') ? '【友谊赛】' : '【排位赛】';
-    const ruleSummaryText = isTimed ? `${modeBadgeTxt} 限时抢分 (${Math.round((roomConfig.duration || 120) / 60)}分钟)` : `${modeBadgeTxt} 领先 ${roomConfig.winLead || 6} 题胜出`;
+        const gaugeStyle = roomConfig.gaugeStyle || 'tug';
+        const isTimed = (roomConfig.mode === 'timed');
+        const modeBadgeTxt = (roomConfig.matchType === 'friendly') ? '【友谊赛】' : '【排位赛】';
+        const ruleSummaryText = isTimed ? `${modeBadgeTxt} 限时抢分 (${Math.round((roomConfig.duration || 120) / 60)}分钟)` : `${modeBadgeTxt} 领先 ${roomConfig.winLead || 6} 题胜出`;
 
-    const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
-    const tugWrap = document.getElementById('arena-gauge-tug-wrap');
+        const snakeWrap = document.getElementById('arena-gauge-snake-wrap');
+        const tugWrap = document.getElementById('arena-gauge-tug-wrap');
 
-    if (gaugeStyle === 'tug') {
-        if (snakeWrap) snakeWrap.style.display = 'none';
-        if (tugWrap) tugWrap.style.display = 'flex';
-        const ruleSum = document.getElementById('arena-tug-rule-summary');
-        if (ruleSum) ruleSum.innerText = ruleSummaryText;
-        const timerEl = document.getElementById('arena-tug-timer');
-        if (timerEl) timerEl.style.display = isTimed ? 'inline-block' : 'none';
-    } else {
-        if (snakeWrap) snakeWrap.style.display = 'flex';
-        if (tugWrap) tugWrap.style.display = 'none';
-        const ruleSum = document.getElementById('arena-rule-summary');
-        if (ruleSum) ruleSum.innerText = ruleSummaryText;
-    }
+        if (gaugeStyle === 'tug') {
+            if (snakeWrap) snakeWrap.style.display = 'none';
+            if (tugWrap) tugWrap.style.display = 'flex';
+            const ruleSum = document.getElementById('arena-tug-rule-summary');
+            if (ruleSum) ruleSum.innerText = ruleSummaryText;
+            const timerEl = document.getElementById('arena-tug-timer');
+            if (timerEl) timerEl.style.display = isTimed ? 'inline-block' : 'none';
+        } else {
+            if (snakeWrap) snakeWrap.style.display = 'flex';
+            if (tugWrap) tugWrap.style.display = 'none';
+            const ruleSum = document.getElementById('arena-rule-summary');
+            if (ruleSum) ruleSum.innerText = ruleSummaryText;
+        }
 
-    const playerShuffledPool = shuffle([...payload.pool]);
-    resetPlayerState(p1State, playerShuffledPool);
-    p2State.score = 0;
-    p2State.total = 0;
+        const poolData = Array.isArray(payload.pool) && payload.pool.length > 0 ? payload.pool : [];
+        const playerShuffledPool = shuffle([...poolData]);
+        resetPlayerState(p1State, playerShuffledPool);
+        p2State.score = 0;
+        p2State.total = 0;
 
-    renderQuestion(p1State);
+        renderQuestion(p1State);
 
-    timeLeft = roomConfig.duration || 120;
-    renderSnakeRing();
-    clearInterval(gameTimer);
-    if (isTimed) {
-        gameTimer = setInterval(() => {
-            timeLeft--;
-            renderSnakeRing();
-            if (timeLeft <= 0) {
-                clearInterval(gameTimer);
-                const diff = p1State.score - p2State.score;
-                let myMsg = "🤝 势均力敌，握手言和！";
-                let peerMsg = "🤝 势均力敌，握手言和！";
-                if (diff > 0) {
-                    myMsg = "🎉 恭喜获胜！";
-                    peerMsg = "💔 遗憾战败！";
-                } else if (diff < 0) {
-                    myMsg = "💔 遗憾战败！";
-                    peerMsg = "🎉 恭喜获胜！";
+        timeLeft = roomConfig.duration || 120;
+        renderSnakeRing();
+        clearInterval(gameTimer);
+        if (isTimed) {
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                renderSnakeRing();
+                if (timeLeft <= 0) {
+                    clearInterval(gameTimer);
+                    const diff = p1State.score - p2State.score;
+                    let myMsg = "🤝 势均力敌，握手言和！";
+                    let peerMsg = "🤝 势均力敌，握手言和！";
+                    if (diff > 0) {
+                        myMsg = "🎉 恭喜获胜！";
+                        peerMsg = "💔 遗憾战败！";
+                    } else if (diff < 0) {
+                        myMsg = "💔 遗憾战败！";
+                        peerMsg = "🎉 恭喜获胜！";
+                    }
+                    safeBroadcast(realtimeChannel, 'game_over', { msg: peerMsg });
+                    endGame(myMsg, false);
                 }
-                safeBroadcast(realtimeChannel, 'game_over', { msg: peerMsg });
-                endGame(myMsg, false);
-            }
-        }, 1000);
-    }
+            }, 1000);
+        }
 
-    switchView('view-game');
+        switchView('view-game');
+    } catch (err) {
+        console.error('[handleRemoteGameStart] Start game error:', err);
+        switchView('view-game');
+    }
 }
 
 function handleRemoteScoreUpdate(payload) {
@@ -2874,15 +3050,75 @@ function startPresenceHeartbeat() {
             }
             initGlobalPresence();
         }
-        // 2. REST 在线心跳更新，保证跨网络环境下可被其他玩家检索到（仅登录用户写入数据库）
+
+        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（包括游客与已登录用户）
         try {
-            if (sbClient && currentUserProfile && currentUserProfile.isLoggedIn) {
-                sbClient.from('user_accounts').update({
+            if (sbClient && currentUser) {
+                const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
+                const statusVal = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+
+                // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                sbClient.from('rooms').upsert({
+                    code: `ONL_${getUserRoomCode(currentUser)}`,
+                    name: currentUser,
+                    host: currentUser,
+                    capacity: 2,
+                    player_count: 1,
+                    status: statusVal,
+                    is_temporary: true,
+                    config: {
+                        avatar: myAvatar,
+                        rank: myRankData.rank,
+                        rating: myRankData.rating,
+                        isBili: isBili,
+                        status: statusVal,
+                        clientSession: CLIENT_SESSION_ID
+                    },
                     updated_at: new Date().toISOString()
-                }).eq('username', currentUser).then(() => { }).catch(() => { });
+                }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+                // 2.2 登录用户额外更新 user_accounts 活跃时间戳
+                if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                    sbClient.from('user_accounts').update({
+                        updated_at: new Date().toISOString()
+                    }).eq('username', currentUser).then(() => { }).catch(() => { });
+                }
             }
         } catch (e) { }
-    }, 20000);
+
+        // 3. 跨网络对战邀请监听兜底：若 WebSocket 广播被运营商防火墙丢弃，通过云端 rooms 表接收邀请
+        try {
+            if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && (currentView === 'view-hub' || currentView === 'view-online')) {
+                const recentInviteThreshold = new Date(Date.now() - 40 * 1000).toISOString();
+                const { data: invRooms } = await sbClient
+                    .from('rooms')
+                    .select('code, name, host, config, updated_at, created_at')
+                    .eq('status', 'waiting')
+                    .gt('updated_at', recentInviteThreshold)
+                    .order('updated_at', { ascending: false })
+                    .limit(10);
+
+                if (Array.isArray(invRooms)) {
+                    const myInvite = invRooms.find(r => r.config && r.config.targetUser === currentUser && r.host !== currentUser);
+                    if (myInvite) {
+                        console.log('[Duel] Detected match invite via cloud DB fallback:', myInvite);
+                        handleReceivedMatchInvite({
+                            from: myInvite.host,
+                            fromAvatar: myInvite.config.fromAvatar || (typeof getUserAvatar === 'function' ? getUserAvatar(myInvite.host) : ''),
+                            to: currentUser,
+                            roomCode: myInvite.code,
+                            roomName: myInvite.name,
+                            config: myInvite.config,
+                            bookNames: getBookNamesSummary(myInvite.config.selectedBooks)
+                        });
+                    }
+                }
+            }
+        } catch (e) { }
+    }, 12000);
 }
 
 let cachedRestOnlineUsers = [];
@@ -2891,21 +3127,65 @@ let lastRestOnlineFetchTime = 0;
 async function fetchRestOnlineUsers() {
     if (!sbClient) return [];
     const now = Date.now();
-    if (now - lastRestOnlineFetchTime < 8000 && cachedRestOnlineUsers.length > 0) {
+    if (now - lastRestOnlineFetchTime < 4000 && cachedRestOnlineUsers.length > 0) {
         return cachedRestOnlineUsers;
     }
     try {
-        const threshold = new Date(now - 120 * 1000).toISOString();
-        const { data, error } = await sbClient
+        // 使用 300 秒（5分钟）容忍移动网络切换、锁屏与轻微时钟偏移
+        const threshold = new Date(now - 300 * 1000).toISOString();
+        const results = [];
+        const seen = new Set();
+
+        // 1. 获取 rooms 表中的在线信标 (覆盖游客与已登录用户)
+        const { data: beaconRooms } = await sbClient
+            .from('rooms')
+            .select('code, name, host, status, config, updated_at')
+            .eq('is_temporary', true)
+            .like('code', 'ONL_%')
+            .gt('updated_at', threshold)
+            .limit(60);
+
+        if (Array.isArray(beaconRooms)) {
+            beaconRooms.forEach(br => {
+                const uName = br.host || br.name;
+                if (uName && !seen.has(uName)) {
+                    seen.add(uName);
+                    const cfg = br.config || {};
+                    results.push({
+                        username: uName,
+                        avatar_url: cfg.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : ''),
+                        level: cfg.rank || 1,
+                        user_data: {
+                            rank_data: { rank: cfg.rank || 1, rating: cfg.rating || 0 },
+                            isBili: Boolean(cfg.isBili),
+                            status: br.status || cfg.status || 'idle'
+                        },
+                        status: br.status || cfg.status || 'idle',
+                        updated_at: br.updated_at
+                    });
+                }
+            });
+        }
+
+        // 2. 获取 user_accounts 表中的已注册活跃用户
+        const { data: accounts } = await sbClient
             .from('user_accounts')
             .select('username, avatar_url, level, user_data, updated_at')
             .gt('updated_at', threshold)
             .limit(50);
-        if (!error && Array.isArray(data)) {
-            cachedRestOnlineUsers = data;
-            lastRestOnlineFetchTime = now;
-            return data;
+
+        if (Array.isArray(accounts)) {
+            accounts.forEach(acc => {
+                if (acc.username && !seen.has(acc.username)) {
+                    seen.add(acc.username);
+                    results.push(acc);
+                }
+            });
         }
+
+        cachedRestOnlineUsers = results;
+        lastRestOnlineFetchTime = now;
+        return results;
     } catch (e) { }
     return cachedRestOnlineUsers;
 }
@@ -2971,7 +3251,7 @@ async function syncGlobalPresenceState() {
                 onlineUsersMap.set(uName, {
                     username: uName,
                     avatar: avatar,
-                    status: 'idle',
+                    status: ru.status || (ru.user_data && ru.user_data.status) || 'idle',
                     level: rankVal,
                     rank: rankVal,
                     rating: ratingVal,
@@ -2986,6 +3266,7 @@ async function syncGlobalPresenceState() {
     if (cachedDbRooms && cachedDbRooms.length > 0) {
         const now = Date.now();
         cachedDbRooms.forEach(r => {
+            if (r.code && r.code.startsWith('ONL_')) return;
             if (r.host && r.host !== currentUser && r.status === 'waiting') {
                 if (isLogged && savedGuestName && r.host === savedGuestName) return;
                 const roomAge = now - new Date(r.updated_at || r.created_at || now).getTime();
@@ -3006,6 +3287,7 @@ async function syncGlobalPresenceState() {
     }
 
     const onlineUsers = Array.from(onlineUsersMap.values());
+    window.lastFusedOnlineUsers = onlineUsers;
 
     const cardsHtml = onlineUsers.length === 0 ? `
                 <div style="text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
@@ -3124,21 +3406,27 @@ function openCreateMatchInviteModal(targetUser) {
     }
 
     const isLogged = isCurrentUserLoggedIn();
+    const isTargetGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(targetUser) : (!targetUser || targetUser.startsWith('游客'));
+    const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+
     if (isLogged) {
         // 使用专属房间预设
         const preset = getUserExclusivePreset();
         activeInviteRules = JSON.parse(JSON.stringify(preset));
+        if (isTargetGuest || isMeGuest) {
+            activeInviteRules.matchType = 'friendly';
+        }
 
         if (presetView) {
             presetView.style.display = 'block';
             const presetNameEl = document.getElementById('create-invite-preset-name');
             const presetSummaryEl = document.getElementById('create-invite-preset-summary');
             if (presetNameEl) presetNameEl.innerText = `专属房间预设：《${activeInviteRules.name || currentUser + '的房间'}》`;
-                const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
-                const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
-                const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
-                const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
-                presetSummaryEl.innerText = `${modeTxt} | ${ruleTxt} | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
+            const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+            const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
+            const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
+            const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
+            presetSummaryEl.innerText = `${modeTxt} | ${ruleTxt} | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
@@ -3149,6 +3437,7 @@ function openCreateMatchInviteModal(targetUser) {
         // 游客模式：直接显示规则编辑
         activeInviteRules = getDefaultRoomPreset(currentUser);
         activeInviteRules.name = `${currentUser}的挑战房`;
+        activeInviteRules.matchType = 'friendly';
         if (presetView) presetView.style.display = 'none';
         if (rulesEditor) rulesEditor.style.display = 'flex';
         if (roomNameField) roomNameField.style.display = 'block';
@@ -3187,6 +3476,13 @@ function toggleEditInviteRules() {
 
 function renderInviteRuleChips() {
     if (!activeInviteRules) return;
+    const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isTargetGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(activeInviteTarget) : (!activeInviteTarget || activeInviteTarget.startsWith('游客'));
+    const hasGuest = isMeGuest || isTargetGuest;
+    if (hasGuest && activeInviteRules.matchType === 'ranked') {
+        activeInviteRules.matchType = 'friendly';
+    }
+
     const isRanked = (activeInviteRules.matchType === 'ranked');
     if (isRanked) {
         activeInviteRules.mode = 'lead';
@@ -3195,7 +3491,19 @@ function renderInviteRuleChips() {
 
     document.querySelectorAll('#invite-chips-match-type .md3-chip').forEach(el => {
         const val = el.getAttribute('data-type');
-        el.classList.toggle('selected', val === (activeInviteRules.matchType || 'ranked'));
+        const isSel = (val === (activeInviteRules.matchType || 'ranked'));
+        el.classList.toggle('selected', isSel);
+        if (val === 'ranked' && hasGuest) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.4';
+            el.title = '游客无法参与排位赛';
+        } else if (val === 'ranked') {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.opacity = '1';
+            el.title = '';
+        }
     });
 
     document.querySelectorAll('#invite-chips-rule .md3-chip').forEach(el => {
@@ -3257,6 +3565,12 @@ window.selectInviteRuleMode = selectInviteRuleMode;
 
 function selectInviteRuleMatchType(val) {
     if (!activeInviteRules) return;
+    const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isTargetGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(activeInviteTarget) : (!activeInviteTarget || activeInviteTarget.startsWith('游客'));
+    if (val === 'ranked' && (isMeGuest || isTargetGuest)) {
+        showToast('对战双方包含游客，禁止参与排位赛');
+        return;
+    }
     activeInviteRules.matchType = val;
     if (val === 'ranked') {
         activeInviteRules.mode = 'lead';
@@ -3329,13 +3643,20 @@ async function confirmAndSendMatchInvite() {
     }
 
     const finalRoomName = activeInviteRules.name || (isLogged ? `${currentUser}的专属房间` : `${currentUser}的挑战房`);
+    const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isTargetGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(activeInviteTarget) : (!activeInviteTarget || activeInviteTarget.startsWith('游客'));
+    let effectiveMatchType = activeInviteRules.matchType || 'ranked';
+    if (isMeGuest || isTargetGuest) {
+        effectiveMatchType = 'friendly';
+    }
+
     const matchConfig = {
         name: finalRoomName,
         capacity: 2,
         duration: activeInviteRules.duration || 60,
         winLead: activeInviteRules.winLead || 6,
         gaugeStyle: activeInviteRules.gaugeStyle || 'tug',
-        matchType: activeInviteRules.matchType || 'ranked',
+        matchType: effectiveMatchType,
         targetUser: activeInviteTarget,
         selectedBooks: activeInviteRules.selectedBooks || ['GaoKao3500']
     };
@@ -3463,6 +3784,12 @@ function acceptMatchInvite() {
     guestAvatar = getUserAvatar(currentUser);
     customRoomName = invite.roomName;
     if (invite.config) roomConfig = invite.config;
+    const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isHostGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(invite.from) : (!invite.from || invite.from.startsWith('游客'));
+    if (isMeGuest || isHostGuest) {
+        if (!roomConfig) roomConfig = {};
+        roomConfig.matchType = 'friendly';
+    }
 
     setupRoomLobbyUI(roomCode, invite.roomName);
     connectSupabaseChannel(roomCode);
@@ -3500,6 +3827,12 @@ function handleMatchInviteResponse(payload) {
         guestAvatar = payload.fromAvatar || (payload.from ? getUserAvatar(payload.from) : '');
         customRoomName = payload.roomName;
         if (payload.config) roomConfig = payload.config;
+        const isMeGuestResp = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const isPeerGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(payload.from) : (!payload.from || payload.from.startsWith('游客'));
+        if (isMeGuestResp || isPeerGuest) {
+            if (!roomConfig) roomConfig = {};
+            roomConfig.matchType = 'friendly';
+        }
 
         setupRoomLobbyUI(roomCode, payload.roomName);
         connectSupabaseChannel(roomCode);
@@ -3604,6 +3937,7 @@ async function fetchOnlineRoomsList(manual = false) {
 
     const roomMap = new Map();
     (dbRooms || []).forEach(r => {
+        if (!r.code || r.code.startsWith('ONL_')) return;
         roomMap.set(r.code, {
             code: r.code,
             name: r.name || `${r.host}的房间`,
@@ -3618,6 +3952,7 @@ async function fetchOnlineRoomsList(manual = false) {
     });
 
     discoveredLobbyRooms.forEach(r => {
+        if (!r.code || r.code.startsWith('ONL_')) return;
         if (r.status === 'waiting') {
             roomMap.set(r.code, { ...roomMap.get(r.code), ...r });
         }
@@ -3661,6 +3996,7 @@ async function fetchOnlineRoomsList(manual = false) {
 
     // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，自动调出邀请弹窗
     const myInviteRoom = (dbRooms || []).find(r => {
+        if (!r.code || r.code.startsWith('ONL_')) return false;
         if (r.status !== 'waiting' || r.host === currentUser) return false;
         const cfg = r.config || {};
         if (cfg.targetUser !== currentUser) return false;

@@ -138,10 +138,17 @@ const LevelManager = {
         oppoRank = 1,
         oppoRating = 50
     } = {}) {
+        // 0. 游客禁止参与排位赛
+        if (typeof currentUser !== 'undefined' && this.isGuestUser(currentUser)) {
+            isRanked = false;
+        }
+
         // 1. 友谊赛模式不增减积分
         if (!isRanked) {
             return {
                 isRanked: false,
+                playerWin: Boolean(playerWin),
+                isDraw: Boolean(isDraw),
                 deltaPoints: 0,
                 oldRank: userRank,
                 oldRating: userRating,
@@ -158,6 +165,8 @@ const LevelManager = {
         if (isDraw) {
             return {
                 isRanked: true,
+                playerWin: false,
+                isDraw: true,
                 deltaPoints: 0,
                 oldRank: userRank,
                 oldRating: userRating,
@@ -182,12 +191,31 @@ const LevelManager = {
         // 3. 升段赛专属结算
         if (isPromotionMatch) {
             if (playerWin) {
+                // 如果一方等级分是0，则另一方赢了不得分且不晋级
+                if (userRating === 0 || oppoRating === 0) {
+                    return {
+                        isRanked: true,
+                        playerWin: true,
+                        isDraw: false,
+                        deltaPoints: 0,
+                        oldRank: userRank,
+                        oldRating: userRating,
+                        newRank: userRank,
+                        newRating: userRating,
+                        isPromoted: false,
+                        isDemoted: false,
+                        isPromotionMatch: true,
+                        reason: '对局一方等级分为0，升段赛获胜不予加分与晋升'
+                    };
+                }
                 // 升段赛获胜：成功升至下一段，并获得升段初始积分（按分差智能计算获胜得分）
                 const bonusGain = Math.max(15, Math.min(35, Math.round(20 + ratingDiff * 0.1)));
                 const newRank = Math.min(this.MAX_RANK, userRank + 1);
                 const newRating = bonusGain;
                 return {
                     isRanked: true,
+                    playerWin: true,
+                    isDraw: false,
                     deltaPoints: bonusGain,
                     oldRank: userRank,
                     oldRating: userRating,
@@ -202,6 +230,8 @@ const LevelManager = {
                 // 升段赛失败：“输了不会倒扣等级分”
                 return {
                     isRanked: true,
+                    playerWin: false,
+                    isDraw: false,
                     deltaPoints: 0,
                     oldRank: userRank,
                     oldRating: userRating,
@@ -220,6 +250,8 @@ const LevelManager = {
             if (playerWin) {
                 return {
                     isRanked: true,
+                    playerWin: true,
+                    isDraw: false,
                     deltaPoints: 0,
                     oldRank: userRank,
                     oldRating: userRating,
@@ -236,6 +268,8 @@ const LevelManager = {
                 const newRating = Math.max(0, userRating - lossBase);
                 return {
                     isRanked: true,
+                    playerWin: false,
+                    isDraw: false,
                     deltaPoints: -lossBase,
                     oldRank: userRank,
                     oldRating: userRating,
@@ -251,6 +285,25 @@ const LevelManager = {
 
         // 4. 常规排位赛结算
         if (playerWin) {
+            // 如果一方等级分是0，则另一方赢了不得分
+            if (userRating === 0 || oppoRating === 0) {
+                return {
+                    isRanked: true,
+                    playerWin: true,
+                    isDraw: false,
+                    deltaPoints: 0,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: userRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    isPromotionReady: false,
+                    reason: '对局一方等级分为0，获胜不增加等级分'
+                };
+            }
+
             // 获胜加分：根据双方分差自适应浮动 [10, 40]
             const winGain = Math.max(10, Math.min(40, Math.round(20 + ratingDiff * 0.1)));
             const prospective = userRating + winGain;
@@ -267,6 +320,8 @@ const LevelManager = {
 
             return {
                 isRanked: true,
+                playerWin: true,
+                isDraw: false,
                 deltaPoints: winGain,
                 oldRank: userRank,
                 oldRating: userRating,
@@ -291,6 +346,8 @@ const LevelManager = {
                     const newRating = Math.max(0, Math.min(90, 100 + prospective));
                     return {
                         isRanked: true,
+                        playerWin: false,
+                        isDraw: false,
                         deltaPoints: -lossDeduct,
                         oldRank: userRank,
                         oldRating: userRating,
@@ -305,6 +362,8 @@ const LevelManager = {
                     // 1段最低分保护
                     return {
                         isRanked: true,
+                        playerWin: false,
+                        isDraw: false,
                         deltaPoints: -userRating,
                         oldRank: 1,
                         oldRating: userRating,
@@ -319,6 +378,8 @@ const LevelManager = {
             } else {
                 return {
                     isRanked: true,
+                    playerWin: false,
+                    isDraw: false,
                     deltaPoints: -lossDeduct,
                     oldRank: userRank,
                     oldRating: userRating,
@@ -343,12 +404,12 @@ const LevelManager = {
         battles.total = (battles.total || 0) + 1;
 
         if (matchResult.isRanked) {
-            if (matchResult.deltaPoints > 0 || matchResult.isPromoted) {
+            if (matchResult.playerWin) {
                 battles.wins = (battles.wins || 0) + 1;
-            } else if (matchResult.deltaPoints < 0 || matchResult.isDemoted) {
-                battles.losses = (battles.losses || 0) + 1;
-            } else {
+            } else if (matchResult.isDraw) {
                 battles.draws = (battles.draws || 0) + 1;
+            } else {
+                battles.losses = (battles.losses || 0) + 1;
             }
         }
 

@@ -49,6 +49,13 @@ function selectAiRule(rule) {
 }
 
 function selectAiMatchType(type) {
+    if (type === 'ranked') {
+        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        if (isGuest) {
+            showToast('游客禁止参与排位赛，请先登录账号');
+            return;
+        }
+    }
     aiDuelConfig.matchType = type;
     const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
     if (type === 'ranked') {
@@ -112,6 +119,12 @@ function openAiDuelSettings() {
         if (aiDuelConfig.selectedBooks.length === 0) {
             aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
         }
+    }
+
+    // 游客禁止参与排位赛
+    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    if (isGuest) {
+        aiDuelConfig.matchType = 'friendly';
     }
 
     // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
@@ -243,12 +256,29 @@ function updateAiDuelSliderHint() {
 }
 
 function updateAiDuelSettingsChips() {
+    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    if (isGuest && aiDuelConfig.matchType === 'ranked') {
+        aiDuelConfig.matchType = 'friendly';
+    }
     const isRanked = (aiDuelConfig.matchType === 'ranked');
     const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
 
     // 对战模式切换 (排位赛 vs 友谊赛)
     document.querySelectorAll('#chips-ai-match-type .md3-chip').forEach(c => {
         c.classList.toggle('selected', c.getAttribute('data-type') === (aiDuelConfig.matchType || 'ranked'));
+        const t = c.getAttribute('data-type');
+        c.classList.toggle('selected', t === (aiDuelConfig.matchType || 'friendly'));
+        if (isGuest && t === 'ranked') {
+            c.classList.add('disabled');
+            c.style.pointerEvents = 'none';
+            c.style.opacity = '0.4';
+            c.title = '游客无法参与排位赛';
+        } else if (t === 'ranked') {
+            c.classList.remove('disabled');
+            c.style.pointerEvents = 'auto';
+            c.style.opacity = '1';
+            c.title = '';
+        }
     });
 
     // 段位滑块更新：物理滑动条始终固定为 1~9，绝不缩短滑块轨道
@@ -381,6 +411,13 @@ async function startAiDuelFromModal() {
 }
 
 async function startAiDuel() {
+    if (aiDuelConfig.matchType === 'ranked') {
+        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        if (isGuest) {
+            showToast('游客禁止参与排位赛，已自动切换为友谊赛');
+            aiDuelConfig.matchType = 'friendly';
+        }
+    }
     // 强制过滤掉本地词书
     if (Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');

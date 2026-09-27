@@ -259,7 +259,7 @@ function updateHub() {
             const lData = LevelManager.getLevelData(currentUser);
             ddLevelText.innerText = `${lData.rank}段 (${lData.rating}/100分)`;
         } else {
-            ddLevelText.innerText = '登录后解锁段位功能';
+            ddLevelText.innerText = '登录后解锁段位和排位赛功能';
         }
     }
     if (ddLogged && ddGuest) {

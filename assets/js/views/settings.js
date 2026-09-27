@@ -1388,10 +1388,10 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.4.3';
 const APP_CHANGELOG = [
     {
-        version: 'v2.4.0',
+        version: 'v2.4.3',
         date: '2026-09-26',
         badge: '当前版本',
         items: [
