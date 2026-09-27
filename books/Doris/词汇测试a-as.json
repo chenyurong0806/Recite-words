@@ -5,15 +5,15 @@
   },
   {
     "name": "aboard",
-    "trans": ["上船；登机"]
+    "trans": ["上船", "登机"]
   },
   {
     "name": "addict",
-    "trans": ["使沉溺，使上瘾"]
+    "trans": ["使沉溺", "使上瘾"]
   },
   {
     "name": "adjust",
-    "trans": ["调整，调节"]
+    "trans": ["调整", "调节"]
   },
   {
     "name": "analyze",
@@ -21,7 +21,7 @@
   },
   {
     "name": "accomplish",
-    "trans": ["完成；实现"]
+    "trans": ["完成", "实现"]
   },
   {
     "name": "accustom",
@@ -33,7 +33,7 @@
   },
   {
     "name": "advocate",
-    "trans": ["拥护；提倡"]
+    "trans": ["拥护", "提倡"]
   },
   {
     "name": "appetite",
@@ -41,7 +41,7 @@
   },
   {
     "name": "agriculture",
-    "trans": ["农业；农艺"]
+    "trans": ["农业", "农艺"]
   },
   {
     "name": "amateur",
@@ -53,7 +53,7 @@
   },
   {
     "name": "application",
-    "trans": ["申请表；应用"]
+    "trans": ["申请表", "应用"]
   },
   {
     "name": "adventure",
@@ -61,42 +61,52 @@
   },
   {
     "name": "in the absence of data",
-    "trans": ["由于缺失数据"]
+    "trans": ["由于缺乏数据", "在缺少数据的情况下"],
+    "mistake": ["at", "on", "absent", "lack"]
   },
   {
     "name": "scientists from home and abroad",
-    "trans": ["来自国内外的科学家"]
+    "trans": ["来自国内外的科学家"],
+    "mistake": ["scientist", "aboard", "broad", "at"]
   },
   {
     "name": "approve of the plan",
-    "trans": ["赞成这个计划"]
+    "trans": ["赞成这个计划"],
+    "mistake": ["to", "in", "with", "approval"]
   },
   {
     "name": "prepare for the meeting in advance",
-    "trans": ["提前为会议做准备"]
+    "trans": ["提前为会议做准备"],
+    "mistake": ["to", "with", "advanced", "at"]
   },
   {
     "name": "accuse the guide of poor arrangements",
-    "trans": ["指责导游安排的不好"]
+    "trans": ["指责导游安排不周"],
+    "mistake": ["for", "with", "about", "arrange"]
   },
   {
     "name": "arouse students' interest",
-    "trans": ["激发学生的兴趣"]
+    "trans": ["激发学生的兴趣"],
+    "mistake": ["rise", "raise", "arise", "interested"]
   },
   {
     "name": "be absorbed in",
-    "trans": ["专心致志于……"]
+    "trans": ["专心致志于..."],
+    "mistake": ["at", "to", "with", "absorb"]
   },
   {
     "name": "adapt to the coming adventure",
-    "trans": ["适应即将到来的冒险活动"]
+    "trans": ["适应即将到来的冒险活动"],
+    "mistake": ["adopt", "in", "with", "come"]
   },
   {
     "name": "have access to modern medical facilities",
-    "trans": ["有机会享用现代医疗设施"]
+    "trans": ["有机会享用现代医疗设施"],
+    "mistake": ["in", "at", "medicine", "facility"]
   },
   {
     "name": "appreciate your accompanying me all the time",
-    "trans": ["感谢你一直陪伴我"]
+    "trans": ["感谢你一直陪伴我"],
+    "mistake": ["accompany", "company", "to", "always"]
   }
 ]

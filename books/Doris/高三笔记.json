@@ -1,126 +1,1046 @@
 [
   {
     "name": "in good company",
-    "trans": ["大有人在，处于同样境地（不必为此难堪）"]
+    "trans": ["大有人在", "处于同样境地"],
+    "mistake": ["with", "for", "companion", "bad"]
   },
   {
     "name": "base",
-    "trans": ["n. 基地，基础，底部（具体的基底、底座或基地）"]
+    "trans": ["基地", "基础", "底部"]
   },
   {
     "name": "basis",
-    "trans": ["n. 基础，根据，基准（抽象的理论依据、原则或基础）"]
+    "trans": ["基础", "根据", "基准"]
   },
   {
     "name": "blame sth. on sb.",
-    "trans": ["把某事归咎于某人"]
+    "trans": ["把某事归咎于某人"],
+    "mistake": ["to", "for", "with", "at"]
   },
   {
     "name": "blame sb. for sth.",
-    "trans": ["因某事责备某人"]
+    "trans": ["因某事责备某人"],
+    "mistake": ["to", "on", "with", "about"]
   },
   {
     "name": "the pioneering spirit",
-    "trans": ["开拓精神，先锋精神"]
+    "trans": ["开拓精神", "先锋精神"],
+    "mistake": ["pioneer", "pioneered", "spiritual", "soul"]
   },
   {
     "name": "out of breath",
-    "trans": ["上气不接下气，气喘吁吁"]
+    "trans": ["上气不接下气", "气喘吁吁"],
+    "mistake": ["breathe", "breathing", "off", "from"]
   },
   {
     "name": "catch one's breath",
-    "trans": ["歇口气，缓过气来，屏息"]
+    "trans": ["歇口气", "缓过气来", "屏息"],
+    "mistake": ["take", "hold", "breathe", "breathing"]
   },
   {
-    "name": "awaken, awakened, awakened",
-    "trans": ["v. 唤醒，觉醒（规则变化）"]
+    "name": "awaken",
+    "trans": ["唤醒", "觉醒"]
   },
   {
-    "name": "awake, awoke, awoken",
-    "trans": ["v. 醒来，唤醒（不规则变化）"]
+    "name": "awake",
+    "trans": ["醒来", "唤醒"]
   },
   {
     "name": "awake to ... ",
-    "trans": ["意识到 ... ，对 ... 警觉"]
+    "trans": ["意识到 ... ", "对 ... 警觉"],
+    "mistake": ["in", "at", "with", "awaken"]
   },
   {
     "name": "be alert to ... ",
-    "trans": ["警惕 ... ，对 ... 保持戒备"]
+    "trans": ["警惕 ... ", "对 ... 保持戒备"],
+    "mistake": ["with", "in", "for", "alertly"]
   },
   {
     "name": "unbearable",
-    "trans": ["adj. 难以忍受的，承受不住的"]
+    "trans": ["难以忍受的", "承受不住的"]
   },
   {
     "name": "in no position to ... ",
-    "trans": ["无权做 ... ，没有资格做 ... ，处于无法 ... 的境地"]
+    "trans": ["无权做 ... ", "没有资格做 ... ", "处于无法 ... 的境地"],
+    "mistake": ["at", "on", "for", "doing"]
   },
   {
     "name": "a total ban on smoking",
-    "trans": ["全面禁烟"]
+    "trans": ["全面禁烟"],
+    "mistake": ["for", "to", "smoke", "smoked"]
   },
   {
     "name": "put a ban on ... ",
-    "trans": ["对 ... 下达禁令，明令禁止 ... "]
+    "trans": ["对 ... 下达禁令", "明令禁止 ... "],
+    "mistake": ["set", "make", "to", "for"]
   },
   {
     "name": "lift a ban on ... ",
-    "trans": ["解除对 ... 的禁令"]
+    "trans": ["解除对 ... 的禁令"],
+    "mistake": ["cancel", "take", "to", "for"]
   },
   {
     "name": "assure sb. of sth.",
-    "trans": ["向某人保证某事，使某人确信某事"]
+    "trans": ["向某人保证某事", "使某人确信某事"],
+    "mistake": ["for", "with", "to", "ensure"]
   },
   {
     "name": "ensure one's safety",
-    "trans": ["确保某人的安全"]
+    "trans": ["确保某人的安全"],
+    "mistake": ["make", "safe", "safely", "insure"]
   },
   {
     "name": "ban sb. from doing sth.",
-    "trans": ["禁止某人做某事"]
+    "trans": ["禁止某人做某事"],
+    "mistake": ["to", "for", "do", "banned"]
   },
   {
     "name": "the authorities",
-    "trans": ["当局，官方机构"]
+    "trans": ["当局", "官方机构"],
+    "mistake": ["authority", "authorized", "author"]
   },
   {
     "name": "be busy with sth.",
-    "trans": ["忙于某事"]
+    "trans": ["忙于某事"],
+    "mistake": ["at", "in", "for", "business"]
   },
   {
     "name": "helmsman",
-    "trans": ["n. 舵手，掌舵人"]
+    "trans": ["舵手", "掌舵人"]
   },
   {
-    "name": "eyeopening",
-    "trans": ["adj. 令人大开眼界的，发人深省的"]
+    "name": "eye-opening",
+    "trans": ["令人大开眼界的", "发人深省的"]
   },
   {
     "name": "a real eye-opener",
-    "trans": ["真让人大开眼界的事物"]
+    "trans": ["真让人大开眼界的事物"],
+    "mistake": ["open", "opening", "really"]
   },
   {
     "name": "an abundance of",
-    "trans": ["大量的，丰富的"]
+    "trans": ["大量的", "丰富的"],
+    "mistake": ["abundant", "in", "for", "with"]
   },
   {
     "name": "advantageous",
-    "trans": ["adj. 有利的，有益的"]
+    "trans": ["有利的", "有益的"]
   },
   {
     "name": "adventurous",
-    "trans": ["adj. 有冒险精神的，充满刺激惊险的"]
+    "trans": ["有冒险精神的", "充满刺激惊险的"]
   },
   {
     "name": "a third",
-    "trans": ["三分之一"]
+    "trans": ["三分之一"],
+    "mistake": ["three", "one-three", "thirdly"]
   },
   {
     "name": "two thirds",
-    "trans": ["三分之二"]
+    "trans": ["三分之二"],
+    "mistake": ["two-three", "two third", "second"]
   },
   {
     "name": "be set in stone",
-    "trans": ["不可更改，一成不变，固定不变"]
+    "trans": ["不可更改", "一成不变", "固定不变"],
+    "mistake": ["on", "at", "stones", "setting"]
+  },
+  {
+    "name": "digital detox",
+    "trans": ["数字排毒", "远离电子产品"],
+    "mistake": ["toxic", "poison", "digitalize"]
+  },
+  {
+    "name": "with the rise of",
+    "trans": ["随着...的兴起"],
+    "mistake": ["raise", "arise", "in", "by"]
+  },
+  {
+    "name": "in an age dominated by ... ",
+    "trans": ["在一个由...主导的时代"],
+    "mistake": ["at", "on", "dominate", "with"]
+  },
+  {
+    "name": "be exposed to",
+    "trans": ["暴露于...", "接触..."],
+    "mistake": ["in", "with", "at", "expose"]
+  },
+  {
+    "name": "at regular intervals",
+    "trans": ["定期", "每隔一定时间"],
+    "mistake": ["in", "interval", "regularly", "on"]
+  },
+  {
+    "name": "be bombarded/flooded with",
+    "trans": ["充斥着...", "被...轰炸"],
+    "mistake": ["by", "in", "at", "flood"]
+  },
+  {
+    "name": "sth. refers to ... ",
+    "trans": ["某物指的是..."],
+    "mistake": ["mean", "at", "in", "referred"]
+  },
+  {
+    "name": "sth. means ... ",
+    "trans": ["某物意味着..."]
+  },
+  {
+    "name": "sth. is regarded as ... ",
+    "trans": ["某物被看作..."],
+    "mistake": ["regard", "to", "for", "like"]
+  },
+  {
+    "name": "bring both benefits and drawbacks",
+    "trans": ["兼具利弊", "带来双刃剑效应"],
+    "mistake": ["take", "advantage", "benefit", "disadvantage"]
+  },
+  {
+    "name": "be a mixed blessing",
+    "trans": ["有利有弊", "好坏参半的事物"],
+    "mistake": ["mix", "bless", "good", "bad"]
+  },
+  {
+    "name": "assist/aid sb. in doing sth.",
+    "trans": ["协助某人做某事"],
+    "mistake": ["help", "to", "for", "do"]
+  },
+  {
+    "name": "if not used properly",
+    "trans": ["如果不妥善使用的话"],
+    "mistake": ["use", "using", "proper"]
+  },
+  {
+    "name": "pose a potential threat to",
+    "trans": ["对...构成潜在威胁"],
+    "mistake": ["make", "give", "threaten", "for"]
+  },
+  {
+    "name": "only to realize that ... ",
+    "trans": ["不料才意识到..."],
+    "mistake": ["realizing", "know", "what", "realize"]
+  },
+  {
+    "name": "provide a promising path towards",
+    "trans": ["为...指明一条光明前景的道路"],
+    "mistake": ["give", "to", "promise", "road"]
+  },
+  {
+    "name": "challenging as it may seem",
+    "trans": ["尽管看起来很有挑战性"],
+    "mistake": ["though", "look", "challenge", "seems"]
+  },
+  {
+    "name": "not amount to",
+    "trans": ["不等于", "并不意味着"],
+    "mistake": ["equal", "in", "at", "mean"]
+  },
+  {
+    "name": "superb",
+    "trans": ["精湛的", "极好的"]
+  },
+  {
+    "name": "reaction",
+    "trans": ["直接反应", "回应"]
+  },
+  {
+    "name": "response",
+    "trans": ["（思考后）反应", "答复"]
+  },
+  {
+    "name": "be diagnosed with depression",
+    "trans": ["被诊断患有抑郁症"],
+    "mistake": ["in", "as", "depressed", "diagnose"]
+  },
+  {
+    "name": "recover from/overcome illness",
+    "trans": ["摆脱病魔", "战胜疾病"],
+    "mistake": ["get", "sick", "disease", "with"]
+  },
+  {
+    "name": "retain sth.",
+    "trans": ["保留某物", "保持某物"]
+  },
+  {
+    "name": "on the field",
+    "trans": ["在赛场上", "在球场上"],
+    "mistake": ["in", "at", "court", "ground"]
+  },
+  {
+    "name": "a great hit",
+    "trans": ["大获成功的事物", "成为热点"],
+    "mistake": ["success", "big", "strike"]
+  },
+  {
+    "name": "section",
+    "trans": ["部门", "部分"]
+  },
+  {
+    "name": "department",
+    "trans": ["部门", "系"]
+  },
+  {
+    "name": "division",
+    "trans": ["部门", "分支", "分割"]
+  },
+  {
+    "name": "follow sb. as a role model",
+    "trans": ["把某人作为榜样", "追星"],
+    "mistake": ["take", "for", "model", "like"]
+  },
+  {
+    "name": "admire sb. as a role model",
+    "trans": ["把某人作为榜样崇拜", "追星"],
+    "mistake": ["take", "for", "model", "like"]
+  },
+  {
+    "name": "the United Nations",
+    "trans": ["联合国"],
+    "mistake": ["Nation", "unite", "united"]
+  },
+  {
+    "name": "groundless",
+    "trans": ["无根据的", "空穴来风的"]
+  },
+  {
+    "name": "unfounded",
+    "trans": ["毫无根据的", "未建立的"]
+  },
+  {
+    "name": "procedure",
+    "trans": ["手续", "程序", "步骤"]
+  },
+  {
+    "name": "standardize",
+    "trans": ["使标准化", "使规范化"]
+  },
+  {
+    "name": "erosion",
+    "trans": ["削弱", "侵蚀", "腐蚀"]
+  },
+  {
+    "name": "be overwhelmed by",
+    "trans": ["被...淹没", "不堪重负"],
+    "mistake": ["with", "in", "overwhelm", "at"]
+  },
+  {
+    "name": "implant A into B",
+    "trans": ["把A植入B中"],
+    "mistake": ["in", "to", "plant", "at"]
+  },
+  {
+    "name": "unparalleled",
+    "trans": ["空前的", "无与伦比的"]
+  },
+  {
+    "name": "unprecedented",
+    "trans": ["史无前例的", "空前的"]
+  },
+  {
+    "name": "gain a working understanding",
+    "trans": ["弄懂并能实际运用", "掌握实用理解"],
+    "mistake": ["get", "work", "understand", "take"]
+  },
+  {
+    "name": "foster a new era of",
+    "trans": ["开创一个...的新时代"],
+    "mistake": ["create", "time", "age", "start"]
+  },
+  {
+    "name": "share",
+    "trans": ["分享", "股份"]
+  },
+  {
+    "name": "tend to do sth.",
+    "trans": ["倾向于做某事", "往往会"],
+    "mistake": ["for", "doing", "prone", "in"]
+  },
+  {
+    "name": "primitively",
+    "trans": ["原始地", "简陋地"]
+  },
+  {
+    "name": "be set in stone",
+    "trans": ["固定不变的", "不可更改的"],
+    "mistake": ["on", "at", "stones", "setting"]
+  },
+  {
+    "name": "novel",
+    "trans": ["新奇的", "小说"]
+  },
+  {
+    "name": "give sb. the upper hand",
+    "trans": ["让某人占上风", "处于支配地位"],
+    "mistake": ["make", "take", "top", "hands"]
+  },
+  {
+    "name": "access",
+    "trans": ["允许进入", "存取", "通路"]
+  },
+  {
+    "name": "have access to",
+    "trans": ["可以使用", "有机会接触"],
+    "mistake": ["in", "at", "for", "with"]
+  },
+  {
+    "name": "without regard for/to",
+    "trans": ["不顾", "不考虑"],
+    "mistake": ["with", "in", "regards", "about"]
+  },
+  {
+    "name": "engaging",
+    "trans": ["引人入胜的", "迷人的"]
+  },
+  {
+    "name": "captivating",
+    "trans": ["有吸引力的", "迷人的"]
+  },
+  {
+    "name": "be affixed to",
+    "trans": ["贴在...上", "附于"],
+    "mistake": ["on", "in", "affix", "at"]
+  },
+  {
+    "name": "abundance",
+    "trans": ["大量", "充裕"]
+  },
+  {
+    "name": "an abundance of",
+    "trans": ["大量的", "丰富的"],
+    "mistake": ["abundant", "in", "with", "lot"]
+  },
+  {
+    "name": "arena",
+    "trans": ["竞技场", "舞台"]
+  },
+  {
+    "name": "a timeless reminder of",
+    "trans": ["关于...的永恒见证/提醒"],
+    "mistake": ["time", "memory", "remind", "at"]
+  },
+  {
+    "name": "note",
+    "trans": ["记录", "提到", "笔记"]
+  },
+  {
+    "name": "bustling streets",
+    "trans": ["繁华的街市", "熙熙攘攘的街道"],
+    "mistake": ["busy", "crowded", "street"]
+  },
+  {
+    "name": "passive",
+    "trans": ["被动的", "消极的"]
+  },
+  {
+    "name": "issue a license",
+    "trans": ["颁发许可证", "发放执照"],
+    "mistake": ["give", "make", "licence", "pass"]
+  },
+  {
+    "name": "blockbuster",
+    "trans": ["大片", "轰动的事物"]
+  },
+  {
+    "name": "a spin-off",
+    "trans": ["衍生作品", "副产品"],
+    "mistake": ["out", "product", "spin"]
+  },
+  {
+    "name": "institution",
+    "trans": ["机构", "制度"]
+  },
+  {
+    "name": "dedicate to",
+    "trans": ["奉献于", "致力于"],
+    "mistake": ["in", "for", "with", "devote"]
+  },
+  {
+    "name": "universal",
+    "trans": ["全体的", "普遍的", "通用的"]
+  },
+  {
+    "name": "conventional",
+    "trans": ["传统的", "常规的", "常规部分的"]
+  },
+  {
+    "name": "a viral trend",
+    "trans": ["迅速走红的趋势", "病毒式传播的热潮"],
+    "mistake": ["virus", "popular", "trending"]
+  },
+  {
+    "name": "content creators",
+    "trans": ["短视频制作者", "内容创作者"],
+    "mistake": ["creator", "maker", "video"]
+  },
+  {
+    "name": "straightforward",
+    "trans": ["直接的", "坦率的", "易懂的"]
+  },
+  {
+    "name": "innocent",
+    "trans": ["天真的", "无辜的"]
+  },
+  {
+    "name": "sip ginger tea",
+    "trans": ["饮姜茶", "啜饮姜茶"],
+    "mistake": ["drink", "tea", "eat"]
+  },
+  {
+    "name": "realistic",
+    "trans": ["现实的", "讲求实际的"]
+  },
+  {
+    "name": "real",
+    "trans": ["真实的", "真正的"]
+  },
+  {
+    "name": "environmental consciousness",
+    "trans": ["环保意识"],
+    "mistake": ["environment", "aware", "conscious"]
+  },
+  {
+    "name": "enduring appeal of",
+    "trans": ["...的持久吸引力"],
+    "mistake": ["endure", "attraction", "to"]
+  },
+  {
+    "name": "demonstrate",
+    "trans": ["演示", "证明", "示范"]
+  },
+  {
+    "name": "out of the question",
+    "trans": ["不可能的", "毫无可能的"],
+    "mistake": ["in", "without", "impossible", "off"]
+  },
+  {
+    "name": "out of question",
+    "trans": ["毫无疑问", "没问题"],
+    "mistake": ["the", "without", "in"]
+  },
+  {
+    "name": "cement",
+    "trans": ["使巩固", "加强", "水泥"]
+  },
+  {
+    "name": "within one's reach",
+    "trans": ["能够触及", "力所能及"],
+    "mistake": ["in", "touch", "at"]
+  },
+  {
+    "name": "beyond one's reach",
+    "trans": ["无法触及", "鞭长莫及"],
+    "mistake": ["out", "touch", "at"]
+  },
+  {
+    "name": "unattended",
+    "trans": ["无人照料的", "无人看管的"]
+  },
+  {
+    "name": "add weight to the theory",
+    "trans": ["进一步证实该理论", "增加理论的分量"],
+    "mistake": ["give", "make", "heavy", "in"]
+  },
+  {
+    "name": "leftovers",
+    "trans": ["剩菜", "剩余物"]
+  },
+  {
+    "name": "attribute ... to ... ",
+    "trans": ["把...归因于..."],
+    "mistake": ["for", "with", "in", "owe"]
+  },
+  {
+    "name": "reprogram",
+    "trans": ["重新编程", "重组"]
+  },
+  {
+    "name": "correlate strongly with",
+    "trans": ["与...高度相关"],
+    "mistake": ["to", "in", "strong", "at"]
+  },
+  {
+    "name": "harsh",
+    "trans": ["严苛的", "残酷的", "刺耳的"]
+  },
+  {
+    "name": "dedicate oneself to",
+    "trans": ["投身于...", "献身于..."],
+    "mistake": ["in", "for", "with", "devote"]
+  },
+  {
+    "name": "refer to sb. as ... ",
+    "trans": ["把某人称作..."],
+    "mistake": ["call", "like", "for", "referred"]
+  },
+  {
+    "name": "inseparable",
+    "trans": ["不可分割的", "形影不离的"]
+  },
+  {
+    "name": "integral",
+    "trans": ["不可或缺的", "构成整体所必需的"]
+  },
+  {
+    "name": "under the guidance of",
+    "trans": ["在...的指导下"],
+    "mistake": ["in", "at", "guide", "guiding"]
+  },
+  {
+    "name": "firmly",
+    "trans": ["坚定地", "牢固地"]
+  },
+  {
+    "name": "hold firm to",
+    "trans": ["紧握", "坚守"],
+    "mistake": ["firmly", "at", "in", "keep"]
+  },
+  {
+    "name": "stand firm",
+    "trans": ["立场不动摇", "坚持立场"],
+    "mistake": ["firmly", "keep", "stay"]
+  },
+  {
+    "name": "leap",
+    "trans": ["跳跃", "激增", "剧增"]
+  },
+  {
+    "name": "a huge leap",
+    "trans": ["一个巨大的飞跃"],
+    "mistake": ["big", "jump", "leaping"]
+  },
+  {
+    "name": "basis",
+    "trans": ["基础（理论）", "根据"]
+  },
+  {
+    "name": "base",
+    "trans": ["地基", "基地（物理）", "底部"]
+  },
+  {
+    "name": "base sth. on sth.",
+    "trans": ["基于...", "把某事建立在某事上"],
+    "mistake": ["in", "at", "basis", "to"]
+  },
+  {
+    "name": "blame sth. on sb.",
+    "trans": ["将某事归咎于某人"],
+    "mistake": ["to", "for", "with", "at"]
+  },
+  {
+    "name": "blame sb. for sth.",
+    "trans": ["因某事责备某人"],
+    "mistake": ["to", "on", "with", "about"]
+  },
+  {
+    "name": "sb. be to blame for",
+    "trans": ["某人对此负有责任", "某人因某事应受谴责"],
+    "mistake": ["blamed", "blaming", "to", "with"]
+  },
+  {
+    "name": "break away from old concepts",
+    "trans": ["摆脱旧制度", "摒弃旧观念"],
+    "mistake": ["out", "off", "idea", "concept"]
+  },
+  {
+    "name": "in full bloom",
+    "trans": ["正值盛开", "处于全盛期"],
+    "mistake": ["at", "on", "flower", "flowering"]
+  },
+  {
+    "name": "awake",
+    "trans": ["醒着的", "唤醒"]
+  },
+  {
+    "name": "awake to",
+    "trans": ["对...警觉", "意识到..."],
+    "mistake": ["in", "at", "with", "awaken"]
+  },
+  {
+    "name": "be alert to",
+    "trans": ["对...保持警惕", "警觉"],
+    "mistake": ["with", "in", "for", "alertly"]
+  },
+  {
+    "name": "budget sth. for sth.",
+    "trans": ["管理某事的预算", "为某事编列预算"],
+    "mistake": ["to", "in", "make", "at"]
+  },
+  {
+    "name": "budget for",
+    "trans": ["为...做预算安排"],
+    "mistake": ["to", "in", "at", "make"]
+  },
+  {
+    "name": "a budget hotel",
+    "trans": ["平价经济型酒店"],
+    "mistake": ["cheap", "economy", "money"]
+  },
+  {
+    "name": "go beyond",
+    "trans": ["超出", "超越"],
+    "mistake": ["over", "past", "exceed", "above"]
+  },
+  {
+    "name": "block",
+    "trans": ["堵住", "阻碍", "街区"]
+  },
+  {
+    "name": "lift a ban on",
+    "trans": ["取消禁令", "解除禁令"],
+    "mistake": ["cancel", "take", "to", "for"]
+  },
+  {
+    "name": "unbearable",
+    "trans": ["不可忍受的"]
+  },
+  {
+    "name": "blow out",
+    "trans": ["吹灭", "吹熄"],
+    "mistake": ["off", "down", "extinguish", "up"]
+  },
+  {
+    "name": "blow up",
+    "trans": ["爆炸", "炸毁"],
+    "mistake": ["out", "off", "explode", "down"]
+  },
+  {
+    "name": "the way to do sth.",
+    "trans": ["做某事的方法"],
+    "mistake": ["of", "for", "doing", "in"]
+  },
+  {
+    "name": "means/method of doing sth.",
+    "trans": ["做某事的方法"],
+    "mistake": ["to", "for", "do", "in"]
+  },
+  {
+    "name": "approach to doing sth.",
+    "trans": ["做某事的方法/途径"],
+    "mistake": ["for", "do", "of", "in"]
+  },
+  {
+    "name": "pathway/path to doing sth.",
+    "trans": ["做某事的方法/路径"],
+    "mistake": ["for", "do", "of", "in"]
+  },
+  {
+    "name": "by convention/tradition",
+    "trans": ["按习惯", "依传统"],
+    "mistake": ["in", "with", "traditional", "custom"]
+  },
+  {
+    "name": "function",
+    "trans": ["起效", "运转", "功能"]
+  },
+  {
+    "name": "now that",
+    "trans": ["既然", "由于"],
+    "mistake": ["since", "as", "for", "because"]
+  },
+  {
+    "name": "competence",
+    "trans": ["能力", "胜任力", "素养"]
+  },
+  {
+    "name": "normalize sth.",
+    "trans": ["使某事常态化", "使正常化"]
+  },
+  {
+    "name": "considerable",
+    "trans": ["大量的", "相当多的"]
+  },
+  {
+    "name": "considerate",
+    "trans": ["考虑周到的", "体贴的"]
+  },
+  {
+    "name": "be counterbalanced by",
+    "trans": ["与...相抵消", "由...平衡"],
+    "mistake": ["with", "in", "balance", "to"]
+  },
+  {
+    "name": "a collective/joint effort",
+    "trans": ["共同努力", "集体努力"],
+    "mistake": ["common", "efforts", "combine", "share"]
+  },
+  {
+    "name": "prioritize",
+    "trans": ["把...放在优先位置", "优先处理"]
+  },
+  {
+    "name": "priority",
+    "trans": ["优先事项", "优先权"]
+  },
+  {
+    "name": "be inappropriate for",
+    "trans": ["不适用于...", "对...不合宜"],
+    "mistake": ["to", "at", "in", "fit"]
+  },
+  {
+    "name": "assess",
+    "trans": ["评价", "评估"]
+  },
+  {
+    "name": "take on",
+    "trans": ["承担", "呈现", "雇用"],
+    "mistake": ["in", "up", "undertake", "off"]
+  },
+  {
+    "name": "send off",
+    "trans": ["寄出", "派遣", "罚下"],
+    "mistake": ["out", "away", "post", "send"]
+  },
+  {
+    "name": "overlook",
+    "trans": ["忽视", "俯瞰"]
+  },
+  {
+    "name": "pull from",
+    "trans": ["从...撤下", "下架"],
+    "mistake": ["off", "out", "away", "down"]
+  },
+  {
+    "name": "wipe off",
+    "trans": ["擦掉", "抹去"],
+    "mistake": ["out", "away", "clean", "off"]
+  },
+  {
+    "name": "offline",
+    "trans": ["离线的", "线下的"]
+  },
+  {
+    "name": "the masses",
+    "trans": ["大众", "群众"],
+    "mistake": ["mass", "people", "public"]
+  },
+  {
+    "name": "minors",
+    "trans": ["未成年人"],
+    "mistake": ["minor", "child", "children"]
+  },
+  {
+    "name": "majors",
+    "trans": ["成年人", "主修学生"],
+    "mistake": ["major", "adult", "adults"]
+  },
+  {
+    "name": "minorities",
+    "trans": ["少数人", "少数派"],
+    "mistake": ["minority", "few", "less"]
+  },
+  {
+    "name": "draw near",
+    "trans": ["靠近", "临近"],
+    "mistake": ["close", "to", "come", "in"]
+  },
+  {
+    "name": "a tipping point",
+    "trans": ["转折点", "临界点"],
+    "mistake": ["turn", "point", "tip", "critical"]
+  },
+  {
+    "name": "open-ended",
+    "trans": ["开放式的", "无固定结论的"]
+  },
+  {
+    "name": "account for",
+    "trans": ["占比", "解释", "说明"],
+    "mistake": ["to", "of", "with", "in"]
+  },
+  {
+    "name": "a college teaching journal",
+    "trans": ["大学教学期刊"],
+    "mistake": ["university", "teach", "magazine", "periodical"]
+  },
+  {
+    "name": "clarification",
+    "trans": ["澄清", "阐明"]
+  },
+  {
+    "name": "assure sb. of sth.",
+    "trans": ["确保某人某事", "向某人保证某事"],
+    "mistake": ["to", "with", "for", "ensure"]
+  },
+  {
+    "name": "feel forced to do sth.",
+    "trans": ["被迫做某事"],
+    "mistake": ["make", "doing", "force", "for"]
+  },
+  {
+    "name": "preschooler",
+    "trans": ["学龄前儿童"]
+  },
+  {
+    "name": "in one's commitment to",
+    "trans": ["致力于追求...", "在某人对...的承诺中"],
+    "mistake": ["for", "at", "commit", "devotion"]
+  },
+  {
+    "name": "myth",
+    "trans": ["神话", "错误的观点"]
+  },
+  {
+    "name": "mid-life crisis",
+    "trans": ["中年危机"],
+    "mistake": ["middle", "crises", "age"]
+  },
+  {
+    "name": "prospective",
+    "trans": ["有前景的", "未来的", "预期的"]
+  },
+  {
+    "name": "perspective",
+    "trans": ["观点", "看法", "视角"]
+  },
+  {
+    "name": "launch oneself into",
+    "trans": ["开始投身于...", "投身进入"],
+    "mistake": ["to", "in", "start", "enter"]
+  },
+  {
+    "name": "block the view",
+    "trans": ["阻挡视线", "挡住风景"],
+    "mistake": ["stop", "sight", "vision", "eye"]
+  },
+  {
+    "name": "take a short leave of absence",
+    "trans": ["请短假"],
+    "mistake": ["ask", "vacation", "holiday", "for"]
+  },
+  {
+    "name": "award equal points",
+    "trans": ["算平分", "授予相同分数"],
+    "mistake": ["give", "point", "score", "same"]
+  },
+  {
+    "name": "attend to personal business",
+    "trans": ["处理私事"],
+    "mistake": ["at", "in", "private", "affairs"]
+  },
+  {
+    "name": "a devastating blow to",
+    "trans": ["对...的毁灭性打击"],
+    "mistake": ["strike", "hit", "for", "in"]
+  },
+  {
+    "name": "be of no benefit to",
+    "trans": ["对...不利", "对...无益"],
+    "mistake": ["for", "in", "beneficial", "with"]
+  },
+  {
+    "name": "available resources",
+    "trans": ["现有的资源", "可用资源"],
+    "mistake": ["resource", "exist", "present"]
+  },
+  {
+    "name": "burn the midnight oil",
+    "trans": ["开夜车", "熬夜工作或学习"],
+    "mistake": ["light", "night", "stay", "fire"]
+  },
+  {
+    "name": "make an attempt to do sth.",
+    "trans": ["试图做某事"],
+    "mistake": ["take", "do", "doing", "for"]
+  },
+  {
+    "name": "recite words",
+    "trans": ["背单词"],
+    "mistake": ["remember", "memory", "word"]
+  },
+  {
+    "name": "civilian",
+    "trans": ["平民", "老百姓"]
+  },
+  {
+    "name": "be in charge of",
+    "trans": ["管理...", "负责..."],
+    "mistake": ["at", "for", "with", "take"]
+  },
+  {
+    "name": "coincidental",
+    "trans": ["巧合的", "碰巧的"]
+  },
+  {
+    "name": "cheer up",
+    "trans": ["鼓劲", "使高兴起来"],
+    "mistake": ["on", "out", "happy", "in"]
+  },
+  {
+    "name": "capacity",
+    "trans": ["学会能力", "容量", "承受力"]
+  },
+  {
+    "name": "capability",
+    "trans": ["能力", "才能", "胜任力"]
+  },
+  {
+    "name": "a calendar for 2026",
+    "trans": ["2026年的日历"],
+    "mistake": ["calender", "of", "in", "schedule"]
+  },
+  {
+    "name": "a circular tour round the world",
+    "trans": ["环球旅行"],
+    "mistake": ["travel", "trip", "circle", "around"]
+  },
+  {
+    "name": "in a civilized way",
+    "trans": ["以一种文明的方式"],
+    "mistake": ["manner", "with", "by", "civil"]
+  },
+  {
+    "name": "commercial",
+    "trans": ["商业的", "商业广告"]
+  },
+  {
+    "name": "cease to exist",
+    "trans": ["不复存在"],
+    "mistake": ["stop", "existing", "in", "life"]
+  },
+  {
+    "name": "give chase to",
+    "trans": ["追赶", "追逐"],
+    "mistake": ["make", "take", "chasing", "after"]
+  },
+  {
+    "name": "coach",
+    "trans": ["指导", "教练", "长途客车"]
+  },
+  {
+    "name": "claim to have done sth.",
+    "trans": ["声称做过了某事"],
+    "mistake": ["do", "doing", "had", "say"]
+  },
+  {
+    "name": "claim one's life",
+    "trans": ["夺去某人的生命"],
+    "mistake": ["take", "kill", "lives", "lose"]
+  },
+  {
+    "name": "be concerned about/over",
+    "trans": ["关心...", "担忧..."],
+    "mistake": ["in", "for", "with", "care"]
+  },
+  {
+    "name": "a second time",
+    "trans": ["再次", "又一次"],
+    "mistake": ["the", "two", "again", "twice"]
+  },
+  {
+    "name": "a better ... ",
+    "trans": ["一个更便于...的", "一个更好的..."]
+  },
+  {
+    "name": "have a good knowledge of",
+    "trans": ["对...很好地掌握", "精通"],
+    "mistake": ["know", "in", "with", "well"]
+  },
+  {
+    "name": "the adj.",
+    "trans": ["某一类人（表复数概念）"]
+  },
+  {
+    "name": "at a loss",
+    "trans": ["困惑", "不知所措"],
+    "mistake": ["in", "lost", "lose", "with"]
   }
 ]

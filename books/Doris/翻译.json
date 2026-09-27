@@ -1,31 +1,38 @@
 [
   {
     "name": "the national health care reform",
-    "trans": ["全国医疗改革"]
+    "trans": ["全国医疗改革"],
+    "mistake": ["healthy", "cure", "change"]
   },
   {
     "name": "enable sb. to do sth.",
-    "trans": ["使某人能够做某事"]
+    "trans": ["使某人能够做某事"],
+    "mistake": ["make", "let", "doing", "for"]
   },
   {
     "name": "have access to",
-    "trans": ["有机会享用，可以使用，能够接近"]
+    "trans": ["有机会享用", "可以使用", "能够接近"],
+    "mistake": ["in", "at", "for", "with"]
   },
   {
     "name": "modern medical facilities",
-    "trans": ["现代医疗设施"]
+    "trans": ["现代医疗设施"],
+    "mistake": ["medicine", "facility", "equipment"]
   },
   {
     "name": "I would appreciate it very much if you could ... ",
-    "trans": ["如果你能…我将不胜感激"]
+    "trans": ["如果你能…我将不胜感激"],
+    "mistake": ["that", "this", "can", "appreciate"]
   },
   {
     "name": "fetch the parcel",
-    "trans": ["取回包裹"]
+    "trans": ["取回包裹"],
+    "mistake": ["take", "bring", "package", "pack"]
   },
   {
     "name": "arrange for sb. to do sth.",
-    "trans": ["安排某人做某事"]
+    "trans": ["安排某人做某事"],
+    "mistake": ["with", "to", "doing", "of"]
   },
   {
     "name": "well-equipped",
@@ -33,55 +40,68 @@
   },
   {
     "name": "in order to",
-    "trans": ["为了"]
+    "trans": ["为了"],
+    "mistake": ["for", "so", "with", "at"]
   },
   {
     "name": "carry out",
-    "trans": ["实施，开展"]
+    "trans": ["实施", "开展"],
+    "mistake": ["on", "away", "in", "off"]
   },
   {
     "name": "get prepared",
-    "trans": ["做好准备"]
+    "trans": ["做好准备"],
+    "mistake": ["prepare", "preparing", "preparatory"]
   },
   {
     "name": "in advance",
-    "trans": ["提前"]
+    "trans": ["提前"],
+    "mistake": ["on", "at", "with", "advanced"]
   },
   {
     "name": "on no account",
-    "trans": ["绝不，切莫"]
+    "trans": ["绝不", "切莫"],
+    "mistake": ["in", "at", "under", "for"]
   },
   {
     "name": "at the critical moment",
-    "trans": ["在这个关键的时刻"]
+    "trans": ["在这个关键的时刻"],
+    "mistake": ["in", "on", "critically", "time"]
   },
   {
     "name": "give up halfway",
-    "trans": ["半途而废"]
+    "trans": ["半途而废"],
+    "mistake": ["in", "out", "away", "half"]
   },
   {
     "name": "achieve nothing",
-    "trans": ["一事无成"]
+    "trans": ["一事无成"],
+    "mistake": ["make", "get", "anything", "none"]
   },
   {
     "name": "It is estimated that ... ",
-    "trans": ["据估计…"]
+    "trans": ["据估计…"],
+    "mistake": ["estimate", "estimating", "this", "what"]
   },
   {
     "name": "add up to",
-    "trans": ["（合计）达，总计达"]
+    "trans": ["（合计）达", "总计达"],
+    "mistake": ["in", "with", "at", "for"]
   },
   {
     "name": "achieve one's own goal",
-    "trans": ["达到自己的目的"]
+    "trans": ["达到自己的目的"],
+    "mistake": ["get", "reach", "aim", "target"]
   },
   {
     "name": "take advantage of",
-    "trans": ["利用"]
+    "trans": ["利用"],
+    "mistake": ["make", "use", "with", "in"]
   },
   {
     "name": "apologize to sb. for sth.",
-    "trans": ["因某事向某人道歉"]
+    "trans": ["因某事向某人道歉"],
+    "mistake": ["with", "at", "about", "of"]
   },
   {
     "name": "innocent",
@@ -89,123 +109,128 @@
   },
   {
     "name": "cope with",
-    "trans": ["应对，处理"]
+    "trans": ["应对", "处理"],
+    "mistake": ["to", "in", "at", "for"]
   },
   {
     "name": "financial crisis",
-    "trans": ["经济危机，金融危机"]
+    "trans": ["经济危机", "金融危机"],
+    "mistake": ["finance", "economy", "crises"]
   },
   {
     "name": "the Greek government",
-    "trans": ["希腊政府"]
+    "trans": ["希腊政府"],
+    "mistake": ["Greece", "governor", "governance"]
   },
   {
     "name": "apply to sb. for a loan",
-    "trans": ["向某人/机构申请贷款"]
+    "trans": ["向某人/机构申请贷款"],
+    "mistake": ["at", "with", "in", "lend"]
   },
   {
     "name": "apply to sb. for sth.",
-    "trans": ["向某人/机构申请某物"]
+    "trans": ["向某人/机构申请某物"],
+    "mistake": ["at", "with", "in", "about"]
   },
   {
     "name": "make an attempt to do sth.",
-    "trans": ["试图做某事"]
+    "trans": ["试图做某事"],
+    "mistake": ["take", "do", "doing", "for"]
   },
   {
     "name": "break the world record",
-    "trans": ["打破世界记录"]
+    "trans": ["打破世界记录"],
+    "mistake": ["hit", "cut", "recorder", "recording"]
   },
   {
     "name": "childhood experiences",
-    "trans": ["童年经历"]
+    "trans": ["童年经历"],
+    "mistake": ["child", "children", "experiment"]
   },
   {
     "name": "account for",
-    "trans": ["说明…的原因，解释"]
+    "trans": ["说明…的原因", "解释"],
+    "mistake": ["to", "of", "with", "in"]
   },
   {
     "name": "be ready to help others",
-    "trans": ["乐于助人"]
+    "trans": ["乐于助人"],
+    "mistake": ["helping", "other", "another"]
   },
   {
     "name": "It is universally acknowledged that ... ",
-    "trans": ["人们普遍认为…"]
+    "trans": ["人们普遍认为…"],
+    "mistake": ["universal", "know", "believed", "which"]
   },
   {
     "name": "do sports regularly",
-    "trans": ["经常进行体育锻炼"]
+    "trans": ["经常进行体育锻炼"],
+    "mistake": ["make", "take", "regular", "sport"]
   },
   {
     "name": "non-commercial advertisement",
-    "trans": ["公益广告"]
+    "trans": ["公益广告"],
+    "mistake": ["commerce", "commercial", "advertising"]
   },
   {
     "name": "aim at doing sth.",
-    "trans": ["旨在做某事"]
+    "trans": ["旨在做某事"],
+    "mistake": ["to", "for", "in", "do"]
   },
   {
     "name": "appeal to sb. to do sth.",
-    "trans": ["呼吁某人做某事"]
+    "trans": ["呼吁某人做某事"],
+    "mistake": ["for", "at", "with", "doing"]
   },
   {
     "name": "engage in the charity cause",
-    "trans": ["参与慈善事业"]
-  },
-  {
-    "name": "It is universally acknowledged that ... ",
-    "trans": ["人们普遍认为…"]
+    "trans": ["参与慈善事业"],
+    "mistake": ["at", "on", "charitable", "case"]
   },
   {
     "name": "adequate sleep",
-    "trans": ["足够的睡眠"]
+    "trans": ["足够的睡眠"],
+    "mistake": ["adequately", "enough", "sleeping"]
   },
   {
     "name": "prevent diseases",
-    "trans": ["抵御疾病"]
+    "trans": ["抵御疾病"],
+    "mistake": ["keep", "stop", "disease", "ill"]
   },
   {
-    "name": "be admitted to / into universities",
-    "trans": ["被大学录取"]
+    "name": "be admitted to/into universities",
+    "trans": ["被大学录取"],
+    "mistake": ["in", "at", "university", "admit"]
   },
   {
     "name": "can't afford the fees",
-    "trans": ["负担不起学费"]
+    "trans": ["负担不起学费"],
+    "mistake": ["pay", "cost", "fare", "fee"]
   },
   {
     "name": "apply to the bank for a loan",
-    "trans": ["向银行申请贷款"]
+    "trans": ["向银行申请贷款"],
+    "mistake": ["at", "with", "in", "lend"]
   },
   {
     "name": "appeal to more young people to engage in the charity cause",
-    "trans": ["呼吁更多的年轻人参与慈善事业"]
-  },
-  {
-    "name": "appeal to sb. to do sth.",
-    "trans": ["呼吁某人做某事"]
-  },
-  {
-    "name": "engage in the charity cause",
-    "trans": ["参与慈善事业"]
+    "trans": ["呼吁更多的年轻人参与慈善事业"],
+    "mistake": ["at", "with", "for", "charitable"]
   },
   {
     "name": "hold some large activities",
-    "trans": ["举办几场大型的活动"]
-  },
-  {
-    "name": "on no account",
-    "trans": ["绝不"]
-  },
-  {
-    "name": "take advantage of",
-    "trans": ["利用"]
+    "trans": ["举办几场大型的活动"],
+    "mistake": ["take", "make", "activity", "action"]
   },
   {
     "name": "achieve your aim",
-    "trans": ["达到自己的目的"]
+    "trans": ["达到自己的目的"],
+    "mistake": ["get", "reach", "aims", "goal"]
   },
   {
     "name": "deeply regret what you have done",
-    "trans": ["非常后悔你所做的"]
+    "trans": ["非常后悔你所做的"],
+    "mistake": ["deep", "regretted", "that", "which"]
   },
   {
     "name": "park management",
@@ -223,14 +248,19 @@
     "mistake": ["note", "sign", "poster", "paper"]
   },
   {
-    "name": "call on / appeal to sb to do sth",
-    "trans": ["呼吁某人做某事"],
-    "mistake": ["for", "at", "with", "by"]
+    "name": "call on sb. to do sth.",
+    "trans": ["号召某人做某事", "呼吁某人做某事"],
+    "mistake": ["at", "for", "with", "by"]
   },
   {
-    "name": "be civilized / responsible",
-    "trans": ["文明", "负责"],
-    "mistake": ["civil", "civilization", "responsibility", "irresponsible"]
+    "name": "be civilized",
+    "trans": ["文明"],
+    "mistake": ["civil", "civilization", "civilize"]
+  },
+  {
+    "name": "be responsible",
+    "trans": ["负责"],
+    "mistake": ["responsibility", "response", "irresponsible"]
   },
   {
     "name": "when walking dogs",
@@ -268,7 +298,7 @@
     "mistake": ["update", "raise", "promote", "neighborhood"]
   },
   {
-    "name": "not only ... but also ...",
+    "name": "not only ... but also ... ",
     "trans": ["不仅...而且...", "既要...更要..."],
     "mistake": ["and", "or", "as", "but"]
   },
@@ -278,17 +308,21 @@
     "mistake": ["beauty", "beautiful", "appear", "look"]
   },
   {
-    "name": "improve / enhance the well-being of residents",
+    "name": "improve the well-being of residents",
+    "trans": ["夯实民生“里子”", "改善居民福祉"],
+    "mistake": ["increase", "raise", "wellbeing", "wealth"]
+  },
+  {
+    "name": "enhance the well-being of residents",
     "trans": ["夯实民生“里子”", "改善居民福祉"],
     "mistake": ["increase", "raise", "wellbeing", "wealth"]
   },
   {
     "name": "well-being",
-    "trans": ["福祉", "民生"],
-    "mistake": ["wellbeing", "welfare", "wealth", "health"]
+    "trans": ["福祉", "民生"]
   },
   {
-    "name": "with the deepening of ...",
+    "name": "with the deepening of ... ",
     "trans": ["随着...的加深"],
     "mistake": ["deep", "deepen", "deepened", "in"]
   },
@@ -303,17 +337,17 @@
     "mistake": ["economy", "economical", "global", "globalize"]
   },
   {
-    "name": "find oneself trapped / caught in a situation",
+    "name": "find oneself trapped/caught in a situation",
     "trans": ["发现自己陷入一种境地"],
-    "mistake": ["find", "found", "trap", "catch", "on", "at"]
+    "mistake": ["find", "trap", "catch", "on"]
   },
   {
-    "name": "be trapped / caught in",
+    "name": "be trapped/caught in",
     "trans": ["陷入"],
     "mistake": ["to", "at", "on", "with"]
   },
   {
-    "name": "a situation where ...",
+    "name": "a situation where ... ",
     "trans": ["一种...的境地"],
     "mistake": ["which", "that", "when", "what"]
   },
@@ -328,218 +362,221 @@
     "mistake": ["excess", "expand", "expense", "expansive"]
   },
   {
-    "name": "go beyond / outweigh",
-    "trans": ["超过", "大于"],
-    "mistake": ["over", "than", "outweight", "beyond"]
+    "name": "go beyond",
+    "trans": ["超过", "超出"],
+    "mistake": ["over", "than", "beyond", "past"]
   },
   {
-    "name": "potential profits / rewards",
+    "name": "outweigh",
+    "trans": ["大于", "重于"]
+  },
+  {
+    "name": "potential profits/rewards",
     "trans": ["潜在获利空间", "潜在回报"],
     "mistake": ["potentially", "profit", "reward", "benefit"]
   },
   {
-    "name": "claim to do sth",
+    "name": "claim to do sth.",
     "trans": ["声称做某事"],
-    "mistake": ["doing", "claiming", "claimed"]
+    "mistake": ["doing", "claiming", "claimed", "for"]
   },
   {
     "name": "have a good command of",
     "trans": ["精通", "掌握"],
-    "mistake": ["in", "at", "with"]
+    "mistake": ["in", "at", "with", "for"]
   },
   {
     "name": "be ignorant of",
     "trans": ["对...一无所知"],
-    "mistake": ["to", "in", "with"]
+    "mistake": ["to", "in", "with", "at"]
   },
   {
     "name": "latest discoveries",
     "trans": ["最新发现"],
-    "mistake": ["late", "last", "newest"]
+    "mistake": ["late", "last", "newest", "discovery"]
   },
   {
     "name": "in this field",
     "trans": ["在这个领域"],
-    "mistake": ["on", "at", "for"]
+    "mistake": ["on", "at", "for", "with"]
   },
   {
     "name": "come to realize",
     "trans": ["渐渐意识到"],
-    "mistake": ["realizing", "know", "understand"]
+    "mistake": ["realizing", "know", "understand", "to"]
   },
   {
     "name": "process of learning",
     "trans": ["学习的过程"],
-    "mistake": ["procedure", "progress", "learn"]
+    "mistake": ["procedure", "progress", "learn", "in"]
   },
   {
-    "name": "compared with / to",
+    "name": "compared with/to",
     "trans": ["与...相比"],
-    "mistake": ["comparing", "compare", "for"]
+    "mistake": ["comparing", "compare", "for", "by"]
   },
   {
     "name": "academic performance",
     "trans": ["学习成绩"],
-    "mistake": ["performances", "grade", "score"]
+    "mistake": ["performances", "grade", "score", "academy"]
   },
   {
     "name": "no matter what",
     "trans": ["无论什么"],
-    "mistake": ["which", "whatever", "who"]
+    "mistake": ["which", "whatever", "who", "how"]
   },
   {
     "name": "meet with",
     "trans": ["遇到", "遭遇"],
-    "mistake": ["meet", "met", "in"]
+    "mistake": ["meet", "met", "in", "at"]
   },
   {
-    "name": "be confident of / about",
+    "name": "be confident of/about",
     "trans": ["对...充满信心"],
-    "mistake": ["in", "to", "with"]
+    "mistake": ["in", "to", "with", "confidence"]
   },
   {
     "name": "have little in common",
     "trans": ["几乎没有共同之处"],
-    "mistake": ["few", "with", "on"]
+    "mistake": ["few", "with", "on", "at"]
   },
   {
     "name": "have much in common",
     "trans": ["有许多共同之处"],
-    "mistake": ["many", "with", "on"]
+    "mistake": ["many", "with", "on", "at"]
   },
   {
     "name": "under no circumstances",
     "trans": ["在任何情况下都不"],
-    "mistake": ["in", "on", "any"]
+    "mistake": ["in", "on", "any", "at"]
   },
   {
-    "name": "use sth for private affairs",
+    "name": "use sth. for private affairs",
     "trans": ["因私使用某物"],
-    "mistake": ["to", "as", "by"]
+    "mistake": ["to", "as", "by", "with"]
   },
   {
     "name": "be concerned about",
     "trans": ["关心", "担心"],
-    "mistake": ["of", "in", "for"]
+    "mistake": ["of", "in", "for", "with"]
   },
   {
-    "name": "how to do sth",
+    "name": "how to do sth.",
     "trans": ["如何做某事"],
-    "mistake": ["what", "where", "which"]
+    "mistake": ["what", "where", "which", "doing"]
   },
   {
     "name": "as soon as possible",
     "trans": ["尽快"],
-    "mistake": ["possibly", "soonest", "quick"]
+    "mistake": ["possibly", "soonest", "quick", "well"]
   },
   {
     "name": "in case",
     "trans": ["万一", "以防"],
-    "mistake": ["of", "if", "for"]
+    "mistake": ["of", "if", "for", "that"]
   },
   {
     "name": "break out",
     "trans": ["爆发"],
-    "mistake": ["break", "happen", "take"]
+    "mistake": ["break", "happen", "take", "off"]
   },
   {
     "name": "electrical appliances",
     "trans": ["电器"],
-    "mistake": ["electric", "electronic", "electricity"]
+    "mistake": ["electric", "electronic", "electricity", "apply"]
   },
   {
-    "name": "complain to sb about / of sth",
+    "name": "complain to sb. about/of sth.",
     "trans": ["向某人投诉某事"],
-    "mistake": ["with", "for", "on"]
+    "mistake": ["with", "for", "on", "at"]
   },
   {
-    "name": "cheat sb",
+    "name": "cheat sb.",
     "trans": ["欺骗某人"],
-    "mistake": ["with", "from", "of"]
+    "mistake": ["with", "from", "of", "to"]
   },
   {
     "name": "travel agency",
     "trans": ["旅行社"],
-    "mistake": ["tourist", "travels", "agent"]
+    "mistake": ["tourist", "travels", "agent", "traveling"]
   },
   {
-    "name": "chances are that",
-    "trans": ["有可能"],
-    "mistake": ["chance", "is", "there"]
+    "name": "chances are that ... ",
+    "trans": ["有可能…"],
+    "mistake": ["chance", "is", "there", "what"]
   },
   {
     "name": "continue to worsen",
     "trans": ["继续恶化"],
-    "mistake": ["continues", "worse", "worst"]
+    "mistake": ["continues", "worse", "worst", "worsening"]
   },
   {
     "name": "cancel trade cooperation",
     "trans": ["取消贸易合作"],
-    "mistake": ["cancle", "canceled", "cancelling"]
+    "mistake": ["cancle", "canceled", "cancelling", "operate"]
   },
   {
-    "name": "the more ... the more ...",
+    "name": "the more ... the more ... ",
     "trans": ["越...越..."],
-    "mistake": ["most", "much", "many"]
+    "mistake": ["most", "much", "many", "better"]
   },
   {
     "name": "stay calm",
     "trans": ["保持冷静"],
-    "mistake": ["calmly", "quiet", "quietly"]
+    "mistake": ["calmly", "quiet", "quietly", "keep"]
   },
   {
     "name": "competitive",
-    "trans": ["有竞争力的"],
-    "mistake": ["competition", "competing", "competent"]
+    "trans": ["有竞争力的"]
   },
   {
-    "name": "pay sb a compliment on sth",
+    "name": "pay sb. a compliment on sth.",
     "trans": ["赞赏某人某事"],
-    "mistake": ["for", "of", "in"]
+    "mistake": ["for", "of", "in", "compliments"]
   },
   {
-    "name": "pay a compliment to sb on sth",
+    "name": "pay a compliment to sb. on sth.",
     "trans": ["赞赏某人某事"],
-    "mistake": ["for", "of", "in"]
+    "mistake": ["for", "of", "in", "compliments"]
   },
   {
     "name": "charity fair",
     "trans": ["慈善义卖会"],
-    "mistake": ["fun", "sale", "market"]
+    "mistake": ["fun", "sale", "market", "fare"]
   },
   {
     "name": "environmentally friendly",
     "trans": ["环保的"],
-    "mistake": ["environment", "environmental", "environ"]
+    "mistake": ["environment", "environmental", "environ", "friend"]
   },
   {
     "name": "be made of",
     "trans": ["由...制成"],
-    "mistake": ["from", "in", "by"]
+    "mistake": ["from", "in", "by", "with"]
   },
   {
     "name": "waste cloth",
     "trans": ["废旧布料"],
-    "mistake": ["wasted", "clothes", "clothing"]
+    "mistake": ["wasted", "clothes", "clothing", "clothe"]
   },
   {
     "name": "launch a campaign",
     "trans": ["发起运动"],
-    "mistake": ["make", "take", "do"]
+    "mistake": ["make", "take", "do", "start"]
   },
   {
     "name": "Students' Union",
     "trans": ["学生会"],
-    "mistake": ["Student", "students", "student"]
+    "mistake": ["Student", "students", "student", "united"]
   },
   {
     "name": "on campus",
     "trans": ["在校园里"],
-    "mistake": ["in", "at", "to"]
+    "mistake": ["in", "at", "to", "under"]
   },
   {
     "name": "improve service and quality",
     "trans": ["改善服务和质量"],
-    "mistake": ["raise", "increase", "improvement"]
+    "mistake": ["raise", "increase", "improvement", "make"]
   }
 ]
