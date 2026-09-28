@@ -107,9 +107,9 @@ let aiDuelState = {
     aiFrozenUntil: 0
 };
 let aiDuelTimer = null;
+window.aiDuelTimer = null;
 
 function openAiDuelSettings() {
-    folderTreeCollapseMap = {};
     const modal = document.getElementById('modal-ai-duel-settings');
     if (!modal) return;
 
@@ -137,7 +137,7 @@ function openAiDuelSettings() {
         }
     }
 
-    renderAiDuelBookChips();
+    updateAiDuelBookSummaryUI();
     updateAiDuelSettingsChips();
     modal.classList.add('active');
 }
@@ -147,61 +147,34 @@ function closeAiDuelSettings() {
     if (modal) modal.classList.remove('active');
 }
 
-let currentAiDuelCategory = 'english';
-
-function switchAiDuelBookCategory(cat) {
-    currentAiDuelCategory = cat;
-    document.querySelectorAll('#ai-duel-book-category-tabs .settings-cat-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
-    });
-    renderAiDuelBookChips();
-}
-
-function selectAllAiDuelBooks(selectAll = true) {
-    const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-        ? BookManager.availableBooks
-        : BookManager.fallbackBooks;
-    // 人机对战禁止选择本地词书，且不选择单机默认测试词书
-    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && !String(b.id).startsWith('custom_') && (currentAiDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
-
-    if (selectAll) {
-        targetBooks.forEach(b => {
-            if (!aiDuelConfig.selectedBooks.includes(b.id)) {
-                aiDuelConfig.selectedBooks.push(b.id);
-            }
-        });
-    } else {
-        const targetIds = new Set(targetBooks.map(b => b.id));
-        aiDuelConfig.selectedBooks = (aiDuelConfig.selectedBooks || []).filter(id => !targetIds.has(id));
-    }
-    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
-    renderAiDuelBookChips();
-}
-
-function renderAiDuelBookChips() {
-    const container = document.getElementById('chips-ai-duel-books');
-    if (!container) return;
-    if (!Array.isArray(aiDuelConfig.selectedBooks)) {
-        aiDuelConfig.selectedBooks = [];
-    }
+function updateAiDuelBookSummaryUI() {
+    const titleEl = document.getElementById('ai-duel-selected-book-title');
+    const summaryEl = document.getElementById('ai-duel-books-summary');
+    if (!aiDuelConfig || !Array.isArray(aiDuelConfig.selectedBooks)) return;
     // 过滤本地词书
     aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-
-    renderBookFolderTree('chips-ai-duel-books', {
-        selectedIds: aiDuelConfig.selectedBooks,
-        onToggle: 'toggleAiDuelBook',
-        mode: 'ai_duel',
-        filterType: 'all',
-        excludeLocal: true
-    });
-
-    const summaryEl = document.getElementById('ai-duel-books-summary');
+    const allBooks = (typeof getAllUniqueBooks === 'function')
+        ? getAllUniqueBooks()
+        : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    const count = aiDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        const totalCount = (aiDuelConfig.selectedBooks || []).length;
-        summaryEl.innerText = `已选 ${totalCount} 本词书 (仅支持云端词书)`;
+        summaryEl.innerText = `已选 ${count} 本词书 (仅支持云端词书)`;
+    }
+    if (titleEl) {
+        if (count === 0) {
+            titleEl.innerText = '未选择词书';
+        } else if (count === 1) {
+            const b = allBooks.find(x => x.id === aiDuelConfig.selectedBooks[0]);
+            titleEl.innerText = b ? (b.name || b.title || b.id) : aiDuelConfig.selectedBooks[0];
+        } else {
+            const b = allBooks.find(x => x.id === aiDuelConfig.selectedBooks[0]);
+            const firstName = b ? (b.name || b.title || b.id) : aiDuelConfig.selectedBooks[0];
+            titleEl.innerText = `${firstName} 等 ${count} 本词书`;
+        }
     }
     updateAiDuelStartButtonState();
 }
+window.updateAiDuelBookSummaryUI = updateAiDuelBookSummaryUI;
 
 function updateAiDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-ai-duel');
@@ -209,24 +182,6 @@ function updateAiDuelStartButtonState() {
     if (startBtn) {
         startBtn.disabled = (selCount === 0);
     }
-}
-
-function toggleAiDuelBook(bookId) {
-    if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-        showToast('人机对战禁止选择本地词书');
-        return;
-    }
-    if (!Array.isArray(aiDuelConfig.selectedBooks)) {
-        aiDuelConfig.selectedBooks = [];
-    }
-    const hasIt = isBookIdSelected(aiDuelConfig.selectedBooks, bookId);
-    if (hasIt) {
-        aiDuelConfig.selectedBooks = toggleBookIdInList(aiDuelConfig.selectedBooks, bookId);
-    } else {
-        aiDuelConfig.selectedBooks.push(bookId);
-    }
-    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
-    renderAiDuelBookChips();
 }
 
 function updateAiDuelSliderHint() {
@@ -450,6 +405,9 @@ async function startAiDuel() {
         aiFrozenUntil: 0
     };
 
+    currentMatchOppoRank = aiDuelConfig.aiRank || 1;
+    currentMatchOppoRating = (currentMatchOppoRank - 1) * 100 + 50;
+
     const aiTitle = `系统AI (${aiDuelConfig.aiRank || 1}段)`;
     if (typeof renderArenaPlayersUI === 'function') {
         renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, '');
@@ -492,6 +450,7 @@ async function startAiDuel() {
             if (timeLeft <= 0) {
                 clearInterval(gameTimer);
                 if (aiDuelTimer) clearTimeout(aiDuelTimer);
+                window.aiDuelTimer = null;
                 const diff = p1State.score - p2State.score;
                 let myMsg = "🤝 势均力敌，握手言和！";
                 if (diff > 0) myMsg = `🎉 恭喜战胜系统AI (${aiDuelConfig.aiRank}段)！`;
@@ -511,23 +470,33 @@ async function startAiDuel() {
 function scheduleNextAiAnswer() {
     if (gameMode !== 'ai_duel' || timeLeft <= 0) return;
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
+    window.aiDuelTimer = null;
 
     const q = aiDuelState.pool[aiDuelState.aiIdx % aiDuelState.pool.length];
     let delay = 3500;
-    const isPhrase = q.word && q.word.trim().includes(' ') && !q.isShiCi;
+    const isShiCi = Boolean(q && (q.isShiCi || q.senses || q.highlightedSentence || (q.word && /[\u4e00-\u9fa5]/.test(q.word))));
+    const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
 
     if (aiDuelConfig.speedMode === 'smart') {
-        if (isPhrase) {
+        if (isShiCi) {
+            // 实词包含长例句、多种释义辨析，显著增加AI思考与作答时间
+            delay = 4800 + (Math.random() * 1200);
+        } else if (isPhrase) {
             const tokens = extractPhraseTargetWords(q.word);
-            delay = 4200 + (tokens.length * 1800) + (Math.random() * 1000 - 500);
+            // 长词组额外小幅度降低速度
+            const longPhraseExtra = tokens.length >= 4 ? (tokens.length - 3) * 600 : 0;
+            delay = 4500 + (tokens.length * 2000) + longPhraseExtra + (Math.random() * 1000 - 500);
         } else {
             const len = (q.word || '').length;
             delay = 1800 + (len * 240) + (Math.random() * 600 - 300);
         }
     } else {
-        if (isPhrase) {
+        if (isShiCi) {
+            delay = 5200 + (Math.random() * 1000);
+        } else if (isPhrase) {
             const tokens = extractPhraseTargetWords(q.word);
-            delay = 4500 + (tokens.length * 1500) + (Math.random() * 800 - 400);
+            const longPhraseExtra = tokens.length >= 4 ? (tokens.length - 3) * 500 : 0;
+            delay = 4800 + (tokens.length * 1700) + longPhraseExtra + (Math.random() * 800 - 400);
         } else {
             delay = 3200 + (Math.random() * 600 - 300);
         }
@@ -548,11 +517,12 @@ function scheduleNextAiAnswer() {
         delay *= slowFactor;
     }
 
-    delay = Math.max(isPhrase ? 3000 : 1300, delay);
+    delay = Math.max(isShiCi ? 3200 : (isPhrase ? 3200 : 1300), delay);
 
     aiDuelTimer = setTimeout(() => {
         handleAiAnswerStep();
     }, delay);
+    window.aiDuelTimer = aiDuelTimer;
 }
 
 function handleAiAnswerStep() {
@@ -617,9 +587,6 @@ function checkAiDuelWinCondition() {
 
 window.openAiDuelSettings = openAiDuelSettings;
 window.closeAiDuelSettings = closeAiDuelSettings;
-window.switchAiDuelBookCategory = switchAiDuelBookCategory;
-window.selectAllAiDuelBooks = selectAllAiDuelBooks;
-window.toggleAiDuelBook = toggleAiDuelBook;
 window.selectAiSpeedMode = selectAiSpeedMode;
 window.selectAiRule = selectAiRule;
 window.selectAiLead = selectAiLead;

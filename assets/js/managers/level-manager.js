@@ -8,7 +8,7 @@ const LevelManager = {
     MIN_LEVEL: 1,
     MIN_RANK: 1,
     MAX_RANK: 9,
-    MAX_RATING: 100, // 每一段满分为 100 分
+    MAX_RATING: 900, // 9段满分为 900 分 (每段100分)
 
     // 检查是否为游客
     isGuestUser(username) {
@@ -18,6 +18,19 @@ const LevelManager = {
             return !currentUserProfile.isLoggedIn || currentUserProfile.type === 'guest';
         }
         return false;
+    },
+
+    // 根据总等级分反推段位 (1段: 1-100, 2段: 101-200, ..., 9段: 801-900)
+    getRankFromRating(rating) {
+        const r = parseInt(rating) || 0;
+        if (r <= 0) return 1;
+        return Math.min(this.MAX_RANK, Math.max(1, Math.ceil(r / 100)));
+    },
+
+    // 获取某段位的中间等级分 (如 1段 50分, 2段 150分, 3段 250分)
+    getRankMidpointRating(rank) {
+        const r = Math.max(1, Math.min(this.MAX_RANK, parseInt(rank) || 1));
+        return (r - 1) * 100 + 50;
     },
 
     // 获取用户段位数据
@@ -59,21 +72,28 @@ const LevelManager = {
             this.saveUserRankData(u, data);
         }
 
-        // 数据范围安全保护
-        data.rank = Math.max(this.MIN_RANK, Math.min(this.MAX_RANK, parseInt(data.rank) || 1));
-        data.rating = Math.max(0, Math.min(this.MAX_RATING, parseInt(data.rating) || 0));
-        data.isPromotionReady = (data.rank < this.MAX_RANK && data.rating >= this.MAX_RATING);
+        // 数据迁移与范围安全保护
+        data.rating = Math.max(0, parseInt(data.rating) || 0);
+        // 如果旧数据中 rank > 1 但 rating <= 100，自动平滑迁移为连续等级分
+        if (data.rank > 1 && data.rating <= 100) {
+            data.rating = (data.rank - 1) * 100 + data.rating;
+        }
+        data.rank = this.getRankFromRating(data.rating);
+        const withinTier = data.rating <= 0 ? 0 : ((data.rating - 1) % 100) + 1;
+        const progressPercent = Math.max(0, Math.min(100, withinTier));
+        const tierMax = data.rank * 100;
+        const isPromotionReady = (data.rank < this.MAX_RANK && data.rating >= tierMax);
 
         return {
             isGuest: false,
             rank: data.rank,
             rating: data.rating,
-            isPromotionReady: data.isPromotionReady,
+            isPromotionReady: isPromotionReady,
             battles: data.battles || { total: 0, wins: 0, losses: 0, draws: 0 },
             level: data.rank, // 兼容现有调用 level 的字段
             score: data.rating, // 兼容 score
-            progressPercent: data.rating, // 满分 100，百分比即当前分数
-            comparisonText: data.isPromotionReady ? '请完成升段赛' : `${data.rating} / 100 分`
+            progressPercent: progressPercent, // 当前段位内百分比 (0~100%)
+            comparisonText: `${data.rating} 分 (当前段位 ${progressPercent}/100)`
         };
     },
 
@@ -90,7 +110,7 @@ const LevelManager = {
         return this.getUserRankData(username).rank;
     },
 
-    // 仅获取当前等级分 (0 ~ 100)
+    // 仅获取当前等级分
     getUserRating(username) {
         return this.getUserRankData(username).rating;
     },
@@ -99,21 +119,20 @@ const LevelManager = {
     getLevelData(username) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         const rankData = this.getUserRankData(u);
+        const withinTier = rankData.rating <= 0 ? 0 : ((rankData.rating - 1) % 100) + 1;
         return {
             ...rankData,
             title: `${rankData.rank}段`,
-            neededExp: this.MAX_RATING,
-            currentLevelExp: rankData.rating,
-            currentThreshold: 0,
-            nextThreshold: this.MAX_RATING
+            neededExp: 100,
+            currentLevelExp: withinTier,
+            currentThreshold: (rankData.rank - 1) * 100,
+            nextThreshold: rankData.rank * 100
         };
     },
 
     // 根据分值反推等级（兼容旧接口）
     getLevelFromScore(score) {
-        if (!score || score <= 0) return 1;
-        const r = Math.floor(score / 100) + 1;
-        return Math.max(1, Math.min(9, r));
+        return this.getRankFromRating(score);
     },
 
     /**
@@ -124,9 +143,9 @@ const LevelManager = {
      * @param {boolean} params.playerWin - 我方是否获胜
      * @param {boolean} params.isDraw - 是否平局
      * @param {number} params.userRank - 我方段位 (1~9)
-     * @param {number} params.userRating - 我方等级分 (0~100)
+     * @param {number} params.userRating - 我方等级分
      * @param {number} params.oppoRank - 对手段位 (1~9)
-     * @param {number} params.oppoRating - 对手等级分 (0~100)
+     * @param {number} params.oppoRating - 对手等级分
      */
     calculateMatchResult({
         isRanked = true,
@@ -141,6 +160,11 @@ const LevelManager = {
         // 0. 游客禁止参与排位赛
         if (typeof currentUser !== 'undefined' && this.isGuestUser(currentUser)) {
             isRanked = false;
+        }
+
+        // 人机等级分固定在每段中间（例如 1段为50分，2段为150分），不受输赢影响
+        if (isAi) {
+            oppoRating = this.getRankMidpointRating(oppoRank);
         }
 
         // 1. 友谊赛模式不增减积分
@@ -179,144 +203,56 @@ const LevelManager = {
             };
         }
 
-        const isPromotionState = (userRating >= this.MAX_RATING && userRank < this.MAX_RANK);
-        // 升段赛条件：对局对手为人机且高于自己1段，或玩家且高于自己段位
-        const isPromotionMatch = isPromotionState && (isAi ? (oppoRank === userRank + 1) : (oppoRank > userRank));
-
-        // 双方综合评分差值 (每段等于 100 分)
-        const myTotal = (userRank - 1) * 100 + userRating;
-        const oppoTotal = (oppoRank - 1) * 100 + oppoRating;
-        const ratingDiff = oppoTotal - myTotal; // 正数表示对手更强，负数表示对手更弱
-
-        // 3. 升段赛专属结算
-        if (isPromotionMatch) {
-            if (playerWin) {
-                // 如果一方等级分是0，则另一方赢了不得分且不晋级
-                if (userRating === 0 || oppoRating === 0) {
-                    return {
-                        isRanked: true,
-                        playerWin: true,
-                        isDraw: false,
-                        deltaPoints: 0,
-                        oldRank: userRank,
-                        oldRating: userRating,
-                        newRank: userRank,
-                        newRating: userRating,
-                        isPromoted: false,
-                        isDemoted: false,
-                        isPromotionMatch: true,
-                        reason: '对局一方等级分为0，升段赛获胜不予加分与晋升'
-                    };
-                }
-                // 升段赛获胜：成功升至下一段，并获得升段初始积分（按分差智能计算获胜得分）
-                const bonusGain = Math.max(15, Math.min(35, Math.round(20 + ratingDiff * 0.1)));
-                const newRank = Math.min(this.MAX_RANK, userRank + 1);
-                const newRating = bonusGain;
-                return {
-                    isRanked: true,
-                    playerWin: true,
-                    isDraw: false,
-                    deltaPoints: bonusGain,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: newRank,
-                    newRating: newRating,
-                    isPromoted: true,
-                    isDemoted: false,
-                    isPromotionMatch: true,
-                    reason: `🔥 升段赛大捷！成功晋升至 ${newRank}段，奖励 ${bonusGain} 分！`
-                };
-            } else {
-                // 升段赛失败：“输了不会倒扣等级分”
-                return {
-                    isRanked: true,
-                    playerWin: false,
-                    isDraw: false,
-                    deltaPoints: 0,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: userRank,
-                    newRating: userRating,
-                    isPromoted: false,
-                    isDemoted: false,
-                    isPromotionMatch: true,
-                    reason: '升段赛惜败：等级分受段位保护，不扣除分值'
-                };
-            }
+        // 3. 特殊零分规则：
+        // (1) 当赢了等级分为 0 的用户时，不加分
+        if (playerWin && oppoRating === 0) {
+            return {
+                isRanked: true,
+                playerWin: true,
+                isDraw: false,
+                deltaPoints: 0,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: userRank,
+                newRating: userRating,
+                isPromoted: false,
+                isDemoted: false,
+                isPromotionMatch: false,
+                reason: '对手等级分为 0，获胜不增加等级分'
+            };
         }
 
-        // 如果处于满分升段就绪状态，但挑战的对手不符合升段要求（未挑战更高段位）：
-        if (isPromotionState) {
-            if (playerWin) {
-                return {
-                    isRanked: true,
-                    playerWin: true,
-                    isDraw: false,
-                    deltaPoints: 0,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: userRank,
-                    newRating: userRating,
-                    isPromoted: false,
-                    isDemoted: false,
-                    isPromotionMatch: false,
-                    reason: '当前等级分已达上限 (100分)，请挑战更高段位进行升段赛！'
-                };
-            } else {
-                // 非升段赛对局战败扣分，退出满分状态
-                const lossBase = Math.max(5, Math.min(30, Math.round(15 - ratingDiff * 0.1)));
-                const newRating = Math.max(0, userRating - lossBase);
-                return {
-                    isRanked: true,
-                    playerWin: false,
-                    isDraw: false,
-                    deltaPoints: -lossBase,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: userRank,
-                    newRating: newRating,
-                    isPromoted: false,
-                    isDemoted: false,
-                    isPromotionMatch: false,
-                    reason: `战败扣除 ${lossBase} 分`
-                };
-            }
+        // (2) 如果自己等级分为 0，则输了不扣分
+        if (!playerWin && userRating === 0) {
+            return {
+                isRanked: true,
+                playerWin: false,
+                isDraw: false,
+                deltaPoints: 0,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: userRank,
+                newRating: userRating,
+                isPromoted: false,
+                isDemoted: false,
+                isPromotionMatch: false,
+                reason: '我方等级分为 0，战败不扣除等级分'
+            };
         }
 
-        // 4. 常规排位赛结算
+        // 双方分差
+        const ratingDiff = oppoRating - userRating;
+
         if (playerWin) {
-            // 如果一方等级分是0，则另一方赢了不得分
-            if (userRating === 0 || oppoRating === 0) {
-                return {
-                    isRanked: true,
-                    playerWin: true,
-                    isDraw: false,
-                    deltaPoints: 0,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: userRank,
-                    newRating: userRating,
-                    isPromoted: false,
-                    isDemoted: false,
-                    isPromotionMatch: false,
-                    isPromotionReady: false,
-                    reason: '对局一方等级分为0，获胜不增加等级分'
-                };
-            }
+            // 基础加分：根据双方分差自适应浮动 [12, 36]
+            const baseGain = Math.max(12, Math.min(36, Math.round(20 + ratingDiff * 0.08)));
+            // 随段位提升放慢加分速度 (1段 100% 速度，逐步递减至 9段 40% 速度)
+            const rankSlowdownFactor = Math.max(0.40, 1.0 - (userRank - 1) * 0.075);
+            const winGain = Math.max(3, Math.round(baseGain * rankSlowdownFactor));
 
-            // 获胜加分：根据双方分差自适应浮动 [10, 40]
-            const winGain = Math.max(10, Math.min(40, Math.round(20 + ratingDiff * 0.1)));
-            const prospective = userRating + winGain;
-            let newRank = userRank;
-            let newRating = prospective;
-            let promotionReady = false;
-
-            if (prospective >= this.MAX_RATING) {
-                newRating = this.MAX_RATING;
-                if (userRank < this.MAX_RANK) {
-                    promotionReady = true;
-                }
-            }
+            const newRating = userRating + winGain;
+            const newRank = this.getRankFromRating(newRating);
+            const isPromoted = (newRank > userRank);
 
             return {
                 isRanked: true,
@@ -327,70 +263,38 @@ const LevelManager = {
                 oldRating: userRating,
                 newRank: newRank,
                 newRating: newRating,
-                isPromoted: false,
+                isPromoted: isPromoted,
                 isDemoted: false,
                 isPromotionMatch: false,
-                isPromotionReady: promotionReady,
-                reason: promotionReady ? '🎉 满分达成！已解锁升段赛资格！' : `排位胜利，获得 +${winGain} 分！`
+                reason: isPromoted
+                    ? `🔥 突破晋升！成功升至 ${newRank}段 (+${winGain}分)`
+                    : `排位胜利，获得 +${winGain} 分！`
             };
         } else {
-            // 战败扣分：根据双方分差自适应浮动 [5, 30]
-            const lossDeduct = Math.max(5, Math.min(30, Math.round(15 - ratingDiff * 0.1)));
-            const prospective = userRating - lossDeduct;
+            // 战败扣分：根据双方分差自适应浮动 [6, 26]
+            const baseLoss = Math.max(6, Math.min(26, Math.round(15 - ratingDiff * 0.08)));
+            const lossDeduct = Math.min(userRating, baseLoss);
 
-            if (prospective < 0) {
-                // 等级分掉光自动掉段
-                if (userRank > this.MIN_RANK) {
-                    const newRank = userRank - 1;
-                    // 掉段后降到前一段位，保留基础分数（如 80分 或 100 - 超出扣除分）
-                    const newRating = Math.max(0, Math.min(90, 100 + prospective));
-                    return {
-                        isRanked: true,
-                        playerWin: false,
-                        isDraw: false,
-                        deltaPoints: -lossDeduct,
-                        oldRank: userRank,
-                        oldRating: userRating,
-                        newRank: newRank,
-                        newRating: newRating,
-                        isPromoted: false,
-                        isDemoted: true,
-                        isPromotionMatch: false,
-                        reason: `💔 积分不足已自动掉段至 ${newRank}段 (${newRating}分)`
-                    };
-                } else {
-                    // 1段最低分保护
-                    return {
-                        isRanked: true,
-                        playerWin: false,
-                        isDraw: false,
-                        deltaPoints: -userRating,
-                        oldRank: 1,
-                        oldRating: userRating,
-                        newRank: 1,
-                        newRating: 0,
-                        isPromoted: false,
-                        isDemoted: false,
-                        isPromotionMatch: false,
-                        reason: `积分已归零 (1段保底)`
-                    };
-                }
-            } else {
-                return {
-                    isRanked: true,
-                    playerWin: false,
-                    isDraw: false,
-                    deltaPoints: -lossDeduct,
-                    oldRank: userRank,
-                    oldRating: userRating,
-                    newRank: userRank,
-                    newRating: prospective,
-                    isPromoted: false,
-                    isDemoted: false,
-                    isPromotionMatch: false,
-                    reason: `排位战败，扣除 ${lossDeduct} 分`
-                };
-            }
+            const newRating = Math.max(0, userRating - lossDeduct);
+            const newRank = this.getRankFromRating(newRating);
+            const isDemoted = (newRank < userRank);
+
+            return {
+                isRanked: true,
+                playerWin: false,
+                isDraw: false,
+                deltaPoints: -lossDeduct,
+                oldRank: userRank,
+                oldRating: userRating,
+                newRank: newRank,
+                newRating: newRating,
+                isPromoted: false,
+                isDemoted: isDemoted,
+                isPromotionMatch: false,
+                reason: isDemoted
+                    ? `💔 积分不足已自动降至 ${newRank}段 (-${lossDeduct}分)`
+                    : `排位战败，扣除 ${lossDeduct} 分`
+            };
         }
     },
 

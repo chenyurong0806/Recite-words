@@ -2543,26 +2543,17 @@
 
             <div class="modal-body">
                 <div class="rule-group">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                        <span class="rule-label" style="margin-bottom:0;">选择词书</span>
-                    </div>
-
-                    <!-- 与背实词一致的工具栏 -->
-                    <div class="modal-toolbar" style="padding:0 0 8px 0; margin-bottom:8px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllAiDuelBooks(true)">
-                                <span class="material-symbols-rounded" style="font-size:18px;">done_all</span>
-                                <span class="btn-label-text">全选</span>
-                            </button>
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllAiDuelBooks(false)">
-                                <span class="material-symbols-rounded" style="font-size:18px;">clear_all</span>
-                                <span class="btn-label-text">清空</span>
-                            </button>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对战词书</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1; min-width:0; padding-right:8px;">
+                            <div id="ai-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高考3500</div>
+                            <div id="ai-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书 (仅支持云端词书)</div>
                         </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="openAiDuelBookSelector()">
+                            <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
+                            <span>选择词书</span>
+                        </button>
                     </div>
-
-                    <div class="chip-group book-selection-list" id="chips-ai-duel-books"></div>
-                    <div style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-primary); margin-top:8px;" id="ai-duel-books-summary">已选 1 本英语词书</div>
                 </div>
 
                 <div class="rule-group">
@@ -3188,33 +3179,17 @@
 
             <div class="modal-body">
                 <div class="rule-group">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                        <span class="rule-label" style="margin-bottom:0;">选择词书</span>
-                    </div>
-
-                    <!-- 与背实词一致的工具栏 -->
-                    <div class="modal-toolbar" style="padding:0 0 8px 0; margin-bottom:8px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllLocalDuelBooks(true)">
-                                <span class="material-symbols-rounded" style="font-size:18px;">done_all</span>
-                                <span class="btn-label-text">全选</span>
-                            </button>
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="selectAllLocalDuelBooks(false)">
-                                <span class="material-symbols-rounded" style="font-size:18px;">clear_all</span>
-                                <span class="btn-label-text">清空</span>
-                            </button>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对决词书</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="flex:1; min-width:0; padding-right:8px;">
+                            <div id="local-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高考3500</div>
+                            <div id="local-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书</div>
                         </div>
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="triggerLocalDuelBookImport()">
-                                <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                                <span class="btn-label-text" id="local-duel-import-label">导入词书</span>
-                            </button>
-                            <input type="file" id="local-duel-custom-book-input" accept=".json" multiple style="display:none;" onchange="handleLocalDuelCustomBookUpload(event)">
-                        </div>
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="openLocalDuelBookSelector()">
+                            <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
+                            <span>选择词书</span>
+                        </button>
                     </div>
-
-                    <div class="chip-group book-selection-list" id="chips-local-duel-books"></div>
-                    <div style="font-size:0.84rem; font-weight:600; color:var(--md-sys-color-primary); margin-top:8px;" id="local-duel-books-summary">已选 1 本英语词书</div>
                 </div>
 
                 <div class="rule-group">

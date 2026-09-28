@@ -8,10 +8,119 @@
    ========================================================================== */
 let riddleDraftRows = [];
 let activeRiddleDraft = null;
+let activeFormalCol = 0;
+let riddleCurrentLetters = [];
+
+function syncFormalInputLetters() {
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    if (!Array.isArray(riddleCurrentLetters)) riddleCurrentLetters = [];
+    while (riddleCurrentLetters.length < len) riddleCurrentLetters.push('');
+    if (riddleCurrentLetters.length > len) riddleCurrentLetters.length = len;
+    const str = (riddleState && riddleState.currentInput) ? riddleState.currentInput : '';
+    for (let i = 0; i < len; i++) {
+        if (str[i] !== undefined && str[i] !== '') {
+            riddleCurrentLetters[i] = str[i].toUpperCase();
+        }
+    }
+}
+
+function focusFormalTile(col) {
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    col = Math.max(0, Math.min(len - 1, col));
+    handleFormalTileFocus(col);
+}
+
+function handleFormalTileFocus(col) {
+    activeFormalCol = col;
+    activeRiddleDraft = null;
+    document.querySelectorAll('.riddle-draft-tile').forEach(t => t.classList.remove('active-draft-tile'));
+    updateRiddleCurrentRow();
+    const tile = document.getElementById(`formal-tile-${col}`);
+    if (tile) {
+        tile.focus();
+        tile.select();
+    }
+}
+
+function applyFormalLetterInput(col, char) {
+    syncFormalInputLetters();
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
+    riddleCurrentLetters[col] = char.toUpperCase();
+    riddleState.currentInput = riddleCurrentLetters.join('');
+    saveRiddleProgress();
+    const tile = document.getElementById(`formal-tile-${col}`);
+    if (tile) {
+        tile.value = isLower ? char.toLowerCase() : char.toUpperCase();
+    }
+    if (col + 1 < len) {
+        focusFormalTile(col + 1);
+    } else {
+        focusFormalTile(col);
+    }
+}
+
+function applyFormalBackspace(col) {
+    syncFormalInputLetters();
+    const tile = document.getElementById(`formal-tile-${col}`);
+    if (tile && tile.value) {
+        tile.value = '';
+        riddleCurrentLetters[col] = '';
+        riddleState.currentInput = riddleCurrentLetters.join('');
+        saveRiddleProgress();
+        focusFormalTile(col);
+    } else if (col > 0) {
+        focusFormalTile(col - 1);
+        const prev = document.getElementById(`formal-tile-${col - 1}`);
+        if (prev) {
+            prev.value = '';
+            riddleCurrentLetters[col - 1] = '';
+            riddleState.currentInput = riddleCurrentLetters.join('');
+            saveRiddleProgress();
+        }
+    }
+}
+
+function handleFormalTileInput(e, col) {
+    const raw = e.target ? (e.target.value || '') : '';
+    const char = raw.replace(/[^a-zA-Z]/g, '').slice(-1);
+    if (char) {
+        applyFormalLetterInput(col, char);
+    } else {
+        syncFormalInputLetters();
+        if (e.target) e.target.value = '';
+        riddleCurrentLetters[col] = '';
+        riddleState.currentInput = riddleCurrentLetters.join('');
+        saveRiddleProgress();
+    }
+}
+
+function handleFormalTileKeydown(e, col) {
+    if (e.key === 'Backspace') {
+        e.preventDefault();
+        applyFormalBackspace(col);
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (col > 0) focusFormalTile(col - 1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+        if (col + 1 < len) focusFormalTile(col + 1);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        submitRiddleRow();
+    } else if (/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+        applyFormalLetterInput(col, e.key);
+    }
+}
 
 function initRiddleDraftRows() {
     riddleDraftRows = [];
     activeRiddleDraft = null;
+    activeFormalCol = 0;
+    riddleCurrentLetters = [];
+    syncFormalInputLetters();
     renderRiddleDraftRows();
 }
 
@@ -72,6 +181,7 @@ function renderRiddleDraftRows() {
                 spellcheck="false"
                 style="text-transform: ${isLower ? 'lowercase' : 'uppercase'};"
                 value="${escapeHtml(displayVal)}"
+                onclick="handleRiddleDraftFocus(${rIdx}, ${cIdx})"
                 onfocus="handleRiddleDraftFocus(${rIdx}, ${cIdx})"
                 oninput="handleRiddleDraftInput(event, ${rIdx}, ${cIdx})"
                 onkeydown="handleRiddleDraftKeydown(event, ${rIdx}, ${cIdx})"
@@ -105,18 +215,19 @@ function handleRiddleDraftRowClick(e, rIdx) {
             break;
         }
     }
-    const tile = document.getElementById(`draft-tile-${rIdx}-${targetCol}`);
-    if (tile) {
-        tile.focus();
-        tile.select();
-    }
-    activeRiddleDraft = { row: rIdx, col: targetCol };
+    handleRiddleDraftFocus(rIdx, targetCol);
 }
 
 function handleRiddleDraftFocus(row, col) {
     activeRiddleDraft = { row, col };
+    document.querySelectorAll('.riddle-tile.active').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.riddle-draft-tile').forEach(t => t.classList.remove('active-draft-tile'));
     const input = document.getElementById(`draft-tile-${row}-${col}`);
-    if (input) input.select();
+    if (input) {
+        input.classList.add('active-draft-tile');
+        input.focus();
+        input.select();
+    }
 }
 
 function handleRiddleDraftInput(e, row, col) {
@@ -988,24 +1099,43 @@ function renderRiddleBoard() {
         attemptInd.innerText = `尝试: ${currentAtt} / ${riddleState.maxAttempts}`;
     }
 
+    syncFormalInputLetters();
     let html = '';
     const compactClass = (riddleState.targetLength >= 9) ? 'compact-9' : ((riddleState.targetLength === 8) ? 'compact-8' : '');
+    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
+
     for (let r = 0; r < riddleState.maxAttempts; r++) {
         html += '<div class="riddle-row">';
         if (r < riddleState.attempts.length) {
             const att = riddleState.attempts[r];
             for (let c = 0; c < riddleState.targetLength; c++) {
                 const letter = att.guess[c] || '';
-                const displayLetter = (riddleConfig.letterCase === 'lower') ? letter.toLowerCase() : letter.toUpperCase();
+                const displayLetter = isLower ? letter.toLowerCase() : letter.toUpperCase();
                 const evalClass = att.evaluation[c] || '';
                 html += `<div class="riddle-tile ${evalClass} ${compactClass}">${displayLetter}</div>`;
             }
         } else if (r === riddleState.attempts.length && !riddleState.gameOver) {
             for (let c = 0; c < riddleState.targetLength; c++) {
-                const letter = riddleState.currentInput[c] || '';
-                const displayLetter = (riddleConfig.letterCase === 'lower') ? letter.toLowerCase() : letter.toUpperCase();
-                const isCurrentActive = (c === riddleState.currentInput.length);
-                html += `<div class="riddle-tile ${isCurrentActive ? 'active' : ''} ${compactClass}">${displayLetter}</div>`;
+                const letter = riddleCurrentLetters[c] || '';
+                const displayLetter = isLower ? letter.toLowerCase() : letter.toUpperCase();
+                const isCurrentActive = (activeFormalCol === c && activeRiddleDraft === null);
+                html += `<input type="text"
+                    class="riddle-tile ${isCurrentActive ? 'active' : ''} ${compactClass} ${isLower ? 'lowercase' : ''}"
+                    id="formal-tile-${c}"
+                    data-col="${c}"
+                    inputmode="none"
+                    maxlength="1"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    style="text-transform: ${isLower ? 'lowercase' : 'uppercase'}; cursor: pointer;"
+                    value="${escapeHtml(displayLetter)}"
+                    onclick="focusFormalTile(${c})"
+                    onfocus="handleFormalTileFocus(${c})"
+                    oninput="handleFormalTileInput(event, ${c})"
+                    onkeydown="handleFormalTileKeydown(event, ${c})"
+                />`;
             }
         } else {
             for (let c = 0; c < riddleState.targetLength; c++) {
@@ -1018,17 +1148,15 @@ function renderRiddleBoard() {
 }
 
 function updateRiddleCurrentRow() {
-    const grid = document.getElementById('riddle-grid');
-    if (!grid) return;
-    const currentRow = grid.children[riddleState.attempts.length];
-    if (!currentRow) return;
-    const tiles = currentRow.children;
-    for (let c = 0; c < riddleState.targetLength; c++) {
-        const tile = tiles[c];
+    syncFormalInputLetters();
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
+    for (let c = 0; c < len; c++) {
+        const tile = document.getElementById(`formal-tile-${c}`);
         if (!tile) continue;
-        const char = riddleState.currentInput[c] || '';
-        tile.innerText = (riddleConfig.letterCase === 'lower') ? char.toLowerCase() : char.toUpperCase();
-        if (c === riddleState.currentInput.length && !riddleState.gameOver) {
+        const char = riddleCurrentLetters[c] || '';
+        tile.value = isLower ? char.toLowerCase() : char.toUpperCase();
+        if (c === activeFormalCol && !riddleState.gameOver && activeRiddleDraft === null) {
             tile.classList.add('active');
         } else {
             tile.classList.remove('active');
@@ -1102,10 +1230,9 @@ function handleRiddleVirtualKey(key) {
             } else if (col > 0) {
                 const prev = document.getElementById(`draft-tile-${row}-${col - 1}`);
                 if (prev) {
-                    prev.focus();
                     prev.value = '';
                     if (riddleDraftRows[row]) riddleDraftRows[row][col - 1] = '';
-                    activeRiddleDraft = { row, col: col - 1 };
+                    handleRiddleDraftFocus(row, col - 1);
                 }
             }
             return;
@@ -1114,25 +1241,22 @@ function handleRiddleVirtualKey(key) {
             el.value = isLower ? key.toLowerCase() : key.toUpperCase();
             if (riddleDraftRows[row]) riddleDraftRows[row][col] = key.toUpperCase();
             if (col + 1 < len) {
-                const next = document.getElementById(`draft-tile-${row}-${col + 1}`);
-                if (next) {
-                    next.focus();
-                    next.select();
-                    activeRiddleDraft = { row, col: col + 1 };
-                }
+                handleRiddleDraftFocus(row, col + 1);
             } else {
-                activeRiddleDraft = { row, col };
+                handleRiddleDraftFocus(row, col);
             }
             return;
         }
     }
 
+    // 正式答题格
+    if (riddleState.gameOver) return;
     if (key === 'ENTER') {
         submitRiddleRow();
     } else if (key === 'BACKSPACE') {
-        handleRiddleBackspace();
-    } else {
-        handleRiddleKey(key);
+        applyFormalBackspace(activeFormalCol);
+    } else if (/^[a-zA-Z]$/.test(key)) {
+        applyFormalLetterInput(activeFormalCol, key);
     }
 }
 
@@ -1145,10 +1269,11 @@ window.addEventListener('keydown', (e) => {
     if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
         return;
     }
-    if (activeEl && activeEl.classList.contains('riddle-draft-tile')) {
+    // 已在正式输入格或草稿格聚焦时，由输入框自身 keydown 处理，防止重复输入
+    if (activeEl && (activeEl.classList.contains('riddle-tile') || activeEl.classList.contains('riddle-draft-tile'))) {
         return;
     }
-    if (activeEl && activeEl.tagName === 'INPUT' && !activeEl.classList.contains('riddle-draft-tile')) {
+    if (activeEl && activeEl.tagName === 'INPUT') {
         return;
     }
 
@@ -1171,12 +1296,7 @@ window.addEventListener('keydown', (e) => {
                 curTile.value = isLower ? key.toLowerCase() : key.toUpperCase();
                 if (riddleDraftRows[row]) riddleDraftRows[row][col] = key.toUpperCase();
                 if (col + 1 < len) {
-                    const nextTile = document.getElementById(`draft-tile-${row}-${col + 1}`);
-                    if (nextTile) {
-                        nextTile.focus();
-                        nextTile.select();
-                        activeRiddleDraft = { row, col: col + 1 };
-                    }
+                    handleRiddleDraftFocus(row, col + 1);
                 }
                 return;
             } else if (key === 'Backspace') {
@@ -1187,10 +1307,9 @@ window.addEventListener('keydown', (e) => {
                 } else if (col > 0) {
                     const prevTile = document.getElementById(`draft-tile-${row}-${col - 1}`);
                     if (prevTile) {
-                        prevTile.focus();
                         prevTile.value = '';
                         if (riddleDraftRows[row]) riddleDraftRows[row][col - 1] = '';
-                        activeRiddleDraft = { row, col: col - 1 };
+                        handleRiddleDraftFocus(row, col - 1);
                     }
                 }
                 return;
@@ -1202,65 +1321,53 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
+    // 正式格
     if (/^[a-zA-Z]$/.test(key)) {
         e.preventDefault();
-        handleRiddleKey(key.toUpperCase());
+        applyFormalLetterInput(activeFormalCol, key);
     } else if (key === 'Backspace') {
         e.preventDefault();
-        handleRiddleBackspace();
+        applyFormalBackspace(activeFormalCol);
     } else if (key === 'Enter') {
         e.preventDefault();
         submitRiddleRow();
     }
 });
 
-// 点击草稿区以外区域重置草稿聚焦状态
+// 点击除草稿行与答题格以外区域重置草稿聚焦状态
 document.addEventListener('pointerdown', (e) => {
     if (typeof currentView !== 'undefined' && currentView !== 'view-riddle') return;
-    if (e.target.closest('#riddle-draft-rows-container') || e.target.closest('#btn-riddle-add-draft') || e.target.closest('#riddle-keyboard')) {
+    if (e.target.closest('#riddle-draft-rows-container') || e.target.closest('#btn-riddle-add-draft') || e.target.closest('#riddle-keyboard') || e.target.closest('#riddle-grid')) {
         return;
     }
     activeRiddleDraft = null;
+    document.querySelectorAll('.riddle-draft-tile').forEach(t => t.classList.remove('active-draft-tile'));
 });
 
 function handleRiddleKey(char) {
     if (riddleState.gameOver || riddleState.isSubmitting) return;
-    if (riddleState.currentInput.length < riddleState.targetLength) {
-        riddleState.currentInput += char.toUpperCase();
-        updateRiddleCurrentRow();
-        saveRiddleProgress();
-
-        if (riddleState.currentInput.length === riddleState.targetLength) {
-            riddleState.isSubmitting = true;
-            setTimeout(() => {
-                if (riddleState.currentInput.length === riddleState.targetLength && !riddleState.gameOver) {
-                    submitRiddleRow();
-                }
-                riddleState.isSubmitting = false;
-            }, 120);
-        }
-    }
+    applyFormalLetterInput(activeFormalCol, char);
 }
 
 function handleRiddleBackspace() {
     if (riddleState.gameOver || riddleState.isSubmitting) return;
-    if (riddleState.currentInput.length > 0) {
-        riddleState.currentInput = riddleState.currentInput.slice(0, -1);
-        updateRiddleCurrentRow();
-        saveRiddleProgress();
-    }
+    applyFormalBackspace(activeFormalCol);
 }
 
 function submitRiddleRow() {
     if (riddleState.gameOver) return;
-    if (riddleState.currentInput.length < riddleState.targetLength) {
-        showToast(`还缺少 ${riddleState.targetLength - riddleState.currentInput.length} 个字母！`);
+    syncFormalInputLetters();
+    const len = riddleState.targetLength;
+    const emptyCount = riddleCurrentLetters.filter(c => !c || !c.trim()).length;
+    if (emptyCount > 0) {
+        showToast(`还缺少 ${emptyCount} 个字母！`);
+        const firstEmpty = riddleCurrentLetters.findIndex(c => !c || !c.trim());
+        if (firstEmpty !== -1) focusFormalTile(firstEmpty);
         return;
     }
 
-    const guess = riddleState.currentInput.toUpperCase();
+    const guess = riddleCurrentLetters.join('').toUpperCase();
     const target = riddleState.targetWord.toUpperCase();
-    const len = riddleState.targetLength;
 
     const evaluation = new Array(len).fill('absent');
     const targetCounts = {};
@@ -1305,6 +1412,7 @@ function submitRiddleRow() {
         for (let c = 0; c < len; c++) {
             const tile = tiles[c];
             if (tile) {
+                tile.value = formatRiddleCase(guess[c]);
                 tile.innerText = formatRiddleCase(guess[c]);
                 tile.classList.remove('active');
                 tile.classList.add(evaluation[c]);
@@ -1323,6 +1431,8 @@ function submitRiddleRow() {
 
     riddleState.attempts.push({ guess, evaluation });
     riddleState.currentInput = '';
+    riddleCurrentLetters = new Array(len).fill('');
+    activeFormalCol = 0;
 
     const attemptInd = document.getElementById('riddle-attempt-indicator');
     if (attemptInd) {
@@ -1382,10 +1492,35 @@ function submitRiddleRow() {
 
     saveRiddleProgress();
 
+    // 激活下一行 formal tile inputs
+    const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
+    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
     if (grid && grid.children[riddleState.attempts.length]) {
         const nextRow = grid.children[riddleState.attempts.length];
-        if (nextRow.children[0]) {
-            nextRow.children[0].classList.add('active');
+        let nextHtml = '';
+        for (let c = 0; c < len; c++) {
+            const isCurrentActive = (c === 0 && activeRiddleDraft === null);
+            nextHtml += `<input type="text"
+                class="riddle-tile ${isCurrentActive ? 'active' : ''} ${compactClass} ${isLower ? 'lowercase' : ''}"
+                id="formal-tile-${c}"
+                data-col="${c}"
+                inputmode="none"
+                maxlength="1"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                style="text-transform: ${isLower ? 'lowercase' : 'uppercase'}; cursor: pointer;"
+                value=""
+                onclick="focusFormalTile(${c})"
+                onfocus="handleFormalTileFocus(${c})"
+                oninput="handleFormalTileInput(event, ${c})"
+                onkeydown="handleFormalTileKeydown(event, ${c})"
+            />`;
+        }
+        nextRow.innerHTML = nextHtml;
+        if (activeRiddleDraft === null) {
+            focusFormalTile(0);
         }
     }
 }

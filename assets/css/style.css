@@ -4079,43 +4079,87 @@ body.hide-all-icons .material-symbols-rounded {
     animation: popIn 0.35s ease;
 }
 
+:root {
+    --riddle-tile-size: 52px;
+    --riddle-tile-gap: 8px;
+    --riddle-tile-font-size: 1.5rem;
+}
+@media (max-width: 480px) {
+    :root {
+        --riddle-tile-size: 44px;
+        --riddle-tile-gap: 6px;
+        --riddle-tile-font-size: 1.3rem;
+    }
+}
+@media (max-width: 400px) {
+    :root {
+        --riddle-tile-size: 38px;
+        --riddle-tile-gap: 5px;
+        --riddle-tile-font-size: 1.15rem;
+    }
+}
+@media (max-width: 350px) {
+    :root {
+        --riddle-tile-size: 33px;
+        --riddle-tile-gap: 4px;
+        --riddle-tile-font-size: 1.0rem;
+    }
+}
+
 .riddle-grid {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--riddle-tile-gap);
     margin: 10px 0 16px;
     align-items: center;
 }
 
-.riddle-row {
+.riddle-row,
+.riddle-draft-tiles {
     display: flex;
-    gap: 8px;
+    gap: var(--riddle-tile-gap);
     justify-content: center;
     align-items: center;
+    box-sizing: border-box;
 }
 
-.riddle-tile {
-    width: 52px;
-    height: 52px;
-    border: 2px solid var(--md-sys-color-outline-variant);
-    border-radius: var(--md-shape-m);
-    background: var(--md-sys-color-surface-container-lowest);
+.riddle-tile,
+.riddle-draft-tile {
+    width: var(--riddle-tile-size);
+    height: var(--riddle-tile-size);
+    border: 2px solid var(--md-sys-color-outline-variant, #cbd5e1);
+    border-radius: var(--md-shape-m, 12px);
+    background: var(--md-sys-color-surface-container-lowest, #ffffff);
     color: var(--md-sys-color-on-surface);
-    font-size: 1.5rem;
+    font-size: var(--riddle-tile-font-size);
     font-weight: 800;
     line-height: 1;
     text-transform: none;
+    text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
     user-select: none;
     transition: border-color 0.15s, background-color 0.2s, box-shadow 0.15s;
     box-sizing: border-box;
+    padding: 0;
+    outline: none;
+    font-family: inherit;
 }
 
-.riddle-tile.active {
-    border-color: var(--md-sys-color-primary);
-    box-shadow: 0 0 0 2px rgba(0, 97, 164, 0.25);
+input.riddle-tile,
+input.riddle-draft-tile {
+    user-select: auto;
+    -webkit-user-select: auto;
+}
+
+.riddle-tile:focus,
+.riddle-tile.active,
+.riddle-draft-tile:focus,
+.riddle-draft-tile.active-draft-tile {
+    border-color: var(--md-sys-color-primary, #0061a4) !important;
+    box-shadow: 0 0 0 2.5px rgba(0, 97, 164, 0.3) !important;
+    background-color: var(--md-sys-color-surface-container-lowest, #ffffff);
 }
 
 .riddle-tile.correct {
@@ -4351,12 +4395,6 @@ body.hide-all-icons .material-symbols-rounded {
         padding: 18px 16px;
     }
 
-    .riddle-tile {
-        width: 44px;
-        height: 44px;
-        font-size: 1.3rem;
-    }
-
     .riddle-key {
         min-height: 42px;
         font-size: 0.85rem;
@@ -4368,12 +4406,6 @@ body.hide-all-icons .material-symbols-rounded {
 }
 
 @media (max-width: 400px) {
-    .riddle-tile {
-        width: 38px;
-        height: 38px;
-        font-size: 1.15rem;
-    }
-
     .riddle-key {
         min-height: 38px;
         font-size: 0.78rem;
@@ -7212,31 +7244,6 @@ body.nav-hidden {
     flex-wrap: nowrap;
 }
 
-.riddle-draft-tile {
-    width: 52px;
-    height: 52px;
-    border: 2px solid var(--md-sys-color-outline-variant, #cbd5e1);
-    border-radius: var(--md-shape-m, 12px);
-    background: var(--md-sys-color-surface-container-lowest, #ffffff);
-    color: var(--md-sys-color-primary, #0061a4);
-    font-size: 1.5rem;
-    font-weight: 800;
-    line-height: 1;
-    text-align: center;
-    font-family: inherit;
-    outline: none;
-    box-sizing: border-box;
-    transition: all 0.15s ease;
-    padding: 0;
-}
-
-.riddle-draft-tile:focus,
-.riddle-draft-tile.active-draft-tile {
-    border-color: var(--md-sys-color-primary, #0061a4);
-    box-shadow: 0 0 0 2px rgba(0, 97, 164, 0.2);
-    background: #ffffff;
-}
-
 .riddle-draft-tile.compact-8 {
     width: 40px;
     height: 40px;
@@ -7265,16 +7272,8 @@ body.nav-hidden {
 }
 
 @media (max-width: 480px) {
-    .riddle-draft-tile {
-        width: 44px;
-        height: 44px;
-        font-size: 1.3rem;
-    }
-    .riddle-draft-tiles {
-        gap: 6px;
-    }
     .riddle-draft-actions {
-        left: calc(100% + 6px) !important;
+        left: calc(100% + 5px) !important;
         gap: 4px !important;
     }
     .riddle-draft-btn {
@@ -7287,24 +7286,16 @@ body.nav-hidden {
 }
 
 @media (max-width: 380px) {
-    .riddle-draft-tile {
-        width: 38px;
-        height: 38px;
-        font-size: 1.15rem;
-    }
-    .riddle-draft-tiles {
-        gap: 4px;
-    }
     .riddle-draft-actions {
-        left: calc(100% + 4px) !important;
+        left: calc(100% + 3px) !important;
         gap: 3px !important;
     }
     .riddle-draft-btn {
-        width: 26px;
-        height: 26px;
+        width: 25px;
+        height: 25px;
     }
     .riddle-draft-btn .material-symbols-rounded {
-        font-size: 15px !important;
+        font-size: 14px !important;
     }
 }
 

@@ -118,10 +118,9 @@ function createAndSelectLocalOpponent() {
 }
 
 function openLocalDuelSettings() {
-    folderTreeCollapseMap = {};
     const modal = document.getElementById('modal-local-duel-settings');
     if (!modal) return;
-    renderLocalDuelBookChips();
+    updateLocalDuelBookSummaryUI();
     renderLocalDuelOpponents();
     updateLocalDuelSettingsChips();
     modal.classList.add('active');
@@ -132,89 +131,32 @@ function closeLocalDuelSettings() {
     if (modal) modal.classList.remove('active');
 }
 
-let currentLocalDuelCategory = 'english';
-
-function switchLocalDuelBookCategory(cat) {
-    currentLocalDuelCategory = cat;
-    document.querySelectorAll('#local-duel-book-category-tabs .settings-cat-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
-    });
-    const importLabel = document.getElementById('local-duel-import-label');
-    if (importLabel) importLabel.innerText = cat === 'shici' ? '导入文言' : '导入词书';
-    renderLocalDuelBookChips();
-}
-
-function triggerLocalDuelBookImport() {
-    const input = document.getElementById('local-duel-custom-book-input');
-    if (input) input.click();
-}
-
-async function handleLocalDuelCustomBookUpload(e) {
-    if (currentLocalDuelCategory === 'shici') {
-        await loadCustomShiCiBook(e);
-    } else {
-        await loadCustomBook(e);
-    }
-    renderLocalDuelBookChips();
-}
-
-function selectAllLocalDuelBooks(selectAll = true) {
-    const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
-        ? BookManager.availableBooks
-        : BookManager.fallbackBooks;
-    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (currentLocalDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)))
-        .concat((window.customBooks || []).filter(b => currentLocalDuelCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
-
-    if (selectAll) {
-        targetBooks.forEach(b => {
-            if (!localDuelConfig.selectedBooks.includes(b.id)) {
-                localDuelConfig.selectedBooks.push(b.id);
-            }
-        });
-    } else {
-        const targetIds = new Set(targetBooks.map(b => b.id));
-        localDuelConfig.selectedBooks = (localDuelConfig.selectedBooks || []).filter(id => !targetIds.has(id));
-    }
-    localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
-    renderLocalDuelBookChips();
-}
-
-function renderLocalDuelBookChips() {
-    const container = document.getElementById('chips-local-duel-books');
-    if (!container) return;
-    if (!Array.isArray(localDuelConfig.selectedBooks)) {
-        localDuelConfig.selectedBooks = [];
-    }
-
-    renderBookFolderTree('chips-local-duel-books', {
-        selectedIds: localDuelConfig.selectedBooks,
-        onToggle: 'toggleLocalDuelBook',
-        mode: 'local_duel',
-        filterType: 'all'
-    });
-
+function updateLocalDuelBookSummaryUI() {
+    const titleEl = document.getElementById('local-duel-selected-book-title');
     const summaryEl = document.getElementById('local-duel-books-summary');
+    if (!localDuelConfig || !Array.isArray(localDuelConfig.selectedBooks)) return;
+    const allBooks = (typeof getAllUniqueBooks === 'function')
+        ? getAllUniqueBooks()
+        : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    const count = localDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        const totalCount = (localDuelConfig.selectedBooks || []).length;
-        summaryEl.innerText = `已选 ${totalCount} 本词书`;
+        summaryEl.innerText = `已选 ${count} 本词书`;
     }
-
+    if (titleEl) {
+        if (count === 0) {
+            titleEl.innerText = '未选择词书';
+        } else if (count === 1) {
+            const b = allBooks.find(x => x.id === localDuelConfig.selectedBooks[0]);
+            titleEl.innerText = b ? (b.name || b.title || b.id) : localDuelConfig.selectedBooks[0];
+        } else {
+            const b = allBooks.find(x => x.id === localDuelConfig.selectedBooks[0]);
+            const firstName = b ? (b.name || b.title || b.id) : localDuelConfig.selectedBooks[0];
+            titleEl.innerText = `${firstName} 等 ${count} 本词书`;
+        }
+    }
     updateLocalDuelStartButtonState();
 }
-
-function toggleLocalDuelBook(bookId) {
-    if (!Array.isArray(localDuelConfig.selectedBooks)) {
-        localDuelConfig.selectedBooks = [];
-    }
-    const hasIt = isBookIdSelected(localDuelConfig.selectedBooks, bookId);
-    if (hasIt) {
-        localDuelConfig.selectedBooks = toggleBookIdInList(localDuelConfig.selectedBooks, bookId);
-    } else {
-        localDuelConfig.selectedBooks.push(bookId);
-    }
-    localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
-    renderLocalDuelBookChips();
-}
+window.updateLocalDuelBookSummaryUI = updateLocalDuelBookSummaryUI;
 
 function updateLocalDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-local-duel');
@@ -781,9 +723,39 @@ function triggerLocalPhrasePenalty(player) {
 
     pState.freezeTimer = setTimeout(() => {
         pState.frozenUntil = 0;
+
+        // 惩罚结束，自动放回错误的词块
+        const phrState = localPhraseState[player];
+        if (phrState && phrState.targetWords) {
+            phrState.targetWords.forEach((tw, i) => {
+                if (isFixedPhraseToken(tw)) return;
+                const chipId = phrState.placed[i];
+                if (!chipId) return;
+                const chip = phrState.chips ? phrState.chips.find(c => c.id === chipId) : null;
+                const userWord = chip ? chip.text : '';
+                const isSlotRight = isPhraseSlotMatch(userWord, tw);
+                if (!isSlotRight) {
+                    phrState.placed[i] = null;
+                    const slotEl = document.getElementById(`local-slot-${player}-${i}`);
+                    if (slotEl) {
+                        slotEl.className = 'phrase-slot empty';
+                        slotEl.innerText = '';
+                        delete slotEl.dataset.chipId;
+                    }
+                    const chipEl = document.getElementById(`local-chip-${player}-${chipId}`);
+                    if (chipEl) {
+                        chipEl.classList.remove('used');
+                        chipEl.disabled = false;
+                        chipEl.style.pointerEvents = 'auto';
+                        chipEl.style.opacity = '1';
+                    }
+                }
+            });
+        }
+
         const tipEl = document.getElementById(`local-penalty-tip-${player}`);
         if (tipEl) {
-            tipEl.innerText = '可点击槽位撤回并重新选择';
+            tipEl.innerText = '已自动移出错误词块，请重新搭配或点击【跳过】';
             tipEl.style.color = 'var(--md-sys-color-primary)';
         }
         const clearBtn = document.getElementById(`btn-clear-local-phrase-${player}`);

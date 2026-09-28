@@ -153,6 +153,13 @@ async function prepareUserSwitch(newUser) {
     }
 }
 
+function withAuthTimeout(promise, ms = 10000, timeoutMsg = '登录请求超时，网络较慢或服务器暂未响应，请稍后重试') {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutMsg)), ms))
+    ]);
+}
+
 async function selectSavedAccountToLogin(username) {
     const list = getSavedDeviceAccounts();
     const acc = list.find(a => a.username === username);
@@ -168,7 +175,7 @@ async function selectSavedAccountToLogin(username) {
     }
 
     try {
-        const user = await supabaseLoginWithHash(acc.username, acc.hashedPassword);
+        const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 10000);
         await prepareUserSwitch(user.username);
         acc.lastLoginTime = Date.now();
         localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
@@ -267,7 +274,7 @@ async function handleCloudLogin() {
 
     try {
         const hashedPassword = await hashPassword(password);
-        const user = await supabaseLoginUser({ username, password });
+        const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 10000);
         await prepareUserSwitch(user.username);
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
@@ -342,11 +349,11 @@ async function handleCloudRegister() {
     }
 
     try {
-        const newUser = await supabaseRegisterUser({
+        const newUser = await withAuthTimeout(supabaseRegisterUser({
             username: username,
             password: password,
             avatar: regAvatarDataUrl
-        });
+        }), 10000, '注册请求超时，请检查网络后重试');
         await prepareUserSwitch(newUser.username);
 
         const hashedPassword = await hashPassword(password);
@@ -390,7 +397,7 @@ async function handleBiliToyLogin() {
     }
 
     try {
-        const biliProfile = await biliLogin();
+        const biliProfile = await withAuthTimeout(biliLogin(), 10000, 'B 站授权登录超时，请重试');
         await prepareUserSwitch(biliProfile.username);
 
         const profile = {

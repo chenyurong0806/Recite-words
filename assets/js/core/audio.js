@@ -149,15 +149,51 @@ function playWordAudio(rawText, type = null) {
 
     // ----------------------------------------------------------------------
     // 场景 1：中文发音（文言实词、词条释义、例句）
-    // 策略：0 延迟本地原生语音优先（zh-CN），发音连贯、完全脱离网络抖动
+    // 策略：使用高质量线上音频源 (百度TTS / 有道词典接口)，配合内存缓存池
     // ----------------------------------------------------------------------
     if (category === 'chinese') {
-        const nativeSuccess = speakNative(cleanText, 'zh-CN', 0.92);
-        if (nativeSuccess) return;
+        const cacheKey = `zh_${cleanText}`;
+        if (AudioCache.has(cacheKey)) {
+            const cachedAudio = AudioCache.get(cacheKey);
+            try {
+                cachedAudio.currentTime = 0;
+                currentActiveAudio = cachedAudio;
+                cachedAudio.play().catch(() => {});
+                return;
+            } catch (e) {
+                AudioCache.delete(cacheKey);
+            }
+        }
 
-        // 若极少数老旧环境无本地中文 TTS，回退至有道中文接口
-        const firstWord = cleanText.split(/\s+/)[0] || cleanText;
-        playNetworkAudioFallback(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(firstWord)}&le=zh`);
+        const baiduUrl = `https://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(cleanText)}&spd=5&source=web`;
+        const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanText)}&le=zh`;
+        const audio = new Audio(baiduUrl);
+        currentActiveAudio = audio;
+
+        let hasFallenBack = false;
+        audio.onerror = () => {
+            if (!hasFallenBack) {
+                hasFallenBack = true;
+                const fallbackAudio = new Audio(youdaoUrl);
+                currentActiveAudio = fallbackAudio;
+                fallbackAudio.play().then(() => {
+                    AudioCache.set(cacheKey, fallbackAudio);
+                }).catch(() => {});
+            }
+        };
+
+        audio.play().then(() => {
+            AudioCache.set(cacheKey, audio);
+        }).catch(() => {
+            if (!hasFallenBack) {
+                hasFallenBack = true;
+                const fallbackAudio = new Audio(youdaoUrl);
+                currentActiveAudio = fallbackAudio;
+                fallbackAudio.play().then(() => {
+                    AudioCache.set(cacheKey, fallbackAudio);
+                }).catch(() => {});
+            }
+        });
         return;
     }
 

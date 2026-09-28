@@ -1570,8 +1570,8 @@ function handleRemoteGameStart(payload) {
         }
 
         const poolData = Array.isArray(payload.pool) && payload.pool.length > 0 ? payload.pool : [];
-        const playerShuffledPool = shuffle([...poolData]);
-        resetPlayerState(p1State, playerShuffledPool);
+        const playerPool = [...poolData];
+        resetPlayerState(p1State, playerPool);
         p2State.score = 0;
         p2State.total = 0;
 
@@ -2072,10 +2072,38 @@ function triggerArenaPhrase3sPenalty(state) {
             const clearBtn = document.getElementById('btn-clear-arena-phrase');
             if (clearBtn) clearBtn.disabled = false;
 
+            // 惩罚结束，自动放回错误的词块
+            if (typeof arenaPhraseState !== 'undefined' && arenaPhraseState && arenaPhraseState.targetWords) {
+                arenaPhraseState.targetWords.forEach((tw, i) => {
+                    if (isFixedPhraseToken(tw)) return;
+                    const chipId = arenaPhraseState.placed[i];
+                    if (!chipId) return;
+                    const chip = arenaPhraseState.chips ? arenaPhraseState.chips.find(c => c.id === chipId) : null;
+                    const userWord = chip ? chip.text : '';
+                    const isSlotRight = isPhraseSlotMatch(userWord, tw);
+                    if (!isSlotRight) {
+                        arenaPhraseState.placed[i] = null;
+                        const slotEl = document.getElementById(`arena-slot-${i}`);
+                        if (slotEl) {
+                            slotEl.className = 'phrase-slot empty';
+                            slotEl.innerText = '';
+                            delete slotEl.dataset.chipId;
+                        }
+                        const chipEl = document.getElementById(`arena-chip-${chipId}`);
+                        if (chipEl) {
+                            chipEl.classList.remove('used');
+                            chipEl.disabled = false;
+                            chipEl.style.pointerEvents = 'auto';
+                            chipEl.style.opacity = '1';
+                        }
+                    }
+                });
+            }
+
             const tipEl = document.getElementById('arena-penalty-tip');
             if (tipEl) {
                 tipEl.style.color = 'var(--md-sys-color-primary)';
-                tipEl.innerText = '请重新调整，或点击下方【跳过】';
+                tipEl.innerText = '已自动移出错误词块，请重新搭配或点击【跳过】';
             }
         }
     }, 1000);
@@ -2479,10 +2507,10 @@ function renderMatchResultBadgeHtml(matchResult) {
             <div style="margin-top:10px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
                     <span>等级分进度</span>
-                    <span>${matchResult.newRating} / 100 分</span>
+                    <span>${matchResult.newRating} 分 (当前段位 ${Math.min(100, Math.max(0, matchResult.newRating <= 0 ? 0 : (((matchResult.newRating - 1) % 100) + 1)))}/100)</span>
                 </div>
                 <div style="height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
-                    <div style="width:${Math.min(100, Math.max(0, matchResult.newRating))}%; height:100%; background:${badgeColor}; border-radius:3px; transition:width 0.4s ease;"></div>
+                    <div style="width:${Math.min(100, Math.max(0, matchResult.newRating <= 0 ? 0 : (((matchResult.newRating - 1) % 100) + 1)))}%; height:100%; background:${badgeColor}; border-radius:3px; transition:width 0.4s ease;"></div>
                 </div>
             </div>
             <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:8px; line-height:1.4;">
@@ -2495,7 +2523,8 @@ function renderMatchResultBadgeHtml(matchResult) {
 function endGame(msg, broadcastToPeer) {
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
-    if (aiDuelTimer) clearTimeout(aiDuelTimer);
+    if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
+    if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
     isPlayingMatch = false;
     if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
@@ -2538,7 +2567,7 @@ function endGame(msg, broadcastToPeer) {
         const oppoRank = isAi 
             ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
             : (currentMatchOppoRank || 1);
-        const oppoRating = isAi ? 50 : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+        const oppoRating = isAi ? ((oppoRank - 1) * 100 + 50) : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
 
         matchResult = LevelManager.calculateMatchResult({
             isRanked,
@@ -2751,7 +2780,7 @@ function applyForfeitPenalty() {
     const oppoRank = isAi 
         ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
         : (currentMatchOppoRank || 1);
-    const oppoRating = isAi ? 50 : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+    const oppoRating = isAi ? ((oppoRank - 1) * 100 + 50) : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
 
     const matchResult = LevelManager.calculateMatchResult({
         isRanked: true,
@@ -2786,12 +2815,14 @@ function confirmExitGame() {
 
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
-    if (aiDuelTimer) clearTimeout(aiDuelTimer);
+    if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
+    if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
     isPlayingMatch = false;
 
     if (gameMode === 'online') {
         leaveOnlineLobby(false);
     } else {
+        gameMode = '';
         switchView('view-hub');
     }
 }

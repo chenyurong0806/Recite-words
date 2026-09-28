@@ -41,7 +41,9 @@ function openBookSelectorPage(mode = 'single') {
         'dictation': '选择词书 (英语默写)',
         'room': '选择词书 (远程联机)',
         'preset': '选择词书 (房间预设)',
-        'invite': '选择词书 (对战规则)'
+        'invite': '选择词书 (对战规则)',
+        'ai_duel': '选择词书 (人机对战)',
+        'local_duel': '选择词书 (同屏对决)'
     };
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
 
@@ -79,6 +81,16 @@ function exitBookSelectorPage() {
         const modal = document.getElementById('modal-create-match-invite');
         if (modal) modal.classList.add('active');
         if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
+    }
+    if (bookSelectorMode === 'ai_duel') {
+        const modal = document.getElementById('modal-ai-duel-settings');
+        if (modal) modal.classList.add('active');
+        if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
+    }
+    if (bookSelectorMode === 'local_duel') {
+        const modal = document.getElementById('modal-local-duel-settings');
+        if (modal) modal.classList.add('active');
+        if (typeof updateLocalDuelBookSummaryUI === 'function') updateLocalDuelBookSummaryUI();
     }
 }
 
@@ -135,6 +147,12 @@ function isBookIdSelectedInCurrentMode(bookId) {
     } else if (bookSelectorMode === 'invite') {
         const list = (typeof activeInviteRules !== 'undefined' && Array.isArray(activeInviteRules.selectedBooks)) ? activeInviteRules.selectedBooks : [];
         return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
+    } else if (bookSelectorMode === 'ai_duel') {
+        const list = (typeof aiDuelConfig !== 'undefined' && Array.isArray(aiDuelConfig.selectedBooks)) ? aiDuelConfig.selectedBooks : [];
+        return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
+    } else if (bookSelectorMode === 'local_duel') {
+        const list = (typeof localDuelConfig !== 'undefined' && Array.isArray(localDuelConfig.selectedBooks)) ? localDuelConfig.selectedBooks : [];
+        return typeof isBookIdSelected === 'function' ? isBookIdSelected(list, bookId) : list.includes(bookId);
     }
     return false;
 }
@@ -142,7 +160,11 @@ function isBookIdSelectedInCurrentMode(bookId) {
 function isWordleUnsupportedBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toString();
-    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试'];
+    const cleanLower = nameStr.toLowerCase().replace(/\s+/g, '');
+    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
+        return true;
+    }
+    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试', 'weekly 3', 'wordbank 3'];
     for (const kw of unsupportedList) {
         if (nameStr.includes(kw)) {
             return true;
@@ -154,6 +176,10 @@ function isWordleUnsupportedBook(b) {
 function isPhraseBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toLowerCase();
+    const cleanLower = nameStr.replace(/\s+/g, '');
+    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
+        return true;
+    }
     if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase') || nameStr.includes('518') || nameStr.includes('翻译') || nameStr.includes('基础闯关') || nameStr.includes('词汇测试')) {
         return true;
     }
@@ -178,7 +204,7 @@ function renderBookSelectorPage() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (!container) return;
 
-    const isMultiplayer = (bookSelectorMode === 'room' || bookSelectorMode === 'preset' || bookSelectorMode === 'invite');
+    const isMultiplayer = (bookSelectorMode === 'room' || bookSelectorMode === 'preset' || bookSelectorMode === 'invite' || bookSelectorMode === 'ai_duel');
     const allBooks = getAllUniqueBooks();
     const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
     let filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
@@ -517,6 +543,42 @@ async function handleBookSelectorToggle(bookId) {
             activeInviteRules.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(activeInviteRules.selectedBooks, bookId) : [...activeInviteRules.selectedBooks, bookId];
         }
         if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
+    } else if (bookSelectorMode === 'ai_duel') {
+        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
+            showToast('人机对战禁止选择本地词书');
+            return;
+        }
+        if (typeof aiDuelConfig === 'undefined') window.aiDuelConfig = { selectedBooks: [] };
+        if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.includes(bookId);
+        if (isSel) {
+            if (aiDuelConfig.selectedBooks.length > 1) {
+                aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.filter(id => id !== bookId);
+            } else {
+                showToast('至少需保留一本词书');
+                return;
+            }
+        } else {
+            aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : [...aiDuelConfig.selectedBooks, bookId];
+        }
+        localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
+        if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
+    } else if (bookSelectorMode === 'local_duel') {
+        if (typeof localDuelConfig === 'undefined') window.localDuelConfig = { selectedBooks: [] };
+        if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
+        const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.includes(bookId);
+        if (isSel) {
+            if (localDuelConfig.selectedBooks.length > 1) {
+                localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.filter(id => id !== bookId);
+            } else {
+                showToast('至少需保留一本词书');
+                return;
+            }
+        } else {
+            localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : [...localDuelConfig.selectedBooks, bookId];
+        }
+        localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+        if (typeof updateLocalDuelBookSummaryUI === 'function') updateLocalDuelBookSummaryUI();
     }
 
     updateBookSelectorDOM();
@@ -542,5 +604,19 @@ function openRoomBookSelector(target = 'room') {
     openBookSelectorPage('room');
 }
 window.openRoomBookSelector = openRoomBookSelector;
+
+function openAiDuelBookSelector() {
+    const modal = document.getElementById('modal-ai-duel-settings');
+    if (modal) modal.classList.remove('active');
+    openBookSelectorPage('ai_duel');
+}
+window.openAiDuelBookSelector = openAiDuelBookSelector;
+
+function openLocalDuelBookSelector() {
+    const modal = document.getElementById('modal-local-duel-settings');
+    if (modal) modal.classList.remove('active');
+    openBookSelectorPage('local_duel');
+}
+window.openLocalDuelBookSelector = openLocalDuelBookSelector;
 
 
