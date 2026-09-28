@@ -5111,6 +5111,7 @@ function openBookSelectorPage(mode = 'single') {
     bookSelectorPreviousView = currentView || 'view-hub';
     const enTab = document.getElementById('tab-bs-en');
     const shiciTab = document.getElementById('tab-bs-shici');
+    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(mode);
 
     if (mode === 'shici') {
         bookSelectorActiveCategory = 'shici';
@@ -5118,13 +5119,45 @@ function openBookSelectorPage(mode = 'single') {
         if (shiciTab) {
             shiciTab.style.display = 'inline-flex';
             shiciTab.classList.add('active');
+            if (enTab) enTab.classList.remove('active');
         }
+    } else if (isDuelMode) {
+        // 对战模式（远程联机/房间预设/对战规则/人机对战/同屏对决）支持英语和实词词书
+        if (enTab) enTab.style.display = 'inline-flex';
+        if (shiciTab) shiciTab.style.display = 'inline-flex';
+
+        const allBooks = getAllUniqueBooks();
+        let selectedList = [];
+        if (mode === 'room') selectedList = (typeof roomConfig !== 'undefined' && Array.isArray(roomConfig.selectedBooks)) ? roomConfig.selectedBooks : [];
+        else if (mode === 'preset') selectedList = (typeof activeEditingPreset !== 'undefined' && Array.isArray(activeEditingPreset.selectedBooks)) ? activeEditingPreset.selectedBooks : [];
+        else if (mode === 'invite') selectedList = (typeof activeInviteRules !== 'undefined' && Array.isArray(activeInviteRules.selectedBooks)) ? activeInviteRules.selectedBooks : [];
+        else if (mode === 'ai_duel') selectedList = (typeof aiDuelConfig !== 'undefined' && Array.isArray(aiDuelConfig.selectedBooks)) ? aiDuelConfig.selectedBooks : [];
+        else if (mode === 'local_duel') selectedList = (typeof localDuelConfig !== 'undefined' && Array.isArray(localDuelConfig.selectedBooks)) ? localDuelConfig.selectedBooks : [];
+
+        const hasEnglish = selectedList.some(id => {
+            const b = allBooks.find(x => x.id === id);
+            return b && !isBookShiCi(b);
+        });
+        const hasShiCi = selectedList.some(id => {
+            const b = allBooks.find(x => x.id === id);
+            return b && isBookShiCi(b);
+        });
+
+        if (hasShiCi && !hasEnglish) {
+            bookSelectorActiveCategory = 'shici';
+        } else {
+            bookSelectorActiveCategory = 'english';
+        }
+
+        if (enTab) enTab.classList.toggle('active', bookSelectorActiveCategory === 'english');
+        if (shiciTab) shiciTab.classList.toggle('active', bookSelectorActiveCategory === 'shici');
     } else {
         bookSelectorActiveCategory = 'english';
         if (shiciTab) shiciTab.style.display = 'none';
         if (enTab) {
             enTab.style.display = 'inline-flex';
             enTab.classList.add('active');
+            if (shiciTab) shiciTab.classList.remove('active');
         }
     }
 
@@ -5190,8 +5223,11 @@ function exitBookSelectorPage() {
 }
 
 function switchBookSelectorCategory(cat) {
-    if (bookSelectorMode === 'shici' && cat !== 'shici') return;
-    if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(bookSelectorMode);
+    if (!isDuelMode) {
+        if (bookSelectorMode === 'shici' && cat !== 'shici') return;
+        if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+    }
 
     bookSelectorActiveCategory = cat;
     document.querySelectorAll('.book-selector-tab').forEach(t => t.classList.remove('active'));
@@ -5309,8 +5345,8 @@ function renderBookSelectorPage() {
         filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
     }
 
-    const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-    if (summaryChip) summaryChip.textContent = `已选 ${selectedCount} 本词书`;
+    const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
+    if (summaryChip) summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
 
     if (filteredBooks.length === 0) {
         container.innerHTML = `
@@ -5469,10 +5505,8 @@ function updateBookSelectorDOM() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (summaryChip) {
         const allBooks = getAllUniqueBooks();
-        const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
-        const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
-        const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-        summaryChip.textContent = `已选 ${selectedCount} 本词书`;
+        const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
+        summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
     }
 }
 
@@ -6298,13 +6332,11 @@ let riddleCurrentLetters = [];
 
 function syncFormalInputLetters() {
     const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
-    if (!Array.isArray(riddleCurrentLetters)) riddleCurrentLetters = [];
-    while (riddleCurrentLetters.length < len) riddleCurrentLetters.push('');
-    if (riddleCurrentLetters.length > len) riddleCurrentLetters.length = len;
-    const str = (riddleState && riddleState.currentInput) ? riddleState.currentInput : '';
-    for (let i = 0; i < len; i++) {
-        if (str[i] !== undefined && str[i] !== '') {
-            riddleCurrentLetters[i] = str[i].toUpperCase();
+    if (!Array.isArray(riddleCurrentLetters) || riddleCurrentLetters.length !== len) {
+        riddleCurrentLetters = new Array(len).fill('');
+        const str = (riddleState && riddleState.currentInput) ? riddleState.currentInput : '';
+        for (let i = 0; i < len && i < str.length; i++) {
+            if (str[i]) riddleCurrentLetters[i] = str[i].toUpperCase();
         }
     }
 }
@@ -6322,31 +6354,63 @@ function handleFormalTileFocus(col) {
     updateRiddleCurrentRow();
     const tile = document.getElementById(`formal-tile-${col}`);
     if (tile) {
+        tile.classList.add('active');
         tile.focus();
         tile.select();
     }
 }
 
 function applyFormalLetterInput(col, char) {
-    syncFormalInputLetters();
+    if (riddleState.gameOver || riddleState.isSubmitting) return;
     const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
     const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
+    if (!Array.isArray(riddleCurrentLetters) || riddleCurrentLetters.length !== len) {
+        riddleCurrentLetters = new Array(len).fill('');
+    }
     riddleCurrentLetters[col] = char.toUpperCase();
     riddleState.currentInput = riddleCurrentLetters.join('');
     saveRiddleProgress();
+
     const tile = document.getElementById(`formal-tile-${col}`);
     if (tile) {
         tile.value = isLower ? char.toLowerCase() : char.toUpperCase();
     }
-    if (col + 1 < len) {
-        focusFormalTile(col + 1);
+
+    // 检查是否全行字母均已填满
+    const isFull = (riddleCurrentLetters.length === len && riddleCurrentLetters.every(c => c && c.trim()));
+    if (isFull) {
+        // 填满后自动提交验证
+        riddleState.isSubmitting = true;
+        setTimeout(() => {
+            riddleState.isSubmitting = false;
+            if (!riddleState.gameOver) {
+                submitRiddleRow();
+            }
+        }, 120);
     } else {
-        focusFormalTile(col);
+        // 自动跳转到下一个空格子，或紧邻的下一格
+        let nextCol = col + 1;
+        if (nextCol < len && !riddleCurrentLetters[nextCol]) {
+            focusFormalTile(nextCol);
+        } else {
+            const firstEmpty = riddleCurrentLetters.findIndex(c => !c || !c.trim());
+            if (firstEmpty !== -1) {
+                focusFormalTile(firstEmpty);
+            } else if (nextCol < len) {
+                focusFormalTile(nextCol);
+            } else {
+                focusFormalTile(col);
+            }
+        }
     }
 }
 
 function applyFormalBackspace(col) {
-    syncFormalInputLetters();
+    if (riddleState.gameOver || riddleState.isSubmitting) return;
+    const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+    if (!Array.isArray(riddleCurrentLetters) || riddleCurrentLetters.length !== len) {
+        riddleCurrentLetters = new Array(len).fill('');
+    }
     const tile = document.getElementById(`formal-tile-${col}`);
     if (tile && tile.value) {
         tile.value = '';
@@ -6372,7 +6436,10 @@ function handleFormalTileInput(e, col) {
     if (char) {
         applyFormalLetterInput(col, char);
     } else {
-        syncFormalInputLetters();
+        const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
+        if (!Array.isArray(riddleCurrentLetters) || riddleCurrentLetters.length !== len) {
+            riddleCurrentLetters = new Array(len).fill('');
+        }
         if (e.target) e.target.value = '';
         riddleCurrentLetters[col] = '';
         riddleState.currentInput = riddleCurrentLetters.join('');
@@ -6595,6 +6662,10 @@ function submitRiddleDraftRow(rowIndex) {
             }
         }
         return;
+    }
+    riddleCurrentLetters = new Array(len).fill('');
+    for (let c = 0; c < len; c++) {
+        riddleCurrentLetters[c] = (row[c] || '').toUpperCase();
     }
     riddleState.currentInput = guess;
     updateRiddleCurrentRow();
@@ -7643,6 +7714,7 @@ function submitRiddleRow() {
     if (riddleState.gameOver) return;
     syncFormalInputLetters();
     const len = riddleState.targetLength;
+    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
     const emptyCount = riddleCurrentLetters.filter(c => !c || !c.trim()).length;
     if (emptyCount > 0) {
         showToast(`还缺少 ${emptyCount} 个字母！`);
@@ -7690,34 +7762,34 @@ function submitRiddleRow() {
         }
     }
 
+    const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
     const grid = document.getElementById('riddle-grid');
-    const submittedRow = grid ? grid.children[riddleState.attempts.length] : null;
+    const submittedRowIndex = riddleState.attempts.length;
+    const submittedRow = grid ? grid.children[submittedRowIndex] : null;
     if (submittedRow) {
-        const tiles = submittedRow.children;
+        let submittedHtml = '';
         for (let c = 0; c < len; c++) {
-            const tile = tiles[c];
-            if (tile) {
-                tile.value = formatRiddleCase(guess[c]);
-                tile.innerText = formatRiddleCase(guess[c]);
-                tile.classList.remove('active');
-                tile.classList.add(evaluation[c]);
-                tile.classList.add('flip');
-                tile.style.animationDelay = `${c * 80}ms`;
-                const currentTile = tile;
-                setTimeout(() => {
-                    if (currentTile) {
-                        currentTile.classList.remove('flip');
-                        currentTile.style.animationDelay = '';
-                    }
-                }, c * 80 + 500);
-            }
+            const letter = formatRiddleCase(guess[c]);
+            const evalClass = evaluation[c] || 'absent';
+            submittedHtml += `<div class="riddle-tile ${evalClass} ${compactClass} flip" style="animation-delay: ${c * 80}ms;">${letter}</div>`;
         }
+        submittedRow.innerHTML = submittedHtml;
+        setTimeout(() => {
+            if (submittedRow) {
+                submittedRow.querySelectorAll('.riddle-tile.flip').forEach(t => {
+                    t.classList.remove('flip');
+                    t.style.animationDelay = '';
+                });
+            }
+        }, len * 80 + 500);
     }
 
     riddleState.attempts.push({ guess, evaluation });
     riddleState.currentInput = '';
     riddleCurrentLetters = new Array(len).fill('');
     activeFormalCol = 0;
+    activeRiddleDraft = null;
+    document.querySelectorAll('.riddle-draft-tile').forEach(t => t.classList.remove('active-draft-tile'));
 
     const attemptInd = document.getElementById('riddle-attempt-indicator');
     if (attemptInd) {
@@ -7778,13 +7850,11 @@ function submitRiddleRow() {
     saveRiddleProgress();
 
     // 激活下一行 formal tile inputs
-    const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
-    const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
     if (grid && grid.children[riddleState.attempts.length]) {
         const nextRow = grid.children[riddleState.attempts.length];
         let nextHtml = '';
         for (let c = 0; c < len; c++) {
-            const isCurrentActive = (c === 0 && activeRiddleDraft === null);
+            const isCurrentActive = (c === 0);
             nextHtml += `<input type="text"
                 class="riddle-tile ${isCurrentActive ? 'active' : ''} ${compactClass} ${isLower ? 'lowercase' : ''}"
                 id="formal-tile-${c}"
@@ -7804,9 +7874,15 @@ function submitRiddleRow() {
             />`;
         }
         nextRow.innerHTML = nextHtml;
-        if (activeRiddleDraft === null) {
+        activeFormalCol = 0;
+        activeRiddleDraft = null;
+        focusFormalTile(0);
+        setTimeout(() => {
             focusFormalTile(0);
-        }
+        }, 50);
+        setTimeout(() => {
+            focusFormalTile(0);
+        }, 150);
     }
 }
 

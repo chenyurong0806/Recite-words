@@ -16,6 +16,7 @@ function openBookSelectorPage(mode = 'single') {
     bookSelectorPreviousView = currentView || 'view-hub';
     const enTab = document.getElementById('tab-bs-en');
     const shiciTab = document.getElementById('tab-bs-shici');
+    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(mode);
 
     if (mode === 'shici') {
         bookSelectorActiveCategory = 'shici';
@@ -23,13 +24,45 @@ function openBookSelectorPage(mode = 'single') {
         if (shiciTab) {
             shiciTab.style.display = 'inline-flex';
             shiciTab.classList.add('active');
+            if (enTab) enTab.classList.remove('active');
         }
+    } else if (isDuelMode) {
+        // 对战模式（远程联机/房间预设/对战规则/人机对战/同屏对决）支持英语和实词词书
+        if (enTab) enTab.style.display = 'inline-flex';
+        if (shiciTab) shiciTab.style.display = 'inline-flex';
+
+        const allBooks = getAllUniqueBooks();
+        let selectedList = [];
+        if (mode === 'room') selectedList = (typeof roomConfig !== 'undefined' && Array.isArray(roomConfig.selectedBooks)) ? roomConfig.selectedBooks : [];
+        else if (mode === 'preset') selectedList = (typeof activeEditingPreset !== 'undefined' && Array.isArray(activeEditingPreset.selectedBooks)) ? activeEditingPreset.selectedBooks : [];
+        else if (mode === 'invite') selectedList = (typeof activeInviteRules !== 'undefined' && Array.isArray(activeInviteRules.selectedBooks)) ? activeInviteRules.selectedBooks : [];
+        else if (mode === 'ai_duel') selectedList = (typeof aiDuelConfig !== 'undefined' && Array.isArray(aiDuelConfig.selectedBooks)) ? aiDuelConfig.selectedBooks : [];
+        else if (mode === 'local_duel') selectedList = (typeof localDuelConfig !== 'undefined' && Array.isArray(localDuelConfig.selectedBooks)) ? localDuelConfig.selectedBooks : [];
+
+        const hasEnglish = selectedList.some(id => {
+            const b = allBooks.find(x => x.id === id);
+            return b && !isBookShiCi(b);
+        });
+        const hasShiCi = selectedList.some(id => {
+            const b = allBooks.find(x => x.id === id);
+            return b && isBookShiCi(b);
+        });
+
+        if (hasShiCi && !hasEnglish) {
+            bookSelectorActiveCategory = 'shici';
+        } else {
+            bookSelectorActiveCategory = 'english';
+        }
+
+        if (enTab) enTab.classList.toggle('active', bookSelectorActiveCategory === 'english');
+        if (shiciTab) shiciTab.classList.toggle('active', bookSelectorActiveCategory === 'shici');
     } else {
         bookSelectorActiveCategory = 'english';
         if (shiciTab) shiciTab.style.display = 'none';
         if (enTab) {
             enTab.style.display = 'inline-flex';
             enTab.classList.add('active');
+            if (shiciTab) shiciTab.classList.remove('active');
         }
     }
 
@@ -95,8 +128,11 @@ function exitBookSelectorPage() {
 }
 
 function switchBookSelectorCategory(cat) {
-    if (bookSelectorMode === 'shici' && cat !== 'shici') return;
-    if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(bookSelectorMode);
+    if (!isDuelMode) {
+        if (bookSelectorMode === 'shici' && cat !== 'shici') return;
+        if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+    }
 
     bookSelectorActiveCategory = cat;
     document.querySelectorAll('.book-selector-tab').forEach(t => t.classList.remove('active'));
@@ -214,8 +250,8 @@ function renderBookSelectorPage() {
         filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
     }
 
-    const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-    if (summaryChip) summaryChip.textContent = `已选 ${selectedCount} 本词书`;
+    const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
+    if (summaryChip) summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
 
     if (filteredBooks.length === 0) {
         container.innerHTML = `
@@ -374,10 +410,8 @@ function updateBookSelectorDOM() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (summaryChip) {
         const allBooks = getAllUniqueBooks();
-        const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
-        const filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
-        const selectedCount = filteredBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-        summaryChip.textContent = `已选 ${selectedCount} 本词书`;
+        const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
+        summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
     }
 }
 
