@@ -772,7 +772,7 @@ async function syncLocalBooksWithCloud(notify = false) {
             showToast(`${customBooks.length} 本词书已完成同步！`);
         }
     } catch (e) {
-        if (notify) showToast('同步完成');
+        if (notify) showToast('数据同步失败，请检查网络');
     }
 }
 

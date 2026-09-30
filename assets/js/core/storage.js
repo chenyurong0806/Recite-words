@@ -55,6 +55,11 @@ window.getCookie = getCookie;
 window.setCookie = setCookie;
 window.removeCookie = removeCookie;
 
+// 申请持久化存储（防止移动端/PWA/Toy添加到主屏幕后本地存储被系统清理）
+if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+    navigator.storage.persist().catch(() => {});
+}
+
 const memoryStorageMap = {};
 const SafeStorage = {
     isAvailable: (() => {
@@ -76,7 +81,7 @@ const SafeStorage = {
                 if (val !== null) return val;
             }
         } catch (e) { }
-        // 苹果设备与移动端兜底：尝试从 Cookie 读取
+        // 苹果设备与移动端/独立容器兜底：尝试从 Cookie 读取
         try {
             const cookieVal = getCookie(key);
             if (cookieVal !== null) {
@@ -101,11 +106,15 @@ const SafeStorage = {
         } catch (e) {
             console.warn('[SafeStorage] localStorage.setItem failed, retained in memory:', key, e);
         }
-        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保苹果设备持久化
+        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保独立容器与移动端持久化
         if (strVal.length < 3500) {
             try {
                 setCookie(key, strVal, 365);
             } catch (e) { }
+        }
+        // 异步镜像至 IndexedDB，保障 PWA/Toy 独立窗口全量本地持久化
+        if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.saveKV === 'function') {
+            VocabOfflineDB.saveKV(key, strVal).catch(() => {});
         }
     },
 
@@ -120,6 +129,9 @@ const SafeStorage = {
         try {
             removeCookie(key);
         } catch (e) { }
+        if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.deleteKV === 'function') {
+            VocabOfflineDB.deleteKV(key).catch(() => {});
+        }
     },
 
     clear() {
@@ -138,7 +150,7 @@ let folderTreeCollapseMap = {};
 
 const VocabOfflineDB = {
     dbName: 'VocabLocalBooksDB',
-    version: 1,
+    version: 2,
     db: null,
 
     async init() {
@@ -158,9 +170,31 @@ const VocabOfflineDB = {
                     if (!db.objectStoreNames.contains('folders')) {
                         db.createObjectStore('folders', { keyPath: 'id' });
                     }
+                    if (!db.objectStoreNames.contains('kv_store')) {
+                        db.createObjectStore('kv_store', { keyPath: 'k' });
+                    }
                 };
                 request.onsuccess = (e) => {
                     this.db = e.target.result;
+                    // 同步从 IndexedDB 恢复可能缺失的 localStorage 关键数据 (如账号信息、段位等)
+                    try {
+                        const tx = this.db.transaction('kv_store', 'readonly');
+                        const store = tx.objectStore('kv_store');
+                        const req = store.getAll();
+                        req.onsuccess = () => {
+                            const list = req.result || [];
+                            list.forEach(item => {
+                                if (item && item.k && item.v !== undefined) {
+                                    memoryStorageMap[item.k] = item.v;
+                                    try {
+                                        if (SafeStorage.isAvailable && window.localStorage.getItem(item.k) === null) {
+                                            window.localStorage.setItem(item.k, item.v);
+                                        }
+                                    } catch (err) { }
+                                }
+                            });
+                        };
+                    } catch (err) { }
                     resolve(this.db);
                 };
                 request.onerror = (e) => {
@@ -168,6 +202,38 @@ const VocabOfflineDB = {
                 };
             } catch (err) {
                 resolve(null);
+            }
+        });
+    },
+
+    async saveKV(key, val) {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('kv_store', 'readwrite');
+                const store = tx.objectStore('kv_store');
+                store.put({ k: key, v: val });
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    },
+
+    async deleteKV(key) {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('kv_store', 'readwrite');
+                const store = tx.objectStore('kv_store');
+                store.delete(key);
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+            } catch (e) {
+                resolve(false);
             }
         });
     },

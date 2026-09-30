@@ -193,21 +193,19 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
-function isWordleUnsupportedBook(b) {
+function isWordleSupportedBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toString();
-    const cleanLower = nameStr.toLowerCase().replace(/\s+/g, '');
-    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
-        return true;
-    }
-    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试', 'weekly 3', 'wordbank 3'];
-    for (const kw of unsupportedList) {
-        if (nameStr.includes(kw)) {
-            return true;
-        }
-    }
-    return isPhraseBook(b);
+    const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
+    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇'];
+    return allowed.some(kw => cleanLower.includes(kw));
 }
+window.isWordleSupportedBook = isWordleSupportedBook;
+
+function isWordleUnsupportedBook(b) {
+    return !isWordleSupportedBook(b);
+}
+window.isWordleUnsupportedBook = isWordleUnsupportedBook;
 
 function isPhraseBook(b) {
     if (!b) return false;

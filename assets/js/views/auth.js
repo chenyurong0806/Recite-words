@@ -22,7 +22,7 @@ function renderAuthView() {
 
 function getSavedDeviceAccounts() {
     try {
-        const raw = localStorage.getItem('vocab_device_accounts');
+        const raw = SafeStorage.getItem('vocab_device_accounts');
         return raw ? JSON.parse(raw) : [];
     } catch (e) {
         return [];
@@ -46,13 +46,13 @@ function recordDeviceAccount(username, avatar, type, hashedPassword) {
     } else {
         list.unshift(item);
     }
-    localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+    SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 }
 
 function removeSavedDeviceAccount(username) {
     let list = getSavedDeviceAccounts();
     list = list.filter(a => a.username !== username);
-    localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+    SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
     renderSavedDeviceAccounts();
 }
 
@@ -153,7 +153,7 @@ async function prepareUserSwitch(newUser) {
     }
 }
 
-function withAuthTimeout(promise, ms = 10000, timeoutMsg = '登录请求超时，网络较慢或服务器暂未响应，请稍后重试') {
+function withAuthTimeout(promise, ms = 5000, timeoutMsg = '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试') {
     return Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutMsg)), ms))
@@ -175,10 +175,10 @@ async function selectSavedAccountToLogin(username) {
     }
 
     try {
-        const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 10000);
+        const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 5000, '登录请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(user.username);
         acc.lastLoginTime = Date.now();
-        localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+        SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 
         const profile = {
             isLoggedIn: true,
@@ -267,14 +267,15 @@ async function handleCloudLogin() {
         return;
     }
 
+    const origLoginBtnHtml = loginBtn ? loginBtn.innerHTML : '';
     if (loginBtn) {
         loginBtn.disabled = true;
-        loginBtn.innerText = '登录中...';
+        loginBtn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">登录中...</span>';
     }
 
     try {
         const hashedPassword = await hashPassword(password);
-        const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 10000);
+        const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 5000, '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试');
         await prepareUserSwitch(user.username);
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
@@ -307,7 +308,7 @@ async function handleCloudLogin() {
     } finally {
         if (loginBtn) {
             loginBtn.disabled = false;
-            loginBtn.innerText = '登录';
+            loginBtn.innerHTML = origLoginBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">login</span><span class="btn-label-text">登录</span>';
         }
     }
 }
@@ -343,9 +344,10 @@ async function handleCloudRegister() {
         return;
     }
 
+    const origRegBtnHtml = regBtn ? regBtn.innerHTML : '';
     if (regBtn) {
         regBtn.disabled = true;
-        regBtn.innerText = '注册中...';
+        regBtn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">注册中...</span>';
     }
 
     try {
@@ -353,7 +355,7 @@ async function handleCloudRegister() {
             username: username,
             password: password,
             avatar: regAvatarDataUrl
-        }), 10000, '注册请求超时，请检查网络后重试');
+        }), 5000, '注册请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(newUser.username);
 
         const hashedPassword = await hashPassword(password);
@@ -380,7 +382,7 @@ async function handleCloudRegister() {
     } finally {
         if (regBtn) {
             regBtn.disabled = false;
-            regBtn.innerText = '注册并登录';
+            regBtn.innerHTML = origRegBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">person_add</span><span class="btn-label-text">注册并登录</span>';
         }
     }
 }
@@ -391,13 +393,14 @@ async function handleBiliToyLogin() {
         return;
     }
     const btn = document.getElementById('btn-bili-toy-login');
+    const origBtnHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerText = '正在授权...';
+        btn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">正在授权...</span>';
     }
 
     try {
-        const biliProfile = await withAuthTimeout(biliLogin(), 10000, 'B 站授权登录超时，请重试');
+        const biliProfile = await withAuthTimeout(biliLogin(), 5000, 'B 站授权登录超时（5秒），请重试');
         await prepareUserSwitch(biliProfile.username);
 
         const profile = {
@@ -431,7 +434,7 @@ async function handleBiliToyLogin() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerText = 'B 站快捷授权登录';
+            btn.innerHTML = origBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">bolt</span><span class="btn-label-text">B 站快捷授权登录</span>';
         }
     }
 }
@@ -448,6 +451,16 @@ function continueAsGuest() {
     loadUserData(guestName, currentUserProfile);
     switchView('view-hub');
 }
+
+function handleAuthBack() {
+    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username && !currentUserProfile.username.startsWith('游客')) {
+        const target = (window.previousView && window.previousView !== 'view-auth') ? window.previousView : 'view-hub';
+        switchView(target);
+    } else {
+        continueAsGuest();
+    }
+}
+window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
     const prevUser = currentUser;
@@ -477,7 +490,7 @@ function handleAuthLogout(notify = true) {
 }
 
 function handleSwitchAccount() {
-    handleAuthLogout(false);
+    // 切换账号时不提前登出，保留原登录态，待用户登录新账号成功后再切换
     switchView('view-auth');
     switchAuthTab('login');
 }

@@ -731,10 +731,18 @@ function generateShiCiQuestion(wordItem, allWords) {
     const otherSenses = senses.filter(s => s !== sense);
     const pickedDistractors = [];
 
+    const cleanTargetMeaning = (sense.meaning || '').replace(/★/g, '').trim();
     const shuffledOther = [...otherSenses].sort(() => 0.5 - Math.random());
     for (const os of shuffledOther) {
         if (pickedDistractors.length >= 3) break;
-        pickedDistractors.push(os);
+        const cleanM = (os.meaning || '').replace(/★/g, '').trim();
+        const existingMeanings = [
+            cleanTargetMeaning,
+            ...pickedDistractors.map(d => (d.meaning || '').replace(/★/g, '').trim())
+        ];
+        if (cleanM && !existingMeanings.includes(cleanM)) {
+            pickedDistractors.push(os);
+        }
     }
 
     // 若该词释义少于4个，库内平滑补全其余选项
@@ -756,7 +764,6 @@ function generateShiCiQuestion(wordItem, allWords) {
         }
     }
 
-    const cleanTargetMeaning = (sense.meaning || '').replace(/★/g, '').trim();
     const correctOption = {
         pos: sense.part_of_speech || '',
         meaning: cleanTargetMeaning,
@@ -1344,7 +1351,8 @@ function confirmExitShiCi() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-shici') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 function toggleCurrentShiCiMastered() {

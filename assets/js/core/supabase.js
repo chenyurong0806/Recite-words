@@ -495,24 +495,45 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
     if (typeof sbClient !== 'undefined' && sbClient) {
         try {
+            let updateError = null;
             const { error } = await sbClient
                 .from('user_accounts')
                 .update(updateObj)
                 .eq('username', u);
             if (error) {
                 if (error.message && error.message.includes('level')) {
-                    await sbClient
+                    const { error: err2 } = await sbClient
                         .from('user_accounts')
                         .update({ user_data: payload, updated_at: payload.updated_at })
                         .eq('username', u);
+                    if (err2) updateError = err2;
                 } else {
-                    console.warn('[Supabase] syncAllUserDataToCloud error:', error);
+                    updateError = error;
                 }
             }
+
+            if (updateError) {
+                console.warn('[Supabase] syncAllUserDataToCloud error:', updateError);
+                if (typeof showToast === 'function') {
+                    showToast('数据同步失败，请检查网络');
+                }
+                return { success: false, error: updateError };
+            }
+
+            window.lastCloudSyncTimestamp = Date.now();
+            if (typeof updateSyncButtonStatus === 'function') {
+                updateSyncButtonStatus(true);
+            }
+            return { success: true };
         } catch (e) {
             console.warn('[Supabase] syncAllUserDataToCloud exception:', e);
+            if (typeof showToast === 'function') {
+                showToast('数据同步失败，请检查网络');
+            }
+            return { success: false, error: e };
         }
     }
+    return { success: false, error: 'No Supabase client' };
 }
 
 // 从 Supabase 云端恢复用户全量学习记录与等级

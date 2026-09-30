@@ -20,10 +20,20 @@ function switchMistakesCategory(cat) {
     renderMistakesList();
 }
 
-function openMistakesView() {
+let mistakesPreviousView = 'view-hub';
+
+function openMistakesView(prev) {
+    mistakesPreviousView = prev || (typeof currentView !== 'undefined' && currentView ? currentView : 'view-hub');
     switchMistakesCategory(currentMistakesCategory || 'english');
     switchView('view-mistakes');
 }
+
+function exitMistakesView() {
+    const target = mistakesPreviousView || 'view-hub';
+    switchView(target);
+}
+window.openMistakesView = openMistakesView;
+window.exitMistakesView = exitMistakesView;
 
 async function renderMistakesList() {
     const mistakes = userStats.mistakes || {};

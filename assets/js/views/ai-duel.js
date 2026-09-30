@@ -219,10 +219,10 @@ function updateAiDuelSettingsChips() {
     const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
 
     // 对战模式切换 (排位赛 vs 友谊赛)
+    const currentAiType = aiDuelConfig.matchType || 'ranked';
     document.querySelectorAll('#chips-ai-match-type .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-type') === (aiDuelConfig.matchType || 'ranked'));
         const t = c.getAttribute('data-type');
-        c.classList.toggle('selected', t === (aiDuelConfig.matchType || 'friendly'));
+        c.classList.toggle('selected', t === currentAiType);
         if (isGuest && t === 'ranked') {
             c.classList.add('disabled');
             c.style.pointerEvents = 'none';
@@ -399,6 +399,9 @@ async function startAiDuel() {
     p2State.total = 0;
 
     aiDuelState = {
+        basePool: questionSequence.map(q => {
+            try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+        }),
         pool: [...questionSequence],
         aiIdx: 0,
         aiScore: 0,
@@ -472,7 +475,11 @@ function scheduleNextAiAnswer() {
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
     window.aiDuelTimer = null;
 
-    const q = aiDuelState.pool[aiDuelState.aiIdx % aiDuelState.pool.length];
+    if (typeof ensurePoolCapacity === 'function') {
+        ensurePoolCapacity(aiDuelState, aiDuelState.aiIdx);
+    }
+    const q = aiDuelState.pool[aiDuelState.aiIdx] || (aiDuelState.basePool && aiDuelState.basePool[0]);
+    if (!q) return;
     let delay = 3500;
     const isShiCi = Boolean(q && (q.isShiCi || q.senses || q.highlightedSentence || (q.word && /[\u4e00-\u9fa5]/.test(q.word))));
     const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');

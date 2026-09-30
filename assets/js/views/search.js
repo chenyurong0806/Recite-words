@@ -466,19 +466,15 @@ function enterEditMeaningsMode() {
     const currentWord = lastYoudaoSearchResult.word;
     const cleanLower = currentWord.toLowerCase();
 
-    // 提取本地词书中包含该词的释义并按词性切分为词块
-    const allTargetBooks = getAllUniqueBooks();
-    let overrides = {};
-    try {
-        overrides = JSON.parse(localStorage.getItem('vocab_word_meaning_overrides') || '{}');
-    } catch (e) { }
+    // 仅本地词书支持修改释义
+    const localCustomBooks = (window.customBooks || []).filter(b => isLocalCustomBook(b.id));
 
     const bookLanes = [];
-    allTargetBooks.forEach(b => {
+    localCustomBooks.forEach(b => {
         const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
         const matched = words.find(w => w && (w.word || w.name || '').trim().toLowerCase() === cleanLower);
         if (matched) {
-            const rawMeaning = extractWordMeaning(matched, overrides, b.id);
+            const rawMeaning = extractWordMeaning(matched, {}, b.id);
             const segs = parseMeaningPosSegments(rawMeaning);
             const bookChips = [];
             segs.forEach(seg => {
@@ -503,25 +499,10 @@ function enterEditMeaningsMode() {
         }
     });
 
-    // 若尚未收录于任何词书，默认追加自定义词书栏
     if (bookLanes.length === 0) {
-        const customBooks = window.customBooks || [];
-        const firstCustom = customBooks[0] || { id: 'custom_default', name: '生词本', words: [], count: 0 };
-        if (!window.customBooks || !window.customBooks.some(b => b.id === firstCustom.id)) {
-            if (!window.customBooks) window.customBooks = [];
-            window.customBooks.push(firstCustom);
-            if (typeof VocabOfflineDB !== 'undefined') {
-                VocabOfflineDB.saveBook(firstCustom).catch(() => { });
-            }
-        }
-        bookLanes.push({
-            id: 'lane_book_' + firstCustom.id,
-            title: `${firstCustom.name}`,
-            type: 'book',
-            bookId: firstCustom.id,
-            bookName: firstCustom.name,
-            chips: []
-        });
+        showToast('仅本地词书支持修改释义');
+        isEditingMeanings = false;
+        return;
     }
 
     // 提取有道词典参考词块并保留词性归类
@@ -2135,92 +2116,32 @@ let isInlineAddToBookOpen = false;
 let inlineSelectedChipIds = new Set();
 let inlineAddSelectedBookId = null;
 
-function renderSearchExplainsList() {
-    const container = document.getElementById('search-explains-dynamic-container');
-    if (!container) return;
-
-    if (!currentSearchExplainsData || !currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
-        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:12px 16px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">有道词典与本地词书暂未收录该词具体释义</div>`;
-        return;
-    }
-
-    container.innerHTML = currentSearchExplainsData.sources.map(src => `
-                <div class="unified-explain-card" style="margin-bottom:10px;">
-                    <div class="unified-card-source-row">
-                        <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
-                    </div>
-                    <div class="unified-card-content">
-                        ${src.segments.map(seg => {
-        if (isInlineAddToBookOpen) {
-            return `
-                                    <div class="unified-explain-row" style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
-                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
-                                            ${seg.pieces.map(chip => {
-                const isSel = inlineSelectedChipIds.has(chip.id);
-                return `
-                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
-                                                        onclick="toggleInlineSelectChip('${chip.id}')"
-                                                        title="点击勾选/取消勾选">
-                                                        <span>${escapeHtml(chip.text)}</span>
-                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
-                                                    </div>
-                                                `;
-            }).join('')}
-                                            <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
-                                                onclick="openAddMeaningBlockModal('${escapeHtml(seg.pos || '')}')"
-                                                title="在已有释义后添加词块"
-                                                style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
-                                                <span class="material-symbols-rounded" style="font-size:15px;">add</span>
-                                                <span>添加词块</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-        } else {
-            // 正常状态下自然连续排布，以中文分号连接，杜绝各个词条间的分裂巨大间隙
-            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
-            return `
-                                    <div class="unified-explain-row">
-                                        ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
-                                        <div class="unified-explain-text">${fluidText}</div>
-                                    </div>
-                                `;
-        }
-    }).join('')}
-                    </div>
-                </div>
-            `).join('');
+function isLocalCustomBook(bookId) {
+    if (!bookId) return false;
+    const b = (window.customBooks || []).find(cb => cb.id === bookId);
+    if (b && !b.isCloud) return true;
+    return String(bookId).startsWith('custom_') && !String(bookId).includes('cloud');
 }
 
-function openAddMeaningBlockModal(defaultPos = '') {
-    const posSelect = document.getElementById('select-meaning-block-pos');
-    const input = document.getElementById('input-meaning-block-text');
-    const subtitle = document.getElementById('add-block-target-word');
+let activeSearchAddBlockTarget = null;
 
-    if (posSelect) {
-        posSelect.value = defaultPos || '';
+function toggleSearchInlineAddBlock(bookId, segIdx) {
+    if (activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === bookId && activeSearchAddBlockTarget.segIdx === segIdx) {
+        activeSearchAddBlockTarget = null;
+    } else {
+        activeSearchAddBlockTarget = { bookId, segIdx };
     }
-    if (input) {
-        input.value = '';
-    }
-    if (subtitle && currentSearchExplainsData) {
-        subtitle.innerText = `为单词 “${currentSearchExplainsData.word}” 添加释义词块`;
-    }
-
-    const modal = document.getElementById('modal-add-meaning-block');
-    if (modal) modal.classList.add('active');
-    if (input) setTimeout(() => input.focus(), 150);
+    renderSearchExplainsList();
 }
 
-function closeAddMeaningBlockModal() {
-    const modal = document.getElementById('modal-add-meaning-block');
-    if (modal) modal.classList.remove('active');
+function cancelSearchInlineAddBlock() {
+    activeSearchAddBlockTarget = null;
+    renderSearchExplainsList();
 }
 
-function confirmAddMeaningBlock() {
-    const posSelect = document.getElementById('select-meaning-block-pos');
-    const input = document.getElementById('input-meaning-block-text');
+function confirmSearchInlineAddBlock(bookId, segIdx) {
+    const posSelect = document.getElementById(`search-inline-add-pos-${bookId}-${segIdx}`);
+    const input = document.getElementById(`search-inline-add-text-${bookId}-${segIdx}`);
     const text = (input ? input.value : '').trim();
     const pos = (posSelect ? posSelect.value : '').trim();
 
@@ -2229,20 +2150,11 @@ function confirmAddMeaningBlock() {
         return;
     }
 
-    if (!currentSearchExplainsData) return;
-    if (!currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
-        currentSearchExplainsData.sources = [{
-            type: 'custom',
-            name: '自定义释义',
-            segments: []
-        }];
-    }
+    if (!currentSearchExplainsData || !currentSearchExplainsData.sources) return;
+    const src = currentSearchExplainsData.sources.find(s => s.bookId === bookId);
+    if (!src || !src.segments) return;
 
-    const src = currentSearchExplainsData.sources[0];
-    if (!src.segments) src.segments = [];
-
-    // 寻找匹配词性的 segment，如果没有则创建
-    let targetSeg = src.segments.find(s => (s.pos || '') === pos);
+    let targetSeg = src.segments[segIdx];
     if (!targetSeg) {
         targetSeg = { pos: pos, pieces: [] };
         src.segments.push(targetSeg);
@@ -2252,16 +2164,133 @@ function confirmAddMeaningBlock() {
     targetSeg.pieces.push({
         id: newChipId,
         text: text,
-        pos: pos
+        pos: pos || targetSeg.pos || ''
     });
 
-    // 自动勾选新建的词块
-    inlineSelectedChipIds.add(newChipId);
+    if (isInlineAddToBookOpen) {
+        inlineSelectedChipIds.add(newChipId);
+    }
 
-    closeAddMeaningBlockModal();
+    const targetBook = (window.customBooks || []).find(b => b.id === bookId);
+    if (targetBook && Array.isArray(targetBook.words)) {
+        const wordObj = targetBook.words.find(w => (w.word || w.name || '').toLowerCase() === (currentSearchExplainsData.word || '').toLowerCase());
+        if (wordObj) {
+            const allPieces = [];
+            src.segments.forEach(s => {
+                const pTexts = s.pieces.map(p => p.text).filter(Boolean);
+                if (pTexts.length > 0) {
+                    allPieces.push(`${s.pos ? s.pos + ' ' : ''}${pTexts.join('；')}`);
+                }
+            });
+            wordObj.meaning = allPieces.join('； ');
+            wordObj.trans = [wordObj.meaning];
+            if (typeof VocabOfflineDB !== 'undefined') {
+                VocabOfflineDB.saveBook(targetBook).catch(() => {});
+            }
+        }
+    }
+
+    activeSearchAddBlockTarget = null;
     renderSearchExplainsList();
-    renderInlineAddToBookHeader();
+    if (isInlineAddToBookOpen) {
+        renderInlineAddToBookHeader();
+    }
     showToast(`已添加词块：${pos ? pos + ' ' : ''}${text}`);
+}
+
+function renderSearchExplainsList() {
+    const container = document.getElementById('search-explains-dynamic-container');
+    if (!container) return;
+
+    if (!currentSearchExplainsData || !currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
+        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:12px 16px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">有道词典与本地词书暂未收录该词具体释义</div>`;
+        return;
+    }
+
+    const posSelectOptions = [
+        { value: 'adj.', label: 'adj. 形容词' },
+        { value: 'adv.', label: 'adv. 副词' },
+        { value: 'n.', label: 'n. 名词' },
+        { value: 'v.', label: 'v. 动词' },
+        { value: 'vt.', label: 'vt. 及物动词' },
+        { value: 'vi.', label: 'vi. 不及物动词' },
+        { value: 'prep.', label: 'prep. 介词' },
+        { value: 'conj.', label: 'conj. 连词' },
+        { value: 'pron.', label: 'pron. 代词' },
+        { value: 'num.', label: 'num. 数词' },
+        { value: 'art.', label: 'art. 冠词' },
+        { value: 'int.', label: 'int. 感叹词' },
+        { value: '', label: '通用 / 无词性' }
+    ];
+
+    container.innerHTML = currentSearchExplainsData.sources.map(src => {
+        const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
+
+        return `
+            <div class="unified-explain-card" style="margin-bottom:10px;">
+                <div class="unified-card-source-row">
+                    <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
+                </div>
+                <div class="unified-card-content">
+                    ${src.segments.map((seg, segIdx) => {
+                        const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
+
+                        if (isInlineAddToBookOpen) {
+                            return `
+                                <div class="unified-explain-row" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+                                    <div style="display:flex; align-items:flex-start; gap:8px;">
+                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
+                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
+                                            ${seg.pieces.map(chip => {
+                                                const isSel = inlineSelectedChipIds.has(chip.id);
+                                                return `
+                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
+                                                        onclick="toggleInlineSelectChip('${chip.id}')"
+                                                        title="点击勾选/取消勾选">
+                                                        <span>${escapeHtml(chip.text)}</span>
+                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                            ${isLocal ? `
+                                                <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
+                                                    onclick="toggleSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})"
+                                                    title="添加词块"
+                                                    style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
+                                                    <span class="material-symbols-rounded" style="font-size:15px;">add</span>
+                                                    <span>添加词块</span>
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    ${isAddingHere ? `
+                                        <div class="inline-add-chip-form" style="display:flex; align-items:center; gap:8px; width:100%; margin-top:4px; flex-wrap:wrap;">
+                                            ${renderMd3SelectHtml({
+                                                id: `search-inline-add-pos-${src.bookId}-${segIdx}`,
+                                                options: posSelectOptions,
+                                                defaultValue: seg.pos || 'adj.'
+                                            })}
+                                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">
+                                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">添加</button>
+                                            <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelSearchInlineAddBlock()">取消</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        } else {
+                            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
+                            return `
+                                <div class="unified-explain-row">
+                                    ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
+                                    <div class="unified-explain-text">${fluidText}</div>
+                                </div>
+                            `;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function toggleInlineSelectChip(chipId) {
@@ -2401,8 +2430,6 @@ function renderInlineAddToBookHeader() {
                                 </span>
                             `).join('') : '<span style="font-size:0.82rem; color:var(--md-sys-color-outline);">(在下方点击勾选词块)</span>'}
                         </div>
-                        <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:180px;">
-                            <input type="text" id="input-inline-add-custom-meaning" class="input-field" placeholder="＋ 添加自定义释义 (可选)..." style="height:32px; font-size:0.84rem; padding:4px 10px; border-radius:8px; flex:1;" value="${escapeHtml(customMeaningDraft || '')}" oninput="customMeaningDraft = this.value" onkeydown="if(event.key==='Enter') confirmInlineAddToBook()">
                         </div>
                     </div>
                 </div>
@@ -2427,10 +2454,8 @@ async function confirmInlineAddToBook() {
         });
     }
 
-    const customText = (document.getElementById('input-inline-add-custom-meaning')?.value || '').trim();
-
-    if (selectedChips.length === 0 && !customText) {
-        showToast('请至少勾选一个释义词块或输入自定义释义！');
+    if (selectedChips.length === 0) {
+        showToast('请至少勾选一个释义词块！');
         return;
     }
 
@@ -2516,6 +2541,10 @@ function closeAddToBookModal() {
 let editingMeaningContext = null;
 
 function openEditMeaningModal(bookId, word, meaning) {
+    if (!isLocalCustomBook(bookId)) {
+        showToast('仅本地词书支持修改释义');
+        return;
+    }
     editingMeaningContext = { bookId, word, meaning };
     const modal = document.getElementById('modal-edit-meaning');
     const titleEl = document.getElementById('edit-meaning-word-title');

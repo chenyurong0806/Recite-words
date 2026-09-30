@@ -1,0 +1,192 @@
+[
+  {
+    "name": "domestic",
+    "trans": ["家庭的", "驯养的", "国内的"]
+  },
+  {
+    "name": "division",
+    "trans": ["分开", "部门", "除法"]
+  },
+  {
+    "name": "domain",
+    "trans": ["领域", "范畴"]
+  },
+  {
+    "name": "disturbance",
+    "trans": ["扰乱", "打扰"]
+  },
+  {
+    "name": "distribution",
+    "trans": ["分发", "分配", "分送"]
+  },
+  {
+    "name": "considerable",
+    "trans": ["值得考虑的", "重大的", "相当多的"]
+  },
+  {
+    "name": "cycle",
+    "trans": ["周期", "循环", "自行车", "使循环", "骑自行车"]
+  },
+  {
+    "name": "court",
+    "trans": ["球场", "法院", "法庭", "宫廷", "庭院", "短街", "陈列区", "馆"]
+  },
+  {
+    "name": "damp",
+    "trans": ["潮湿的", "湿气重的", "使潮湿", "给 ... 泼冷水", "潮湿", "湿气"]
+  },
+  {
+    "name": "considerate",
+    "trans": ["体谅的", "考虑周到的"]
+  },
+  {
+    "name": "decent",
+    "trans": ["得体的", "适当的", "正派的", "过得去的", "尚可的", "像样的", "合乎地位的"]
+  },
+  {
+    "name": "deliberate",
+    "trans": ["故意的", "蓄意的", "慎重的", "谨慎的", "深思熟虑的"]
+  },
+  {
+    "name": "demanding",
+    "trans": ["要求高的", "费力的"]
+  },
+  {
+    "name": "distrust",
+    "trans": ["不信任", "怀疑"]
+  },
+  {
+    "name": "discipline",
+    "trans": ["纪律", "训练", "处罚", "学科", "惩罚", "控制"]
+  },
+  {
+    "name": "determination",
+    "trans": ["决心", "坚定", "果断", "确定"]
+  },
+  {
+    "name": "distinguished",
+    "trans": ["卓越的", "杰出的"]
+  },
+  {
+    "name": "diligent",
+    "trans": ["勤勉的", "勤奋的"]
+  },
+  {
+    "name": "disorder",
+    "trans": ["杂乱", "混乱", "失调", "紊乱"]
+  },
+  {
+    "name": "critic",
+    "trans": ["批评家", "评论家"]
+  },
+  {
+    "name": "be diagnosed with cancer",
+    "trans": ["确诊癌症"],
+    "mistake": ["as", "of", "for"]
+  },
+  {
+    "name": "on display",
+    "trans": ["陈列", "展出"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "have difficulty (in) doing sth.",
+    "trans": ["做某事有困难"],
+    "mistake": ["to", "with"]
+  },
+  {
+    "name": "in broad daylight",
+    "trans": ["在光天化日之下"],
+    "mistake": ["under", "at"]
+  },
+  {
+    "name": "deceive sb. into doing sth.",
+    "trans": ["欺骗某人做某事", "蒙蔽某人做某事"],
+    "mistake": ["to", "for"]
+  },
+  {
+    "name": "declare war on ...",
+    "trans": ["对 ... 宣战"],
+    "mistake": ["to", "against"]
+  },
+  {
+    "name": "pay off debts",
+    "trans": ["偿还债务"],
+    "mistake": ["back", "up"]
+  },
+  {
+    "name": "criticize sb. for doing sth.",
+    "trans": ["因 ... 批评某人"],
+    "mistake": ["about", "of", "to"]
+  },
+  {
+    "name": "consist of ...",
+    "trans": ["由 ... 组成"],
+    "mistake": ["from", "in"]
+  },
+  {
+    "name": "be composed of ...",
+    "trans": ["由 ... 组成"],
+    "mistake": ["by", "from"]
+  },
+  {
+    "name": "be comprised of ...",
+    "trans": ["由 ... 组成"],
+    "mistake": ["with", "by"]
+  },
+  {
+    "name": "make contact with sb.",
+    "trans": ["与某人取得联系"],
+    "mistake": ["to", "on"]
+  },
+  {
+    "name": "at one's convenience",
+    "trans": ["在某人方便的时候"],
+    "mistake": ["in", "for"]
+  },
+  {
+    "name": "cost sb. heavy/great losses",
+    "trans": ["使某人损失惨重"],
+    "mistake": ["big", "huge"]
+  },
+  {
+    "name": "in despair",
+    "trans": ["绝望地"],
+    "mistake": ["with", "under"]
+  },
+  {
+    "name": "beyond description",
+    "trans": ["难以描述的", "无法形容的"],
+    "mistake": ["out of", "without"]
+  },
+  {
+    "name": "It dawned on sb. that ...",
+    "trans": ["某人突然醒悟 ...", "某人突然想起 ..."],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "inject new vitality into ...",
+    "trans": ["为 ... 注入新活力"],
+    "mistake": ["to", "in"]
+  },
+  {
+    "name": "time-honored brands",
+    "trans": ["老字号"],
+    "mistake": ["old", "aged"]
+  },
+  {
+    "name": "be carefully designed",
+    "trans": ["被精心设计"],
+    "mistake": ["cautiously", "deliberately"]
+  },
+  {
+    "name": "settle a long-standing debate",
+    "trans": ["解决长期以来的争端", "解决长期以来的争论"],
+    "mistake": ["solve", "long-time"]
+  },
+  {
+    "name": "push back the boundaries of ...",
+    "trans": ["突破 ... 的边界"],
+    "mistake": ["break", "off"]
+  }
+]

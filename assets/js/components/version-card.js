@@ -16,6 +16,8 @@ function semverCompare(vA, vB) {
     return 0;
 }
 
+let cachedLatestVersionData = null;
+
 async function checkCloudVersion(manual = false) {
     let data = null;
 
@@ -31,7 +33,7 @@ async function checkCloudVersion(manual = false) {
         }
     }
 
-    // 2. 备选：Worker 不可用时尝试直连
+    // 2. 备选：Worker 不可用时尝试直连 GitHub
     if (!data) {
         try {
             const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest');
@@ -51,18 +53,21 @@ async function checkCloudVersion(manual = false) {
                     version: tag,
                     releaseDate: releaseDate,
                     changelog: changelogItems.length > 0 ? changelogItems : ['常规优化更新'],
-                    // 自动加上 ghfast.top 镜像前缀，确保离线版在大陆下载 zip 也是满速
-                    downloadUrl: `https://ghfast.top/${zipRawUrl}`
+                    downloadUrl: `https://ghfast.top/${zipRawUrl}`,
+                    mirrorDownloadUrl: `https://ghfast.top/${zipRawUrl}`
                 };
             }
         } catch (e) { }
     }
 
     if (data && data.version) {
-        // 保证离线版本下载链接始终是 zip 压缩包
-        if (!data.downloadUrl || !data.downloadUrl.includes('.zip')) {
-            const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+        cachedLatestVersionData = data;
+        const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+        if (!data.downloadUrl) {
             data.downloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+        }
+        if (!data.mirrorDownloadUrl) {
+            data.mirrorDownloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
         }
 
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -79,8 +84,9 @@ async function checkCloudVersion(manual = false) {
 }
 
 function showVersionUpdateCard(data, isLocal) {
-    if (isBilibiliToy) return;
+    if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) return;
 
+    cachedLatestVersionData = data;
     const card = document.getElementById('version-update-card');
     if (!card) return;
 
@@ -90,7 +96,7 @@ function showVersionUpdateCard(data, isLocal) {
     const actionBtn = document.getElementById('btn-version-card-action');
 
     if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
-    if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate}`;
+    if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate || '近期'}`;
     if (descEl && Array.isArray(data.changelog)) {
         if (typeof renderMarkdownChangelog === 'function') {
             descEl.innerHTML = `
@@ -108,13 +114,8 @@ function showVersionUpdateCard(data, isLocal) {
     }
 
     if (actionBtn) {
-        if (isLocal) {
-            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
-            actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
-        } else {
-            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">refresh</span><span>刷新更新</span>';
-            actionBtn.onclick = () => window.location.reload(true);
-        }
+        actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
+        actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
     }
 
     card.style.display = 'block';
@@ -132,16 +133,40 @@ function openChangelogInSettings() {
 }
 
 function handleDownloadLatestZip(downloadUrl, version) {
-    if (!downloadUrl) return;
-    showToast('正在启动下载离线更新压缩包，请稍候...');
+    const data = cachedLatestVersionData || {};
+    const finalVersion = version || data.version || APP_VERSION || 'latest';
+    const tag = String(finalVersion).startsWith('v') ? finalVersion : `v${finalVersion}`;
+    const targetUrl = downloadUrl 
+        || data.downloadUrl 
+        || data.mirrorDownloadUrl 
+        || `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
 
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    const vStr = version ? `v${version}` : 'latest';
-    a.download = `Recite-words-${vStr}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    showToast(`正在启动下载 ${tag} 更新压缩包，请稍候...`);
+
+    // 1. 创建 a 标签并配置 target="_blank"
+    try {
+        const a = document.createElement('a');
+        a.href = targetUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.download = `Recite-words-${tag}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+        }, 300);
+    } catch (e) {
+        console.warn('Direct a.click failed:', e);
+    }
+
+    // 2. 备用安全降级：如果某些浏览器阻止动态 a.click，延迟通过 window.open 打开
+    setTimeout(() => {
+        try {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        } catch (e) {
+            window.location.href = targetUrl;
+        }
+    }, 450);
 }
 
 // 兼容旧方法名
@@ -150,10 +175,11 @@ function handleDownloadLatestHtml(downloadUrl) {
 }
 
 function handleVersionUpdateAction() {
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-        handleDownloadLatestZip();
-    } else {
-        window.location.reload(true);
-    }
+    handleDownloadLatestZip();
 }
+
+window.checkCloudVersion = checkCloudVersion;
+window.showVersionUpdateCard = showVersionUpdateCard;
+window.dismissVersionUpdateCard = dismissVersionUpdateCard;
+window.handleDownloadLatestZip = handleDownloadLatestZip;
+window.handleVersionUpdateAction = handleVersionUpdateAction;

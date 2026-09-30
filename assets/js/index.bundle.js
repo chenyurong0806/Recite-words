@@ -554,24 +554,45 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
     if (typeof sbClient !== 'undefined' && sbClient) {
         try {
+            let updateError = null;
             const { error } = await sbClient
                 .from('user_accounts')
                 .update(updateObj)
                 .eq('username', u);
             if (error) {
                 if (error.message && error.message.includes('level')) {
-                    await sbClient
+                    const { error: err2 } = await sbClient
                         .from('user_accounts')
                         .update({ user_data: payload, updated_at: payload.updated_at })
                         .eq('username', u);
+                    if (err2) updateError = err2;
                 } else {
-                    console.warn('[Supabase] syncAllUserDataToCloud error:', error);
+                    updateError = error;
                 }
             }
+
+            if (updateError) {
+                console.warn('[Supabase] syncAllUserDataToCloud error:', updateError);
+                if (typeof showToast === 'function') {
+                    showToast('数据同步失败，请检查网络');
+                }
+                return { success: false, error: updateError };
+            }
+
+            window.lastCloudSyncTimestamp = Date.now();
+            if (typeof updateSyncButtonStatus === 'function') {
+                updateSyncButtonStatus(true);
+            }
+            return { success: true };
         } catch (e) {
             console.warn('[Supabase] syncAllUserDataToCloud exception:', e);
+            if (typeof showToast === 'function') {
+                showToast('数据同步失败，请检查网络');
+            }
+            return { success: false, error: e };
         }
     }
+    return { success: false, error: 'No Supabase client' };
 }
 
 // 从 Supabase 云端恢复用户全量学习记录与等级
@@ -850,6 +871,11 @@ window.getCookie = getCookie;
 window.setCookie = setCookie;
 window.removeCookie = removeCookie;
 
+// 申请持久化存储（防止移动端/PWA/Toy添加到主屏幕后本地存储被系统清理）
+if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+    navigator.storage.persist().catch(() => {});
+}
+
 const memoryStorageMap = {};
 const SafeStorage = {
     isAvailable: (() => {
@@ -871,7 +897,7 @@ const SafeStorage = {
                 if (val !== null) return val;
             }
         } catch (e) { }
-        // 苹果设备与移动端兜底：尝试从 Cookie 读取
+        // 苹果设备与移动端/独立容器兜底：尝试从 Cookie 读取
         try {
             const cookieVal = getCookie(key);
             if (cookieVal !== null) {
@@ -896,11 +922,15 @@ const SafeStorage = {
         } catch (e) {
             console.warn('[SafeStorage] localStorage.setItem failed, retained in memory:', key, e);
         }
-        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保苹果设备持久化
+        // 对于关键用户标识及中短配置（< 3.5KB），同步存入 Cookie 确保独立容器与移动端持久化
         if (strVal.length < 3500) {
             try {
                 setCookie(key, strVal, 365);
             } catch (e) { }
+        }
+        // 异步镜像至 IndexedDB，保障 PWA/Toy 独立窗口全量本地持久化
+        if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.saveKV === 'function') {
+            VocabOfflineDB.saveKV(key, strVal).catch(() => {});
         }
     },
 
@@ -915,6 +945,9 @@ const SafeStorage = {
         try {
             removeCookie(key);
         } catch (e) { }
+        if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.deleteKV === 'function') {
+            VocabOfflineDB.deleteKV(key).catch(() => {});
+        }
     },
 
     clear() {
@@ -933,7 +966,7 @@ let folderTreeCollapseMap = {};
 
 const VocabOfflineDB = {
     dbName: 'VocabLocalBooksDB',
-    version: 1,
+    version: 2,
     db: null,
 
     async init() {
@@ -953,9 +986,31 @@ const VocabOfflineDB = {
                     if (!db.objectStoreNames.contains('folders')) {
                         db.createObjectStore('folders', { keyPath: 'id' });
                     }
+                    if (!db.objectStoreNames.contains('kv_store')) {
+                        db.createObjectStore('kv_store', { keyPath: 'k' });
+                    }
                 };
                 request.onsuccess = (e) => {
                     this.db = e.target.result;
+                    // 同步从 IndexedDB 恢复可能缺失的 localStorage 关键数据 (如账号信息、段位等)
+                    try {
+                        const tx = this.db.transaction('kv_store', 'readonly');
+                        const store = tx.objectStore('kv_store');
+                        const req = store.getAll();
+                        req.onsuccess = () => {
+                            const list = req.result || [];
+                            list.forEach(item => {
+                                if (item && item.k && item.v !== undefined) {
+                                    memoryStorageMap[item.k] = item.v;
+                                    try {
+                                        if (SafeStorage.isAvailable && window.localStorage.getItem(item.k) === null) {
+                                            window.localStorage.setItem(item.k, item.v);
+                                        }
+                                    } catch (err) { }
+                                }
+                            });
+                        };
+                    } catch (err) { }
                     resolve(this.db);
                 };
                 request.onerror = (e) => {
@@ -963,6 +1018,38 @@ const VocabOfflineDB = {
                 };
             } catch (err) {
                 resolve(null);
+            }
+        });
+    },
+
+    async saveKV(key, val) {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('kv_store', 'readwrite');
+                const store = tx.objectStore('kv_store');
+                store.put({ k: key, v: val });
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    },
+
+    async deleteKV(key) {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('kv_store', 'readwrite');
+                const store = tx.objectStore('kv_store');
+                store.delete(key);
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+            } catch (e) {
+                resolve(false);
             }
         });
     },
@@ -2769,7 +2856,7 @@ const LevelManager = {
     MIN_LEVEL: 1,
     MIN_RANK: 1,
     MAX_RANK: 9,
-    MAX_RATING: 900, // 9段满分为 900 分 (每段100分)
+    MAX_RATING: Infinity, // 等级分无上限，到达9段后可以继续增加
 
     // 检查是否为游客
     isGuestUser(username) {
@@ -2781,7 +2868,7 @@ const LevelManager = {
         return false;
     },
 
-    // 根据总等级分反推段位 (1段: 1-100, 2段: 101-200, ..., 9段: 801-900)
+    // 根据总等级分反推段位 (1段: 1-100, 2段: 101-200, ..., 9段: 801分及以上无上限)
     getRankFromRating(rating) {
         const r = parseInt(rating) || 0;
         if (r <= 0) return 1;
@@ -2840,21 +2927,24 @@ const LevelManager = {
             data.rating = (data.rank - 1) * 100 + data.rating;
         }
         data.rank = this.getRankFromRating(data.rating);
+        const isMaxRank = data.rank >= this.MAX_RANK;
         const withinTier = data.rating <= 0 ? 0 : ((data.rating - 1) % 100) + 1;
-        const progressPercent = Math.max(0, Math.min(100, withinTier));
+        const progressPercent = isMaxRank ? 100 : Math.max(0, Math.min(100, withinTier));
         const tierMax = data.rank * 100;
-        const isPromotionReady = (data.rank < this.MAX_RANK && data.rating >= tierMax);
+        const isPromotionReady = (!isMaxRank && data.rating >= tierMax);
 
         return {
             isGuest: false,
             rank: data.rank,
             rating: data.rating,
+            isMaxRank: isMaxRank,
             isPromotionReady: isPromotionReady,
             battles: data.battles || { total: 0, wins: 0, losses: 0, draws: 0 },
             level: data.rank, // 兼容现有调用 level 的字段
             score: data.rating, // 兼容 score
+            tierRating: withinTier,
             progressPercent: progressPercent, // 当前段位内百分比 (0~100%)
-            comparisonText: `${data.rating} 分 (当前段位 ${progressPercent}/100)`
+            comparisonText: isMaxRank ? `${data.rating} 分 (已达9段，积分无上限)` : `${data.rating} 分 (当前段位 ${progressPercent}/100)`
         };
     },
 
@@ -2880,14 +2970,16 @@ const LevelManager = {
     getLevelData(username) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         const rankData = this.getUserRankData(u);
+        const isMaxRank = rankData.rank >= this.MAX_RANK;
         const withinTier = rankData.rating <= 0 ? 0 : ((rankData.rating - 1) % 100) + 1;
         return {
             ...rankData,
             title: `${rankData.rank}段`,
             neededExp: 100,
-            currentLevelExp: withinTier,
+            tierRating: withinTier,
+            currentLevelExp: isMaxRank ? 100 : withinTier,
             currentThreshold: (rankData.rank - 1) * 100,
-            nextThreshold: rankData.rank * 100
+            nextThreshold: isMaxRank ? null : rankData.rank * 100
         };
     },
 
@@ -3429,10 +3521,19 @@ function renderBookFolderTree(containerId, options = {}) {
 
     const bookMatches = (b) => (filterType === 'all' ? true : (filterType === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
+    const isSupportedForMode = (b) => {
+        if (mode === 'riddle') {
+            if (typeof isWordleSupportedBook === 'function') {
+                return isWordleSupportedBook(b);
+            }
+        }
+        return true;
+    };
+
     // 云端词书：包括 Worker/GitHub 云端词书以及从云端下载到本地持久化的词书（过滤掉 GaoKao3500 重复项）
-    const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500' && bookMatches(b));
+    const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500' && bookMatches(b) && isSupportedForMode(b));
     // 本地词书：用户自主导入的本地词书 (远程联机、人机对战禁止选择本地词书)
-    const localCustomBooks = excludeLocal ? [] : (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b));
+    const localCustomBooks = excludeLocal ? [] : (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b) && isSupportedForMode(b));
 
     if (cloudBooks.length === 0 && localCustomBooks.length === 0) {
         container.innerHTML = `
@@ -3719,6 +3820,8 @@ function semverCompare(vA, vB) {
     return 0;
 }
 
+let cachedLatestVersionData = null;
+
 async function checkCloudVersion(manual = false) {
     let data = null;
 
@@ -3734,7 +3837,7 @@ async function checkCloudVersion(manual = false) {
         }
     }
 
-    // 2. 备选：Worker 不可用时尝试直连
+    // 2. 备选：Worker 不可用时尝试直连 GitHub
     if (!data) {
         try {
             const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest');
@@ -3754,18 +3857,21 @@ async function checkCloudVersion(manual = false) {
                     version: tag,
                     releaseDate: releaseDate,
                     changelog: changelogItems.length > 0 ? changelogItems : ['常规优化更新'],
-                    // 自动加上 ghfast.top 镜像前缀，确保离线版在大陆下载 zip 也是满速
-                    downloadUrl: `https://ghfast.top/${zipRawUrl}`
+                    downloadUrl: `https://ghfast.top/${zipRawUrl}`,
+                    mirrorDownloadUrl: `https://ghfast.top/${zipRawUrl}`
                 };
             }
         } catch (e) { }
     }
 
     if (data && data.version) {
-        // 保证离线版本下载链接始终是 zip 压缩包
-        if (!data.downloadUrl || !data.downloadUrl.includes('.zip')) {
-            const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+        cachedLatestVersionData = data;
+        const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
+        if (!data.downloadUrl) {
             data.downloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+        }
+        if (!data.mirrorDownloadUrl) {
+            data.mirrorDownloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
         }
 
         const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -3782,8 +3888,9 @@ async function checkCloudVersion(manual = false) {
 }
 
 function showVersionUpdateCard(data, isLocal) {
-    if (isBilibiliToy) return;
+    if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) return;
 
+    cachedLatestVersionData = data;
     const card = document.getElementById('version-update-card');
     if (!card) return;
 
@@ -3793,7 +3900,7 @@ function showVersionUpdateCard(data, isLocal) {
     const actionBtn = document.getElementById('btn-version-card-action');
 
     if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
-    if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate}`;
+    if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate || '近期'}`;
     if (descEl && Array.isArray(data.changelog)) {
         if (typeof renderMarkdownChangelog === 'function') {
             descEl.innerHTML = `
@@ -3811,13 +3918,8 @@ function showVersionUpdateCard(data, isLocal) {
     }
 
     if (actionBtn) {
-        if (isLocal) {
-            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
-            actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
-        } else {
-            actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">refresh</span><span>刷新更新</span>';
-            actionBtn.onclick = () => window.location.reload(true);
-        }
+        actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
+        actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
     }
 
     card.style.display = 'block';
@@ -3835,16 +3937,40 @@ function openChangelogInSettings() {
 }
 
 function handleDownloadLatestZip(downloadUrl, version) {
-    if (!downloadUrl) return;
-    showToast('正在启动下载离线更新压缩包，请稍候...');
+    const data = cachedLatestVersionData || {};
+    const finalVersion = version || data.version || APP_VERSION || 'latest';
+    const tag = String(finalVersion).startsWith('v') ? finalVersion : `v${finalVersion}`;
+    const targetUrl = downloadUrl 
+        || data.downloadUrl 
+        || data.mirrorDownloadUrl 
+        || `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
 
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    const vStr = version ? `v${version}` : 'latest';
-    a.download = `Recite-words-${vStr}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    showToast(`正在启动下载 ${tag} 更新压缩包，请稍候...`);
+
+    // 1. 创建 a 标签并配置 target="_blank"
+    try {
+        const a = document.createElement('a');
+        a.href = targetUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.download = `Recite-words-${tag}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+        }, 300);
+    } catch (e) {
+        console.warn('Direct a.click failed:', e);
+    }
+
+    // 2. 备用安全降级：如果某些浏览器阻止动态 a.click，延迟通过 window.open 打开
+    setTimeout(() => {
+        try {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        } catch (e) {
+            window.location.href = targetUrl;
+        }
+    }, 450);
 }
 
 // 兼容旧方法名
@@ -3853,13 +3979,14 @@ function handleDownloadLatestHtml(downloadUrl) {
 }
 
 function handleVersionUpdateAction() {
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-        handleDownloadLatestZip();
-    } else {
-        window.location.reload(true);
-    }
+    handleDownloadLatestZip();
 }
+
+window.checkCloudVersion = checkCloudVersion;
+window.showVersionUpdateCard = showVersionUpdateCard;
+window.dismissVersionUpdateCard = dismissVersionUpdateCard;
+window.handleDownloadLatestZip = handleDownloadLatestZip;
+window.handleVersionUpdateAction = handleVersionUpdateAction;
 
 /* --- End: components/version-card.js --- */
 
@@ -4152,7 +4279,7 @@ function renderAuthView() {
 
 function getSavedDeviceAccounts() {
     try {
-        const raw = localStorage.getItem('vocab_device_accounts');
+        const raw = SafeStorage.getItem('vocab_device_accounts');
         return raw ? JSON.parse(raw) : [];
     } catch (e) {
         return [];
@@ -4176,13 +4303,13 @@ function recordDeviceAccount(username, avatar, type, hashedPassword) {
     } else {
         list.unshift(item);
     }
-    localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+    SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 }
 
 function removeSavedDeviceAccount(username) {
     let list = getSavedDeviceAccounts();
     list = list.filter(a => a.username !== username);
-    localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+    SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
     renderSavedDeviceAccounts();
 }
 
@@ -4283,7 +4410,7 @@ async function prepareUserSwitch(newUser) {
     }
 }
 
-function withAuthTimeout(promise, ms = 10000, timeoutMsg = '登录请求超时，网络较慢或服务器暂未响应，请稍后重试') {
+function withAuthTimeout(promise, ms = 5000, timeoutMsg = '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试') {
     return Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutMsg)), ms))
@@ -4305,10 +4432,10 @@ async function selectSavedAccountToLogin(username) {
     }
 
     try {
-        const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 10000);
+        const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 5000, '登录请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(user.username);
         acc.lastLoginTime = Date.now();
-        localStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+        SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 
         const profile = {
             isLoggedIn: true,
@@ -4397,14 +4524,15 @@ async function handleCloudLogin() {
         return;
     }
 
+    const origLoginBtnHtml = loginBtn ? loginBtn.innerHTML : '';
     if (loginBtn) {
         loginBtn.disabled = true;
-        loginBtn.innerText = '登录中...';
+        loginBtn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">登录中...</span>';
     }
 
     try {
         const hashedPassword = await hashPassword(password);
-        const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 10000);
+        const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 5000, '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试');
         await prepareUserSwitch(user.username);
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
@@ -4437,7 +4565,7 @@ async function handleCloudLogin() {
     } finally {
         if (loginBtn) {
             loginBtn.disabled = false;
-            loginBtn.innerText = '登录';
+            loginBtn.innerHTML = origLoginBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">login</span><span class="btn-label-text">登录</span>';
         }
     }
 }
@@ -4473,9 +4601,10 @@ async function handleCloudRegister() {
         return;
     }
 
+    const origRegBtnHtml = regBtn ? regBtn.innerHTML : '';
     if (regBtn) {
         regBtn.disabled = true;
-        regBtn.innerText = '注册中...';
+        regBtn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">注册中...</span>';
     }
 
     try {
@@ -4483,7 +4612,7 @@ async function handleCloudRegister() {
             username: username,
             password: password,
             avatar: regAvatarDataUrl
-        }), 10000, '注册请求超时，请检查网络后重试');
+        }), 5000, '注册请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(newUser.username);
 
         const hashedPassword = await hashPassword(password);
@@ -4510,7 +4639,7 @@ async function handleCloudRegister() {
     } finally {
         if (regBtn) {
             regBtn.disabled = false;
-            regBtn.innerText = '注册并登录';
+            regBtn.innerHTML = origRegBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">person_add</span><span class="btn-label-text">注册并登录</span>';
         }
     }
 }
@@ -4521,13 +4650,14 @@ async function handleBiliToyLogin() {
         return;
     }
     const btn = document.getElementById('btn-bili-toy-login');
+    const origBtnHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerText = '正在授权...';
+        btn.innerHTML = '<span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span><span class="btn-label-text">正在授权...</span>';
     }
 
     try {
-        const biliProfile = await withAuthTimeout(biliLogin(), 10000, 'B 站授权登录超时，请重试');
+        const biliProfile = await withAuthTimeout(biliLogin(), 5000, 'B 站授权登录超时（5秒），请重试');
         await prepareUserSwitch(biliProfile.username);
 
         const profile = {
@@ -4561,7 +4691,7 @@ async function handleBiliToyLogin() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerText = 'B 站快捷授权登录';
+            btn.innerHTML = origBtnHtml || '<span class="material-symbols-rounded" style="font-size:18px;">bolt</span><span class="btn-label-text">B 站快捷授权登录</span>';
         }
     }
 }
@@ -4578,6 +4708,16 @@ function continueAsGuest() {
     loadUserData(guestName, currentUserProfile);
     switchView('view-hub');
 }
+
+function handleAuthBack() {
+    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username && !currentUserProfile.username.startsWith('游客')) {
+        const target = (window.previousView && window.previousView !== 'view-auth') ? window.previousView : 'view-hub';
+        switchView(target);
+    } else {
+        continueAsGuest();
+    }
+}
+window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
     const prevUser = currentUser;
@@ -4607,7 +4747,7 @@ function handleAuthLogout(notify = true) {
 }
 
 function handleSwitchAccount() {
-    handleAuthLogout(false);
+    // 切换账号时不提前登出，保留原登录态，待用户登录新账号成功后再切换
     switchView('view-auth');
     switchAuthTab('login');
 }
@@ -4629,8 +4769,24 @@ function showToast(text) {
 
 let currentView = 'view-auth';
 window.currentView = currentView;
+let previousView = 'view-hub';
+window.previousView = previousView;
+
+function goBackToPreviousView(fallback = 'view-hub') {
+    const prev = window.previousView || fallback;
+    if (!prev || prev === currentView) {
+        switchView(fallback);
+    } else {
+        switchView(prev);
+    }
+}
+window.goBackToPreviousView = goBackToPreviousView;
 
 function switchView(viewId) {
+    if (currentView && currentView !== viewId) {
+        previousView = currentView;
+        window.previousView = currentView;
+    }
     currentView = viewId;
     window.currentView = viewId;
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
@@ -4854,7 +5010,7 @@ function updateHub() {
             const lData = LevelManager.getLevelData(currentUser);
             levelBadge.style.display = 'inline-flex';
             levelBadge.innerText = `${lData.rank}段`;
-            levelBadge.title = `段位 ${lData.rank}段 (${lData.rating}/100分)`;
+            levelBadge.title = `段位：${lData.rank}段 (总等级分：${lData.rating}分)`;
         } else {
             levelBadge.style.display = 'none';
         }
@@ -4874,7 +5030,7 @@ function updateHub() {
     if (ddLevelText) {
         if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
             const lData = LevelManager.getLevelData(currentUser);
-            ddLevelText.innerText = `${lData.rank}段 (${lData.rating}/100分)`;
+            ddLevelText.innerText = `${lData.rank}段 (${lData.rating}分)`;
         } else {
             ddLevelText.innerText = '登录后解锁段位和排位赛功能';
         }
@@ -5288,21 +5444,19 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
-function isWordleUnsupportedBook(b) {
+function isWordleSupportedBook(b) {
     if (!b) return false;
     const nameStr = (b.name || b.title || b.id || '').toString();
-    const cleanLower = nameStr.toLowerCase().replace(/\s+/g, '');
-    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
-        return true;
-    }
-    const unsupportedList = ['考纲词组', '词组', '短语', 'phrase', '518', '翻译', '基础闯关', '词汇测试', 'weekly 3', 'wordbank 3'];
-    for (const kw of unsupportedList) {
-        if (nameStr.includes(kw)) {
-            return true;
-        }
-    }
-    return isPhraseBook(b);
+    const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
+    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇'];
+    return allowed.some(kw => cleanLower.includes(kw));
 }
+window.isWordleSupportedBook = isWordleSupportedBook;
+
+function isWordleUnsupportedBook(b) {
+    return !isWordleSupportedBook(b);
+}
+window.isWordleUnsupportedBook = isWordleUnsupportedBook;
 
 function isPhraseBook(b) {
     if (!b) return false;
@@ -5879,25 +6033,31 @@ async function renderLevelLeaderboard() {
             }
         }
 
-        rank = Math.max(1, Math.min(9, parseInt(rank) || 1));
-        rating = Math.max(0, Math.min(100, parseInt(rating) || 0));
-        const totalRating = (rank - 1) * 100 + rating;
+        rating = Math.max(0, parseInt(rating) || 0);
+        // 如果旧数据中 rank > 1 但 rating <= 100，自动平滑迁移为连续等级分
+        if (rank > 1 && rating <= 100) {
+            rating = (rank - 1) * 100 + rating;
+        }
+        // 等级分无上限，达到9段后继续增加
+        if (typeof LevelManager !== 'undefined') {
+            rank = LevelManager.getRankFromRating(rating);
+        } else {
+            rank = Math.min(9, Math.max(1, Math.ceil(rating / 100)));
+        }
 
         return {
             username: acc.username,
             avatar: acc.avatar_url || '',
             rank,
             rating,
-            totalRating,
             isMe: acc.username === currUser
         };
     });
 
-    // 降序排序：按总等级分排序 (总等级分 = (段位-1)*100 + 当前分)
+    // 降序排序：按总等级分排序 (到达9段后无上限，越高排名越前)
     userScores.sort((a, b) => {
-        if (b.totalRating !== a.totalRating) return b.totalRating - a.totalRating;
-        if (b.rank !== a.rank) return b.rank - a.rank;
-        return b.rating - a.rating;
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        return b.rank - a.rank;
     });
 
     if (userScores.length === 0) {
@@ -5911,7 +6071,7 @@ async function renderLevelLeaderboard() {
         return;
     }
 
-    // 渲染“我的排名”横幅（展示段位与等级分）
+    // 渲染“我的排名”横幅（展示段位与当前账号在全服的真实排名与实际等级分）
     const myIndex = userScores.findIndex(u => u.isMe);
     if (myRankBanner) {
         if (myIndex >= 0 && !currUser.startsWith('游客')) {
@@ -5945,8 +6105,11 @@ async function renderLevelLeaderboard() {
         }
     }
 
-    // 渲染排行榜列表（展示段位和等级分）
-    listContainer.innerHTML = userScores.map((u, idx) => {
+    // 仅列出全服前 10 名
+    const top10 = userScores.slice(0, 10);
+
+    // 渲染排行榜列表（展示段位和实际等级分，无100分上限）
+    listContainer.innerHTML = top10.map((u, idx) => {
         const rank = idx + 1;
         let rankBadge = '';
         if (rank === 1) {
@@ -5988,6 +6151,45 @@ async function renderLevelLeaderboard() {
 }
 
 // ----------------- Wordle 榜控制器 -----------------
+function renderWordleSevenDaysPicker() {
+    const container = document.getElementById('lb-wordle-days-chips');
+    if (!container) return;
+
+    const days = [];
+    const today = new Date();
+    // 过去 6 天至今天，共 7 天
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        const dayNumber = d.getDate();
+        days.push({ dateStr, dayNumber, isToday: i === 0 });
+    }
+
+    container.innerHTML = days.map(item => {
+        const isSelected = (item.dateStr === wordleLeaderboardDate);
+        return `
+            <button type="button" 
+                class="lb-day-circle-btn ${isSelected ? 'active' : ''}" 
+                onclick="selectWordleLeaderboardDate('${item.dateStr}')" 
+                title="${item.dateStr}${item.isToday ? ' (今日)' : ''}">
+                ${item.dayNumber}
+            </button>
+        `;
+    }).join('');
+}
+
+function selectWordleLeaderboardDate(dateStr) {
+    const todayStr = (new Date()).toISOString().slice(0, 10);
+    if (dateStr > todayStr) return;
+    wordleLeaderboardDate = dateStr;
+    renderWordleLeaderboard();
+}
+window.selectWordleLeaderboardDate = selectWordleLeaderboardDate;
+
 function shiftWordleLeaderboardDate(delta) {
     const todayStr = (new Date()).toISOString().slice(0, 10);
     const cur = new Date(wordleLeaderboardDate);
@@ -6017,22 +6219,27 @@ function toggleWordleSortDropdown(event) {
     const isHidden = menu.style.display === 'none' || !menu.style.display;
     if (isHidden) {
         updateWordleSortDropdownUI();
-        menu.style.display = 'block';
+        menu.style.display = 'flex';
+        menu.classList.add('open');
     } else {
         menu.style.display = 'none';
+        menu.classList.remove('open');
     }
 }
 
 function chooseWordleLeaderboardSort(sortType) {
     const menu = document.getElementById('menu-lb-wordle-sort');
-    if (menu) menu.style.display = 'none';
+    if (menu) {
+        menu.style.display = 'none';
+        menu.classList.remove('open');
+    }
     setWordleLeaderboardSort(sortType);
 }
 
 function updateWordleSortDropdownUI() {
     const labelEl = document.getElementById('lb-wordle-sort-label');
     if (labelEl) {
-        labelEl.innerText = wordleLeaderboardSort === 'attempts' ? '按尝试次数最少' : '按用时最快';
+        labelEl.innerText = wordleLeaderboardSort === 'attempts' ? '按次数最少' : '按用时最快';
     }
     const optTime = document.getElementById('opt-wordle-sort-time');
     const optAttempts = document.getElementById('opt-wordle-sort-attempts');
@@ -6044,7 +6251,7 @@ function updateWordleSortDropdownUI() {
     if (optAttempts) {
         const isAtt = wordleLeaderboardSort === 'attempts';
         optAttempts.className = `md3-custom-select-option ${isAtt ? 'selected' : ''}`;
-        optAttempts.innerHTML = `<span>按尝试次数最少</span>${isAtt ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
+        optAttempts.innerHTML = `<span>按次数最少</span>${isAtt ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
     }
 }
 
@@ -6058,12 +6265,40 @@ function setWordleLeaderboardSort(sortType) {
     renderWordleLeaderboard();
 }
 
+function checkUserFinishedWordleForDate(dateStr, currUser) {
+    if (!currUser) return false;
+    // 1. 本地当日专属进度
+    try {
+        const k = `vocab_daily_wordle_${currUser}_${dateStr}`;
+        const raw = SafeStorage.getItem(k) || localStorage.getItem(k);
+        if (raw) {
+            const p = JSON.parse(raw);
+            if (p && (p.gameOver || p.isWon)) return true;
+        }
+    } catch (e) { }
+
+    // 2. 本地历史记录
+    try {
+        const histKey = `vocab_wordle_history_${currUser}`;
+        const rawHist = SafeStorage.getItem(histKey) || localStorage.getItem(histKey);
+        if (rawHist) {
+            const h = JSON.parse(rawHist);
+            if (h && h[dateStr]) return true;
+        }
+    } catch (e) { }
+
+    // 3. 当前运行中的 riddleState 判定
+    if (typeof isDailyWordleMode !== 'undefined' && isDailyWordleMode && typeof riddleState !== 'undefined' && riddleState) {
+        const todayStr = (new Date()).toISOString().slice(0, 10);
+        if (dateStr === todayStr && riddleState.gameOver) return true;
+    }
+
+    return false;
+}
+
 async function renderWordleLeaderboard() {
     const listContainer = document.getElementById('lb-wordle-list');
-    const dateLabel = document.getElementById('lb-wordle-date-label');
     const wordCard = document.getElementById('lb-wordle-word-card');
-    const todayBtn = document.getElementById('btn-lb-wordle-today');
-    const nextBtn = document.getElementById('btn-lb-wordle-next');
 
     const todayStr = (new Date()).toISOString().slice(0, 10);
     // 强制限制无法超过今天
@@ -6072,37 +6307,18 @@ async function renderWordleLeaderboard() {
     }
     const isToday = wordleLeaderboardDate === todayStr;
 
+    // 渲染最近 7 天快捷圆圈选择器
+    renderWordleSevenDaysPicker();
     updateWordleSortDropdownUI();
     const sortSelect = document.getElementById('select-lb-wordle-sort');
     if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
-    if (dateLabel) {
-        dateLabel.innerText = `${wordleLeaderboardDate} ${isToday ? '(今日)' : ''}`;
-    }
+    const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+    const hasCompletedWordle = !isToday || checkUserFinishedWordleForDate(todayStr, currUser);
 
-    // 后一天按钮状态：若是今日则完全禁用
-    if (nextBtn) {
-        if (isToday) {
-            nextBtn.setAttribute('disabled', 'true');
-            nextBtn.style.opacity = '0.35';
-            nextBtn.style.cursor = 'not-allowed';
-            nextBtn.style.pointerEvents = 'none';
-        } else {
-            nextBtn.removeAttribute('disabled');
-            nextBtn.style.opacity = '1';
-            nextBtn.style.cursor = 'pointer';
-            nextBtn.style.pointerEvents = 'auto';
-        }
-    }
-
-    // “回到今日” 按钮：在今天时隐藏，在历史日期时展示
-    if (todayBtn) {
-        todayBtn.style.display = isToday ? 'none' : 'inline-flex';
-    }
-
-    // 1. 渲染今日保密提示 或 历史揭晓单词卡片 (不要在榜单列表中泄露目标词，但支持查看历史词)
+    // 1. 渲染今日/历史单词卡片 (通关后或历史日期直接展示该词及释义)
     if (wordCard) {
-        if (isToday) {
+        if (!hasCompletedWordle) {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:10px; font-size:0.86rem; color:var(--md-sys-color-outline, #64748b);">
                     <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0284c7);">lock</span>
@@ -6113,25 +6329,26 @@ async function renderWordleLeaderboard() {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:8px; color:var(--md-sys-color-outline);">
                     <span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span>
-                    <span style="font-size:0.85rem;">正在查询历史单词...</span>
+                    <span style="font-size:0.85rem;">正在查询词汇...</span>
                 </div>
             `;
             try {
-                const histWord = (typeof getDailyWordForDate === 'function') 
+                const targetWordObj = (typeof getDailyWordForDate === 'function') 
                     ? await getDailyWordForDate(wordleLeaderboardDate) 
                     : null;
-                if (histWord && histWord.word) {
-                    const lowerWord = histWord.word.toLowerCase();
+                if (targetWordObj && targetWordObj.word) {
+                    const lowerWord = targetWordObj.word.toLowerCase();
+                    const badgeText = '已揭晓';
                     wordCard.innerHTML = `
                         <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                             <div style="min-width:0; flex:1;">
-                                <div style="font-size:0.75rem; font-weight:700; color:var(--md-sys-color-outline, #64748b); letter-spacing:0.5px; margin-bottom:4px;">该日挑战单词</div>
+                                <div style="font-size:0.75rem; font-weight:700; color:var(--md-sys-color-outline, #64748b); letter-spacing:0.5px; margin-bottom:4px;">${isToday ? '今日挑战单词' : '该日挑战单词'}</div>
                                 <div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:10px;">
                                     <span style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary, #0284c7); letter-spacing:0.5px; text-transform:lowercase; font-family:var(--md-sys-typescale-body-font, inherit);">${escapeHtml(lowerWord)}</span>
-                                    <span style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant, #475569);">${escapeHtml(histWord.meaning || '')}</span>
+                                    <span style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant, #475569);">${escapeHtml(targetWordObj.meaning || '')}</span>
                                 </div>
                             </div>
-                            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem; font-weight:700; padding:4px 12px; border-radius:9999px; flex-shrink:0;">历史已揭晓</span>
+                            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem; font-weight:700; padding:4px 12px; border-radius:9999px; flex-shrink:0;">${badgeText}</span>
                         </div>
                     `;
                 } else {
@@ -6153,7 +6370,6 @@ async function renderWordleLeaderboard() {
     `;
 
     const records = [];
-    const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
 
     // 2. 优先从 Supabase 专用表 daily_wordle_records 查询
     try {
@@ -6684,7 +6900,8 @@ let riddleConfig = {
     selectedBooks: ["books/考纲/高考3500.json"],
     wordLength: 5,
     maxAttempts: 6,
-    letterCase: "upper"
+    letterCase: "upper",
+    enableTimer: false
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
@@ -6700,6 +6917,7 @@ try {
         if (saved.wordLength !== undefined) riddleConfig.wordLength = saved.wordLength;
         if (saved.maxAttempts) riddleConfig.maxAttempts = saved.maxAttempts;
         if (saved.letterCase) riddleConfig.letterCase = saved.letterCase;
+        if (saved.enableTimer !== undefined) riddleConfig.enableTimer = !!saved.enableTimer;
     }
 } catch (e) { }
 
@@ -6772,7 +6990,7 @@ function updateRiddleModeUI() {
         if (giveupBtn) giveupBtn.style.display = 'none';
     } else {
         if (lbBtn) lbBtn.style.display = 'none';
-        if (timerBox) timerBox.style.display = 'none';
+        if (timerBox) timerBox.style.display = riddleConfig.enableTimer ? 'inline-flex' : 'none';
         if (selectBookBtn) selectBookBtn.style.display = 'inline-flex';
         if (hintBtn) hintBtn.style.display = 'inline-flex';
         if (shuffleBtn) shuffleBtn.style.display = 'inline-flex';
@@ -6834,12 +7052,14 @@ function confirmExitRiddle() {
         stopDailyTimer();
         saveDailyWordleProgress();
     } else {
+        stopDailyTimer();
         saveRiddleProgress();
     }
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-riddle') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 function selectRiddleCase(letterCase) {
@@ -6881,8 +7101,12 @@ function openRiddleSettings() {
 
     const lenGroup = document.getElementById('riddle-settings-group-len');
     const attGroup = document.getElementById('riddle-settings-group-att');
+    const timerGroup = document.getElementById('riddle-settings-group-timer');
+    const historyGroup = document.getElementById('riddle-settings-group-history');
     if (lenGroup) lenGroup.style.display = isDailyWordleMode ? 'none' : 'block';
     if (attGroup) attGroup.style.display = isDailyWordleMode ? 'none' : 'block';
+    if (timerGroup) timerGroup.style.display = isDailyWordleMode ? 'none' : 'block';
+    if (historyGroup) historyGroup.style.display = isDailyWordleMode ? 'none' : 'block';
 
     renderRiddleBookChips();
     updateRiddleSettingsChips();
@@ -6916,8 +7140,15 @@ function toggleRiddleBook(bookId) {
 async function renderRiddleBookChips() {
     const container = document.getElementById('chips-riddle-books');
     if (!container) return;
-    if (!Array.isArray(riddleConfig.selectedBooks) || riddleConfig.selectedBooks.length === 0) {
-        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/考纲/高考3500.json'];
+    if (typeof isWordleSupportedBook === 'function') {
+        riddleConfig.selectedBooks = (riddleConfig.selectedBooks || []).filter(id => {
+            const b = BookManager.getBookMeta(id) || { id: id };
+            return isWordleSupportedBook(b);
+        });
+        if (riddleConfig.selectedBooks.length === 0) {
+            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+        }
+        riddleConfig.bookId = riddleConfig.selectedBooks[0];
     }
     renderBookFolderTree('chips-riddle-books', {
         selectedIds: riddleConfig.selectedBooks,
@@ -6939,6 +7170,10 @@ function updateRiddleSettingsChips() {
         const cCase = c.getAttribute('data-case');
         c.classList.toggle('selected', cCase === riddleConfig.letterCase);
     });
+    document.querySelectorAll('#chips-riddle-timer .md3-chip').forEach(c => {
+        const isTimerOn = c.getAttribute('data-timer') === 'on';
+        c.classList.toggle('selected', isTimerOn === !!riddleConfig.enableTimer);
+    });
 }
 
 function selectRiddleLength(len) {
@@ -6949,6 +7184,113 @@ function selectRiddleLength(len) {
 function selectRiddleAttempts(att) {
     riddleConfig.maxAttempts = att;
     updateRiddleSettingsChips();
+}
+
+function selectRiddleTimer(enabled) {
+    riddleConfig.enableTimer = !!enabled;
+    updateRiddleSettingsChips();
+}
+
+function recordNormalWordleHistory(isWon) {
+    try {
+        const userKey = currentUser || 'guest';
+        const raw = localStorage.getItem(`vocab_normal_wordle_history_${userKey}`);
+        let history = [];
+        if (raw) history = JSON.parse(raw);
+        if (!Array.isArray(history)) history = [];
+
+        history.unshift({
+            id: 'nh_' + Date.now(),
+            word: riddleState.targetWord,
+            meaning: riddleState.clueMeaning || '---',
+            isWon: !!isWon,
+            attempts: riddleState.attempts.length,
+            maxAttempts: riddleConfig.maxAttempts || 6,
+            timeSpent: riddleConfig.enableTimer ? dailyWordleElapsedSeconds : null,
+            timerEnabled: !!riddleConfig.enableTimer,
+            timestamp: Date.now()
+        });
+
+        if (history.length > 100) history = history.slice(0, 100);
+        localStorage.setItem(`vocab_normal_wordle_history_${userKey}`, JSON.stringify(history));
+    } catch (e) {
+        console.warn('Failed to record normal wordle history:', e);
+    }
+}
+
+function openNormalWordleHistoryModal() {
+    renderNormalWordleHistoryList();
+    const modal = document.getElementById('modal-riddle-history');
+    if (modal) modal.classList.add('active');
+}
+
+function closeNormalWordleHistoryModal() {
+    const modal = document.getElementById('modal-riddle-history');
+    if (modal) modal.classList.remove('active');
+}
+
+function renderNormalWordleHistoryList() {
+    const container = document.getElementById('normal-wordle-history-list');
+    if (!container) return;
+    const userKey = currentUser || 'guest';
+    let history = [];
+    try {
+        const raw = localStorage.getItem(`vocab_normal_wordle_history_${userKey}`);
+        if (raw) history = JSON.parse(raw);
+    } catch (e) { }
+
+    if (!Array.isArray(history) || history.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:44px; opacity:0.6; display:block; margin-bottom:8px;">history_toggle_off</span>
+                <p style="margin:0; font-size:0.92rem;">暂无普通模式猜词历史记录</p>
+                <p style="margin:4px 0 0; font-size:0.8rem;">完成猜词挑战后将在此记录尝试次数与用时</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = history.map(item => {
+        const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+        const isWon = !!item.isWon;
+        const timeDisplay = (item.timeSpent !== null && item.timeSpent !== undefined)
+            ? `用时 ${formatDailyTimer(item.timeSpent)}`
+            : '未开启计时';
+
+        return `
+            <div style="background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:12px; padding:12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:700; font-size:1.05rem; letter-spacing:0.5px;">${escapeHtml(item.word || '')}</span>
+                        <span class="badge" style="font-size:0.75rem; padding:2px 8px; border-radius:999px; font-weight:600; ${isWon ? 'background:var(--md-sys-color-success-container, #d1e7dd); color:var(--md-sys-color-success, #0f5132);' : 'background:var(--md-sys-color-error-container, #f8d7da); color:var(--md-sys-color-error, #842029);'}">
+                            ${isWon ? '挑战成功' : '挑战失败'}
+                        </span>
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">${dateStr}</span>
+                </div>
+                <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px; line-height:1.4;">
+                    ${escapeHtml(item.meaning || '---')}
+                </div>
+                <div style="display:flex; align-items:center; gap:14px; font-size:0.8rem; color:var(--md-sys-color-outline);">
+                    <span style="display:inline-flex; align-items:center; gap:3px;">
+                        <span class="material-symbols-rounded" style="font-size:15px;">flaky</span>
+                        <span>尝试次数：<strong style="color:var(--md-sys-color-on-surface);">${item.attempts || 0}/${item.maxAttempts || 6}</strong></span>
+                    </span>
+                    <span style="display:inline-flex; align-items:center; gap:3px;">
+                        <span class="material-symbols-rounded" style="font-size:15px;">schedule</span>
+                        <span>${timeDisplay}</span>
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function clearNormalWordleHistory() {
+    const userKey = currentUser || 'guest';
+    localStorage.removeItem(`vocab_normal_wordle_history_${userKey}`);
+    renderNormalWordleHistoryList();
+    showToast('已清空普通模式猜词历史');
 }
 
 function saveRiddleSettingsOnly() {
@@ -6971,7 +7313,12 @@ async function saveAndStartRiddle() {
 
 async function startWordRiddleGame(forceNew = false) {
     isDailyWordleMode = false;
-    stopDailyTimer();
+    dailyWordleElapsedSeconds = 0;
+    if (riddleConfig.enableTimer) {
+        startDailyTimer();
+    } else {
+        stopDailyTimer();
+    }
     updateRiddleModeUI();
 
     if (forceNew) {
@@ -7281,59 +7628,100 @@ async function startDailyWordleGame() {
 
     // 1. 如果今天已经有进行中或完成的进度，且与最新云端词一致，恢复进度
     const savedDaily = localStorage.getItem(`vocab_daily_wordle_${userKey}_${todayStr}`);
+    let hasRestored = false;
+    let restoreData = null;
+
     if (savedDaily) {
         try {
             const p = JSON.parse(savedDaily);
-            // 确保本地词与云端词一致；若云端动态修改了当日词且未通关，则重置为新词
             if (p && p.date === todayStr && p.targetWord && (!dailyWord || p.targetWord === dailyWord.word)) {
-                riddleState = {
-                    targetWord: p.targetWord,
-                    clueMeaning: p.clueMeaning || '---',
-                    cluePhone: p.cluePhone || '',
-                    bookName: '高考3500',
-                    targetLength: p.targetLength || p.targetWord.length,
-                    maxAttempts: 6,
-                    attempts: p.attempts || [],
-                    currentInput: p.currentInput || '',
-                    gameOver: !!p.gameOver,
-                    isWon: !!p.isWon,
-                    letterStatus: p.letterStatus || {},
-                    hintLevel: 0,
-                    isSubmitting: false,
-                    revealedPositions: new Set(),
-                    pendingHint: null,
-                    revealedMeaning: false
-                };
-                dailyWordleElapsedSeconds = p.elapsedSeconds || 0;
-
-                const topBookName = document.getElementById('riddle-top-book-name');
-                if (topBookName) topBookName.innerText = '高考3500';
-                initRiddleDraftRows();
-                const hintBox = document.getElementById('riddle-hint-box');
-                if (hintBox) hintBox.style.display = 'none';
-
-                renderRiddleBoard();
-                renderRiddleKeyboard();
-
-                const timerText = document.getElementById('riddle-daily-timer-text');
-                if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
-
-                if (riddleState.gameOver) {
-                    stopDailyTimer();
-                    const msg = riddleState.isWon
-                        ? `🎉 今日挑战已通关！用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} (${riddleState.attempts.length}次尝试)`
-                        : `💔 今日挑战已结束！正确答案：`;
-                    renderRiddleResult(msg, riddleState.isWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)');
-                } else {
-                    startDailyTimer();
-                }
-
-                switchView('view-riddle');
-                return;
+                restoreData = p;
+                hasRestored = true;
             }
         } catch (e) {
             console.warn('[Wordle] Failed to parse saved daily progress:', e);
         }
+    }
+
+    // 若本地没有或者本地记录尚未完结，向 Supabase 云端检查今日是否已经挑战过
+    if ((!hasRestored || !restoreData?.gameOver) && userKey && !userKey.startsWith('游客') && typeof sbClient !== 'undefined' && sbClient) {
+        try {
+            const { data: userRow } = await sbClient
+                .from('user_accounts')
+                .select('user_data')
+                .eq('username', userKey)
+                .single();
+            const cloudWordle = userRow?.user_data?.wordle?.[todayStr] || userRow?.user_data?.wordle_history?.[todayStr];
+            if (cloudWordle && Array.isArray(cloudWordle.attemptDetails) && cloudWordle.attemptDetails.length > 0) {
+                const targetW = cloudWordle.word || (dailyWord ? dailyWord.word : '');
+                restoreData = {
+                    date: todayStr,
+                    targetWord: targetW,
+                    clueMeaning: cloudWordle.meaning || (dailyWord ? dailyWord.meaning : '---'),
+                    cluePhone: cloudWordle.phonetic || (dailyWord ? dailyWord.phone : ''),
+                    bookName: '高考3500',
+                    targetLength: targetW.length,
+                    maxAttempts: 6,
+                    attempts: cloudWordle.attemptDetails,
+                    currentInput: '',
+                    gameOver: true,
+                    isWon: !!cloudWordle.isWon,
+                    letterStatus: cloudWordle.letterStatus || {},
+                    elapsedSeconds: cloudWordle.timeSpent || 0
+                };
+                hasRestored = true;
+                localStorage.setItem(`vocab_daily_wordle_${userKey}_${todayStr}`, JSON.stringify(restoreData));
+            }
+        } catch (e) {
+            console.warn('[Wordle] Failed to check cloud wordle record:', e);
+        }
+    }
+
+    if (hasRestored && restoreData) {
+        riddleState = {
+            targetWord: restoreData.targetWord,
+            clueMeaning: restoreData.clueMeaning || '---',
+            cluePhone: restoreData.cluePhone || '',
+            bookName: '高考3500',
+            targetLength: restoreData.targetLength || restoreData.targetWord.length,
+            maxAttempts: 6,
+            attempts: restoreData.attempts || [],
+            currentInput: restoreData.currentInput || '',
+            gameOver: !!restoreData.gameOver,
+            isWon: !!restoreData.isWon,
+            letterStatus: restoreData.letterStatus || {},
+            hintLevel: 0,
+            isSubmitting: false,
+            revealedPositions: new Set(),
+            pendingHint: null,
+            revealedMeaning: false
+        };
+        dailyWordleElapsedSeconds = restoreData.elapsedSeconds || 0;
+
+        const topBookName = document.getElementById('riddle-top-book-name');
+        if (topBookName) topBookName.innerText = '高考3500';
+        initRiddleDraftRows();
+        const hintBox = document.getElementById('riddle-hint-box');
+        if (hintBox) hintBox.style.display = 'none';
+
+        renderRiddleBoard();
+        renderRiddleKeyboard();
+
+        const timerText = document.getElementById('riddle-daily-timer-text');
+        if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
+
+        if (riddleState.gameOver) {
+            stopDailyTimer();
+            const msg = riddleState.isWon
+                ? `🎉 今日挑战已通关！用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} (${riddleState.attempts.length}次尝试)`
+                : `💔 今日挑战已结束！正确答案：`;
+            renderRiddleResult(msg, riddleState.isWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)');
+        } else {
+            startDailyTimer();
+        }
+
+        switchView('view-riddle');
+        return;
     }
 
     // 2. 从高考3500与云端获取今日统一词（字母数随机4-8）
@@ -7385,8 +7773,12 @@ async function recordDailyWordleFinish(isWon) {
     const record = {
         date: todayStr,
         word: riddleState.targetWord,
+        meaning: riddleState.clueMeaning || '---',
+        phonetic: riddleState.cluePhone || '',
         isWon: isWon,
         attempts: riddleState.attempts.length,
+        attemptDetails: JSON.parse(JSON.stringify(riddleState.attempts || [])),
+        letterStatus: JSON.parse(JSON.stringify(riddleState.letterStatus || {})),
         timeSpent: dailyWordleElapsedSeconds,
         timestamp: Date.now()
     };
@@ -7417,20 +7809,29 @@ async function recordDailyWordleFinish(isWon) {
         }
 
         try {
-            const { data: userRow } = await sbClient
+            const { data: userRow, error: fetchErr } = await sbClient
                 .from('user_accounts')
                 .select('user_data')
                 .eq('username', userKey)
                 .single();
+            if (fetchErr) throw fetchErr;
+
             const uData = (userRow && userRow.user_data) || {};
             uData.wordle = uData.wordle || {};
             uData.wordle[todayStr] = record;
-            await sbClient
+            uData.wordle_history = uData.wordle_history || {};
+            uData.wordle_history[todayStr] = record;
+
+            const { error: updateErr } = await sbClient
                 .from('user_accounts')
                 .update({ user_data: uData, updated_at: new Date().toISOString() })
                 .eq('username', userKey);
+            if (updateErr) throw updateErr;
         } catch (e) {
             console.warn('Failed to sync wordle record to cloud:', e);
+            if (typeof showToast === 'function') {
+                showToast('数据同步失败，请检查网络');
+            }
         }
     }
 }
@@ -7808,6 +8209,8 @@ function submitRiddleRow() {
             saveDailyWordleProgress();
             recordDailyWordleFinish(true);
         } else {
+            stopDailyTimer();
+            recordNormalWordleHistory(true);
             saveRiddleProgress();
         }
         if (window.DailyStudyTracker) {
@@ -7822,7 +8225,7 @@ function submitRiddleRow() {
         spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#146C2E');
         const winTitle = isDailyWordleMode
             ? `🎉 今日挑战成功！用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} (${riddleState.attempts.length}次尝试)`
-            : `🎉 恭喜猜中！用时 ${riddleState.attempts.length} 次尝试`;
+            : `🎉 恭喜猜中！${riddleConfig.enableTimer ? `用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} · ` : ''}${riddleState.attempts.length} 次尝试`;
         renderRiddleResult(winTitle, 'var(--md-sys-color-success)');
         return;
     }
@@ -7835,6 +8238,8 @@ function submitRiddleRow() {
             saveDailyWordleProgress();
             recordDailyWordleFinish(false);
         } else {
+            stopDailyTimer();
+            recordNormalWordleHistory(false);
             saveRiddleProgress();
         }
         if (typeof syncAllUserDataToCloud === 'function') {
@@ -8106,6 +8511,8 @@ async function giveUpRiddle() {
             saveDailyWordleProgress();
             recordDailyWordleFinish(false);
         } else {
+            stopDailyTimer();
+            recordNormalWordleHistory(false);
             saveRiddleProgress();
         }
         if (typeof syncAllUserDataToCloud === 'function') {
@@ -9025,7 +9432,8 @@ function confirmExitSingle() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-single') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 
@@ -10441,32 +10849,150 @@ function endSingleGame() {
     switchView('view-result');
 }
 
+function getAllKnownMeaningsOfTargetWord(targetWord) {
+    const forbidden = new Set();
+    const tLower = (targetWord || '').trim().toLowerCase();
+    if (!tLower) return forbidden;
+
+    const addClean = (str) => {
+        if (!str || typeof str !== 'string') return;
+        const s = str.trim().toLowerCase();
+        if (s && s !== '---') {
+            forbidden.add(s);
+            const noPos = s.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+            if (noPos) forbidden.add(noPos);
+        }
+    };
+
+    if (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) {
+        dictionary.forEach(w => {
+            if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                if (w.meaning) addClean(w.meaning);
+                if (Array.isArray(w.meanings)) {
+                    w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                }
+                if (Array.isArray(w.trans)) {
+                    w.trans.forEach(t => addClean(t));
+                }
+            }
+        });
+    }
+
+    if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+        Object.values(BookManager.bookCache).forEach(words => {
+            if (Array.isArray(words)) {
+                words.forEach(w => {
+                    if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                        if (w.meaning) addClean(w.meaning);
+                        if (Array.isArray(w.meanings)) {
+                            w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                        }
+                        if (Array.isArray(w.trans)) {
+                            w.trans.forEach(t => addClean(t));
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    if (typeof window !== 'undefined' && Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (Array.isArray(b.words)) {
+                b.words.forEach(w => {
+                    if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                        if (w.meaning) addClean(w.meaning);
+                        if (Array.isArray(w.meanings)) {
+                            w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+        DEFAULT_WORDS.forEach(w => {
+            if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                if (w.meaning) addClean(w.meaning);
+                if (Array.isArray(w.meanings)) {
+                    w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                }
+            }
+        });
+    }
+
+    return forbidden;
+}
+
+function getWordDistractorMeaning(d, usedMeanings, targetForbiddenMeanings = new Set()) {
+    if (!d) return null;
+    const candidates = [];
+    if (Array.isArray(d.meanings) && d.meanings.length > 0) {
+        d.meanings.forEach(m => {
+            const str = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
+            if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
+        });
+    }
+    if (d.meaning && typeof d.meaning === 'string') {
+        const str = d.meaning.trim();
+        if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
+    }
+    if (candidates.length === 0) return null;
+
+    const available = candidates.filter(m => {
+        const mLower = m.toLowerCase();
+        const noPos = mLower.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+        if (usedMeanings.has(mLower) || (noPos && usedMeanings.has(noPos))) return false;
+        if (targetForbiddenMeanings.has(mLower) || (noPos && targetForbiddenMeanings.has(noPos))) return false;
+        return true;
+    });
+
+    if (available.length > 0) {
+        return available[Math.floor(Math.random() * available.length)];
+    }
+    return null;
+}
+
 function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
     const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
     let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...curDict];
     if (pool.length === 0) {
         pool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
     }
-    const targetLower = targetWord.toLowerCase();
-    const isSingleWord = !targetWord.trim().includes(' ');
+    const targetLower = (targetWord || '').toLowerCase().trim();
+    const isSingleWord = !targetLower.includes(' ');
+
+    const targetForbiddenMeanings = getAllKnownMeaningsOfTargetWord(targetWord);
+    const cleanCorrect = (correctMeaning || '').trim().toLowerCase();
+    if (cleanCorrect) {
+        targetForbiddenMeanings.add(cleanCorrect);
+        const cleanNoPos = cleanCorrect.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+        if (cleanNoPos) targetForbiddenMeanings.add(cleanNoPos);
+    }
+
+    const usedMeanings = new Set([...targetForbiddenMeanings]);
 
     const seen = new Set();
     const candidates = [];
     for (const d of pool) {
         if (!d || !d.word) continue;
-        if (isSingleWord && d.word.trim().includes(' ')) continue;
-        const wl = d.word.toLowerCase();
-        if (wl !== targetLower && !seen.has(wl)) {
+        const wl = d.word.toLowerCase().trim();
+        if (wl === targetLower) continue; // 绝对不抽该单词自身
+        if (isSingleWord && wl.includes(' ')) continue;
+        if (!seen.has(wl)) {
             seen.add(wl);
             candidates.push(d);
         }
     }
 
-    if (isSingleWord && candidates.length < 4) {
+    if (isSingleWord && candidates.length < 10 && typeof DEFAULT_WORDS !== 'undefined') {
         for (const d of DEFAULT_WORDS) {
-            if (!d || !d.word || d.word.trim().includes(' ')) continue;
-            const wl = d.word.toLowerCase();
-            if (wl !== targetLower && !seen.has(wl)) {
+            if (!d || !d.word) continue;
+            const wl = d.word.toLowerCase().trim();
+            if (wl === targetLower) continue;
+            if (wl.includes(' ')) continue;
+            if (!seen.has(wl)) {
                 seen.add(wl);
                 candidates.push(d);
             }
@@ -10474,7 +11000,7 @@ function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride
     }
 
     const scoredCandidates = candidates.map(d => {
-        const candLower = d.word.toLowerCase();
+        const candLower = d.word.toLowerCase().trim();
         const dist = calcLevenshteinDist(targetLower, candLower);
         let prefixBonus = 0;
         if (targetLower.slice(0, 3) === candLower.slice(0, 3)) prefixBonus = 3;
@@ -10485,29 +11011,47 @@ function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride
     });
 
     scoredCandidates.sort((a, b) => b.score - a.score);
-    const topSlice = scoredCandidates.slice(0, 10).map(c => c.item);
-    const chosen = topSlice.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const topCandidates = scoredCandidates.slice(0, 25).map(c => c.item).sort(() => 0.5 - Math.random());
 
-    let safeGuard = 0;
-    while (chosen.length < 3 && candidates.length > chosen.length && safeGuard < 20) {
-        safeGuard++;
-        const rand = candidates[Math.floor(Math.random() * candidates.length)];
-        if (isSingleWord && rand.word.trim().includes(' ')) continue;
-        if (!chosen.some(c => c.word.toLowerCase() === rand.word.toLowerCase())) {
-            chosen.push(rand);
+    const chosenDistractors = [];
+
+    // 先从前置相似候选中挑选，保证释义完全不重复且不含目标词在其他词书的任何释义
+    for (const cand of topCandidates) {
+        if (chosenDistractors.length >= 3) break;
+        const meaning = getWordDistractorMeaning(cand, usedMeanings, targetForbiddenMeanings);
+        if (meaning) {
+            usedMeanings.add(meaning.toLowerCase());
+            const noPos = meaning.toLowerCase().replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+            if (noPos) usedMeanings.add(noPos);
+            chosenDistractors.push({ word: cand.word, meaning: meaning });
         }
     }
 
-    return chosen.map(d => {
-        let meaningStr = '---';
-        if (Array.isArray(d.meanings) && d.meanings.length > 0) {
-            const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
-            meaningStr = (randomM.pos ? randomM.pos + ' ' : '') + (randomM.meaning || '');
-        } else if (d.meaning) {
-            meaningStr = d.meaning;
+    // 若不足3个，从整体候选词库随机补充不重合释义
+    if (chosenDistractors.length < 3) {
+        const remaining = candidates.filter(c => !chosenDistractors.some(cd => cd.word.toLowerCase().trim() === c.word.toLowerCase().trim())).sort(() => 0.5 - Math.random());
+        for (const cand of remaining) {
+            if (chosenDistractors.length >= 3) break;
+            const meaning = getWordDistractorMeaning(cand, usedMeanings, targetForbiddenMeanings);
+            if (meaning) {
+                usedMeanings.add(meaning.toLowerCase());
+                const noPos = meaning.toLowerCase().replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+                if (noPos) usedMeanings.add(noPos);
+                chosenDistractors.push({ word: cand.word, meaning: meaning });
+            }
         }
-        return { word: d.word, meaning: meaningStr };
-    });
+    }
+
+    // 兜底保护，若依然不够3个，且备用释义已无可挑，避免崩溃
+    let fallbackIdx = 1;
+    while (chosenDistractors.length < 3) {
+        chosenDistractors.push({
+            word: `option_${fallbackIdx}`,
+            meaning: `其他备选释义 ${fallbackIdx++}`
+        });
+    }
+
+    return chosenDistractors;
 }
 
 function generateOptions(targetWord, correctMeaning, poolOverride) {
@@ -10639,11 +11183,16 @@ function renderMeView() {
                 avatarIcon.style.display = 'inline-flex';
             }
 
+            const editUserRow = document.getElementById('me-row-edit-username');
+            const editPassRow = document.getElementById('me-row-edit-password');
+
             if (currentUserProfile.type === 'bilibili') {
                 if (badgeEl) {
                     badgeEl.innerHTML = `<span class="badge" style="background:#fb7299; color:#fff; font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">哔哩哔哩授权账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'none';
+                if (editUserRow) editUserRow.style.display = 'none';
+                if (editPassRow) editPassRow.style.display = 'none';
                 if (avatarEditHint) avatarEditHint.style.display = 'none';
                 if (avatarWrap) avatarWrap.style.cursor = 'default';
             } else {
@@ -10651,11 +11200,17 @@ function renderMeView() {
                     badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">云端账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'flex';
+                if (editUserRow) editUserRow.style.display = 'flex';
+                if (editPassRow) editPassRow.style.display = 'flex';
                 if (avatarEditHint) avatarEditHint.style.display = 'flex';
                 if (avatarWrap) avatarWrap.style.cursor = 'pointer';
             }
 
-            // 渲染用户等级卡片 (已简化：优化UI，不展示具体经验值，不需要等级称号)
+            if (typeof updateSyncButtonStatus === 'function') {
+                updateSyncButtonStatus(Boolean(window.lastCloudSyncTimestamp));
+            }
+
+            // 渲染用户等级卡片 (实际等级分与上限，9段不用显示上限)
             if (typeof LevelManager !== 'undefined') {
                 const lData = LevelManager.getLevelData(currentUserProfile.username || currentUser);
                 const badge = document.getElementById('me-level-badge');
@@ -10663,10 +11218,26 @@ function renderMeView() {
                 const expText = document.getElementById('me-level-exp-text');
                 const fill = document.getElementById('me-level-progress-fill');
 
-                if (badge) badge.innerText = `${lData.rank}段`;
+                if (badge) {
+                    badge.innerText = `${lData.rank}段`;
+                    badge.title = `段位：${lData.rank}段 | 总等级分：${lData.rating}分`;
+                }
                 if (title) title.innerText = '';
-                if (expText) expText.innerText = `${lData.rating}/100分`;
-                if (fill) fill.style.width = `${Math.min(100, Math.max(0, lData.rating))}%`;
+                if (expText) {
+                    if (lData.rank >= 9) {
+                        expText.innerText = `${lData.rating}分`;
+                    } else {
+                        const tierMax = lData.rank * 100;
+                        expText.innerText = `${lData.rating}/${tierMax}分`;
+                    }
+                }
+                if (fill) {
+                    if (lData.rank >= 9) {
+                        fill.style.width = '100%';
+                    } else {
+                        fill.style.width = `${Math.min(100, Math.max(0, lData.progressPercent))}%`;
+                    }
+                }
             }
         }
     }
@@ -10705,12 +11276,86 @@ function renderMeView() {
         masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
     }
 
+    const mistakesSummaryEl = document.getElementById('settings-mistakes-summary-text');
+    if (mistakesSummaryEl) {
+        const mCount = Object.keys(userStats.mistakes || {}).length;
+        mistakesSummaryEl.innerText = `集中查看与复习做题过程中收录的错题（共 ${mCount} 词）`;
+    }
+
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
     if (trashSummaryEl) {
         const tCount = getTrashWords().length;
         trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
     }
 }
+
+// ----------------- 数据同步状态与手动同步 -----------------
+let isUserDataSynced = false;
+
+function updateSyncButtonStatus(isSynced) {
+    const btn = document.getElementById('btn-sync-cloud-data');
+    if (!btn) return;
+    const label = btn.querySelector('.btn-label-text');
+    const icon = btn.querySelector('.material-symbols-rounded');
+
+    if (isSynced) {
+        isUserDataSynced = true;
+        if (icon) icon.innerText = 'check';
+        if (label) label.innerText = '已同步';
+        btn.disabled = false;
+        btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
+        btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+    } else {
+        isUserDataSynced = false;
+        if (icon) icon.innerText = 'sync';
+        if (label) label.innerText = '同步数据';
+        btn.disabled = false;
+        btn.style.borderColor = '';
+        btn.style.color = '';
+    }
+}
+window.updateSyncButtonStatus = updateSyncButtonStatus;
+
+async function handleManualSyncUserData() {
+    const btn = document.getElementById('btn-sync-cloud-data');
+    if (isUserDataSynced) {
+        if (typeof showToast === 'function') {
+            showToast('当前已是最新数据，已同步到云端');
+        }
+        return;
+    }
+    if (btn) {
+        const icon = btn.querySelector('.material-symbols-rounded');
+        const label = btn.querySelector('.btn-label-text');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+        if (label) label.innerText = '同步中...';
+        btn.disabled = true;
+    }
+    try {
+        if (typeof syncAllUserDataToCloud === 'function') {
+            const res = await syncAllUserDataToCloud();
+            if (res && res.success) {
+                updateSyncButtonStatus(true);
+                if (typeof showToast === 'function') {
+                    showToast('数据已成功同步到云端！');
+                }
+            } else {
+                updateSyncButtonStatus(false);
+            }
+        }
+    } catch (e) {
+        updateSyncButtonStatus(false);
+        if (typeof showToast === 'function') {
+            showToast('数据同步失败，请检查网络');
+        }
+    } finally {
+        if (btn) {
+            const icon = btn.querySelector('.material-symbols-rounded');
+            if (icon) icon.style.animation = '';
+        }
+    }
+}
+window.handleManualSyncUserData = handleManualSyncUserData;
 
 // ----------------- 云端账号管理操作 (修改用户名、密码、头像) -----------------
 function triggerMeAvatarUpload() {
@@ -10775,16 +11420,64 @@ async function confirmUpdateUsername() {
         SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
         SafeStorage.setItem('vocab_pk_user', newName);
 
-        // 迁移本地数据 key
-        const oldStats = SafeStorage.getItem(`vocab_stats_${oldName}`);
-        if (oldStats) SafeStorage.setItem(`vocab_stats_${newName}`, oldStats);
+        // 迁移本地所有核心数据 key (段位、统计、记忆曲线、错词本、每日记录等)
+        const keysToMigrate = [
+            'vocab_stats',
+            'vocab_rank_data',
+            'vocab_ebbinghaus_db',
+            'vocab_daily_logs',
+            'vocab_mastered_words',
+            'vocab_wordle_history',
+            'vocab_shici_progress',
+            'vocab_user_avatar',
+            'vocab_recent_books',
+            'vocab_mistakes'
+        ];
+        keysToMigrate.forEach(prefix => {
+            const oldVal = SafeStorage.getItem(`${prefix}_${oldName}`);
+            if (oldVal !== null) {
+                SafeStorage.setItem(`${prefix}_${newName}`, oldVal);
+            }
+        });
+
+        // 迁移段位管理器内存与本地持久化
+        if (typeof LevelManager !== 'undefined') {
+            const oldRank = LevelManager.getUserRankData(oldName);
+            if (oldRank && !oldRank.isGuest) {
+                LevelManager.saveUserRankData(newName, {
+                    rank: oldRank.rank,
+                    rating: oldRank.rating,
+                    isPromotionReady: oldRank.isPromotionReady,
+                    battles: oldRank.battles || { total: 0, wins: 0, losses: 0, draws: 0 }
+                });
+            }
+        }
+
+        // 迁移记住的设备账号列表
+        if (typeof getSavedDeviceAccounts === 'function') {
+            let list = getSavedDeviceAccounts();
+            const targetAcc = list.find(a => a.username === oldName);
+            if (targetAcc) {
+                targetAcc.username = newName;
+                SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+            }
+        }
+
+        // 立即触发云端全量数据同步，确保新用户名在云端继承原有段位与全部学习成果
+        if (typeof syncAllUserDataToCloud === 'function') {
+            syncAllUserDataToCloud(newName);
+        }
 
         showToast(`用户名已成功修改为 “${newName}”`);
         closeEditUsernameModal();
         renderMeView();
         updateHub();
     } catch (e) {
-        alert(e.message || '修改用户名失败');
+        if (typeof showToast === 'function') {
+            showToast(e.message || '修改用户名失败');
+        } else {
+            alert(e.message || '修改用户名失败');
+        }
     }
 }
 
@@ -10962,6 +11655,7 @@ let guestReady = false;
 let hostRank = 1, hostRating = 0;
 let guestRank = 1, guestRating = 0;
 let currentMatchOppoRank = 1, currentMatchOppoRating = 50;
+let isPlayingMatch = false;
 
 function safeBroadcast(channel, event, payload) {
     if (!channel) return;
@@ -12332,7 +13026,8 @@ function cleanUpAndBackToHub() {
         btnJoin.disabled = false;
         btnJoin.innerText = '加入房间';
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-online') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 async function startOnlineGame() {
@@ -12622,6 +13317,65 @@ function resetAllGameAlertsAndFeedback() {
     if (singleComp) singleComp.style.display = 'none';
 }
 
+// 确定性伪随机重排算法 (Mulberry32)：第一轮抽取的题组完成后，无缝衔接下一组，确保双方题目与顺序100%一致
+function generateDeterministicNextBatch(basePool, roundIndex) {
+    if (!basePool || basePool.length === 0) return [];
+    let seed = 0;
+    for (let i = 0; i < basePool.length; i++) {
+        const str = basePool[i].word || '';
+        for (let j = 0; j < str.length; j++) {
+            seed = (seed * 31 + str.charCodeAt(j)) | 0;
+        }
+    }
+    seed = (seed ^ (roundIndex * 1000003 + 0x9e3779b9)) | 0;
+
+    function prng() {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+
+    const nextBatch = basePool.map(q => {
+        try {
+            return JSON.parse(JSON.stringify(q));
+        } catch (e) {
+            return Object.assign({}, q);
+        }
+    });
+
+    for (let i = nextBatch.length - 1; i > 0; i--) {
+        const j = Math.floor(prng() * (i + 1));
+        const temp = nextBatch[i];
+        nextBatch[i] = nextBatch[j];
+        nextBatch[j] = temp;
+    }
+    return nextBatch;
+}
+window.generateDeterministicNextBatch = generateDeterministicNextBatch;
+
+function ensurePoolCapacity(state, targetIdx) {
+    if (!state) return;
+    if (!state.basePool || state.basePool.length === 0) {
+        if (state.pool && state.pool.length > 0) {
+            state.basePool = state.pool.map(q => {
+                try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+            });
+        } else {
+            return;
+        }
+    }
+    if (!state.basePool || state.basePool.length === 0) return;
+
+    while (state.pool.length <= targetIdx) {
+        const roundNum = Math.floor(state.pool.length / state.basePool.length) + 1;
+        const nextBatch = generateDeterministicNextBatch(state.basePool, roundNum);
+        if (!nextBatch || nextBatch.length === 0) break;
+        state.pool.push(...nextBatch);
+    }
+}
+window.ensurePoolCapacity = ensurePoolCapacity;
+
 function resetPlayerState(state, pool) {
     resetAllGameAlertsAndFeedback();
     if (state.timerId) clearInterval(state.timerId);
@@ -12630,7 +13384,11 @@ function resetPlayerState(state, pool) {
     state.currentIdx = 0;
     state.frozen = false;
     state.answeringLock = false;
-    state.pool = pool;
+    const safeList = Array.isArray(pool) ? [...pool] : [];
+    state.basePool = safeList.map(q => {
+        try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+    });
+    state.pool = [...safeList];
     state.timerId = null;
 }
 
@@ -12642,6 +13400,10 @@ let arenaPhraseState = {
 };
 
 function renderQuestion(state) {
+    if (state.pool && state.pool.length > 0) {
+        ensurePoolCapacity(state, state.currentIdx);
+    }
+
     if (state.currentIdx >= state.pool.length) {
         document.getElementById(`p1-word`).innerText = "练习完成！";
         document.getElementById(`p1-phone`).innerText = "";
@@ -13711,12 +14473,13 @@ async function handleResultBackToHub() {
     cleanUpAndBackToHub();
 }
 
-function applyForfeitPenalty() {
+async function applyForfeitPenalty() {
     if (typeof LevelManager === 'undefined' || !currentUser) return;
+    if (LevelManager.isGuestUser(currentUser)) return;
+
     const isAi = (gameMode === 'ai_duel');
-    const isRanked = isAi 
-        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : true)
-        : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+    // 人机对战中途退出按用户要求扣除等级分；多人联机按排位模式结算
+    const isRanked = isAi ? true : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
 
     if (!isRanked) return;
 
@@ -13737,10 +14500,15 @@ function applyForfeitPenalty() {
         oppoRating
     });
 
-    LevelManager.applyMatchResult(currentUser, matchResult);
+    await LevelManager.applyMatchResult(currentUser, matchResult);
 
     if (typeof showToast === 'function') {
-        showToast(`中途退出判定战败，扣除 ${Math.abs(matchResult.deltaPoints)} 等级分`);
+        const deduct = Math.abs(matchResult.deltaPoints);
+        if (deduct > 0) {
+            showToast(`中途退出判定战败，扣除 ${deduct} 等级分 (当前: ${matchResult.newRating}分)`);
+        } else {
+            showToast(`中途退出判定战败`);
+        }
     }
 
     if (!isAi && realtimeChannel) {
@@ -13749,18 +14517,34 @@ function applyForfeitPenalty() {
 }
 window.applyForfeitPenalty = applyForfeitPenalty;
 
-function confirmExitGame() {
+async function confirmExitGame() {
     if (isPlayingMatch) {
-        if (!confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？')) {
-            return;
+        let ok = true;
+        if (typeof showConfirmModal === 'function') {
+            ok = await showConfirmModal({
+                title: '退出对决确认',
+                message: '对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？',
+                confirmText: '退出并扣分',
+                cancelText: '继续对战',
+                isDanger: true,
+                icon: 'logout'
+            });
+        } else {
+            try {
+                ok = window.confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？');
+            } catch (e) {
+                ok = true;
+            }
         }
-        applyForfeitPenalty();
+        if (!ok) return;
+        await applyForfeitPenalty();
     }
 
     clearInterval(gameTimer);
-    if (p1State.timerId) clearInterval(p1State.timerId);
+    if (p1State && p1State.timerId) clearInterval(p1State.timerId);
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
+    window.aiDuelTimer = null;
     isPlayingMatch = false;
 
     if (gameMode === 'online') {
@@ -13770,6 +14554,7 @@ function confirmExitGame() {
         switchView('view-hub');
     }
 }
+window.confirmExitGame = confirmExitGame;
 
 /* ==========================================================================
    13. 在线大厅、在线玩家卡片修复与房间1天过期清理
@@ -13784,7 +14569,7 @@ let currentIncomingInvite = null;
 
 let CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
 const recentlySwitchedAccounts = new Set();
-let isPlayingMatch = false;
+isPlayingMatch = false;
 let lastPresenceRefreshTime = 0;
 let lastInviteSentTimes = {};
 let lastManualRoomRefreshTime = 0;
@@ -14289,7 +15074,7 @@ async function syncGlobalPresenceState() {
                 ` : `
                     <button type="button" class="btn online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
                         <span class="material-symbols-rounded">swords</span>
-                        <span>发起对战</span>
+                        <span>邀请</span>
                     </button>
                 `;
 
@@ -15359,10 +16144,10 @@ function updateAiDuelSettingsChips() {
     const userRank = (typeof LevelManager !== 'undefined') ? LevelManager.getUserLevel(currentUser) : 1;
 
     // 对战模式切换 (排位赛 vs 友谊赛)
+    const currentAiType = aiDuelConfig.matchType || 'ranked';
     document.querySelectorAll('#chips-ai-match-type .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-type') === (aiDuelConfig.matchType || 'ranked'));
         const t = c.getAttribute('data-type');
-        c.classList.toggle('selected', t === (aiDuelConfig.matchType || 'friendly'));
+        c.classList.toggle('selected', t === currentAiType);
         if (isGuest && t === 'ranked') {
             c.classList.add('disabled');
             c.style.pointerEvents = 'none';
@@ -15539,6 +16324,9 @@ async function startAiDuel() {
     p2State.total = 0;
 
     aiDuelState = {
+        basePool: questionSequence.map(q => {
+            try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+        }),
         pool: [...questionSequence],
         aiIdx: 0,
         aiScore: 0,
@@ -15612,7 +16400,11 @@ function scheduleNextAiAnswer() {
     if (aiDuelTimer) clearTimeout(aiDuelTimer);
     window.aiDuelTimer = null;
 
-    const q = aiDuelState.pool[aiDuelState.aiIdx % aiDuelState.pool.length];
+    if (typeof ensurePoolCapacity === 'function') {
+        ensurePoolCapacity(aiDuelState, aiDuelState.aiIdx);
+    }
+    const q = aiDuelState.pool[aiDuelState.aiIdx] || (aiDuelState.basePool && aiDuelState.basePool[0]);
+    if (!q) return;
     let delay = 3500;
     const isShiCi = Boolean(q && (q.isShiCi || q.senses || q.highlightedSentence || (q.word && /[\u4e00-\u9fa5]/.test(q.word))));
     const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
@@ -15758,10 +16550,20 @@ function switchMistakesCategory(cat) {
     renderMistakesList();
 }
 
-function openMistakesView() {
+let mistakesPreviousView = 'view-hub';
+
+function openMistakesView(prev) {
+    mistakesPreviousView = prev || (typeof currentView !== 'undefined' && currentView ? currentView : 'view-hub');
     switchMistakesCategory(currentMistakesCategory || 'english');
     switchView('view-mistakes');
 }
+
+function exitMistakesView() {
+    const target = mistakesPreviousView || 'view-hub';
+    switchView(target);
+}
+window.openMistakesView = openMistakesView;
+window.exitMistakesView = exitMistakesView;
 
 async function renderMistakesList() {
     const mistakes = userStats.mistakes || {};
@@ -17120,7 +17922,8 @@ function confirmExitLocalDuel() {
     if (localDuelState.p1.freezeTick) clearInterval(localDuelState.p1.freezeTick);
     if (localDuelState.p2.freezeTimer) clearTimeout(localDuelState.p2.freezeTimer);
     if (localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-local-duel') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 
@@ -17276,7 +18079,8 @@ function confirmExitDictation() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-dictation') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 async function startDictationPractice() {
@@ -18635,10 +19439,18 @@ function generateShiCiQuestion(wordItem, allWords) {
     const otherSenses = senses.filter(s => s !== sense);
     const pickedDistractors = [];
 
+    const cleanTargetMeaning = (sense.meaning || '').replace(/★/g, '').trim();
     const shuffledOther = [...otherSenses].sort(() => 0.5 - Math.random());
     for (const os of shuffledOther) {
         if (pickedDistractors.length >= 3) break;
-        pickedDistractors.push(os);
+        const cleanM = (os.meaning || '').replace(/★/g, '').trim();
+        const existingMeanings = [
+            cleanTargetMeaning,
+            ...pickedDistractors.map(d => (d.meaning || '').replace(/★/g, '').trim())
+        ];
+        if (cleanM && !existingMeanings.includes(cleanM)) {
+            pickedDistractors.push(os);
+        }
     }
 
     // 若该词释义少于4个，库内平滑补全其余选项
@@ -18660,7 +19472,6 @@ function generateShiCiQuestion(wordItem, allWords) {
         }
     }
 
-    const cleanTargetMeaning = (sense.meaning || '').replace(/★/g, '').trim();
     const correctOption = {
         pos: sense.part_of_speech || '',
         meaning: cleanTargetMeaning,
@@ -19248,7 +20059,8 @@ function confirmExitShiCi() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-shici') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 function toggleCurrentShiCiMastered() {
@@ -20176,7 +20988,7 @@ async function syncLocalBooksWithCloud(notify = false) {
             showToast(`${customBooks.length} 本词书已完成同步！`);
         }
     } catch (e) {
-        if (notify) showToast('同步完成');
+        if (notify) showToast('数据同步失败，请检查网络');
     }
 }
 
@@ -21840,19 +22652,15 @@ function enterEditMeaningsMode() {
     const currentWord = lastYoudaoSearchResult.word;
     const cleanLower = currentWord.toLowerCase();
 
-    // 提取本地词书中包含该词的释义并按词性切分为词块
-    const allTargetBooks = getAllUniqueBooks();
-    let overrides = {};
-    try {
-        overrides = JSON.parse(localStorage.getItem('vocab_word_meaning_overrides') || '{}');
-    } catch (e) { }
+    // 仅本地词书支持修改释义
+    const localCustomBooks = (window.customBooks || []).filter(b => isLocalCustomBook(b.id));
 
     const bookLanes = [];
-    allTargetBooks.forEach(b => {
+    localCustomBooks.forEach(b => {
         const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
         const matched = words.find(w => w && (w.word || w.name || '').trim().toLowerCase() === cleanLower);
         if (matched) {
-            const rawMeaning = extractWordMeaning(matched, overrides, b.id);
+            const rawMeaning = extractWordMeaning(matched, {}, b.id);
             const segs = parseMeaningPosSegments(rawMeaning);
             const bookChips = [];
             segs.forEach(seg => {
@@ -21877,25 +22685,10 @@ function enterEditMeaningsMode() {
         }
     });
 
-    // 若尚未收录于任何词书，默认追加自定义词书栏
     if (bookLanes.length === 0) {
-        const customBooks = window.customBooks || [];
-        const firstCustom = customBooks[0] || { id: 'custom_default', name: '生词本', words: [], count: 0 };
-        if (!window.customBooks || !window.customBooks.some(b => b.id === firstCustom.id)) {
-            if (!window.customBooks) window.customBooks = [];
-            window.customBooks.push(firstCustom);
-            if (typeof VocabOfflineDB !== 'undefined') {
-                VocabOfflineDB.saveBook(firstCustom).catch(() => { });
-            }
-        }
-        bookLanes.push({
-            id: 'lane_book_' + firstCustom.id,
-            title: `${firstCustom.name}`,
-            type: 'book',
-            bookId: firstCustom.id,
-            bookName: firstCustom.name,
-            chips: []
-        });
+        showToast('仅本地词书支持修改释义');
+        isEditingMeanings = false;
+        return;
     }
 
     // 提取有道词典参考词块并保留词性归类
@@ -23509,92 +24302,32 @@ let isInlineAddToBookOpen = false;
 let inlineSelectedChipIds = new Set();
 let inlineAddSelectedBookId = null;
 
-function renderSearchExplainsList() {
-    const container = document.getElementById('search-explains-dynamic-container');
-    if (!container) return;
-
-    if (!currentSearchExplainsData || !currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
-        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:12px 16px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">有道词典与本地词书暂未收录该词具体释义</div>`;
-        return;
-    }
-
-    container.innerHTML = currentSearchExplainsData.sources.map(src => `
-                <div class="unified-explain-card" style="margin-bottom:10px;">
-                    <div class="unified-card-source-row">
-                        <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
-                    </div>
-                    <div class="unified-card-content">
-                        ${src.segments.map(seg => {
-        if (isInlineAddToBookOpen) {
-            return `
-                                    <div class="unified-explain-row" style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
-                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
-                                            ${seg.pieces.map(chip => {
-                const isSel = inlineSelectedChipIds.has(chip.id);
-                return `
-                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
-                                                        onclick="toggleInlineSelectChip('${chip.id}')"
-                                                        title="点击勾选/取消勾选">
-                                                        <span>${escapeHtml(chip.text)}</span>
-                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
-                                                    </div>
-                                                `;
-            }).join('')}
-                                            <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
-                                                onclick="openAddMeaningBlockModal('${escapeHtml(seg.pos || '')}')"
-                                                title="在已有释义后添加词块"
-                                                style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
-                                                <span class="material-symbols-rounded" style="font-size:15px;">add</span>
-                                                <span>添加词块</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-        } else {
-            // 正常状态下自然连续排布，以中文分号连接，杜绝各个词条间的分裂巨大间隙
-            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
-            return `
-                                    <div class="unified-explain-row">
-                                        ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
-                                        <div class="unified-explain-text">${fluidText}</div>
-                                    </div>
-                                `;
-        }
-    }).join('')}
-                    </div>
-                </div>
-            `).join('');
+function isLocalCustomBook(bookId) {
+    if (!bookId) return false;
+    const b = (window.customBooks || []).find(cb => cb.id === bookId);
+    if (b && !b.isCloud) return true;
+    return String(bookId).startsWith('custom_') && !String(bookId).includes('cloud');
 }
 
-function openAddMeaningBlockModal(defaultPos = '') {
-    const posSelect = document.getElementById('select-meaning-block-pos');
-    const input = document.getElementById('input-meaning-block-text');
-    const subtitle = document.getElementById('add-block-target-word');
+let activeSearchAddBlockTarget = null;
 
-    if (posSelect) {
-        posSelect.value = defaultPos || '';
+function toggleSearchInlineAddBlock(bookId, segIdx) {
+    if (activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === bookId && activeSearchAddBlockTarget.segIdx === segIdx) {
+        activeSearchAddBlockTarget = null;
+    } else {
+        activeSearchAddBlockTarget = { bookId, segIdx };
     }
-    if (input) {
-        input.value = '';
-    }
-    if (subtitle && currentSearchExplainsData) {
-        subtitle.innerText = `为单词 “${currentSearchExplainsData.word}” 添加释义词块`;
-    }
-
-    const modal = document.getElementById('modal-add-meaning-block');
-    if (modal) modal.classList.add('active');
-    if (input) setTimeout(() => input.focus(), 150);
+    renderSearchExplainsList();
 }
 
-function closeAddMeaningBlockModal() {
-    const modal = document.getElementById('modal-add-meaning-block');
-    if (modal) modal.classList.remove('active');
+function cancelSearchInlineAddBlock() {
+    activeSearchAddBlockTarget = null;
+    renderSearchExplainsList();
 }
 
-function confirmAddMeaningBlock() {
-    const posSelect = document.getElementById('select-meaning-block-pos');
-    const input = document.getElementById('input-meaning-block-text');
+function confirmSearchInlineAddBlock(bookId, segIdx) {
+    const posSelect = document.getElementById(`search-inline-add-pos-${bookId}-${segIdx}`);
+    const input = document.getElementById(`search-inline-add-text-${bookId}-${segIdx}`);
     const text = (input ? input.value : '').trim();
     const pos = (posSelect ? posSelect.value : '').trim();
 
@@ -23603,20 +24336,11 @@ function confirmAddMeaningBlock() {
         return;
     }
 
-    if (!currentSearchExplainsData) return;
-    if (!currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
-        currentSearchExplainsData.sources = [{
-            type: 'custom',
-            name: '自定义释义',
-            segments: []
-        }];
-    }
+    if (!currentSearchExplainsData || !currentSearchExplainsData.sources) return;
+    const src = currentSearchExplainsData.sources.find(s => s.bookId === bookId);
+    if (!src || !src.segments) return;
 
-    const src = currentSearchExplainsData.sources[0];
-    if (!src.segments) src.segments = [];
-
-    // 寻找匹配词性的 segment，如果没有则创建
-    let targetSeg = src.segments.find(s => (s.pos || '') === pos);
+    let targetSeg = src.segments[segIdx];
     if (!targetSeg) {
         targetSeg = { pos: pos, pieces: [] };
         src.segments.push(targetSeg);
@@ -23626,16 +24350,133 @@ function confirmAddMeaningBlock() {
     targetSeg.pieces.push({
         id: newChipId,
         text: text,
-        pos: pos
+        pos: pos || targetSeg.pos || ''
     });
 
-    // 自动勾选新建的词块
-    inlineSelectedChipIds.add(newChipId);
+    if (isInlineAddToBookOpen) {
+        inlineSelectedChipIds.add(newChipId);
+    }
 
-    closeAddMeaningBlockModal();
+    const targetBook = (window.customBooks || []).find(b => b.id === bookId);
+    if (targetBook && Array.isArray(targetBook.words)) {
+        const wordObj = targetBook.words.find(w => (w.word || w.name || '').toLowerCase() === (currentSearchExplainsData.word || '').toLowerCase());
+        if (wordObj) {
+            const allPieces = [];
+            src.segments.forEach(s => {
+                const pTexts = s.pieces.map(p => p.text).filter(Boolean);
+                if (pTexts.length > 0) {
+                    allPieces.push(`${s.pos ? s.pos + ' ' : ''}${pTexts.join('；')}`);
+                }
+            });
+            wordObj.meaning = allPieces.join('； ');
+            wordObj.trans = [wordObj.meaning];
+            if (typeof VocabOfflineDB !== 'undefined') {
+                VocabOfflineDB.saveBook(targetBook).catch(() => {});
+            }
+        }
+    }
+
+    activeSearchAddBlockTarget = null;
     renderSearchExplainsList();
-    renderInlineAddToBookHeader();
+    if (isInlineAddToBookOpen) {
+        renderInlineAddToBookHeader();
+    }
     showToast(`已添加词块：${pos ? pos + ' ' : ''}${text}`);
+}
+
+function renderSearchExplainsList() {
+    const container = document.getElementById('search-explains-dynamic-container');
+    if (!container) return;
+
+    if (!currentSearchExplainsData || !currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
+        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:12px 16px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">有道词典与本地词书暂未收录该词具体释义</div>`;
+        return;
+    }
+
+    const posSelectOptions = [
+        { value: 'adj.', label: 'adj. 形容词' },
+        { value: 'adv.', label: 'adv. 副词' },
+        { value: 'n.', label: 'n. 名词' },
+        { value: 'v.', label: 'v. 动词' },
+        { value: 'vt.', label: 'vt. 及物动词' },
+        { value: 'vi.', label: 'vi. 不及物动词' },
+        { value: 'prep.', label: 'prep. 介词' },
+        { value: 'conj.', label: 'conj. 连词' },
+        { value: 'pron.', label: 'pron. 代词' },
+        { value: 'num.', label: 'num. 数词' },
+        { value: 'art.', label: 'art. 冠词' },
+        { value: 'int.', label: 'int. 感叹词' },
+        { value: '', label: '通用 / 无词性' }
+    ];
+
+    container.innerHTML = currentSearchExplainsData.sources.map(src => {
+        const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
+
+        return `
+            <div class="unified-explain-card" style="margin-bottom:10px;">
+                <div class="unified-card-source-row">
+                    <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
+                </div>
+                <div class="unified-card-content">
+                    ${src.segments.map((seg, segIdx) => {
+                        const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
+
+                        if (isInlineAddToBookOpen) {
+                            return `
+                                <div class="unified-explain-row" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+                                    <div style="display:flex; align-items:flex-start; gap:8px;">
+                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
+                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
+                                            ${seg.pieces.map(chip => {
+                                                const isSel = inlineSelectedChipIds.has(chip.id);
+                                                return `
+                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
+                                                        onclick="toggleInlineSelectChip('${chip.id}')"
+                                                        title="点击勾选/取消勾选">
+                                                        <span>${escapeHtml(chip.text)}</span>
+                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                            ${isLocal ? `
+                                                <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
+                                                    onclick="toggleSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})"
+                                                    title="添加词块"
+                                                    style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
+                                                    <span class="material-symbols-rounded" style="font-size:15px;">add</span>
+                                                    <span>添加词块</span>
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    ${isAddingHere ? `
+                                        <div class="inline-add-chip-form" style="display:flex; align-items:center; gap:8px; width:100%; margin-top:4px; flex-wrap:wrap;">
+                                            ${renderMd3SelectHtml({
+                                                id: `search-inline-add-pos-${src.bookId}-${segIdx}`,
+                                                options: posSelectOptions,
+                                                defaultValue: seg.pos || 'adj.'
+                                            })}
+                                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">
+                                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">添加</button>
+                                            <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelSearchInlineAddBlock()">取消</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        } else {
+                            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
+                            return `
+                                <div class="unified-explain-row">
+                                    ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
+                                    <div class="unified-explain-text">${fluidText}</div>
+                                </div>
+                            `;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function toggleInlineSelectChip(chipId) {
@@ -23775,8 +24616,6 @@ function renderInlineAddToBookHeader() {
                                 </span>
                             `).join('') : '<span style="font-size:0.82rem; color:var(--md-sys-color-outline);">(在下方点击勾选词块)</span>'}
                         </div>
-                        <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:180px;">
-                            <input type="text" id="input-inline-add-custom-meaning" class="input-field" placeholder="＋ 添加自定义释义 (可选)..." style="height:32px; font-size:0.84rem; padding:4px 10px; border-radius:8px; flex:1;" value="${escapeHtml(customMeaningDraft || '')}" oninput="customMeaningDraft = this.value" onkeydown="if(event.key==='Enter') confirmInlineAddToBook()">
                         </div>
                     </div>
                 </div>
@@ -23801,10 +24640,8 @@ async function confirmInlineAddToBook() {
         });
     }
 
-    const customText = (document.getElementById('input-inline-add-custom-meaning')?.value || '').trim();
-
-    if (selectedChips.length === 0 && !customText) {
-        showToast('请至少勾选一个释义词块或输入自定义释义！');
+    if (selectedChips.length === 0) {
+        showToast('请至少勾选一个释义词块！');
         return;
     }
 
@@ -23890,6 +24727,10 @@ function closeAddToBookModal() {
 let editingMeaningContext = null;
 
 function openEditMeaningModal(bookId, word, meaning) {
+    if (!isLocalCustomBook(bookId)) {
+        showToast('仅本地词书支持修改释义');
+        return;
+    }
     editingMeaningContext = { bookId, word, meaning };
     const modal = document.getElementById('modal-edit-meaning');
     const titleEl = document.getElementById('edit-meaning-word-title');

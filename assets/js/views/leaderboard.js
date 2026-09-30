@@ -124,25 +124,31 @@ async function renderLevelLeaderboard() {
             }
         }
 
-        rank = Math.max(1, Math.min(9, parseInt(rank) || 1));
-        rating = Math.max(0, Math.min(100, parseInt(rating) || 0));
-        const totalRating = (rank - 1) * 100 + rating;
+        rating = Math.max(0, parseInt(rating) || 0);
+        // 如果旧数据中 rank > 1 但 rating <= 100，自动平滑迁移为连续等级分
+        if (rank > 1 && rating <= 100) {
+            rating = (rank - 1) * 100 + rating;
+        }
+        // 等级分无上限，达到9段后继续增加
+        if (typeof LevelManager !== 'undefined') {
+            rank = LevelManager.getRankFromRating(rating);
+        } else {
+            rank = Math.min(9, Math.max(1, Math.ceil(rating / 100)));
+        }
 
         return {
             username: acc.username,
             avatar: acc.avatar_url || '',
             rank,
             rating,
-            totalRating,
             isMe: acc.username === currUser
         };
     });
 
-    // 降序排序：按总等级分排序 (总等级分 = (段位-1)*100 + 当前分)
+    // 降序排序：按总等级分排序 (到达9段后无上限，越高排名越前)
     userScores.sort((a, b) => {
-        if (b.totalRating !== a.totalRating) return b.totalRating - a.totalRating;
-        if (b.rank !== a.rank) return b.rank - a.rank;
-        return b.rating - a.rating;
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        return b.rank - a.rank;
     });
 
     if (userScores.length === 0) {
@@ -156,7 +162,7 @@ async function renderLevelLeaderboard() {
         return;
     }
 
-    // 渲染“我的排名”横幅（展示段位与等级分）
+    // 渲染“我的排名”横幅（展示段位与当前账号在全服的真实排名与实际等级分）
     const myIndex = userScores.findIndex(u => u.isMe);
     if (myRankBanner) {
         if (myIndex >= 0 && !currUser.startsWith('游客')) {
@@ -190,8 +196,11 @@ async function renderLevelLeaderboard() {
         }
     }
 
-    // 渲染排行榜列表（展示段位和等级分）
-    listContainer.innerHTML = userScores.map((u, idx) => {
+    // 仅列出全服前 10 名
+    const top10 = userScores.slice(0, 10);
+
+    // 渲染排行榜列表（展示段位和实际等级分，无100分上限）
+    listContainer.innerHTML = top10.map((u, idx) => {
         const rank = idx + 1;
         let rankBadge = '';
         if (rank === 1) {
@@ -233,6 +242,45 @@ async function renderLevelLeaderboard() {
 }
 
 // ----------------- Wordle 榜控制器 -----------------
+function renderWordleSevenDaysPicker() {
+    const container = document.getElementById('lb-wordle-days-chips');
+    if (!container) return;
+
+    const days = [];
+    const today = new Date();
+    // 过去 6 天至今天，共 7 天
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        const dayNumber = d.getDate();
+        days.push({ dateStr, dayNumber, isToday: i === 0 });
+    }
+
+    container.innerHTML = days.map(item => {
+        const isSelected = (item.dateStr === wordleLeaderboardDate);
+        return `
+            <button type="button" 
+                class="lb-day-circle-btn ${isSelected ? 'active' : ''}" 
+                onclick="selectWordleLeaderboardDate('${item.dateStr}')" 
+                title="${item.dateStr}${item.isToday ? ' (今日)' : ''}">
+                ${item.dayNumber}
+            </button>
+        `;
+    }).join('');
+}
+
+function selectWordleLeaderboardDate(dateStr) {
+    const todayStr = (new Date()).toISOString().slice(0, 10);
+    if (dateStr > todayStr) return;
+    wordleLeaderboardDate = dateStr;
+    renderWordleLeaderboard();
+}
+window.selectWordleLeaderboardDate = selectWordleLeaderboardDate;
+
 function shiftWordleLeaderboardDate(delta) {
     const todayStr = (new Date()).toISOString().slice(0, 10);
     const cur = new Date(wordleLeaderboardDate);
@@ -262,22 +310,27 @@ function toggleWordleSortDropdown(event) {
     const isHidden = menu.style.display === 'none' || !menu.style.display;
     if (isHidden) {
         updateWordleSortDropdownUI();
-        menu.style.display = 'block';
+        menu.style.display = 'flex';
+        menu.classList.add('open');
     } else {
         menu.style.display = 'none';
+        menu.classList.remove('open');
     }
 }
 
 function chooseWordleLeaderboardSort(sortType) {
     const menu = document.getElementById('menu-lb-wordle-sort');
-    if (menu) menu.style.display = 'none';
+    if (menu) {
+        menu.style.display = 'none';
+        menu.classList.remove('open');
+    }
     setWordleLeaderboardSort(sortType);
 }
 
 function updateWordleSortDropdownUI() {
     const labelEl = document.getElementById('lb-wordle-sort-label');
     if (labelEl) {
-        labelEl.innerText = wordleLeaderboardSort === 'attempts' ? '按尝试次数最少' : '按用时最快';
+        labelEl.innerText = wordleLeaderboardSort === 'attempts' ? '按次数最少' : '按用时最快';
     }
     const optTime = document.getElementById('opt-wordle-sort-time');
     const optAttempts = document.getElementById('opt-wordle-sort-attempts');
@@ -289,7 +342,7 @@ function updateWordleSortDropdownUI() {
     if (optAttempts) {
         const isAtt = wordleLeaderboardSort === 'attempts';
         optAttempts.className = `md3-custom-select-option ${isAtt ? 'selected' : ''}`;
-        optAttempts.innerHTML = `<span>按尝试次数最少</span>${isAtt ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
+        optAttempts.innerHTML = `<span>按次数最少</span>${isAtt ? '<span class="material-symbols-rounded" style="font-size:16px;">check</span>' : ''}`;
     }
 }
 
@@ -303,12 +356,40 @@ function setWordleLeaderboardSort(sortType) {
     renderWordleLeaderboard();
 }
 
+function checkUserFinishedWordleForDate(dateStr, currUser) {
+    if (!currUser) return false;
+    // 1. 本地当日专属进度
+    try {
+        const k = `vocab_daily_wordle_${currUser}_${dateStr}`;
+        const raw = SafeStorage.getItem(k) || localStorage.getItem(k);
+        if (raw) {
+            const p = JSON.parse(raw);
+            if (p && (p.gameOver || p.isWon)) return true;
+        }
+    } catch (e) { }
+
+    // 2. 本地历史记录
+    try {
+        const histKey = `vocab_wordle_history_${currUser}`;
+        const rawHist = SafeStorage.getItem(histKey) || localStorage.getItem(histKey);
+        if (rawHist) {
+            const h = JSON.parse(rawHist);
+            if (h && h[dateStr]) return true;
+        }
+    } catch (e) { }
+
+    // 3. 当前运行中的 riddleState 判定
+    if (typeof isDailyWordleMode !== 'undefined' && isDailyWordleMode && typeof riddleState !== 'undefined' && riddleState) {
+        const todayStr = (new Date()).toISOString().slice(0, 10);
+        if (dateStr === todayStr && riddleState.gameOver) return true;
+    }
+
+    return false;
+}
+
 async function renderWordleLeaderboard() {
     const listContainer = document.getElementById('lb-wordle-list');
-    const dateLabel = document.getElementById('lb-wordle-date-label');
     const wordCard = document.getElementById('lb-wordle-word-card');
-    const todayBtn = document.getElementById('btn-lb-wordle-today');
-    const nextBtn = document.getElementById('btn-lb-wordle-next');
 
     const todayStr = (new Date()).toISOString().slice(0, 10);
     // 强制限制无法超过今天
@@ -317,37 +398,18 @@ async function renderWordleLeaderboard() {
     }
     const isToday = wordleLeaderboardDate === todayStr;
 
+    // 渲染最近 7 天快捷圆圈选择器
+    renderWordleSevenDaysPicker();
     updateWordleSortDropdownUI();
     const sortSelect = document.getElementById('select-lb-wordle-sort');
     if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
-    if (dateLabel) {
-        dateLabel.innerText = `${wordleLeaderboardDate} ${isToday ? '(今日)' : ''}`;
-    }
+    const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+    const hasCompletedWordle = !isToday || checkUserFinishedWordleForDate(todayStr, currUser);
 
-    // 后一天按钮状态：若是今日则完全禁用
-    if (nextBtn) {
-        if (isToday) {
-            nextBtn.setAttribute('disabled', 'true');
-            nextBtn.style.opacity = '0.35';
-            nextBtn.style.cursor = 'not-allowed';
-            nextBtn.style.pointerEvents = 'none';
-        } else {
-            nextBtn.removeAttribute('disabled');
-            nextBtn.style.opacity = '1';
-            nextBtn.style.cursor = 'pointer';
-            nextBtn.style.pointerEvents = 'auto';
-        }
-    }
-
-    // “回到今日” 按钮：在今天时隐藏，在历史日期时展示
-    if (todayBtn) {
-        todayBtn.style.display = isToday ? 'none' : 'inline-flex';
-    }
-
-    // 1. 渲染今日保密提示 或 历史揭晓单词卡片 (不要在榜单列表中泄露目标词，但支持查看历史词)
+    // 1. 渲染今日/历史单词卡片 (通关后或历史日期直接展示该词及释义)
     if (wordCard) {
-        if (isToday) {
+        if (!hasCompletedWordle) {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:10px; font-size:0.86rem; color:var(--md-sys-color-outline, #64748b);">
                     <span class="material-symbols-rounded" style="font-size:20px; color:var(--md-sys-color-primary, #0284c7);">lock</span>
@@ -358,25 +420,26 @@ async function renderWordleLeaderboard() {
             wordCard.innerHTML = `
                 <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:8px; color:var(--md-sys-color-outline);">
                     <span class="material-symbols-rounded rotating" style="font-size:18px;">sync</span>
-                    <span style="font-size:0.85rem;">正在查询历史单词...</span>
+                    <span style="font-size:0.85rem;">正在查询词汇...</span>
                 </div>
             `;
             try {
-                const histWord = (typeof getDailyWordForDate === 'function') 
+                const targetWordObj = (typeof getDailyWordForDate === 'function') 
                     ? await getDailyWordForDate(wordleLeaderboardDate) 
                     : null;
-                if (histWord && histWord.word) {
-                    const lowerWord = histWord.word.toLowerCase();
+                if (targetWordObj && targetWordObj.word) {
+                    const lowerWord = targetWordObj.word.toLowerCase();
+                    const badgeText = '已揭晓';
                     wordCard.innerHTML = `
                         <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                             <div style="min-width:0; flex:1;">
-                                <div style="font-size:0.75rem; font-weight:700; color:var(--md-sys-color-outline, #64748b); letter-spacing:0.5px; margin-bottom:4px;">该日挑战单词</div>
+                                <div style="font-size:0.75rem; font-weight:700; color:var(--md-sys-color-outline, #64748b); letter-spacing:0.5px; margin-bottom:4px;">${isToday ? '今日挑战单词' : '该日挑战单词'}</div>
                                 <div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:10px;">
                                     <span style="font-size:1.25rem; font-weight:800; color:var(--md-sys-color-primary, #0284c7); letter-spacing:0.5px; text-transform:lowercase; font-family:var(--md-sys-typescale-body-font, inherit);">${escapeHtml(lowerWord)}</span>
-                                    <span style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant, #475569);">${escapeHtml(histWord.meaning || '')}</span>
+                                    <span style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant, #475569);">${escapeHtml(targetWordObj.meaning || '')}</span>
                                 </div>
                             </div>
-                            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem; font-weight:700; padding:4px 12px; border-radius:9999px; flex-shrink:0;">历史已揭晓</span>
+                            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem; font-weight:700; padding:4px 12px; border-radius:9999px; flex-shrink:0;">${badgeText}</span>
                         </div>
                     `;
                 } else {
@@ -398,7 +461,6 @@ async function renderWordleLeaderboard() {
     `;
 
     const records = [];
-    const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
 
     // 2. 优先从 Supabase 专用表 daily_wordle_records 查询
     try {

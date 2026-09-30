@@ -12,8 +12,24 @@ function showToast(text) {
 
 let currentView = 'view-auth';
 window.currentView = currentView;
+let previousView = 'view-hub';
+window.previousView = previousView;
+
+function goBackToPreviousView(fallback = 'view-hub') {
+    const prev = window.previousView || fallback;
+    if (!prev || prev === currentView) {
+        switchView(fallback);
+    } else {
+        switchView(prev);
+    }
+}
+window.goBackToPreviousView = goBackToPreviousView;
 
 function switchView(viewId) {
+    if (currentView && currentView !== viewId) {
+        previousView = currentView;
+        window.previousView = currentView;
+    }
     currentView = viewId;
     window.currentView = viewId;
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
@@ -237,7 +253,7 @@ function updateHub() {
             const lData = LevelManager.getLevelData(currentUser);
             levelBadge.style.display = 'inline-flex';
             levelBadge.innerText = `${lData.rank}段`;
-            levelBadge.title = `段位 ${lData.rank}段 (${lData.rating}/100分)`;
+            levelBadge.title = `段位：${lData.rank}段 (总等级分：${lData.rating}分)`;
         } else {
             levelBadge.style.display = 'none';
         }
@@ -257,7 +273,7 @@ function updateHub() {
     if (ddLevelText) {
         if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
             const lData = LevelManager.getLevelData(currentUser);
-            ddLevelText.innerText = `${lData.rank}段 (${lData.rating}/100分)`;
+            ddLevelText.innerText = `${lData.rank}段 (${lData.rating}分)`;
         } else {
             ddLevelText.innerText = '登录后解锁段位和排位赛功能';
         }

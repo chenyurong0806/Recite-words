@@ -960,32 +960,150 @@ function endSingleGame() {
     switchView('view-result');
 }
 
+function getAllKnownMeaningsOfTargetWord(targetWord) {
+    const forbidden = new Set();
+    const tLower = (targetWord || '').trim().toLowerCase();
+    if (!tLower) return forbidden;
+
+    const addClean = (str) => {
+        if (!str || typeof str !== 'string') return;
+        const s = str.trim().toLowerCase();
+        if (s && s !== '---') {
+            forbidden.add(s);
+            const noPos = s.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+            if (noPos) forbidden.add(noPos);
+        }
+    };
+
+    if (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) {
+        dictionary.forEach(w => {
+            if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                if (w.meaning) addClean(w.meaning);
+                if (Array.isArray(w.meanings)) {
+                    w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                }
+                if (Array.isArray(w.trans)) {
+                    w.trans.forEach(t => addClean(t));
+                }
+            }
+        });
+    }
+
+    if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+        Object.values(BookManager.bookCache).forEach(words => {
+            if (Array.isArray(words)) {
+                words.forEach(w => {
+                    if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                        if (w.meaning) addClean(w.meaning);
+                        if (Array.isArray(w.meanings)) {
+                            w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                        }
+                        if (Array.isArray(w.trans)) {
+                            w.trans.forEach(t => addClean(t));
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    if (typeof window !== 'undefined' && Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (Array.isArray(b.words)) {
+                b.words.forEach(w => {
+                    if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                        if (w.meaning) addClean(w.meaning);
+                        if (Array.isArray(w.meanings)) {
+                            w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+        DEFAULT_WORDS.forEach(w => {
+            if (w && (w.word || w.name || '').trim().toLowerCase() === tLower) {
+                if (w.meaning) addClean(w.meaning);
+                if (Array.isArray(w.meanings)) {
+                    w.meanings.forEach(m => addClean((m.pos ? m.pos + ' ' : '') + (m.meaning || '')));
+                }
+            }
+        });
+    }
+
+    return forbidden;
+}
+
+function getWordDistractorMeaning(d, usedMeanings, targetForbiddenMeanings = new Set()) {
+    if (!d) return null;
+    const candidates = [];
+    if (Array.isArray(d.meanings) && d.meanings.length > 0) {
+        d.meanings.forEach(m => {
+            const str = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
+            if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
+        });
+    }
+    if (d.meaning && typeof d.meaning === 'string') {
+        const str = d.meaning.trim();
+        if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
+    }
+    if (candidates.length === 0) return null;
+
+    const available = candidates.filter(m => {
+        const mLower = m.toLowerCase();
+        const noPos = mLower.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+        if (usedMeanings.has(mLower) || (noPos && usedMeanings.has(noPos))) return false;
+        if (targetForbiddenMeanings.has(mLower) || (noPos && targetForbiddenMeanings.has(noPos))) return false;
+        return true;
+    });
+
+    if (available.length > 0) {
+        return available[Math.floor(Math.random() * available.length)];
+    }
+    return null;
+}
+
 function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride) {
     const curDict = (typeof dictionary !== 'undefined' && Array.isArray(dictionary)) ? dictionary : [];
     let pool = (poolOverride && poolOverride.length >= 4) ? poolOverride : [...(poolOverride || []), ...curDict];
     if (pool.length === 0) {
         pool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
     }
-    const targetLower = targetWord.toLowerCase();
-    const isSingleWord = !targetWord.trim().includes(' ');
+    const targetLower = (targetWord || '').toLowerCase().trim();
+    const isSingleWord = !targetLower.includes(' ');
+
+    const targetForbiddenMeanings = getAllKnownMeaningsOfTargetWord(targetWord);
+    const cleanCorrect = (correctMeaning || '').trim().toLowerCase();
+    if (cleanCorrect) {
+        targetForbiddenMeanings.add(cleanCorrect);
+        const cleanNoPos = cleanCorrect.replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+        if (cleanNoPos) targetForbiddenMeanings.add(cleanNoPos);
+    }
+
+    const usedMeanings = new Set([...targetForbiddenMeanings]);
 
     const seen = new Set();
     const candidates = [];
     for (const d of pool) {
         if (!d || !d.word) continue;
-        if (isSingleWord && d.word.trim().includes(' ')) continue;
-        const wl = d.word.toLowerCase();
-        if (wl !== targetLower && !seen.has(wl)) {
+        const wl = d.word.toLowerCase().trim();
+        if (wl === targetLower) continue; // 绝对不抽该单词自身
+        if (isSingleWord && wl.includes(' ')) continue;
+        if (!seen.has(wl)) {
             seen.add(wl);
             candidates.push(d);
         }
     }
 
-    if (isSingleWord && candidates.length < 4) {
+    if (isSingleWord && candidates.length < 10 && typeof DEFAULT_WORDS !== 'undefined') {
         for (const d of DEFAULT_WORDS) {
-            if (!d || !d.word || d.word.trim().includes(' ')) continue;
-            const wl = d.word.toLowerCase();
-            if (wl !== targetLower && !seen.has(wl)) {
+            if (!d || !d.word) continue;
+            const wl = d.word.toLowerCase().trim();
+            if (wl === targetLower) continue;
+            if (wl.includes(' ')) continue;
+            if (!seen.has(wl)) {
                 seen.add(wl);
                 candidates.push(d);
             }
@@ -993,7 +1111,7 @@ function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride
     }
 
     const scoredCandidates = candidates.map(d => {
-        const candLower = d.word.toLowerCase();
+        const candLower = d.word.toLowerCase().trim();
         const dist = calcLevenshteinDist(targetLower, candLower);
         let prefixBonus = 0;
         if (targetLower.slice(0, 3) === candLower.slice(0, 3)) prefixBonus = 3;
@@ -1004,29 +1122,47 @@ function getSimilarConfusingDistractors(targetWord, correctMeaning, poolOverride
     });
 
     scoredCandidates.sort((a, b) => b.score - a.score);
-    const topSlice = scoredCandidates.slice(0, 10).map(c => c.item);
-    const chosen = topSlice.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const topCandidates = scoredCandidates.slice(0, 25).map(c => c.item).sort(() => 0.5 - Math.random());
 
-    let safeGuard = 0;
-    while (chosen.length < 3 && candidates.length > chosen.length && safeGuard < 20) {
-        safeGuard++;
-        const rand = candidates[Math.floor(Math.random() * candidates.length)];
-        if (isSingleWord && rand.word.trim().includes(' ')) continue;
-        if (!chosen.some(c => c.word.toLowerCase() === rand.word.toLowerCase())) {
-            chosen.push(rand);
+    const chosenDistractors = [];
+
+    // 先从前置相似候选中挑选，保证释义完全不重复且不含目标词在其他词书的任何释义
+    for (const cand of topCandidates) {
+        if (chosenDistractors.length >= 3) break;
+        const meaning = getWordDistractorMeaning(cand, usedMeanings, targetForbiddenMeanings);
+        if (meaning) {
+            usedMeanings.add(meaning.toLowerCase());
+            const noPos = meaning.toLowerCase().replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+            if (noPos) usedMeanings.add(noPos);
+            chosenDistractors.push({ word: cand.word, meaning: meaning });
         }
     }
 
-    return chosen.map(d => {
-        let meaningStr = '---';
-        if (Array.isArray(d.meanings) && d.meanings.length > 0) {
-            const randomM = d.meanings[Math.floor(Math.random() * d.meanings.length)] || { pos: '', meaning: '---' };
-            meaningStr = (randomM.pos ? randomM.pos + ' ' : '') + (randomM.meaning || '');
-        } else if (d.meaning) {
-            meaningStr = d.meaning;
+    // 若不足3个，从整体候选词库随机补充不重合释义
+    if (chosenDistractors.length < 3) {
+        const remaining = candidates.filter(c => !chosenDistractors.some(cd => cd.word.toLowerCase().trim() === c.word.toLowerCase().trim())).sort(() => 0.5 - Math.random());
+        for (const cand of remaining) {
+            if (chosenDistractors.length >= 3) break;
+            const meaning = getWordDistractorMeaning(cand, usedMeanings, targetForbiddenMeanings);
+            if (meaning) {
+                usedMeanings.add(meaning.toLowerCase());
+                const noPos = meaning.toLowerCase().replace(/^[a-z]{1,6}\.\s*/i, '').trim();
+                if (noPos) usedMeanings.add(noPos);
+                chosenDistractors.push({ word: cand.word, meaning: meaning });
+            }
         }
-        return { word: d.word, meaning: meaningStr };
-    });
+    }
+
+    // 兜底保护，若依然不够3个，且备用释义已无可挑，避免崩溃
+    let fallbackIdx = 1;
+    while (chosenDistractors.length < 3) {
+        chosenDistractors.push({
+            word: `option_${fallbackIdx}`,
+            meaning: `其他备选释义 ${fallbackIdx++}`
+        });
+    }
+
+    return chosenDistractors;
 }
 
 function generateOptions(targetWord, correctMeaning, poolOverride) {
@@ -1158,11 +1294,16 @@ function renderMeView() {
                 avatarIcon.style.display = 'inline-flex';
             }
 
+            const editUserRow = document.getElementById('me-row-edit-username');
+            const editPassRow = document.getElementById('me-row-edit-password');
+
             if (currentUserProfile.type === 'bilibili') {
                 if (badgeEl) {
                     badgeEl.innerHTML = `<span class="badge" style="background:#fb7299; color:#fff; font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">哔哩哔哩授权账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'none';
+                if (editUserRow) editUserRow.style.display = 'none';
+                if (editPassRow) editPassRow.style.display = 'none';
                 if (avatarEditHint) avatarEditHint.style.display = 'none';
                 if (avatarWrap) avatarWrap.style.cursor = 'default';
             } else {
@@ -1170,11 +1311,17 @@ function renderMeView() {
                     badgeEl.innerHTML = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-size:0.75rem; padding:3px 9px; border-radius:10px; font-weight:600;">云端账号</span>`;
                 }
                 if (cloudActions) cloudActions.style.display = 'flex';
+                if (editUserRow) editUserRow.style.display = 'flex';
+                if (editPassRow) editPassRow.style.display = 'flex';
                 if (avatarEditHint) avatarEditHint.style.display = 'flex';
                 if (avatarWrap) avatarWrap.style.cursor = 'pointer';
             }
 
-            // 渲染用户等级卡片 (已简化：优化UI，不展示具体经验值，不需要等级称号)
+            if (typeof updateSyncButtonStatus === 'function') {
+                updateSyncButtonStatus(Boolean(window.lastCloudSyncTimestamp));
+            }
+
+            // 渲染用户等级卡片 (实际等级分与上限，9段不用显示上限)
             if (typeof LevelManager !== 'undefined') {
                 const lData = LevelManager.getLevelData(currentUserProfile.username || currentUser);
                 const badge = document.getElementById('me-level-badge');
@@ -1182,10 +1329,26 @@ function renderMeView() {
                 const expText = document.getElementById('me-level-exp-text');
                 const fill = document.getElementById('me-level-progress-fill');
 
-                if (badge) badge.innerText = `${lData.rank}段`;
+                if (badge) {
+                    badge.innerText = `${lData.rank}段`;
+                    badge.title = `段位：${lData.rank}段 | 总等级分：${lData.rating}分`;
+                }
                 if (title) title.innerText = '';
-                if (expText) expText.innerText = `${lData.rating}/100分`;
-                if (fill) fill.style.width = `${Math.min(100, Math.max(0, lData.rating))}%`;
+                if (expText) {
+                    if (lData.rank >= 9) {
+                        expText.innerText = `${lData.rating}分`;
+                    } else {
+                        const tierMax = lData.rank * 100;
+                        expText.innerText = `${lData.rating}/${tierMax}分`;
+                    }
+                }
+                if (fill) {
+                    if (lData.rank >= 9) {
+                        fill.style.width = '100%';
+                    } else {
+                        fill.style.width = `${Math.min(100, Math.max(0, lData.progressPercent))}%`;
+                    }
+                }
             }
         }
     }
@@ -1224,12 +1387,86 @@ function renderMeView() {
         masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
     }
 
+    const mistakesSummaryEl = document.getElementById('settings-mistakes-summary-text');
+    if (mistakesSummaryEl) {
+        const mCount = Object.keys(userStats.mistakes || {}).length;
+        mistakesSummaryEl.innerText = `集中查看与复习做题过程中收录的错题（共 ${mCount} 词）`;
+    }
+
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
     if (trashSummaryEl) {
         const tCount = getTrashWords().length;
         trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
     }
 }
+
+// ----------------- 数据同步状态与手动同步 -----------------
+let isUserDataSynced = false;
+
+function updateSyncButtonStatus(isSynced) {
+    const btn = document.getElementById('btn-sync-cloud-data');
+    if (!btn) return;
+    const label = btn.querySelector('.btn-label-text');
+    const icon = btn.querySelector('.material-symbols-rounded');
+
+    if (isSynced) {
+        isUserDataSynced = true;
+        if (icon) icon.innerText = 'check';
+        if (label) label.innerText = '已同步';
+        btn.disabled = false;
+        btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
+        btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+    } else {
+        isUserDataSynced = false;
+        if (icon) icon.innerText = 'sync';
+        if (label) label.innerText = '同步数据';
+        btn.disabled = false;
+        btn.style.borderColor = '';
+        btn.style.color = '';
+    }
+}
+window.updateSyncButtonStatus = updateSyncButtonStatus;
+
+async function handleManualSyncUserData() {
+    const btn = document.getElementById('btn-sync-cloud-data');
+    if (isUserDataSynced) {
+        if (typeof showToast === 'function') {
+            showToast('当前已是最新数据，已同步到云端');
+        }
+        return;
+    }
+    if (btn) {
+        const icon = btn.querySelector('.material-symbols-rounded');
+        const label = btn.querySelector('.btn-label-text');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+        if (label) label.innerText = '同步中...';
+        btn.disabled = true;
+    }
+    try {
+        if (typeof syncAllUserDataToCloud === 'function') {
+            const res = await syncAllUserDataToCloud();
+            if (res && res.success) {
+                updateSyncButtonStatus(true);
+                if (typeof showToast === 'function') {
+                    showToast('数据已成功同步到云端！');
+                }
+            } else {
+                updateSyncButtonStatus(false);
+            }
+        }
+    } catch (e) {
+        updateSyncButtonStatus(false);
+        if (typeof showToast === 'function') {
+            showToast('数据同步失败，请检查网络');
+        }
+    } finally {
+        if (btn) {
+            const icon = btn.querySelector('.material-symbols-rounded');
+            if (icon) icon.style.animation = '';
+        }
+    }
+}
+window.handleManualSyncUserData = handleManualSyncUserData;
 
 // ----------------- 云端账号管理操作 (修改用户名、密码、头像) -----------------
 function triggerMeAvatarUpload() {
@@ -1294,16 +1531,64 @@ async function confirmUpdateUsername() {
         SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
         SafeStorage.setItem('vocab_pk_user', newName);
 
-        // 迁移本地数据 key
-        const oldStats = SafeStorage.getItem(`vocab_stats_${oldName}`);
-        if (oldStats) SafeStorage.setItem(`vocab_stats_${newName}`, oldStats);
+        // 迁移本地所有核心数据 key (段位、统计、记忆曲线、错词本、每日记录等)
+        const keysToMigrate = [
+            'vocab_stats',
+            'vocab_rank_data',
+            'vocab_ebbinghaus_db',
+            'vocab_daily_logs',
+            'vocab_mastered_words',
+            'vocab_wordle_history',
+            'vocab_shici_progress',
+            'vocab_user_avatar',
+            'vocab_recent_books',
+            'vocab_mistakes'
+        ];
+        keysToMigrate.forEach(prefix => {
+            const oldVal = SafeStorage.getItem(`${prefix}_${oldName}`);
+            if (oldVal !== null) {
+                SafeStorage.setItem(`${prefix}_${newName}`, oldVal);
+            }
+        });
+
+        // 迁移段位管理器内存与本地持久化
+        if (typeof LevelManager !== 'undefined') {
+            const oldRank = LevelManager.getUserRankData(oldName);
+            if (oldRank && !oldRank.isGuest) {
+                LevelManager.saveUserRankData(newName, {
+                    rank: oldRank.rank,
+                    rating: oldRank.rating,
+                    isPromotionReady: oldRank.isPromotionReady,
+                    battles: oldRank.battles || { total: 0, wins: 0, losses: 0, draws: 0 }
+                });
+            }
+        }
+
+        // 迁移记住的设备账号列表
+        if (typeof getSavedDeviceAccounts === 'function') {
+            let list = getSavedDeviceAccounts();
+            const targetAcc = list.find(a => a.username === oldName);
+            if (targetAcc) {
+                targetAcc.username = newName;
+                SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
+            }
+        }
+
+        // 立即触发云端全量数据同步，确保新用户名在云端继承原有段位与全部学习成果
+        if (typeof syncAllUserDataToCloud === 'function') {
+            syncAllUserDataToCloud(newName);
+        }
 
         showToast(`用户名已成功修改为 “${newName}”`);
         closeEditUsernameModal();
         renderMeView();
         updateHub();
     } catch (e) {
-        alert(e.message || '修改用户名失败');
+        if (typeof showToast === 'function') {
+            showToast(e.message || '修改用户名失败');
+        } else {
+            alert(e.message || '修改用户名失败');
+        }
     }
 }
 

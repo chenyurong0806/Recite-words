@@ -32,10 +32,19 @@ function renderBookFolderTree(containerId, options = {}) {
 
     const bookMatches = (b) => (filterType === 'all' ? true : (filterType === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
 
+    const isSupportedForMode = (b) => {
+        if (mode === 'riddle') {
+            if (typeof isWordleSupportedBook === 'function') {
+                return isWordleSupportedBook(b);
+            }
+        }
+        return true;
+    };
+
     // 云端词书：包括 Worker/GitHub 云端词书以及从云端下载到本地持久化的词书（过滤掉 GaoKao3500 重复项）
-    const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500' && bookMatches(b));
+    const cloudBooks = allBooks.filter(b => (b.isCloud || !String(b.id).startsWith('custom_')) && b.id !== 'GaoKao3500' && bookMatches(b) && isSupportedForMode(b));
     // 本地词书：用户自主导入的本地词书 (远程联机、人机对战禁止选择本地词书)
-    const localCustomBooks = excludeLocal ? [] : (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b));
+    const localCustomBooks = excludeLocal ? [] : (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_') && bookMatches(b) && isSupportedForMode(b));
 
     if (cloudBooks.length === 0 && localCustomBooks.length === 0) {
         container.innerHTML = `

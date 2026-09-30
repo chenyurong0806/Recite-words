@@ -18,6 +18,7 @@ let guestReady = false;
 let hostRank = 1, hostRating = 0;
 let guestRank = 1, guestRating = 0;
 let currentMatchOppoRank = 1, currentMatchOppoRating = 50;
+let isPlayingMatch = false;
 
 function safeBroadcast(channel, event, payload) {
     if (!channel) return;
@@ -1388,7 +1389,8 @@ function cleanUpAndBackToHub() {
         btnJoin.disabled = false;
         btnJoin.innerText = '加入房间';
     }
-    switchView('view-hub');
+    const target = (window.previousView && window.previousView !== 'view-online') ? window.previousView : 'view-hub';
+    switchView(target);
 }
 
 async function startOnlineGame() {
@@ -1678,6 +1680,65 @@ function resetAllGameAlertsAndFeedback() {
     if (singleComp) singleComp.style.display = 'none';
 }
 
+// 确定性伪随机重排算法 (Mulberry32)：第一轮抽取的题组完成后，无缝衔接下一组，确保双方题目与顺序100%一致
+function generateDeterministicNextBatch(basePool, roundIndex) {
+    if (!basePool || basePool.length === 0) return [];
+    let seed = 0;
+    for (let i = 0; i < basePool.length; i++) {
+        const str = basePool[i].word || '';
+        for (let j = 0; j < str.length; j++) {
+            seed = (seed * 31 + str.charCodeAt(j)) | 0;
+        }
+    }
+    seed = (seed ^ (roundIndex * 1000003 + 0x9e3779b9)) | 0;
+
+    function prng() {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+
+    const nextBatch = basePool.map(q => {
+        try {
+            return JSON.parse(JSON.stringify(q));
+        } catch (e) {
+            return Object.assign({}, q);
+        }
+    });
+
+    for (let i = nextBatch.length - 1; i > 0; i--) {
+        const j = Math.floor(prng() * (i + 1));
+        const temp = nextBatch[i];
+        nextBatch[i] = nextBatch[j];
+        nextBatch[j] = temp;
+    }
+    return nextBatch;
+}
+window.generateDeterministicNextBatch = generateDeterministicNextBatch;
+
+function ensurePoolCapacity(state, targetIdx) {
+    if (!state) return;
+    if (!state.basePool || state.basePool.length === 0) {
+        if (state.pool && state.pool.length > 0) {
+            state.basePool = state.pool.map(q => {
+                try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+            });
+        } else {
+            return;
+        }
+    }
+    if (!state.basePool || state.basePool.length === 0) return;
+
+    while (state.pool.length <= targetIdx) {
+        const roundNum = Math.floor(state.pool.length / state.basePool.length) + 1;
+        const nextBatch = generateDeterministicNextBatch(state.basePool, roundNum);
+        if (!nextBatch || nextBatch.length === 0) break;
+        state.pool.push(...nextBatch);
+    }
+}
+window.ensurePoolCapacity = ensurePoolCapacity;
+
 function resetPlayerState(state, pool) {
     resetAllGameAlertsAndFeedback();
     if (state.timerId) clearInterval(state.timerId);
@@ -1686,7 +1747,11 @@ function resetPlayerState(state, pool) {
     state.currentIdx = 0;
     state.frozen = false;
     state.answeringLock = false;
-    state.pool = pool;
+    const safeList = Array.isArray(pool) ? [...pool] : [];
+    state.basePool = safeList.map(q => {
+        try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
+    });
+    state.pool = [...safeList];
     state.timerId = null;
 }
 
@@ -1698,6 +1763,10 @@ let arenaPhraseState = {
 };
 
 function renderQuestion(state) {
+    if (state.pool && state.pool.length > 0) {
+        ensurePoolCapacity(state, state.currentIdx);
+    }
+
     if (state.currentIdx >= state.pool.length) {
         document.getElementById(`p1-word`).innerText = "练习完成！";
         document.getElementById(`p1-phone`).innerText = "";
@@ -2767,12 +2836,13 @@ async function handleResultBackToHub() {
     cleanUpAndBackToHub();
 }
 
-function applyForfeitPenalty() {
+async function applyForfeitPenalty() {
     if (typeof LevelManager === 'undefined' || !currentUser) return;
+    if (LevelManager.isGuestUser(currentUser)) return;
+
     const isAi = (gameMode === 'ai_duel');
-    const isRanked = isAi 
-        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : true)
-        : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+    // 人机对战中途退出按用户要求扣除等级分；多人联机按排位模式结算
+    const isRanked = isAi ? true : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
 
     if (!isRanked) return;
 
@@ -2793,10 +2863,15 @@ function applyForfeitPenalty() {
         oppoRating
     });
 
-    LevelManager.applyMatchResult(currentUser, matchResult);
+    await LevelManager.applyMatchResult(currentUser, matchResult);
 
     if (typeof showToast === 'function') {
-        showToast(`中途退出判定战败，扣除 ${Math.abs(matchResult.deltaPoints)} 等级分`);
+        const deduct = Math.abs(matchResult.deltaPoints);
+        if (deduct > 0) {
+            showToast(`中途退出判定战败，扣除 ${deduct} 等级分 (当前: ${matchResult.newRating}分)`);
+        } else {
+            showToast(`中途退出判定战败`);
+        }
     }
 
     if (!isAi && realtimeChannel) {
@@ -2805,18 +2880,34 @@ function applyForfeitPenalty() {
 }
 window.applyForfeitPenalty = applyForfeitPenalty;
 
-function confirmExitGame() {
+async function confirmExitGame() {
     if (isPlayingMatch) {
-        if (!confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？')) {
-            return;
+        let ok = true;
+        if (typeof showConfirmModal === 'function') {
+            ok = await showConfirmModal({
+                title: '退出对决确认',
+                message: '对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？',
+                confirmText: '退出并扣分',
+                cancelText: '继续对战',
+                isDanger: true,
+                icon: 'logout'
+            });
+        } else {
+            try {
+                ok = window.confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？');
+            } catch (e) {
+                ok = true;
+            }
         }
-        applyForfeitPenalty();
+        if (!ok) return;
+        await applyForfeitPenalty();
     }
 
     clearInterval(gameTimer);
-    if (p1State.timerId) clearInterval(p1State.timerId);
+    if (p1State && p1State.timerId) clearInterval(p1State.timerId);
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
+    window.aiDuelTimer = null;
     isPlayingMatch = false;
 
     if (gameMode === 'online') {
@@ -2826,6 +2917,7 @@ function confirmExitGame() {
         switchView('view-hub');
     }
 }
+window.confirmExitGame = confirmExitGame;
 
 /* ==========================================================================
    13. 在线大厅、在线玩家卡片修复与房间1天过期清理
@@ -2840,7 +2932,7 @@ let currentIncomingInvite = null;
 
 let CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
 const recentlySwitchedAccounts = new Set();
-let isPlayingMatch = false;
+isPlayingMatch = false;
 let lastPresenceRefreshTime = 0;
 let lastInviteSentTimes = {};
 let lastManualRoomRefreshTime = 0;
@@ -3345,7 +3437,7 @@ async function syncGlobalPresenceState() {
                 ` : `
                     <button type="button" class="btn online-player-action-btn" onclick="openCreateMatchInviteModal('${escapeHtml(u.username)}')">
                         <span class="material-symbols-rounded">swords</span>
-                        <span>发起对战</span>
+                        <span>邀请</span>
                     </button>
                 `;
 

@@ -8,7 +8,7 @@ const LevelManager = {
     MIN_LEVEL: 1,
     MIN_RANK: 1,
     MAX_RANK: 9,
-    MAX_RATING: 900, // 9段满分为 900 分 (每段100分)
+    MAX_RATING: Infinity, // 等级分无上限，到达9段后可以继续增加
 
     // 检查是否为游客
     isGuestUser(username) {
@@ -20,7 +20,7 @@ const LevelManager = {
         return false;
     },
 
-    // 根据总等级分反推段位 (1段: 1-100, 2段: 101-200, ..., 9段: 801-900)
+    // 根据总等级分反推段位 (1段: 1-100, 2段: 101-200, ..., 9段: 801分及以上无上限)
     getRankFromRating(rating) {
         const r = parseInt(rating) || 0;
         if (r <= 0) return 1;
@@ -79,21 +79,24 @@ const LevelManager = {
             data.rating = (data.rank - 1) * 100 + data.rating;
         }
         data.rank = this.getRankFromRating(data.rating);
+        const isMaxRank = data.rank >= this.MAX_RANK;
         const withinTier = data.rating <= 0 ? 0 : ((data.rating - 1) % 100) + 1;
-        const progressPercent = Math.max(0, Math.min(100, withinTier));
+        const progressPercent = isMaxRank ? 100 : Math.max(0, Math.min(100, withinTier));
         const tierMax = data.rank * 100;
-        const isPromotionReady = (data.rank < this.MAX_RANK && data.rating >= tierMax);
+        const isPromotionReady = (!isMaxRank && data.rating >= tierMax);
 
         return {
             isGuest: false,
             rank: data.rank,
             rating: data.rating,
+            isMaxRank: isMaxRank,
             isPromotionReady: isPromotionReady,
             battles: data.battles || { total: 0, wins: 0, losses: 0, draws: 0 },
             level: data.rank, // 兼容现有调用 level 的字段
             score: data.rating, // 兼容 score
+            tierRating: withinTier,
             progressPercent: progressPercent, // 当前段位内百分比 (0~100%)
-            comparisonText: `${data.rating} 分 (当前段位 ${progressPercent}/100)`
+            comparisonText: isMaxRank ? `${data.rating} 分 (已达9段，积分无上限)` : `${data.rating} 分 (当前段位 ${progressPercent}/100)`
         };
     },
 
@@ -119,14 +122,16 @@ const LevelManager = {
     getLevelData(username) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         const rankData = this.getUserRankData(u);
+        const isMaxRank = rankData.rank >= this.MAX_RANK;
         const withinTier = rankData.rating <= 0 ? 0 : ((rankData.rating - 1) % 100) + 1;
         return {
             ...rankData,
             title: `${rankData.rank}段`,
             neededExp: 100,
-            currentLevelExp: withinTier,
+            tierRating: withinTier,
+            currentLevelExp: isMaxRank ? 100 : withinTier,
             currentThreshold: (rankData.rank - 1) * 100,
-            nextThreshold: rankData.rank * 100
+            nextThreshold: isMaxRank ? null : rankData.rank * 100
         };
     },
 
