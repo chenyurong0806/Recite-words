@@ -1085,10 +1085,10 @@ function checkLocalDuelWinCondition() {
     if (localDuelState.mode === 'lead') {
         const diff = localDuelState.p1.score - localDuelState.p2.score;
         if (diff >= localDuelState.leadThreshold) {
-            endLocalDuel('p1', `🎉 ${p1Name} 领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+            endLocalDuel('p1', `🎉 恭喜${p1Name}获胜！`);
             return true;
         } else if (-diff >= localDuelState.leadThreshold) {
-            endLocalDuel('p2', `🎉 ${p2Name} 领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+            endLocalDuel('p2', `🎉 恭喜${p2Name}获胜！`);
             return true;
         }
     }

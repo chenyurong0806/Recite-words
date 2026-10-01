@@ -1424,13 +1424,22 @@ async function recordDailyWordleFinish(isWon) {
     const isGuest = !userKey || userKey === 'guest' || userKey.startsWith('游客');
     if (!isGuest && typeof sbClient !== 'undefined' && sbClient) {
         try {
-            await sbClient.from('daily_wordle_records').upsert({
+            const userAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
+                ? currentUserProfile.avatar
+                : ((typeof getUserAvatar === 'function') ? getUserAvatar(userKey) : '');
+            const upsertPayload = {
                 date: todayStr,
                 username: userKey,
                 is_won: isWon,
                 attempts: riddleState.attempts.length,
                 time_spent: dailyWordleElapsedSeconds
-            }, { onConflict: 'date,username' });
+            };
+            if (userAvatar) upsertPayload.avatar_url = userAvatar;
+            const { error: upsertErr } = await sbClient.from('daily_wordle_records').upsert(upsertPayload, { onConflict: 'date,username' });
+            if (upsertErr && userAvatar && upsertErr.message && upsertErr.message.includes('avatar_url')) {
+                delete upsertPayload.avatar_url;
+                await sbClient.from('daily_wordle_records').upsert(upsertPayload, { onConflict: 'date,username' });
+            }
         } catch (e) {
             console.warn('[Wordle] Failed to upsert daily_wordle_records:', e);
         }

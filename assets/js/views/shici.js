@@ -811,6 +811,8 @@ async function startShiCiLearning() {
                 const parsed = JSON.parse(saved);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
                     shiciState = parsed;
+                    shiciState.completedWords = new Set(parsed.completedWords || []);
+                    shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = false;
                     renderShiCiQuestion();
                     switchView('view-shici');
@@ -844,12 +846,15 @@ async function startShiCiLearning() {
         }
 
         const questions = targetWords.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        const targetTotal = new Set(questions.map(q => q.word)).size;
 
         shiciState = {
             pool: questions,
             currentIdx: 0,
             score: 0,
             total: questions.length,
+            targetTotal: targetTotal,
+            completedWords: new Set(),
             answered: false,
             isReview: false
         };
@@ -879,6 +884,8 @@ async function startShiCiReview() {
                 const parsed = JSON.parse(savedReview);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
                     shiciState = parsed;
+                    shiciState.completedWords = new Set(parsed.completedWords || []);
+                    shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = true;
                     renderShiCiQuestion();
                     switchView('view-shici');
@@ -921,12 +928,15 @@ async function startShiCiReview() {
         const batchSize = shiciConfig.batchSize || 15;
         const targets = [...reviewWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
         const questions = targets.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        const targetTotal = new Set(questions.map(q => q.word)).size;
 
         shiciState = {
             pool: questions,
             currentIdx: 0,
             score: 0,
             total: questions.length,
+            targetTotal: targetTotal,
+            completedWords: new Set(),
             answered: false,
             isReview: true
         };
@@ -950,6 +960,8 @@ function saveShiCiSessionProgress() {
             currentIdx: shiciState.currentIdx,
             score: shiciState.score,
             total: shiciState.pool.length,
+            targetTotal: shiciState.targetTotal,
+            completedWords: Array.from(shiciState.completedWords || []),
             isReview: !!shiciState.isReview,
             timestamp: Date.now()
         });
@@ -1100,6 +1112,31 @@ function updateHubShiCiResumeButton() {
     }
 }
 
+function updateShiCiProgressDisplay() {
+    if (!shiciState || !shiciState.pool) return;
+    const progressEl = document.getElementById('shici-progress-text');
+    const fillEl = document.getElementById('shici-progress-fill');
+
+    const isImmediateRetest = (typeof shiciConfig !== 'undefined' && shiciConfig.immediateRetest !== false);
+    const targetTotal = shiciState.targetTotal || new Set(shiciState.pool.filter(q => !q._isRetest).map(q => q.word)).size || shiciState.pool.length;
+
+    let currentProgress = 0;
+    if (isImmediateRetest) {
+        currentProgress = shiciState.completedWords ? shiciState.completedWords.size : 0;
+    } else {
+        currentProgress = Math.min(shiciState.currentIdx + 1, targetTotal);
+    }
+
+    if (progressEl) {
+        progressEl.innerText = `${currentProgress} / ${targetTotal}`;
+    }
+    if (fillEl) {
+        const pct = targetTotal > 0 ? Math.min(100, Math.max(0, Math.round((currentProgress / targetTotal) * 100))) : 0;
+        fillEl.style.width = `${pct}%`;
+    }
+}
+window.updateShiCiProgressDisplay = updateShiCiProgressDisplay;
+
 function renderShiCiQuestion() {
     if (!shiciState || shiciState.currentIdx >= shiciState.pool.length) {
         endShiCiGame();
@@ -1109,11 +1146,7 @@ function renderShiCiQuestion() {
     const q = shiciState.pool[shiciState.currentIdx];
     shiciState.answered = false;
 
-    const progressEl = document.getElementById('shici-progress-text');
-    if (progressEl) progressEl.innerText = `${shiciState.currentIdx + 1}/${shiciState.pool.length}`;
-
-    const fillEl = document.getElementById('shici-progress-fill');
-    if (fillEl) fillEl.style.width = Math.round(((shiciState.currentIdx + 1) / shiciState.pool.length) * 100) + '%';
+    updateShiCiProgressDisplay();
 
     const bookBadge = document.getElementById('shici-book-badge');
     if (bookBadge) {
@@ -1171,9 +1204,15 @@ function handleShiCiAnswer(idx) {
     q.isCorrect = isRight;
 
     const fullMeaning = q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : '';
+    const wKey = q.word;
 
     if (isRight) {
         shiciState.score++;
+        const hasRemainingInPool = shiciState.pool.slice(shiciState.currentIdx + 1).some(item => item.word === wKey);
+        if (!hasRemainingInPool) {
+            if (!shiciState.completedWords) shiciState.completedWords = new Set();
+            shiciState.completedWords.add(wKey);
+        }
         if (!shiciProgress.learnedWords) shiciProgress.learnedWords = {};
         shiciProgress.learnedWords[q.word] = (shiciProgress.learnedWords[q.word] || 0) + 1;
         ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, true);
@@ -1182,6 +1221,7 @@ function handleShiCiAnswer(idx) {
             delete userStats.mistakes[q.word];
         }
     } else {
+        if (shiciState.completedWords) shiciState.completedWords.delete(wKey);
         ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, false);
         renderShiCiMasteryDiamonds(q.word, 'loss');
         scheduleRetestForCurrentShiCiQuestion();
@@ -1196,6 +1236,7 @@ function handleShiCiAnswer(idx) {
             isShiCi: true
         });
     }
+    updateShiCiProgressDisplay();
     saveCurrentUserData();
 
     q.options.forEach((opt, i) => {
@@ -1233,6 +1274,9 @@ function revealShiCiAnswer() {
     q.answered = true;
 
     const fullMeaning = q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : '';
+    const wKey = q.word;
+    if (shiciState.completedWords) shiciState.completedWords.delete(wKey);
+
     ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, false);
     renderShiCiMasteryDiamonds(q.word, 'loss');
     scheduleRetestForCurrentShiCiQuestion();
@@ -1247,6 +1291,7 @@ function revealShiCiAnswer() {
         pos: q.sense?.part_of_speech || q.pos,
         isShiCi: true
     });
+    updateShiCiProgressDisplay();
     saveCurrentUserData();
 
     q.options.forEach((opt, i) => {
@@ -1334,7 +1379,7 @@ function endShiCiGame() {
         p1Score: shiciState.score,
         p2Score: 0,
         pool: shiciState.pool,
-        total: shiciState.pool.length
+        total: shiciState.targetTotal || shiciState.pool.length
     };
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();

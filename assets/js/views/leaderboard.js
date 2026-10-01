@@ -218,7 +218,7 @@ async function renderLevelLeaderboard() {
             myRankBanner.innerHTML = `
                 <div style="display:flex; align-items:center; gap:8px; font-size:0.88rem;">
                     <span class="material-symbols-rounded" style="font-size:20px; color:#0284c7;">info</span>
-                    <span>当前为游客模式，登录账号后即可上榜</span>
+                    <span>当前为游客模式，请先登录</span>
                 </div>
                 <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius:9999px;">去登录</button>
             `;
@@ -488,17 +488,55 @@ async function renderWordleLeaderboard() {
     // 2. 优先从 Supabase 专用表 daily_wordle_records 查询
     try {
         if (typeof sbClient !== 'undefined' && sbClient) {
-            const { data: cloudRecs, error: recErr } = await sbClient
+            let cloudRecs = null;
+            let recErr = null;
+
+            // 优先尝试查询包含 avatar_url，若表尚未新增该列则回退基础字段
+            const resWithAvatar = await sbClient
                 .from('daily_wordle_records')
-                .select('username, is_won, attempts, time_spent, created_at')
+                .select('username, avatar_url, is_won, attempts, time_spent, created_at')
                 .eq('date', wordleLeaderboardDate)
                 .eq('is_won', true);
 
+            if (!resWithAvatar.error) {
+                cloudRecs = resWithAvatar.data;
+            } else {
+                const resBasic = await sbClient
+                    .from('daily_wordle_records')
+                    .select('username, is_won, attempts, time_spent, created_at')
+                    .eq('date', wordleLeaderboardDate)
+                    .eq('is_won', true);
+                cloudRecs = resBasic.data;
+                recErr = resBasic.error;
+            }
+
             if (!recErr && Array.isArray(cloudRecs) && cloudRecs.length > 0) {
+                // 批量从 user_accounts 表查询用户头像以补全（保障跨用户、历史打卡头像展示）
+                const usernamesNeeded = [...new Set(cloudRecs.map(r => r.username).filter(Boolean))];
+                const avatarMap = {};
+                if (usernamesNeeded.length > 0) {
+                    try {
+                        const { data: userRows } = await sbClient
+                            .from('user_accounts')
+                            .select('username, avatar_url')
+                            .in('username', usernamesNeeded);
+                        if (Array.isArray(userRows)) {
+                            userRows.forEach(u => {
+                                if (u && u.username && u.avatar_url) {
+                                    avatarMap[u.username] = u.avatar_url;
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[Leaderboard] Failed to fetch user_accounts avatars:', e);
+                    }
+                }
+
                 cloudRecs.forEach(r => {
+                    const avatarVal = r.avatar_url || avatarMap[r.username] || (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : '');
                     records.push({
                         username: r.username,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : ''),
+                        avatar: avatarVal,
                         attempts: r.attempts || 6,
                         timeSpent: r.time_spent || 60,
                         completedAt: r.created_at ? new Date(r.created_at).getTime() : 0,
@@ -518,7 +556,7 @@ async function renderWordleLeaderboard() {
                             if (rec && rec.isWon) {
                                 records.push({
                                     username: acc.username,
-                                    avatar: acc.avatar_url || '',
+                                    avatar: acc.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(acc.username) : ''),
                                     attempts: rec.attempts || 6,
                                     timeSpent: rec.timeSpent || 60,
                                     completedAt: rec.timestamp || 0,
@@ -542,9 +580,12 @@ async function renderWordleLeaderboard() {
             const myDayRec = localHist[wordleLeaderboardDate];
             if (myDayRec && myDayRec.isWon) {
                 const existingIdx = records.findIndex(r => r.username === currUser);
+                const myAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
+                    ? currentUserProfile.avatar
+                    : (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : '');
                 const item = {
                     username: currUser,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : ''),
+                    avatar: myAvatar,
                     attempts: myDayRec.attempts || 6,
                     timeSpent: myDayRec.timeSpent || 60,
                     completedAt: myDayRec.timestamp || 0,

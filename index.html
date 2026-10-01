@@ -383,7 +383,7 @@
                 <div id="create-invite-rules-editor" style="display:none; flex-direction:column; gap:12px;">
                     <div id="create-invite-room-name-field">
                         <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">房间名称</label>
-                        <input type="text" id="create-invite-room-name" class="input-field" maxlength="20" placeholder="例如：对决挑战房" style="width:100%; height:38px; border-radius:var(--md-shape-full);">
+                        <input type="text" id="create-invite-room-name" class="input-field" maxlength="20" placeholder="例如：对决挑战房" oninput="handleInviteRoomNameChange(this.value)" style="width:100%; height:38px; border-radius:var(--md-shape-full);">
                     </div>
                     <div>
                         <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">对战模式</label>
@@ -2940,7 +2940,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.10</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.11</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">

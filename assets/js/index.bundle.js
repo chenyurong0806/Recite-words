@@ -5,9 +5,9 @@
  */
 
 if (typeof window !== 'undefined') {
-    window.APP_VERSION = '2.4.10';
+    window.APP_VERSION = '2.4.11';
 }
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.11';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
@@ -3346,7 +3346,7 @@ const LevelManager = {
                 isDemoted: false,
                 isPromotionMatch: false,
                 reason: isPromoted
-                    ? `🔥 突破晋升！成功升至 ${newRank}段 (+${winGain}分)`
+                    ? `排位胜利！成功升至 ${newRank}段`
                     : `排位胜利，获得 +${winGain} 分！`
             };
         } else {
@@ -3371,7 +3371,7 @@ const LevelManager = {
                 isDemoted: isDemoted,
                 isPromotionMatch: false,
                 reason: isDemoted
-                    ? `💔 积分不足已自动降至 ${newRank}段 (-${lossDeduct}分)`
+                    ? `排位战败，降至 ${newRank}段 (-${lossDeduct}分)`
                     : `排位战败，扣除 ${lossDeduct} 分`
             };
         }
@@ -6457,7 +6457,7 @@ async function renderLevelLeaderboard() {
             myRankBanner.innerHTML = `
                 <div style="display:flex; align-items:center; gap:8px; font-size:0.88rem;">
                     <span class="material-symbols-rounded" style="font-size:20px; color:#0284c7;">info</span>
-                    <span>当前为游客模式，登录账号后即可上榜</span>
+                    <span>当前为游客模式，请先登录</span>
                 </div>
                 <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius:9999px;">去登录</button>
             `;
@@ -6727,17 +6727,55 @@ async function renderWordleLeaderboard() {
     // 2. 优先从 Supabase 专用表 daily_wordle_records 查询
     try {
         if (typeof sbClient !== 'undefined' && sbClient) {
-            const { data: cloudRecs, error: recErr } = await sbClient
+            let cloudRecs = null;
+            let recErr = null;
+
+            // 优先尝试查询包含 avatar_url，若表尚未新增该列则回退基础字段
+            const resWithAvatar = await sbClient
                 .from('daily_wordle_records')
-                .select('username, is_won, attempts, time_spent, created_at')
+                .select('username, avatar_url, is_won, attempts, time_spent, created_at')
                 .eq('date', wordleLeaderboardDate)
                 .eq('is_won', true);
 
+            if (!resWithAvatar.error) {
+                cloudRecs = resWithAvatar.data;
+            } else {
+                const resBasic = await sbClient
+                    .from('daily_wordle_records')
+                    .select('username, is_won, attempts, time_spent, created_at')
+                    .eq('date', wordleLeaderboardDate)
+                    .eq('is_won', true);
+                cloudRecs = resBasic.data;
+                recErr = resBasic.error;
+            }
+
             if (!recErr && Array.isArray(cloudRecs) && cloudRecs.length > 0) {
+                // 批量从 user_accounts 表查询用户头像以补全（保障跨用户、历史打卡头像展示）
+                const usernamesNeeded = [...new Set(cloudRecs.map(r => r.username).filter(Boolean))];
+                const avatarMap = {};
+                if (usernamesNeeded.length > 0) {
+                    try {
+                        const { data: userRows } = await sbClient
+                            .from('user_accounts')
+                            .select('username, avatar_url')
+                            .in('username', usernamesNeeded);
+                        if (Array.isArray(userRows)) {
+                            userRows.forEach(u => {
+                                if (u && u.username && u.avatar_url) {
+                                    avatarMap[u.username] = u.avatar_url;
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[Leaderboard] Failed to fetch user_accounts avatars:', e);
+                    }
+                }
+
                 cloudRecs.forEach(r => {
+                    const avatarVal = r.avatar_url || avatarMap[r.username] || (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : '');
                     records.push({
                         username: r.username,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : ''),
+                        avatar: avatarVal,
                         attempts: r.attempts || 6,
                         timeSpent: r.time_spent || 60,
                         completedAt: r.created_at ? new Date(r.created_at).getTime() : 0,
@@ -6757,7 +6795,7 @@ async function renderWordleLeaderboard() {
                             if (rec && rec.isWon) {
                                 records.push({
                                     username: acc.username,
-                                    avatar: acc.avatar_url || '',
+                                    avatar: acc.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(acc.username) : ''),
                                     attempts: rec.attempts || 6,
                                     timeSpent: rec.timeSpent || 60,
                                     completedAt: rec.timestamp || 0,
@@ -6781,9 +6819,12 @@ async function renderWordleLeaderboard() {
             const myDayRec = localHist[wordleLeaderboardDate];
             if (myDayRec && myDayRec.isWon) {
                 const existingIdx = records.findIndex(r => r.username === currUser);
+                const myAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
+                    ? currentUserProfile.avatar
+                    : (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : '');
                 const item = {
                     username: currUser,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : ''),
+                    avatar: myAvatar,
                     attempts: myDayRec.attempts || 6,
                     timeSpent: myDayRec.timeSpent || 60,
                     completedAt: myDayRec.timestamp || 0,
@@ -8319,13 +8360,22 @@ async function recordDailyWordleFinish(isWon) {
     const isGuest = !userKey || userKey === 'guest' || userKey.startsWith('游客');
     if (!isGuest && typeof sbClient !== 'undefined' && sbClient) {
         try {
-            await sbClient.from('daily_wordle_records').upsert({
+            const userAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
+                ? currentUserProfile.avatar
+                : ((typeof getUserAvatar === 'function') ? getUserAvatar(userKey) : '');
+            const upsertPayload = {
                 date: todayStr,
                 username: userKey,
                 is_won: isWon,
                 attempts: riddleState.attempts.length,
                 time_spent: dailyWordleElapsedSeconds
-            }, { onConflict: 'date,username' });
+            };
+            if (userAvatar) upsertPayload.avatar_url = userAvatar;
+            const { error: upsertErr } = await sbClient.from('daily_wordle_records').upsert(upsertPayload, { onConflict: 'date,username' });
+            if (upsertErr && userAvatar && upsertErr.message && upsertErr.message.includes('avatar_url')) {
+                delete upsertPayload.avatar_url;
+                await sbClient.from('daily_wordle_records').upsert(upsertPayload, { onConflict: 'date,username' });
+            }
         } catch (e) {
             console.warn('[Wordle] Failed to upsert daily_wordle_records:', e);
         }
@@ -14843,12 +14893,12 @@ function checkOnlineWinCondition() {
     const diff = p1State.score - p2State.score;
 
     if (diff >= winLead) {
-        const winMsg = `🎉 恭喜领先达到 ${winLead} 题，获得胜利！`;
-        safeBroadcast(realtimeChannel, 'game_over', { msg: `💔 对手领先达到 ${winLead} 题，遗憾战败！` });
+        const winMsg = `🎉 恭喜战胜对手！`;
+        safeBroadcast(realtimeChannel, 'game_over', { msg: `💔 遗憾战败！` });
         endGame(winMsg, false);
         return true;
     } else if (diff <= -winLead) {
-        const loseMsg = `💔 对手领先达到 ${winLead} 题，遗憾战败！`;
+        const loseMsg = `💔 遗憾战败！`;
         endGame(loseMsg, false);
         return true;
     }
@@ -14864,7 +14914,7 @@ function renderMatchResultBadgeHtml(matchResult) {
                     <span class="material-symbols-rounded" style="font-size:18px;">handshake</span>
                     <span>友谊赛模式</span>
                 </div>
-                <div style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">友谊第一，比赛第二！不计段位与等级分</div>
+                <div style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">不计段位与等级分</div>
             </div>
         `;
     }
@@ -14897,7 +14947,7 @@ function renderMatchResultBadgeHtml(matchResult) {
             </div>
             <div style="margin-top:10px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
-                    <span>等级分进度</span>
+                    <span>等级分</span>
                     <span>${matchResult.newRating} 分 (当前段位 ${Math.min(100, Math.max(0, matchResult.newRating <= 0 ? 0 : (((matchResult.newRating - 1) % 100) + 1)))}/100)</span>
                 </div>
                 <div style="height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
@@ -15939,27 +15989,14 @@ function openCreateMatchInviteModal(targetUser) {
 
         if (presetView) {
             presetView.style.display = 'block';
-            const presetNameEl = document.getElementById('create-invite-preset-name');
-            const presetSummaryEl = document.getElementById('create-invite-preset-summary');
-            if (presetNameEl) presetNameEl.innerText = `专属房间预设：《${activeInviteRules.name || currentUser + '的房间'}》`;
-            const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
-            const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
-            const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
-            const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
-
-            const elMode = document.getElementById('create-invite-summary-mode');
-            const elRule = document.getElementById('create-invite-summary-rule');
-            const elGauge = document.getElementById('create-invite-summary-gauge');
-            const elBook = document.getElementById('create-invite-summary-book');
-            if (elMode) elMode.innerText = modeTxt;
-            if (elRule) elRule.innerText = ruleTxt;
-            if (elGauge) elGauge.innerText = gaugeName;
-            if (elBook) {
-                elBook.innerText = bookSummary;
-                elBook.title = bookSummary;
-            }
+            updateInvitePresetSummaryUI();
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
+        const roomNameInput = document.getElementById('create-invite-room-name');
+        if (roomNameInput) {
+            roomNameInput.value = activeInviteRules.name || `${currentUser}的房间`;
+            roomNameInput.oninput = (e) => handleInviteRoomNameChange(e.target.value);
+        }
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
         const toggleBtnIcon = document.getElementById('icon-toggle-invite-rules');
         if (toggleBtnText) toggleBtnText.innerText = '修改规则';
@@ -16081,7 +16118,47 @@ function renderInviteRuleChips() {
         const val = el.getAttribute('data-gauge');
         el.classList.toggle('selected', val === (activeInviteRules.gaugeStyle || 'tug'));
     });
+
+    updateInvitePresetSummaryUI();
 }
+
+function updateInvitePresetSummaryUI() {
+    if (!activeInviteRules) return;
+    const roomNameInput = document.getElementById('create-invite-room-name');
+    const customName = (roomNameInput && roomNameInput.value.trim()) ? roomNameInput.value.trim() : (activeInviteRules.name || (currentUser ? `${currentUser}的房间` : '对决房间'));
+
+    const presetNameEl = document.getElementById('create-invite-preset-name');
+    if (presetNameEl) {
+        presetNameEl.innerText = `专属房间预设：《${customName}》`;
+    }
+    const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+    const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
+    const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
+    const durSec = activeInviteRules.duration || 120;
+    const durTxt = durSec < 60 ? `${durSec} 秒` : `${Math.round(durSec / 60)} 分钟`;
+    const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${durTxt}` : `领先: ${activeInviteRules.winLead || 6} 题`;
+
+    const elMode = document.getElementById('create-invite-summary-mode');
+    const elRule = document.getElementById('create-invite-summary-rule');
+    const elGauge = document.getElementById('create-invite-summary-gauge');
+    const elBook = document.getElementById('create-invite-summary-book');
+    if (elMode) elMode.innerText = modeTxt;
+    if (elRule) elRule.innerText = ruleTxt;
+    if (elGauge) elGauge.innerText = gaugeName;
+    if (elBook) {
+        elBook.innerText = bookSummary;
+        elBook.title = bookSummary;
+    }
+}
+window.updateInvitePresetSummaryUI = updateInvitePresetSummaryUI;
+
+function handleInviteRoomNameChange(val) {
+    if (activeInviteRules) {
+        activeInviteRules.name = (val || '').trim();
+        updateInvitePresetSummaryUI();
+    }
+}
+window.handleInviteRoomNameChange = handleInviteRoomNameChange;
 
 function selectInviteRuleMode(val) {
     if (!activeInviteRules) return;
@@ -16143,6 +16220,7 @@ function updateInviteBookSummaryUI() {
     const summaryEl = document.getElementById('invite-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
     if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    updateInvitePresetSummaryUI();
 }
 
 async function confirmAndSendMatchInvite() {
@@ -16908,9 +16986,9 @@ function updateAiDuelSliderHint() {
     if (aiDuelConfig.matchType === 'ranked') {
         if (rankData.isPromotionReady) {
             if (aiRank === userRank + 1) {
-                hintEl.innerHTML = `<span style="color:#16a34a; font-weight:700;">🔥 升段赛目标：挑战 ${userRank + 1}段 人机并获胜即可成功晋升！(输了不扣分)</span>`;
+                hintEl.innerHTML = `<span style="color:#16a34a; font-weight:700;">升段赛目标：挑战 ${userRank + 1}段 人机并获胜即可成功晋升！(输了不扣分)</span>`;
             } else {
-                hintEl.innerHTML = `<span style="color:#eab308; font-weight:700;">⚠️ 升段赛就绪：需挑战高于自身1段（${userRank + 1}段）人机才能升段！</span>`;
+                hintEl.innerHTML = `<span style="color:#eab308; font-weight:700;">升段赛就绪：需挑战高于自身1段（${userRank + 1}段）人机才能升段！</span>`;
             }
         } else {
             const diff = aiRank - userRank;
@@ -17296,11 +17374,11 @@ function checkAiDuelWinCondition() {
 
     if (diff >= winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`🎉 恭喜领先达到 ${winLead} 题，战胜系统AI (${aiDuelConfig.aiRank}段)！`, false);
+        endGame(`🎉 恭喜战胜系统AI (${aiDuelConfig.aiRank}段)！`, false);
         return true;
     } else if (diff <= -winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`💔 系统AI (${aiDuelConfig.aiRank}段) 领先达到 ${winLead} 题，遗憾惜败！`, false);
+        endGame(`💔 遗憾惜败！`, false);
         return true;
     }
     return false;
@@ -18649,10 +18727,10 @@ function checkLocalDuelWinCondition() {
     if (localDuelState.mode === 'lead') {
         const diff = localDuelState.p1.score - localDuelState.p2.score;
         if (diff >= localDuelState.leadThreshold) {
-            endLocalDuel('p1', `🎉 ${p1Name} 领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+            endLocalDuel('p1', `🎉 恭喜${p1Name}获胜！`);
             return true;
         } else if (-diff >= localDuelState.leadThreshold) {
-            endLocalDuel('p2', `🎉 ${p2Name} 领先达到 ${localDuelState.leadThreshold} 题，拔河获胜！`);
+            endLocalDuel('p2', `🎉 恭喜${p2Name}获胜！`);
             return true;
         }
     }
@@ -20319,6 +20397,8 @@ async function startShiCiLearning() {
                 const parsed = JSON.parse(saved);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
                     shiciState = parsed;
+                    shiciState.completedWords = new Set(parsed.completedWords || []);
+                    shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = false;
                     renderShiCiQuestion();
                     switchView('view-shici');
@@ -20352,12 +20432,15 @@ async function startShiCiLearning() {
         }
 
         const questions = targetWords.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        const targetTotal = new Set(questions.map(q => q.word)).size;
 
         shiciState = {
             pool: questions,
             currentIdx: 0,
             score: 0,
             total: questions.length,
+            targetTotal: targetTotal,
+            completedWords: new Set(),
             answered: false,
             isReview: false
         };
@@ -20387,6 +20470,8 @@ async function startShiCiReview() {
                 const parsed = JSON.parse(savedReview);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
                     shiciState = parsed;
+                    shiciState.completedWords = new Set(parsed.completedWords || []);
+                    shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = true;
                     renderShiCiQuestion();
                     switchView('view-shici');
@@ -20429,12 +20514,15 @@ async function startShiCiReview() {
         const batchSize = shiciConfig.batchSize || 15;
         const targets = [...reviewWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
         const questions = targets.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        const targetTotal = new Set(questions.map(q => q.word)).size;
 
         shiciState = {
             pool: questions,
             currentIdx: 0,
             score: 0,
             total: questions.length,
+            targetTotal: targetTotal,
+            completedWords: new Set(),
             answered: false,
             isReview: true
         };
@@ -20458,6 +20546,8 @@ function saveShiCiSessionProgress() {
             currentIdx: shiciState.currentIdx,
             score: shiciState.score,
             total: shiciState.pool.length,
+            targetTotal: shiciState.targetTotal,
+            completedWords: Array.from(shiciState.completedWords || []),
             isReview: !!shiciState.isReview,
             timestamp: Date.now()
         });
@@ -20608,6 +20698,31 @@ function updateHubShiCiResumeButton() {
     }
 }
 
+function updateShiCiProgressDisplay() {
+    if (!shiciState || !shiciState.pool) return;
+    const progressEl = document.getElementById('shici-progress-text');
+    const fillEl = document.getElementById('shici-progress-fill');
+
+    const isImmediateRetest = (typeof shiciConfig !== 'undefined' && shiciConfig.immediateRetest !== false);
+    const targetTotal = shiciState.targetTotal || new Set(shiciState.pool.filter(q => !q._isRetest).map(q => q.word)).size || shiciState.pool.length;
+
+    let currentProgress = 0;
+    if (isImmediateRetest) {
+        currentProgress = shiciState.completedWords ? shiciState.completedWords.size : 0;
+    } else {
+        currentProgress = Math.min(shiciState.currentIdx + 1, targetTotal);
+    }
+
+    if (progressEl) {
+        progressEl.innerText = `${currentProgress} / ${targetTotal}`;
+    }
+    if (fillEl) {
+        const pct = targetTotal > 0 ? Math.min(100, Math.max(0, Math.round((currentProgress / targetTotal) * 100))) : 0;
+        fillEl.style.width = `${pct}%`;
+    }
+}
+window.updateShiCiProgressDisplay = updateShiCiProgressDisplay;
+
 function renderShiCiQuestion() {
     if (!shiciState || shiciState.currentIdx >= shiciState.pool.length) {
         endShiCiGame();
@@ -20617,11 +20732,7 @@ function renderShiCiQuestion() {
     const q = shiciState.pool[shiciState.currentIdx];
     shiciState.answered = false;
 
-    const progressEl = document.getElementById('shici-progress-text');
-    if (progressEl) progressEl.innerText = `${shiciState.currentIdx + 1}/${shiciState.pool.length}`;
-
-    const fillEl = document.getElementById('shici-progress-fill');
-    if (fillEl) fillEl.style.width = Math.round(((shiciState.currentIdx + 1) / shiciState.pool.length) * 100) + '%';
+    updateShiCiProgressDisplay();
 
     const bookBadge = document.getElementById('shici-book-badge');
     if (bookBadge) {
@@ -20679,9 +20790,15 @@ function handleShiCiAnswer(idx) {
     q.isCorrect = isRight;
 
     const fullMeaning = q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : '';
+    const wKey = q.word;
 
     if (isRight) {
         shiciState.score++;
+        const hasRemainingInPool = shiciState.pool.slice(shiciState.currentIdx + 1).some(item => item.word === wKey);
+        if (!hasRemainingInPool) {
+            if (!shiciState.completedWords) shiciState.completedWords = new Set();
+            shiciState.completedWords.add(wKey);
+        }
         if (!shiciProgress.learnedWords) shiciProgress.learnedWords = {};
         shiciProgress.learnedWords[q.word] = (shiciProgress.learnedWords[q.word] || 0) + 1;
         ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, true);
@@ -20690,6 +20807,7 @@ function handleShiCiAnswer(idx) {
             delete userStats.mistakes[q.word];
         }
     } else {
+        if (shiciState.completedWords) shiciState.completedWords.delete(wKey);
         ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, false);
         renderShiCiMasteryDiamonds(q.word, 'loss');
         scheduleRetestForCurrentShiCiQuestion();
@@ -20704,6 +20822,7 @@ function handleShiCiAnswer(idx) {
             isShiCi: true
         });
     }
+    updateShiCiProgressDisplay();
     saveCurrentUserData();
 
     q.options.forEach((opt, i) => {
@@ -20741,6 +20860,9 @@ function revealShiCiAnswer() {
     q.answered = true;
 
     const fullMeaning = q.sense ? `[${q.sense.part_of_speech || ''}] ${(q.sense.meaning || '').replace(/★/g, '')}` : '';
+    const wKey = q.word;
+    if (shiciState.completedWords) shiciState.completedWords.delete(wKey);
+
     ShiCiEbbinghausEngine.recordWord(q.word, fullMeaning, q.pinyin, false);
     renderShiCiMasteryDiamonds(q.word, 'loss');
     scheduleRetestForCurrentShiCiQuestion();
@@ -20755,6 +20877,7 @@ function revealShiCiAnswer() {
         pos: q.sense?.part_of_speech || q.pos,
         isShiCi: true
     });
+    updateShiCiProgressDisplay();
     saveCurrentUserData();
 
     q.options.forEach((opt, i) => {
@@ -20842,7 +20965,7 @@ function endShiCiGame() {
         p1Score: shiciState.score,
         p2Score: 0,
         pool: shiciState.pool,
-        total: shiciState.pool.length
+        total: shiciState.targetTotal || shiciState.pool.length
     };
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
@@ -22410,26 +22533,26 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.11';
 const APP_CHANGELOG = [
     {
-        version: 'v2.4.10',
-        date: '2026-09-30',
+        version: 'v2.4.11',
+        date: '2026-10-01',
         badge: '当前版本',
         items: [
             '支持使用第三方账号注册和登录。',
             '加入段位+等级分制度。',
             '加入排位赛。',
-            '加入今日Wordle。',
+            '加入每日Wordle竞赛。',
             '加入排行榜功能。',
+            '加入新词书。',
             '优化人机对战。',
-            '优化英语默写。',
-            '   答错后支持订正。',
-            '   添加工具栏。',
-            '   优化UI。',
+            '优化英语默写：答错后支持订正、添加工具栏、优化UI。',
             '优化标注熟词逻辑。',
+            '优化邀请对决逻辑。',
             '优化背词小结。',
             '优化数据同步。',
+            '优化Wordle设置逻辑。',
             '优化UI。',
             '修复英语词组中带有=、/的题，左右两边互换算错的bug。',
             '修复添加到主屏幕后无法保存本地数据的bug。',
@@ -22442,12 +22565,15 @@ const APP_CHANGELOG = [
             '修复更新弹窗无法下载最新版本文件的bug。',
             '修复登录账号时卡死的bug。',
             '修复人机模式退出对决按钮无效的bug。',
+            '修复待复习词数显示错误的bug。',
+            '修复答错题后增加进度和总题数的bug。',
             '修复抽取的题组答完无法继续答题的bug。',
             '支持记住登录状态和快捷切换账号。',
             '支持切换在线和隐身状态。',
+            '联机对战需要等待所有玩家准备后再开始。',
             'Wordle 草稿行与上方对齐，方便对照。',
             'Wordle 支持自由输入，且不再调起系统键盘。',
-            'Wordle 支持显示计时器。',
+            'Wordle 支持显示计时器、查看历史记录。',
             '词组答错，惩罚时间结束后自动放回错误的词块。',
             '仅本地词书支持添加词块和修改释义。',
             '在设置-更新日志中可以切换云端日志和本地日志。',
@@ -22714,7 +22840,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.4.10'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.4.11'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;

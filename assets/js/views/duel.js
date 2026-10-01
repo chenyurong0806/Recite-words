@@ -2529,12 +2529,12 @@ function checkOnlineWinCondition() {
     const diff = p1State.score - p2State.score;
 
     if (diff >= winLead) {
-        const winMsg = `🎉 恭喜领先达到 ${winLead} 题，获得胜利！`;
-        safeBroadcast(realtimeChannel, 'game_over', { msg: `💔 对手领先达到 ${winLead} 题，遗憾战败！` });
+        const winMsg = `🎉 恭喜战胜对手！`;
+        safeBroadcast(realtimeChannel, 'game_over', { msg: `💔 遗憾战败！` });
         endGame(winMsg, false);
         return true;
     } else if (diff <= -winLead) {
-        const loseMsg = `💔 对手领先达到 ${winLead} 题，遗憾战败！`;
+        const loseMsg = `💔 遗憾战败！`;
         endGame(loseMsg, false);
         return true;
     }
@@ -2550,7 +2550,7 @@ function renderMatchResultBadgeHtml(matchResult) {
                     <span class="material-symbols-rounded" style="font-size:18px;">handshake</span>
                     <span>友谊赛模式</span>
                 </div>
-                <div style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">友谊第一，比赛第二！不计段位与等级分</div>
+                <div style="font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;">不计段位与等级分</div>
             </div>
         `;
     }
@@ -2583,7 +2583,7 @@ function renderMatchResultBadgeHtml(matchResult) {
             </div>
             <div style="margin-top:10px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-bottom:4px;">
-                    <span>等级分进度</span>
+                    <span>等级分</span>
                     <span>${matchResult.newRating} 分 (当前段位 ${Math.min(100, Math.max(0, matchResult.newRating <= 0 ? 0 : (((matchResult.newRating - 1) % 100) + 1)))}/100)</span>
                 </div>
                 <div style="height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
@@ -3625,27 +3625,14 @@ function openCreateMatchInviteModal(targetUser) {
 
         if (presetView) {
             presetView.style.display = 'block';
-            const presetNameEl = document.getElementById('create-invite-preset-name');
-            const presetSummaryEl = document.getElementById('create-invite-preset-summary');
-            if (presetNameEl) presetNameEl.innerText = `专属房间预设：《${activeInviteRules.name || currentUser + '的房间'}》`;
-            const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
-            const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
-            const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
-            const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
-
-            const elMode = document.getElementById('create-invite-summary-mode');
-            const elRule = document.getElementById('create-invite-summary-rule');
-            const elGauge = document.getElementById('create-invite-summary-gauge');
-            const elBook = document.getElementById('create-invite-summary-book');
-            if (elMode) elMode.innerText = modeTxt;
-            if (elRule) elRule.innerText = ruleTxt;
-            if (elGauge) elGauge.innerText = gaugeName;
-            if (elBook) {
-                elBook.innerText = bookSummary;
-                elBook.title = bookSummary;
-            }
+            updateInvitePresetSummaryUI();
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
+        const roomNameInput = document.getElementById('create-invite-room-name');
+        if (roomNameInput) {
+            roomNameInput.value = activeInviteRules.name || `${currentUser}的房间`;
+            roomNameInput.oninput = (e) => handleInviteRoomNameChange(e.target.value);
+        }
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
         const toggleBtnIcon = document.getElementById('icon-toggle-invite-rules');
         if (toggleBtnText) toggleBtnText.innerText = '修改规则';
@@ -3767,7 +3754,47 @@ function renderInviteRuleChips() {
         const val = el.getAttribute('data-gauge');
         el.classList.toggle('selected', val === (activeInviteRules.gaugeStyle || 'tug'));
     });
+
+    updateInvitePresetSummaryUI();
 }
+
+function updateInvitePresetSummaryUI() {
+    if (!activeInviteRules) return;
+    const roomNameInput = document.getElementById('create-invite-room-name');
+    const customName = (roomNameInput && roomNameInput.value.trim()) ? roomNameInput.value.trim() : (activeInviteRules.name || (currentUser ? `${currentUser}的房间` : '对决房间'));
+
+    const presetNameEl = document.getElementById('create-invite-preset-name');
+    if (presetNameEl) {
+        presetNameEl.innerText = `专属房间预设：《${customName}》`;
+    }
+    const gaugeName = activeInviteRules.gaugeStyle === 'snake' ? '盘龙' : '拔河';
+    const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
+    const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
+    const durSec = activeInviteRules.duration || 120;
+    const durTxt = durSec < 60 ? `${durSec} 秒` : `${Math.round(durSec / 60)} 分钟`;
+    const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${durTxt}` : `领先: ${activeInviteRules.winLead || 6} 题`;
+
+    const elMode = document.getElementById('create-invite-summary-mode');
+    const elRule = document.getElementById('create-invite-summary-rule');
+    const elGauge = document.getElementById('create-invite-summary-gauge');
+    const elBook = document.getElementById('create-invite-summary-book');
+    if (elMode) elMode.innerText = modeTxt;
+    if (elRule) elRule.innerText = ruleTxt;
+    if (elGauge) elGauge.innerText = gaugeName;
+    if (elBook) {
+        elBook.innerText = bookSummary;
+        elBook.title = bookSummary;
+    }
+}
+window.updateInvitePresetSummaryUI = updateInvitePresetSummaryUI;
+
+function handleInviteRoomNameChange(val) {
+    if (activeInviteRules) {
+        activeInviteRules.name = (val || '').trim();
+        updateInvitePresetSummaryUI();
+    }
+}
+window.handleInviteRoomNameChange = handleInviteRoomNameChange;
 
 function selectInviteRuleMode(val) {
     if (!activeInviteRules) return;
@@ -3829,6 +3856,7 @@ function updateInviteBookSummaryUI() {
     const summaryEl = document.getElementById('invite-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
     if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    updateInvitePresetSummaryUI();
 }
 
 async function confirmAndSendMatchInvite() {

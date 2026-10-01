@@ -194,9 +194,9 @@ function updateAiDuelSliderHint() {
     if (aiDuelConfig.matchType === 'ranked') {
         if (rankData.isPromotionReady) {
             if (aiRank === userRank + 1) {
-                hintEl.innerHTML = `<span style="color:#16a34a; font-weight:700;">🔥 升段赛目标：挑战 ${userRank + 1}段 人机并获胜即可成功晋升！(输了不扣分)</span>`;
+                hintEl.innerHTML = `<span style="color:#16a34a; font-weight:700;">升段赛目标：挑战 ${userRank + 1}段 人机并获胜即可成功晋升！(输了不扣分)</span>`;
             } else {
-                hintEl.innerHTML = `<span style="color:#eab308; font-weight:700;">⚠️ 升段赛就绪：需挑战高于自身1段（${userRank + 1}段）人机才能升段！</span>`;
+                hintEl.innerHTML = `<span style="color:#eab308; font-weight:700;">升段赛就绪：需挑战高于自身1段（${userRank + 1}段）人机才能升段！</span>`;
             }
         } else {
             const diff = aiRank - userRank;
@@ -582,11 +582,11 @@ function checkAiDuelWinCondition() {
 
     if (diff >= winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`🎉 恭喜领先达到 ${winLead} 题，战胜系统AI (${aiDuelConfig.aiRank}段)！`, false);
+        endGame(`🎉 恭喜战胜系统AI (${aiDuelConfig.aiRank}段)！`, false);
         return true;
     } else if (diff <= -winLead) {
         if (aiDuelTimer) clearTimeout(aiDuelTimer);
-        endGame(`💔 系统AI (${aiDuelConfig.aiRank}段) 领先达到 ${winLead} 题，遗憾惜败！`, false);
+        endGame(`💔 遗憾惜败！`, false);
         return true;
     }
     return false;

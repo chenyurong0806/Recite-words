@@ -272,7 +272,7 @@ const LevelManager = {
                 isDemoted: false,
                 isPromotionMatch: false,
                 reason: isPromoted
-                    ? `🔥 突破晋升！成功升至 ${newRank}段 (+${winGain}分)`
+                    ? `排位胜利！成功升至 ${newRank}段`
                     : `排位胜利，获得 +${winGain} 分！`
             };
         } else {
@@ -297,7 +297,7 @@ const LevelManager = {
                 isDemoted: isDemoted,
                 isPromotionMatch: false,
                 reason: isDemoted
-                    ? `💔 积分不足已自动降至 ${newRank}段 (-${lossDeduct}分)`
+                    ? `排位战败，降至 ${newRank}段 (-${lossDeduct}分)`
                     : `排位战败，扣除 ${lossDeduct} 分`
             };
         }
