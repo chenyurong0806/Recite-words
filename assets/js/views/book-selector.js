@@ -202,7 +202,7 @@ function isWordleSupportedBook(b) {
         nameStr = (b.name || b.title || b.id || '').toString();
     }
     const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
-    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇'];
+    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇', '初中考纲词汇'];
     return allowed.some(kw => cleanLower.includes(kw));
 }
 window.isWordleSupportedBook = isWordleSupportedBook;

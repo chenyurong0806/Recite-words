@@ -483,6 +483,9 @@ function toggleBookIdInList(selectedIds, bookId) {
 
 function isShiCiBook(b) {
     if (!b) return false;
+    if (typeof b === 'string') {
+        return b.includes('实词') || b.includes('shici');
+    }
     if (b.type === 'shici' || b.isShiCi) return true;
     if (b.category === '实词' || (b.name && b.name.includes('实词')) || (b.id && String(b.id).includes('实词'))) return true;
     if (b.words && b.words.length > 0 && b.words[0].senses) return true;

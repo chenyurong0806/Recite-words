@@ -20,18 +20,25 @@ const BookManager = {
     fallbackBooks: [
         { id: 'builtin_default', name: '默认词书', category: '内置', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS, path: '', isCloud: false },
         { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3892, path: 'books/考纲/高考3500.json', isCloud: true },
+        { id: 'books/考纲/初中考纲词汇.json', name: '初中考纲词汇', category: '考纲', count: 1741, path: 'books/考纲/初中考纲词汇.json', isCloud: true },
+        { id: 'books/考纲/初中考纲词组.json', name: '初中考纲词组', category: '考纲', count: 347, path: 'books/考纲/初中考纲词组.json', isCloud: true },
         { id: 'books/考纲/518.json', name: '518', category: '考纲', count: 570, path: 'books/考纲/518.json', isCloud: true },
         { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1200, path: 'books/考纲/考纲词组.json', isCloud: true },
-        { id: 'books/Doris/weekly 3.json', name: 'weekly 3', category: 'Doris', count: 24, path: 'books/Doris/weekly 3.json', isCloud: true },
-        { id: 'books/Doris/wordbank 3.json', name: 'wordbank 3', category: 'Doris', count: 41, path: 'books/Doris/wordbank 3.json', isCloud: true },
+        { id: 'books/Doris/Wordbank 1.json', name: 'Wordbank 1', category: 'Doris', count: 84, path: 'books/Doris/Wordbank 1.json', isCloud: true },
+        { id: 'books/Doris/Wordbank 3.json', name: 'Wordbank 3', category: 'Doris', count: 81, path: 'books/Doris/Wordbank 3.json', isCloud: true },
+        { id: 'books/Doris/Wordbank 4.json', name: 'Wordbank 4', category: 'Doris', count: 77, path: 'books/Doris/Wordbank 4.json', isCloud: true },
         { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 67, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
-        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 117, path: 'books/Doris/翻译.json', isCloud: true },
+        { id: 'books/Doris/基础闯关a-b.json', name: '基础闯关a-b', category: 'Doris', count: 42, path: 'books/Doris/基础闯关a-b.json', isCloud: true },
+        { id: 'books/Doris/基础闯关b-c.json', name: '基础闯关b-c', category: 'Doris', count: 42, path: 'books/Doris/基础闯关b-c.json', isCloud: true },
+        { id: 'books/Doris/基础闯关c-d.json', name: '基础闯关c-d', category: 'Doris', count: 42, path: 'books/Doris/基础闯关c-d.json', isCloud: true },
+        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 107, path: 'books/Doris/翻译.json', isCloud: true },
         { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
         { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1021, path: 'books/Doris/高一高二笔记.json', isCloud: true },
-        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 225, path: 'books/Doris/高三笔记.json', isCloud: true },
+        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 446, path: 'books/Doris/高三笔记.json', isCloud: true },
         { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
         { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true },
-        { id: 'books/实词/实词.json', name: '实词', category: '实词', count: 300, path: 'books/实词/实词.json', isCloud: true }
+        { id: 'books/实词/初中150实词.json', name: '初中150实词', category: '实词', count: 150, path: 'books/实词/初中150实词.json', isCloud: true },
+        { id: 'books/实词/高中300实词.json', name: '高中300实词', category: '实词', count: 300, path: 'books/实词/高中300实词.json', isCloud: true }
     ],
 
     async init() {
@@ -198,6 +205,10 @@ const BookManager = {
         }
         if (this.bookCache[bookId]) return this.bookCache[bookId];
 
+        if (bookId === 'books/实词/实词.json') {
+            bookId = 'books/实词/高中300实词.json';
+        }
+
         const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
         if (isGaoKao) {
             if (this.bookCache['books/考纲/高考3500.json']) return this.bookCache['books/考纲/高考3500.json'];
@@ -220,11 +231,15 @@ const BookManager = {
             }
         } catch (e) { }
 
-        if (typeof isShiCiBook === 'function' && isShiCiBook({ id: bookId }) && typeof ShiCiManager !== 'undefined' && ShiCiManager.loadBooks) {
+        const bookMeta = this.availableBooks.find(b => b.id === bookId || b.path === bookId) ||
+            this.fallbackBooks.find(b => b.id === bookId || b.path === bookId) ||
+            { id: bookId, name: bookId };
+
+        if (typeof isShiCiBook === 'function' && isShiCiBook({ id: bookId, ...bookMeta }) && typeof ShiCiManager !== 'undefined' && ShiCiManager.loadBooks) {
             try {
                 const scData = await ShiCiManager.loadBooks([bookId]);
                 if (Array.isArray(scData) && scData.length > 0) {
-                    const normalized = this.normalizeWords(scData, '文言实词', bookId);
+                    const normalized = this.normalizeWords(scData, bookMeta.name || '文言实词', bookId);
                     if (normalized && normalized.length > 0) {
                         this.bookCache[bookId] = normalized;
                         return normalized;
@@ -232,10 +247,6 @@ const BookManager = {
                 }
             } catch (err) { }
         }
-
-        const bookMeta = this.availableBooks.find(b => b.id === bookId || b.path === bookId) ||
-            this.fallbackBooks.find(b => b.id === bookId || b.path === bookId) ||
-            { id: bookId, name: bookId };
 
         let relPath = bookMeta.path || bookId;
         if (!relPath.startsWith('books/') && !relPath.includes('/')) {
@@ -362,6 +373,15 @@ const BookManager = {
             }
         });
         return combined;
+    },
+
+    getBookMeta(bookId) {
+        if (!bookId) return null;
+        if (bookId === 'books/实词/实词.json') bookId = 'books/实词/高中300实词.json';
+        return (this.availableBooks || []).find(b => b && (b.id === bookId || b.path === bookId)) ||
+            (this.fallbackBooks || []).find(b => b && (b.id === bookId || b.path === bookId)) ||
+            (window.customBooks || []).find(b => b && (b.id === bookId)) ||
+            { id: bookId, name: cleanBookName(String(bookId).replace(/^.*\//, '').replace(/\.json$/i, '')) };
     }
 };
 
@@ -391,6 +411,10 @@ function getAllUniqueBooks() {
 
 function isBookShiCi(b) {
     if (!b) return false;
-    return b.category === '实词' || b.id === 'books/实词/实词.json' || (typeof isShiCiBook === 'function' && isShiCiBook(b));
+    return b.category === '实词' || 
+           b.id === 'books/实词/实词.json' || 
+           b.id === 'books/实词/初中150实词.json' || 
+           b.id === 'books/实词/高中300实词.json' || 
+           (typeof isShiCiBook === 'function' && isShiCiBook(b));
 }
 

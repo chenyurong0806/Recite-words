@@ -330,7 +330,7 @@ function renderShiCiSummaryHtml(pool) {
 let shiciConfig = {
     order: 'sequential', // 'sequential' or 'random'
     batchSize: 15,
-    selectedBooks: ['books/实词/实词.json'],
+    selectedBooks: ['books/实词/高中300实词.json'],
     immediateRetest: true
 };
 
@@ -600,7 +600,9 @@ function loadShiCiSettings() {
         if (prog) Object.assign(shiciProgress, JSON.parse(prog));
     } catch (e) { }
     if (!Array.isArray(shiciConfig.selectedBooks) || shiciConfig.selectedBooks.length === 0) {
-        shiciConfig.selectedBooks = ['books/实词/实词.json'];
+        shiciConfig.selectedBooks = ['books/实词/高中300实词.json'];
+    } else {
+        shiciConfig.selectedBooks = shiciConfig.selectedBooks.map(b => b === 'books/实词/实词.json' ? 'books/实词/高中300实词.json' : b);
     }
 }
 
@@ -614,49 +616,56 @@ function saveShiCiState() {
 const ShiCiManager = {
     data: null,
     loading: false,
+    bookCache: {},
 
-    async loadData() {
-        if (this.data && Array.isArray(this.data) && this.data.length > 0) {
-            return this.data;
+    async loadSingleBook(bookId = 'books/实词/高中300实词.json') {
+        if (!bookId) bookId = 'books/实词/高中300实词.json';
+        if (bookId === 'books/实词/实词.json') {
+            bookId = 'books/实词/高中300实词.json';
         }
-        this.loading = true;
+        if (this.bookCache[bookId] && Array.isArray(this.bookCache[bookId]) && this.bookCache[bookId].length > 0) {
+            return this.bookCache[bookId];
+        }
 
-        // 1. 本地缓存读取
+        // 1. 本地自定义词书
+        if (window.customBooks) {
+            const custom = window.customBooks.find(b => b.id === bookId);
+            if (custom && Array.isArray(custom.words) && custom.words.length > 0) {
+                this.bookCache[bookId] = custom.words;
+                return custom.words;
+            }
+        }
+
+        // 2. 本地缓存读取
         try {
-            const cached = localStorage.getItem('vocab_shici_cache');
+            const cacheKey = 'vocab_shici_cache_' + bookId;
+            const cached = localStorage.getItem(cacheKey) || (bookId === 'books/实词/高中300实词.json' ? localStorage.getItem('vocab_shici_cache') : null);
             if (cached) {
                 const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length >= 300) {
-                    this.data = parsed;
-                    this.loading = false;
-                    return this.data;
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.bookCache[bookId] = parsed;
+                    return parsed;
                 }
             }
         } catch (e) { }
 
-        // 2. 候选加载路径
-        const scRel = 'books/%E5%AE%9E%E8%AF%8D/%E5%AE%9E%E8%AF%8D.json';
-        const urls = [];
-        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
-            urls.push(
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                './books/实词/实词.json',
-                'books/实词/实词.json'
-            );
-        } else {
-            urls.push(
-                './books/实词/实词.json',
-                'books/实词/实词.json',
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${scRel}`,
-                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${scRel}`
-            );
+        // 3. 候选加载路径
+        let relPath = bookId;
+        if (!relPath.startsWith('books/') && !relPath.includes('/')) {
+            relPath = `books/实词/${bookId}.json`;
         }
+        const encodedRel = encodeURI(relPath);
+        const urls = [
+            `./${encodedRel}`,
+            `./${relPath}`,
+            `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
+        ];
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent('books/实词/实词.json')}`);
+            urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent(relPath)}`);
+            urls.push(`${BookManager.API_BASE}/api/book?id=${encodeURIComponent(relPath)}`);
         }
 
         for (const u of urls) {
@@ -668,38 +677,64 @@ const ShiCiManager = {
                 if (res.ok) {
                     const json = await res.json();
                     if (Array.isArray(json) && json.length > 0) {
-                        this.data = json;
+                        this.bookCache[bookId] = json;
                         try {
-                            localStorage.setItem('vocab_shici_cache', JSON.stringify(json));
+                            localStorage.setItem('vocab_shici_cache_' + bookId, JSON.stringify(json));
+                            if (bookId === 'books/实词/高中300实词.json') {
+                                localStorage.setItem('vocab_shici_cache', JSON.stringify(json));
+                            }
                         } catch (e) { }
-                        this.loading = false;
-                        return this.data;
+                        return json;
                     }
                 }
             } catch (err) { }
         }
 
-        this.loading = false;
-        throw new Error('未能加载实词库文件，请确保 books/实词/实词.json 存在或网络正常！');
+        return [];
     },
 
-    async loadBooks(bookIds = ['books/实词/实词.json']) {
-        if (!Array.isArray(bookIds) || bookIds.length === 0) {
-            bookIds = ['books/实词/实词.json'];
-        }
-        const results = [];
-        for (const bId of bookIds) {
-            const custom = (window.customBooks || []).find(b => b.id === bId);
-            if (custom && Array.isArray(custom.words) && custom.words.length > 0) {
-                results.push(...custom.words);
-                continue;
+    async loadData(bookPath) {
+        if (bookPath) {
+            const data = await this.loadSingleBook(bookPath);
+            if (data && data.length > 0) {
+                this.data = data;
+                return data;
             }
-            try {
-                const data = await this.loadData();
-                if (Array.isArray(data)) results.push(...data);
-            } catch (e) { }
         }
-        return results.length > 0 ? results : (await this.loadData());
+        // 未传参或指定路径失败时，合并加载所有已知文言词书，保障错题检索及全局实词数据完整
+        const defaultShiCiIds = ['books/实词/初中150实词.json', 'books/实词/高中300实词.json'];
+        const all = await this.loadBooks(defaultShiCiIds);
+        if (all && all.length > 0) {
+            this.data = all;
+            return all;
+        }
+        return this.data || [];
+    },
+
+    async loadBooks(bookIds = ['books/实词/高中300实词.json']) {
+        if (!Array.isArray(bookIds) || bookIds.length === 0) {
+            bookIds = ['books/实词/高中300实词.json'];
+        }
+        bookIds = bookIds.map(b => b === 'books/实词/实词.json' ? 'books/实词/高中300实词.json' : b);
+        const results = [];
+        const seenWords = new Set();
+        for (const bId of bookIds) {
+            const data = await this.loadSingleBook(bId);
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const key = item.word || item.name;
+                    if (key && !seenWords.has(key)) {
+                        seenWords.add(key);
+                        results.push(item);
+                    }
+                });
+            }
+        }
+        if (results.length > 0) {
+            this.data = results;
+            return results;
+        }
+        return await this.loadData();
     }
 };
 
@@ -823,7 +858,7 @@ async function startShiCiLearning() {
     }
 
     try {
-        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/实词.json']);
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
         if (!allWords || allWords.length === 0) {
             alert('未获取到实词库数据！');
             return;
@@ -896,7 +931,7 @@ async function startShiCiReview() {
     }
 
     try {
-        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/实词.json']);
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
         if (!allWords || allWords.length === 0) {
             alert('未获取到实词库数据！');
             return;

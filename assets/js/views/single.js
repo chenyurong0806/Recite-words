@@ -109,7 +109,9 @@ function renderShiCiBookList() {
 
     loadShiCiSettings();
     if (!shiciConfig.selectedBooks || !Array.isArray(shiciConfig.selectedBooks) || shiciConfig.selectedBooks.length === 0) {
-        shiciConfig.selectedBooks = ['books/实词/实词.json'];
+        shiciConfig.selectedBooks = ['books/实词/高中300实词.json'];
+    } else {
+        shiciConfig.selectedBooks = shiciConfig.selectedBooks.map(b => b === 'books/实词/实词.json' ? 'books/实词/高中300实词.json' : b);
     }
 
     renderBookFolderTree('shici-book-list', {
