@@ -1,0 +1,3820 @@
+[
+  {
+    "id": 1,
+    "word": "比",
+    "pinyin": "bǐ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "靠近",
+        "examples": [
+          {"sentence": "其两膝相比者，各隐卷底衣褶中", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "及，等到（……的时候）",
+        "examples": [
+          {"sentence": "比至陈，车六七百乘", "source": "《陈涉世家》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "比较",
+        "examples": [
+          {"sentence": "心却比，男儿烈", "source": "《满江红·小住京华》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "word": "鄙",
+    "pinyin": "bǐ",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "浅陋无知，目光短浅",
+        "examples": [
+          {"sentence": "刿曰：“肉食者鄙，未能远谋。”", "source": "《曹刿论战》"},
+          {"sentence": "先帝不以臣卑鄙", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "word": "兵",
+    "pinyin": "bīng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "兵器，武器",
+        "examples": [
+          {"sentence": "兵革非不坚利也", "source": "《得道多助，失道寡助》"},
+          {"sentence": "今南方已定，兵甲已足", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "军队",
+        "examples": [
+          {"sentence": "可汗大点兵", "source": "《木兰诗》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "士兵",
+        "examples": [
+          {"sentence": "一老河兵闻之", "source": "《河中石兽》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "战争",
+        "examples": [
+          {"sentence": "况乃未休兵", "source": "《月夜忆舍弟》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "word": "病",
+    "pinyin": "bìng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "生病",
+        "examples": [
+          {"sentence": "未果，寻病终", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "枯萎",
+        "examples": [
+          {"sentence": "病树前头万木春", "source": "《酬乐天扬州初逢席上见赠》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "word": "乘",
+    "pinyin": "chéng / shèng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "坐、驾（车）",
+        "examples": [
+          {"sentence": "公与之乘", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "趁着，冒着",
+        "examples": [
+          {"sentence": "从今若许闲乘月", "source": "《游山西村》"}
+        ]
+      },
+      {
+        "part_of_speech": "量词",
+        "meaning": "辆（用以计算车子）",
+        "examples": [
+          {"sentence": "车六七百乘", "source": "《陈涉世家》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "word": "持",
+    "pinyin": "chí",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "拉",
+        "examples": [
+          {"sentence": "锐兵刃，彀弓弩，持满", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "拿着",
+        "examples": [
+          {"sentence": "屠乃奔倚其下，弛担持刀", "source": "《狼》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "word": "从",
+    "pinyin": "cóng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "跟从，跟随",
+        "examples": [
+          {"sentence": "七十而从心所欲", "source": "《〈论语〉十二章》"},
+          {"sentence": "择其善者而从之", "source": "《〈论语〉十二章》"},
+          {"sentence": "一狼得骨止，一狼仍从", "source": "《狼》"},
+          {"sentence": "隶而从者，崔氏二小生", "source": "《小石潭记》"},
+          {"sentence": "太守归而宾客从也", "source": "《醉翁亭记》"},
+          {"sentence": "战则请从", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "听从，顺从",
+        "examples": [
+          {"sentence": "小惠未遍，民弗从也", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "采取某一种办法",
+        "examples": [
+          {"sentence": "无从致书以观", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "介词",
+        "meaning": "自，由",
+        "examples": [
+          {"sentence": "愿为市鞍马，从此替爷征", "source": "《木兰诗》"},
+          {"sentence": "从小丘西行百二十步", "source": "《小石潭记》"},
+          {"sentence": "乃大惊，问所从来", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "与“容”连用：舒缓安闲，不慌不忙",
+        "examples": [
+          {"sentence": "鲦鱼出游从容", "source": "《庄子与惠子游于濠梁之上》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "word": "达",
+    "pinyin": "dá",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "到达",
+        "examples": [
+          {"sentence": "指通豫南，达于汉阴", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "得志，显贵",
+        "examples": [
+          {"sentence": "不求闻达于诸侯", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "有道德，有学问（的人）",
+        "examples": [
+          {"sentence": "从乡之先达执经叩问", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "通顺，通畅",
+        "examples": [
+          {"sentence": "辞甚畅达", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "word": "当",
+    "pinyin": "dāng",
+    "senses": [
+      {
+        "part_of_speech": "介词",
+        "meaning": "在（某时、某处）",
+        "examples": [
+          {"sentence": "陈康肃公善射，当世无双", "source": "《卖油翁》"},
+          {"sentence": "咨臣以当世之事", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "能愿动词",
+        "meaning": "应当，应该",
+        "examples": [
+          {"sentence": "耕当问奴，织当问婢", "source": "《书戴嵩画牛》"},
+          {"sentence": "日月星宿，不当坠耶", "source": "《杞人忧天》"},
+          {"sentence": "但当涉猎，见往事耳", "source": "《孙权劝学》"},
+          {"sentence": "凡河中失石，当求之于上流", "source": "《河中石兽》"},
+          {"sentence": "当奖率三军", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "将要，就要",
+        "examples": [
+          {"sentence": "今当远离", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "对着，面对",
+        "examples": [
+          {"sentence": "木兰当户织", "source": "《木兰诗》"},
+          {"sentence": "当户理红妆", "source": "《木兰诗》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "掌管，主持",
+        "examples": [
+          {"sentence": "卿今当涂掌事", "source": "《孙权劝学》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "word": "道",
+    "pinyin": "dào",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "路；途",
+        "examples": [
+          {"sentence": "伐竹取道，下见小潭，水尤清冽", "source": "《小石潭记》"},
+          {"sentence": "先帝创业未半而中道崩殂", "source": "《出师表》"},
+          {"sentence": "行道之人弗受", "source": "《鱼我所欲也》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "道理，规律，方法；（儒家推崇的上古时代的）政治制度",
+        "examples": [
+          {"sentence": "虽有至道，弗学，不知其善也", "source": "《虽有嘉肴》"},
+          {"sentence": "以咨诹善道，察纳雅言", "source": "《出师表》"},
+          {"sentence": "大道之行也", "source": "《大道之行也》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "正道",
+        "examples": [
+          {"sentence": "得道者多助，失道者寡助", "source": "《得道多助，失道寡助》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "说，讲",
+        "examples": [
+          {"sentence": "国人道之，闻之于宋君", "source": "《穿井得一人》"},
+          {"sentence": "不足为外人道也", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "word": "得",
+    "pinyin": "dé",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "得到，获得（取得 / 看到，看见 / 领会 / 找到）",
+        "examples": [
+          {"sentence": "穿井得一人", "source": "《穿井得一人》"},
+          {"sentence": "一狼得骨止", "source": "《狼》"},
+          {"sentence": "得道者多助，失道者寡助", "source": "《得道多助，失道寡助》"},
+          {"sentence": "夫环而攻之，必有得天时者矣", "source": "《得道多助，失道寡助》"},
+          {"sentence": "故不为苟得也", "source": "《鱼我所欲也》"},
+          {"sentence": "林尽水源，便得一山", "source": "《桃花源记》"},
+          {"sentence": "得之心而寓之酒也", "source": "《醉翁亭记》"},
+          {"sentence": "求二石兽于水中，竟不可得", "source": "《河中石兽》"},
+          {"sentence": "如其言，果得于数里外", "source": "《河中石兽》"},
+          {"sentence": "既出，得其船", "source": "《桃花源记》"},
+          {"sentence": "遂迷，不复得路", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "能愿动词",
+        "meaning": "能够，可以",
+        "examples": [
+          {"sentence": "天子先驱至，不得入", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "同“德”，感恩",
+        "examples": [
+          {"sentence": "所识穷乏者得我与", "source": "《鱼我所欲也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "word": "尔",
+    "pinyin": "ěr",
+    "senses": [
+      {
+        "part_of_speech": "助词",
+        "meaning": "助词，相当于“而已”“罢了”",
+        "examples": [
+          {"sentence": "无他，但手熟尔", "source": "《卖油翁》"}
+        ]
+      },
+      {
+        "part_of_speech": "助词",
+        "meaning": "助词，附在形容词、动词、副词或拟声词后，用作后缀",
+        "examples": [
+          {"sentence": "呼尔而与之，行道之人弗受", "source": "《鱼我所欲也》"}
+        ]
+      },
+      {
+        "part_of_speech": "助词",
+        "meaning": "词尾，相当于“地”“然”",
+        "examples": [
+          {"sentence": "俶尔远逝", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "代词",
+        "meaning": "代词，你（你们）",
+        "examples": [
+          {"sentence": "尔安敢轻吾射", "source": "《卖油翁》"},
+          {"sentence": "尔辈不能究物理", "source": "《河中石兽》"}
+        ]
+      },
+      {
+        "part_of_speech": "代词",
+        "meaning": "指示代词，这，那",
+        "examples": [
+          {"sentence": "尔来二十有一年矣", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "word": "伐",
+    "pinyin": "fá",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "砍伐",
+        "examples": [
+          {"sentence": "伐竹取道，下见小潭，水尤清冽", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "攻打，讨伐",
+        "examples": [
+          {"sentence": "十年春，齐师伐我", "source": "《曹刿论战》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "word": "犯",
+    "pinyin": "fàn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "侵害，危害",
+        "examples": [
+          {"sentence": "至于亚夫，可得而犯邪", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "触犯，违犯",
+        "examples": [
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "word": "方",
+    "pinyin": "fāng",
+    "senses": [
+      {
+        "part_of_speech": "量词",
+        "meaning": "方圆，周围",
+        "examples": [
+          {"sentence": "太行、王屋二山，方七百里", "source": "《愚公移山》"},
+          {"sentence": "今齐地方千里，百二十城", "source": "《邹忌讽齐王纳谏》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "区域，地方",
+        "examples": [
+          {"sentence": "有朋自远方来，不亦乐乎", "source": "《〈论语〉十二章》"},
+          {"sentence": "今南方已定，兵甲已足", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "将，将要",
+        "examples": [
+          {"sentence": "方欲行，转视积薪后", "source": "《狼》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "表示时间，相当于“始”“才”",
+        "examples": [
+          {"sentence": "方鼓琴而志在太山", "source": "《伯牙鼓琴》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "word": "负",
+    "pinyin": "fù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "背，以背载物",
+        "examples": [
+          {"sentence": "帝感其诚，命夸娥氏二子负二山", "source": "《愚公移山》"},
+          {"sentence": "至于负者歌于途，行者休于树", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "凭借，依仗，倚靠",
+        "examples": [
+          {"sentence": "皆生寒树，负势竞上", "source": "《与朱元思书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "word": "赋",
+    "pinyin": "fù",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "一种文体",
+        "examples": [
+          {"sentence": "刻唐贤今人诗赋于其上", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "写作",
+        "examples": [
+          {"sentence": "为陈同甫赋壮词以寄之", "source": "《破阵子·为陈同甫赋壮词以寄之》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "word": "更",
+    "pinyin": "gèng / gēng",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "另，另外",
+        "examples": [
+          {"sentence": "士别三日，即更刮目相待", "source": "《孙权劝学》"},
+          {"sentence": "室中更无人，惟有乳下孙", "source": "《石壕吏》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "更加",
+        "examples": [
+          {"sentence": "求之地中，不更颠乎", "source": "《河中石兽》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "又，还",
+        "examples": [
+          {"sentence": "湖中焉得更有此人", "source": "《湖心亭看雪》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "夜间计时的单位",
+        "examples": [
+          {"sentence": "是日更定矣", "source": "《湖心亭看雪》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "word": "苟",
+    "pinyin": "gǒu",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "随便，马虎",
+        "examples": [
+          {"sentence": "苟全性命于乱世", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "勉强，不正当",
+        "examples": [
+          {"sentence": "故不为苟得也", "source": "《鱼我所欲也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "word": "故",
+    "pinyin": "gù",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "过去，原来，照旧",
+        "examples": [
+          {"sentence": "温故而知新，可以为师矣", "source": "《〈论语〉十二章》"},
+          {"sentence": "骨已尽矣，而两狼之并驱如故", "source": "《狼》"},
+          {"sentence": "愿驰千里足，送儿还故乡", "source": "《木兰诗》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "原因，缘故",
+        "examples": [
+          {"sentence": "见两小儿辩斗，问其故", "source": "《两小儿辩日》"},
+          {"sentence": "既克，公问其故", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "连词",
+        "meaning": "所以，因此",
+        "examples": [
+          {"sentence": "故君子有不战，战必胜矣", "source": "《得道多助，失道寡助》"},
+          {"sentence": "故天将降大任于是人也", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "是故学然后知不足", "source": "《虽有嘉肴》"},
+          {"sentence": "故曰：教学相长也", "source": "《虽有嘉肴》"},
+          {"sentence": "故自号曰醉翁也", "source": "《醉翁亭记》"},
+          {"sentence": "故临崩寄臣以大事也", "source": "《出师表》"},
+          {"sentence": "故五月渡泸，深人不毛", "source": "《出师表》"},
+          {"sentence": "故克之", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "特意",
+        "examples": [
+          {"sentence": "余故道为学之难以告之", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "word": "顾",
+    "pinyin": "gù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "回头看，看，看见（环顾，四顾）",
+        "examples": [
+          {"sentence": "元方入门不顾", "source": "《陈太丘与友期行》"},
+          {"sentence": "顾野有麦场", "source": "《狼》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "拜访",
+        "examples": [
+          {"sentence": "三顾臣于草庐之中", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "word": "观",
+    "pinyin": "guān",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "看，仔细看（观赏）",
+        "examples": [
+          {"sentence": "启窗而观", "source": "《核舟记》"},
+          {"sentence": "可远观而不可亵玩焉", "source": "《爱莲说》"},
+          {"sentence": "予观夫巴陵胜状", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "景象",
+        "examples": [
+          {"sentence": "此则岳阳楼之大观也", "source": "《岳阳楼记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "word": "归",
+    "pinyin": "guī",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "归来，返回",
+        "examples": [
+          {"sentence": "一屠晚归，担中肉尽", "source": "《狼》"},
+          {"sentence": "壮士十年归", "source": "《木兰诗》"},
+          {"sentence": "朝而往，暮而归", "source": "《醉翁亭记》"},
+          {"sentence": "太守归而宾客从也", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "归属，归依（聚到一处）",
+        "examples": [
+          {"sentence": "噫！微斯人，吾谁与归", "source": "《岳阳楼记》"},
+          {"sentence": "云归而岩穴暝", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "女子出嫁",
+        "examples": [
+          {"sentence": "男有分，女有归", "source": "《大道之行也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "word": "过",
+    "pinyin": "guò",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "犯错",
+        "examples": [
+          {"sentence": "人恒过，然后能改", "source": "《生于忧患，死于安乐》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "过分，过于",
+        "examples": [
+          {"sentence": "以其境过清，不可久居", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "过了，超过",
+        "examples": [
+          {"sentence": "过中不至，太丘舍去", "source": "《陈太丘与友期行》"},
+          {"sentence": "况才之过于余者乎", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "经过",
+        "examples": [
+          {"sentence": "及鲁肃过寻阳，与蒙论议", "source": "《孙权劝学》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "word": "好",
+    "pinyin": "hǎo / hào",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "美丽的",
+        "examples": [
+          {"sentence": "好鸟相鸣，嘤嘤成韵", "source": "《与朱元思书》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "使人满意，与“坏”相对",
+        "examples": [
+          {"sentence": "窈窕淑女，君子好逑", "source": "《关雎》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "爱好，喜欢",
+        "examples": [
+          {"sentence": "蜀中有杜处士，好书画", "source": "《书戴嵩画牛》"},
+          {"sentence": "知之者不如好之者", "source": "《〈论语〉十二章》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "word": "号",
+    "pinyin": "háo / hào",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "大叫，呼啸",
+        "examples": [
+          {"sentence": "阴风怒号，浊浪排空", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "取名号",
+        "examples": [
+          {"sentence": "故自号曰醉翁也", "source": "《醉翁亭记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "word": "还",
+    "pinyin": "huán",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "返回，回到",
+        "examples": [
+          {"sentence": "愿驰千里足，送儿还故乡", "source": "《木兰诗》"},
+          {"sentence": "便要还家，设酒杀鸡作食", "source": "《桃花源记》"},
+          {"sentence": "兴复汉室，还于旧都", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "交还，归还",
+        "examples": [
+          {"sentence": "计日以还", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "word": "会",
+    "pinyin": "huì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "会合，聚会，集会",
+        "examples": [
+          {"sentence": "迁客骚人，多会于此", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "适逢，恰巧遇到",
+        "examples": [
+          {"sentence": "会天大雨", "source": "《陈涉世家》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "终将",
+        "examples": [
+          {"sentence": "会当凌绝顶", "source": "《望岳》"},
+          {"sentence": "长风破浪会有时", "source": "《行路难（其一）》"},
+          {"sentence": "会挽雕弓如满月", "source": "《江城子·密州出猎》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "word": "惠",
+    "pinyin": "huì",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "恩惠，（给人以）好处",
+        "examples": [
+          {"sentence": "小惠未遍，民弗从也", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "同“慧”，聪明",
+        "examples": [
+          {"sentence": "甚矣，汝之不惠", "source": "《愚公移山》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "word": "及",
+    "pinyin": "jí",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "到，到了，待，等到",
+        "examples": [
+          {"sentence": "及日中则如盘盂", "source": "《两小儿辩日》"},
+          {"sentence": "及其家穿井", "source": "《穿井得一人》"},
+          {"sentence": "及鲁肃过寻阳，与蒙论议", "source": "《孙权劝学》"},
+          {"sentence": "及郡下，诣太守，说如此", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "比得上，来得及",
+        "examples": [
+          {"sentence": "悲守穷庐，将复何及", "source": "《诫子书》"}
+        ]
+      },
+      {
+        "part_of_speech": "连词",
+        "meaning": "以及，和，与",
+        "examples": [
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "word": "极",
+    "pinyin": "jí",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "尽头，极点，穷尽",
+        "examples": [
+          {"sentence": "其远而无所至极邪", "source": "《北冥有鱼》"},
+          {"sentence": "渔歌互答，此乐何极", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "到极点（直达）",
+        "examples": [
+          {"sentence": "感极而悲者矣", "source": "《岳阳楼记》"},
+          {"sentence": "然则北通巫峡，南极潇湘", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "很，非常",
+        "examples": [
+          {"sentence": "初极狭，才通人", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "word": "计",
+    "pinyin": "jì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "计算，计量，总计",
+        "examples": [
+          {"sentence": "通计一舟，为人五", "source": "《核舟记》"},
+          {"sentence": "而计其长曾不盈寸", "source": "《核舟记》"},
+          {"sentence": "则汉室之隆，可计日而待也", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "word": "济",
+    "pinyin": "jì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "渡",
+        "examples": [
+          {"sentence": "欲济无舟楫", "source": "《望洞庭湖赠张丞相》"},
+          {"sentence": "直挂云帆济沧海", "source": "《行路难（其一）》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "word": "假",
+    "pinyin": "jiǎ",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "不真实的，不是本来的。与“真”相对",
+        "examples": [
+          {"sentence": "乃悟前狼假寐", "source": "《狼》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "借",
+        "examples": [
+          {"sentence": "以是人多以书假余", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "word": "间",
+    "pinyin": "jiān / jiàn",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "中间",
+        "examples": [
+          {"sentence": "尾搐入两股间", "source": "《书戴嵩画牛》"},
+          {"sentence": "傅说举于版筑之间", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "山间之朝暮也", "source": "《醉翁亭记》"},
+          {"sentence": "颓然乎其间者", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "期间",
+        "examples": [
+          {"sentence": "少选之间而志在流水", "source": "《伯牙鼓琴》"},
+          {"sentence": "奉命于危难之间", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "夹杂，参与",
+        "examples": [
+          {"sentence": "肉食者谋之，又何间焉", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "隔开，不连接",
+        "examples": [
+          {"sentence": "遂与外人间隔", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "word": "简",
+    "pinyin": "jiǎn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "挑选，选拔",
+        "examples": [
+          {"sentence": "盖简桃核修狭者为之", "source": "《核舟记》"},
+          {"sentence": "是以先帝简拔以遗陛下", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "word": "见",
+    "pinyin": "jiàn / xiàn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "看见，看到（了解 / 领悟，知晓）",
+        "examples": [
+          {"sentence": "一日曝书画，有一牧童见之", "source": "《书戴嵩画牛》"},
+          {"sentence": "孔子东游，见两小儿辩斗", "source": "《两小儿辩日》"},
+          {"sentence": "昨夜见军帖，可汗大点兵", "source": "《木兰诗》"},
+          {"sentence": "见其发矢十中八九", "source": "《卖油翁》"},
+          {"sentence": "高峰入云，清流见底", "source": "《答谢中书书》"},
+          {"sentence": "斗折蛇行，明灭可见", "source": "《小石潭记》"},
+          {"sentence": "见渔人，乃大惊", "source": "《桃花源记》"},
+          {"sentence": "但当涉猎，见往事耳", "source": "《孙权劝学》"},
+          {"sentence": "大兄何见事之晚乎", "source": "《孙权劝学》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "拜见，谒见",
+        "examples": [
+          {"sentence": "归来见天子", "source": "《木兰诗》"},
+          {"sentence": "曹刿请见", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "同“现”，表露",
+        "examples": [
+          {"sentence": "食不饱，力不足，才美不外见", "source": "《马说》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "word": "竭",
+    "pinyin": "jié",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "尽，完（耗尽，消失 / 全部用上）",
+        "examples": [
+          {"sentence": "一鼓作气，再而衰，三而竭", "source": "《曹刿论战》"},
+          {"sentence": "彼竭我盈", "source": "《曹刿论战》"},
+          {"sentence": "庶竭驽钝，攘除奸凶", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "word": "尽",
+    "pinyin": "jìn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "完，没有了（吃完 / 发挥完）",
+        "examples": [
+          {"sentence": "一屠晚归，担中肉尽，止有剩骨", "source": "《狼》"},
+          {"sentence": "骨已尽矣", "source": "《狼》"},
+          {"sentence": "林尽水源，便得一山", "source": "《桃花源记》"},
+          {"sentence": "马之千里者，一食或尽粟一石", "source": "《马说》"},
+          {"sentence": "策之不以其道，食之不能尽其材", "source": "《马说》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "全部，都（毫无保留）",
+        "examples": [
+          {"sentence": "至于斟酌损益，进尽忠言", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "word": "进",
+    "pinyin": "jìn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "到朝廷，出来做官",
+        "examples": [
+          {"sentence": "是进亦忧，退亦忧", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "进献，奉献",
+        "examples": [
+          {"sentence": "进尽忠言", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "word": "居",
+    "pinyin": "jū",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "停留",
+        "examples": [
+          {"sentence": "以其境过清，不可久居", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "居住，安居",
+        "examples": [
+          {"sentence": "面山而居", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "处在，处于（某种地位或某个地方）",
+        "examples": [
+          {"sentence": "佛印居右，鲁直居左", "source": "《核舟记》"},
+          {"sentence": "居右者椎髻仰面", "source": "《核舟记》"},
+          {"sentence": "居庙堂之高则忧其民", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "经过，表示相隔一段时间",
+        "examples": [
+          {"sentence": "居无何，上至，又不得入", "source": "《周亚夫军细柳》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "word": "举",
+    "pinyin": "jǔ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "选拔，推举",
+        "examples": [
+          {"sentence": "胶鬲举于鱼盐之中", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "是以众议举宠为督", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "word": "具",
+    "pinyin": "jù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "具备，具有",
+        "examples": [
+          {"sentence": "罔不因势象形，各具情态", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "通“俱”，全部，详细地",
+        "examples": [
+          {"sentence": "具答之", "source": "《桃花源记》"},
+          {"sentence": "此人一一为具言所闻，皆叹惋", "source": "《桃花源记》"},
+          {"sentence": "百废具兴", "source": "《岳阳楼记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "word": "俱",
+    "pinyin": "jù",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "全，都",
+        "examples": [
+          {"sentence": "青林翠竹，四时俱备", "source": "《答谢中书书》"},
+          {"sentence": "宫中府中，俱为一体", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "一起",
+        "examples": [
+          {"sentence": "虽与之俱学", "source": "《学弈》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 45,
+    "word": "聚",
+    "pinyin": "jù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "集合",
+        "examples": [
+          {"sentence": "聚室而谋曰", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "聚拢",
+        "examples": [
+          {"sentence": "峰峦如聚", "source": "《山坡羊·潼关怀古》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "word": "遽",
+    "pinyin": "jù",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "就",
+        "examples": [
+          {"sentence": "其父虽善游，其子岂遽善游哉", "source": "《吕氏春秋》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "word": "决",
+    "pinyin": "jué",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "分辨，判断",
+        "examples": [
+          {"sentence": "孔子不能决也", "source": "《两小儿辩日》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "裂开",
+        "examples": [
+          {"sentence": "决眦入归鸟", "source": "《望岳》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "word": "绝",
+    "pinyin": "jué",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "断",
+        "examples": [
+          {"sentence": "伯牙破琴绝弦", "source": "《伯牙鼓琴》"},
+          {"sentence": "往来而不绝者，滁人游也", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "与世隔绝的",
+        "examples": [
+          {"sentence": "率妻子邑人来此绝境", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "独一无二的，独特的",
+        "examples": [
+          {"sentence": "奇山异水，天下独绝", "source": "《与朱元思书》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "极，非常",
+        "examples": [
+          {"sentence": "佛印绝类弥勒", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "停止，消失",
+        "examples": [
+          {"sentence": "空谷传响，哀转久绝", "source": "《三峡》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 49,
+    "word": "类",
+    "pinyin": "lèi",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "类似，像",
+        "examples": [
+          {"sentence": "佛印绝类弥勒", "source": "《核舟记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "word": "临",
+    "pinyin": "lín",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "靠近",
+        "examples": [
+          {"sentence": "沧州南一寺临河干", "source": "《河中石兽》"},
+          {"sentence": "有亭翼然临于泉上者，醉翁亭也", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "来到",
+        "examples": [
+          {"sentence": "临溪而渔", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "面对，对着",
+        "examples": [
+          {"sentence": "把酒临风，其喜洋洋者矣", "source": "《岳阳楼记》"},
+          {"sentence": "今当远离，临表涕零", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "正当，将要，就要",
+        "examples": [
+          {"sentence": "故临崩寄臣以大事也", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 51,
+    "word": "虑",
+    "pinyin": "lǜ",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "思虑，思绪，心思",
+        "examples": [
+          {"sentence": "困于心，衡于虑，而后作", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "此皆良实，志虑忠纯", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 52,
+    "word": "论",
+    "pinyin": "lùn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "议论，谈论",
+        "examples": [
+          {"sentence": "与儿女讲论文义", "source": "《咏雪》"},
+          {"sentence": "及鲁肃过寻阳，与蒙论议", "source": "《孙权劝学》"},
+          {"sentence": "乃不知有汉，无论魏晋", "source": "《桃花源记》"},
+          {"sentence": "曹刿论战", "source": "《曹刿论战》"},
+          {"sentence": "先帝在时，每与臣论此事", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "评定，判定",
+        "examples": [
+          {"sentence": "宜付有司论其刑赏", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "言论",
+        "examples": [
+          {"sentence": "众服为确论", "source": "《河中石兽》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "word": "漫",
+    "pinyin": "màn",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "遍，到处都是",
+        "examples": [
+          {"sentence": "惟解漫天作雪飞", "source": "《晚春》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "长",
+        "examples": [
+          {"sentence": "故园东望路漫漫", "source": "《逢入京使》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 54,
+    "word": "明",
+    "pinyin": "míng",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "明亮，光明（透明 / 普照，明媚）",
+        "examples": [
+          {"sentence": "斗折蛇行，明灭可见", "source": "《小石潭记》"},
+          {"sentence": "晦明变化者，山间之朝暮也", "source": "《醉翁亭记》"},
+          {"sentence": "庭下如积水空明", "source": "《记承天寺夜游》"},
+          {"sentence": "春和景明", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "英明",
+        "examples": [
+          {"sentence": "以昭陛下平明之理", "source": "《出师表》"},
+          {"sentence": "恐托付不效，以伤先帝之明", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "次，下一个",
+        "examples": [
+          {"sentence": "越明年，政通人和", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "明确，坚定",
+        "examples": [
+          {"sentence": "非淡泊无以明志", "source": "《诫子书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 55,
+    "word": "名",
+    "pinyin": "míng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "名字，名称",
+        "examples": [
+          {"sentence": "卷卷有爷名", "source": "《木兰诗》"},
+          {"sentence": "北冥有鱼，其名为鲲", "source": "《北冥有鱼》"},
+          {"sentence": "其船背稍夷，则题名其上", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "命名；给……取名",
+        "examples": [
+          {"sentence": "名之者谁", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "有名，出名",
+        "examples": [
+          {"sentence": "山不在高，有仙则名", "source": "《陋室铭》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 56,
+    "word": "命",
+    "pinyin": "mìng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "命令，号令",
+        "examples": [
+          {"sentence": "五十而知天命", "source": "《〈论语〉十二章》"},
+          {"sentence": "命夸娥氏二子负二山", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "任命，委派",
+        "examples": [
+          {"sentence": "受命以来，夙夜忧叹", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "生命，性命",
+        "examples": [
+          {"sentence": "苟全性命于乱世", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "文章体裁之一",
+        "examples": [
+          {"sentence": "《兑命》曰“学学半”", "source": "《虽有嘉肴》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 57,
+    "word": "难",
+    "pinyin": "nán / nàn",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "不容易，困难",
+        "examples": [
+          {"sentence": "夫大国，难测也，惧有伏焉", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "灾难",
+        "examples": [
+          {"sentence": "奉命于危难之间", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 58,
+    "word": "平",
+    "pinyin": "píng",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "平坦",
+        "examples": [
+          {"sentence": "土地平旷，屋舍俨然", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "填平，铲平",
+        "examples": [
+          {"sentence": "吾与汝毕力平险", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "公平，公正",
+        "examples": [
+          {"sentence": "以昭陛下平明之理", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 59,
+    "word": "戚",
+    "pinyin": "qī",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "亲属（指族外）",
+        "examples": [
+          {"sentence": "寡助之至，亲戚畔之", "source": "《得道多助，失道寡助》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 60,
+    "word": "强",
+    "pinyin": "qiáng / qiǎng",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "强悍，强大",
+        "examples": [
+          {"sentence": "知困，然后能自强也", "source": "《虽有嘉肴》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "（qiǎng）竭力，尽力（勉强，硬要）",
+        "examples": [
+          {"sentence": "余强饮三大白而别", "source": "《湖心亭看雪》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "有余",
+        "examples": [
+          {"sentence": "赏赐百千强", "source": "《木兰诗》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "word": "窃",
+    "pinyin": "qiè",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "偷取",
+        "examples": [
+          {"sentence": "盗窃乱贼而不作", "source": "《大道之行也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "word": "请",
+    "pinyin": "qǐng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "请求",
+        "examples": [
+          {"sentence": "曹刿请见", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "请允许我（做某事）",
+        "examples": [
+          {"sentence": "战则请从", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "敬辞",
+        "meaning": "请你（做某事）",
+        "examples": [
+          {"sentence": "请循其本", "source": "《庄子与惠子游于濠梁之上》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "word": "穷",
+    "pinyin": "qióng",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "生活困难",
+        "examples": [
+          {"sentence": "悲守穷庐，将复何及", "source": "《诫子书》"},
+          {"sentence": "所识穷乏者得我与", "source": "《鱼我所欲也》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "穷尽，完结（走到尽头，走完）",
+        "examples": [
+          {"sentence": "子子孙孙无穷匮也", "source": "《愚公移山》"},
+          {"sentence": "四时之景不同，而乐亦无穷也", "source": "《醉翁亭记》"},
+          {"sentence": "复前行，欲穷其林", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "极",
+        "examples": [
+          {"sentence": "穷冬烈风", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "word": "求",
+    "pinyin": "qiú",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "寻找，寻求",
+        "examples": [
+          {"sentence": "求二石兽于水中", "source": "《河中石兽》"},
+          {"sentence": "沿河求之，不亦颠乎", "source": "《河中石兽》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "探求，探索，追求，谋求，奢求",
+        "examples": [
+          {"sentence": "予尝求古仁人之心", "source": "《岳阳楼记》"},
+          {"sentence": "不求闻达于诸侯", "source": "《出师表》"},
+          {"sentence": "安求其能千里也", "source": "《马说》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "word": "取",
+    "pinyin": "qǔ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "拿",
+        "examples": [
+          {"sentence": "乃取一葫芦置于地", "source": "《卖油翁》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "获得，讨取（开辟 / 招致）",
+        "examples": [
+          {"sentence": "伐竹取道，下见小潭，水尤清冽", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "选取，采用",
+        "examples": [
+          {"sentence": "舍鱼而取熊掌者也", "source": "《鱼我所欲也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 66,
+    "word": "去",
+    "pinyin": "qù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "离开（消逝，丧失）",
+        "examples": [
+          {"sentence": "一狼径去", "source": "《狼》"},
+          {"sentence": "睨之久而不去", "source": "《卖油翁》"},
+          {"sentence": "旦辞爷娘去，暮宿黄河边", "source": "《木兰诗》"},
+          {"sentence": "是非木杮，岂能为暴涨携之去", "source": "《河中石兽》"},
+          {"sentence": "委而去之", "source": "《得道多助，失道寡助》"},
+          {"sentence": "去以六月息者也", "source": "《北冥有鱼》"},
+          {"sentence": "乃记之而去", "source": "《小石潭记》"},
+          {"sentence": "停数日，辞去", "source": "《桃花源记》"},
+          {"sentence": "则有去国怀乡", "source": "《岳阳楼记》"},
+          {"sentence": "游人去而禽鸟乐也", "source": "《醉翁亭记》"},
+          {"sentence": "意与日去，遂成枯落", "source": "《诫子书》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "距，距离",
+        "examples": [
+          {"sentence": "我以日始出时去人近", "source": "《两小儿辩日》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 67,
+    "word": "全",
+    "pinyin": "quán",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "完整，整个",
+        "examples": [
+          {"sentence": "全石以为底", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "完全，完备",
+        "examples": [
+          {"sentence": "子之不知鱼之乐，全矣", "source": "《庄子与惠子游于濠梁之上》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "保全",
+        "examples": [
+          {"sentence": "苟全性命于乱世", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 68,
+    "word": "任",
+    "pinyin": "rèn",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "责任，职责",
+        "examples": [
+          {"sentence": "故天将降大任于是人也", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "进尽忠言，则攸之、祎、允之任也", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "委任，任用",
+        "examples": [
+          {"sentence": "受任于败军之际", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "听凭，任凭",
+        "examples": [
+          {"sentence": "从流飘荡，任意东西", "source": "《与朱元思书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 69,
+    "word": "入",
+    "pinyin": "rù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "进入，与“出”相对（注入 / 插入 / 进入朝廷，在国内）",
+        "examples": [
+          {"sentence": "元方入门不顾", "source": "《陈太丘与友期行》"},
+          {"sentence": "意将隧入以攻其后也", "source": "《狼》"},
+          {"sentence": "身已半入", "source": "《狼》"},
+          {"sentence": "草色入帘青", "source": "《陋室铭》"},
+          {"sentence": "月色入户", "source": "《记承天寺夜游》"},
+          {"sentence": "惩山北之塞，出入之迂也", "source": "《愚公移山》"},
+          {"sentence": "便舍船，从口入", "source": "《桃花源记》"},
+          {"sentence": "于是入朝见威王", "source": "《邹忌讽齐王纳谏》"},
+          {"sentence": "故五月渡泸，深入不毛", "source": "《出师表》"},
+          {"sentence": "自钱孔入，而钱不湿", "source": "《卖油翁》"},
+          {"sentence": "高峰入云，清流见底", "source": "《答谢中书书》"},
+          {"sentence": "入则无法家拂士", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "乃入见", "source": "《曹刿论战》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 70,
+    "word": "若",
+    "pinyin": "ruò",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "像，如，似",
+        "examples": [
+          {"sentence": "巍巍乎若太山", "source": "《伯牙鼓琴》"},
+          {"sentence": "弗若之矣", "source": "《学弈》"},
+          {"sentence": "未若柳絮因风起", "source": "《咏雪》"},
+          {"sentence": "求闻之若此，不若无闻也", "source": "《穿井得一人》"},
+          {"sentence": "孰若孤", "source": "《孙权劝学》"},
+          {"sentence": "万里赴戎机，关山度若飞", "source": "《木兰诗》"},
+          {"sentence": "固不可彻，曾不若孀妻弱子", "source": "《愚公移山》"},
+          {"sentence": "怒而飞，其翼若垂天之云", "source": "《北冥有鱼》"},
+          {"sentence": "其视下也，亦若是则已矣", "source": "《北冥有鱼》"},
+          {"sentence": "仿佛若有光", "source": "《桃花源记》"},
+          {"sentence": "细若蚊足", "source": "《核舟记》"},
+          {"sentence": "皆若空游无所依", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "连词",
+        "meaning": "假如，如果",
+        "examples": [
+          {"sentence": "至若春和景明", "source": "《岳阳楼记》"},
+          {"sentence": "若夫日出而林霏开", "source": "《醉翁亭记》"},
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"},
+          {"sentence": "若无兴德之言", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "代词",
+        "meaning": "你",
+        "examples": [
+          {"sentence": "若屈伸呼吸，终日在天中行止", "source": "《杞人忧天》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "word": "善",
+    "pinyin": "shàn",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "好，好的，善良的",
+        "examples": [
+          {"sentence": "善哉乎鼓琴", "source": "《伯牙鼓琴》"},
+          {"sentence": "择其善者而从之", "source": "《〈论语〉十二章》"},
+          {"sentence": "弗学，不知其善也", "source": "《虽有嘉肴》"},
+          {"sentence": "咨诹善道", "source": "《出师表》"},
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "善于，擅长",
+        "examples": [
+          {"sentence": "通国之善弈者也", "source": "《学弈》"},
+          {"sentence": "陈康肃公善射，当世无双", "source": "《卖油翁》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 72,
+    "word": "少",
+    "pinyin": "shǎo / shào",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "不多，数量小（时间短）",
+        "examples": [
+          {"sentence": "饮少辄醉，而年又最高", "source": "《醉翁亭记》"},
+          {"sentence": "少选之间而志在流水", "source": "《伯牙鼓琴》"},
+          {"sentence": "少时，一狼径去", "source": "《狼》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "缺少",
+        "examples": [
+          {"sentence": "但少闲人如吾两人者耳", "source": "《记承天寺夜游》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "年轻，少年，年纪小",
+        "examples": [
+          {"sentence": "陈涉少时，尝与人佣耕", "source": "《陈涉世家》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 73,
+    "word": "舍",
+    "pinyin": "shè / shě",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "房屋，房舍",
+        "examples": [
+          {"sentence": "土地平旷，屋舍俨然", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "舍弃，丢弃（同“释”，解除，消除）",
+        "examples": [
+          {"sentence": "过中不至，太丘舍去", "source": "《陈太丘与友期行》"},
+          {"sentence": "逝者如斯夫，不舍昼夜", "source": "《〈论语〉十二章》"},
+          {"sentence": "便舍船，从口入", "source": "《桃花源记》"},
+          {"sentence": "舍鱼而取熊掌者也", "source": "《鱼我所欲也》"},
+          {"sentence": "其人舍然大喜", "source": "《杞人忧天》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 74,
+    "word": "涉",
+    "pinyin": "shè",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "浏览，阅读",
+        "examples": [
+          {"sentence": "但当涉猎，见往事耳", "source": "《孙权劝学》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 75,
+    "word": "生",
+    "pinyin": "shēng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "（草木）生长，出生，诞生",
+        "examples": [
+          {"sentence": "绝巘多生怪柏", "source": "《三峡》"},
+          {"sentence": "夹岸高山，皆生寒树", "source": "《与朱元思书》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "生存，活着",
+        "examples": [
+          {"sentence": "然后知生于忧患而死于安乐也", "source": "《生于忧患，死于安乐》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "生命",
+        "examples": [
+          {"sentence": "生物之以息相吹也", "source": "《北冥有鱼》"},
+          {"sentence": "生，亦我所欲也", "source": "《鱼我所欲也》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "后生，晚辈",
+        "examples": [
+          {"sentence": "隶而从者，崔氏二小生", "source": "《小石潭记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 76,
+    "word": "胜",
+    "pinyin": "shèng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "胜利",
+        "examples": [
+          {"sentence": "然而不胜者，是天时不如地利也", "source": "《得道多助，失道寡助》"},
+          {"sentence": "射者中，弈者胜，觥筹交错", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "尽，完",
+        "examples": [
+          {"sentence": "臣不胜受恩感激", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "优美的",
+        "examples": [
+          {"sentence": "予观夫巴陵胜状，在洞庭一湖", "source": "《岳阳楼记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "word": "师",
+    "pinyin": "shī",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "军队",
+        "examples": [
+          {"sentence": "十年春，齐师伐我", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "老师",
+        "examples": [
+          {"sentence": "温故而知新，可以为师矣", "source": "《〈论语〉十二章》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "首都，京城",
+        "examples": [
+          {"sentence": "余朝京师，生以乡人子谒余", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "word": "施",
+    "pinyin": "shī",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "实施，实行",
+        "examples": [
+          {"sentence": "悉以咨之，然后施行", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 79,
+    "word": "实",
+    "pinyin": "shí",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "实际，事实（实在）",
+        "examples": [
+          {"sentence": "实是欲界之仙都", "source": "《答谢中书书》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "诚实，真实",
+        "examples": [
+          {"sentence": "此皆良实", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 80,
+    "word": "食",
+    "pinyin": "shí / sì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "吃，吃饭",
+        "examples": [
+          {"sentence": "身亡所寄，废寝食者", "source": "《杞人忧天》"},
+          {"sentence": "弗食，不知其旨也", "source": "《虽有嘉肴》"},
+          {"sentence": "肉食者谋之，又何间焉", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "粮食，食物",
+        "examples": [
+          {"sentence": "一箪食，一瓢饮，在陋巷", "source": "《〈论语〉十二章》"},
+          {"sentence": "饭疏食，饮水，曲肱而枕之", "source": "《〈论语〉十二章》"},
+          {"sentence": "便要还家，设酒杀鸡作食", "source": "《桃花源记》"},
+          {"sentence": "一箪食，一豆羹", "source": "《鱼我所欲也》"},
+          {"sentence": "衣食所安，弗敢专也，必以分人", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "供养，给……吃（同“饲”）",
+        "examples": [
+          {"sentence": "食之不能尽其材", "source": "《马说》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "word": "使",
+    "pinyin": "shǐ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "使唤，派遣",
+        "examples": [
+          {"sentence": "得一人之使，非得一人于井中也", "source": "《穿井得一人》"},
+          {"sentence": "于是上乃使使持节诏将军", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "让，叫，令；使得，致使",
+        "examples": [
+          {"sentence": "使弈秋诲二人弈", "source": "《学弈》"},
+          {"sentence": "必能使行阵和睦，优劣得所", "source": "《出师表》"},
+          {"sentence": "不宜偏私，使内外异法也", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "出使",
+        "examples": [
+          {"sentence": "安陵君因使唐雎使于秦", "source": "《唐雎不辱使命》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "使节",
+        "examples": [
+          {"sentence": "于是上乃使使持节诏将军", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "连词",
+        "meaning": "假使，纵使，即使",
+        "examples": [
+          {"sentence": "只使坠，亦不能有所中伤", "source": "《杞人忧天》"},
+          {"sentence": "使人之所恶莫甚于死者", "source": "《鱼我所欲也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "word": "释",
+    "pinyin": "shì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "放下",
+        "examples": [
+          {"sentence": "有卖油翁释担而立", "source": "《卖油翁》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 83,
+    "word": "市",
+    "pinyin": "shì",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "市场，集市",
+        "examples": [
+          {"sentence": "东市买骏马，西市买鞍鞯", "source": "《木兰诗》"},
+          {"sentence": "百里奚举于市", "source": "《生于忧患，死于安乐》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "买",
+        "examples": [
+          {"sentence": "愿为市鞍马，从此替爷征", "source": "《木兰诗》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "word": "恃",
+    "pinyin": "shì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "依赖，倚仗",
+        "examples": [
+          {"sentence": "子何恃而往", "source": "《为学》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 85,
+    "word": "数",
+    "pinyin": "shù / shǔ",
+    "senses": [
+      {
+        "part_of_speech": "数词",
+        "meaning": "几，几个",
+        "examples": [
+          {"sentence": "以刀劈狼首，又数刀毙之", "source": "《狼》"},
+          {"sentence": "棹数小舟，曳铁钯", "source": "《河中石兽》"},
+          {"sentence": "如其言，果得于数里外", "source": "《河中石兽》"},
+          {"sentence": "夹岸数百步，中无杂树", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "计算，点数",
+        "examples": [
+          {"sentence": "所宝以百数", "source": "《书戴嵩画牛》"},
+          {"sentence": "珠可历历数也", "source": "《核舟记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 86,
+    "word": "属",
+    "pinyin": "zhǔ / shǔ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "同“嘱”，嘱托",
+        "examples": [
+          {"sentence": "属予作文以记之", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "部属，隶属，归属",
+        "examples": [
+          {"sentence": "壁门士吏谓从属车骑曰", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "类，一类",
+        "examples": [
+          {"sentence": "有良田、美池、桑竹之属", "source": "《桃花源记》"},
+          {"sentence": "忠之属也", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "像，类似",
+        "examples": [
+          {"sentence": "神情与苏、黄不属", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "连接",
+        "examples": [
+          {"sentence": "属引凄异，空谷传响", "source": "《三峡》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 87,
+    "word": "说",
+    "pinyin": "shuō / yuè",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "陈述，解说，讲",
+        "examples": [
+          {"sentence": "及郡下，诣太守，说如此", "source": "《桃花源记》"},
+          {"sentence": "莫说相公痴，更有痴似相公者", "source": "《湖心亭看雪》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "古代的一种文体",
+        "examples": [
+          {"sentence": "爱莲说", "source": "《爱莲说》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "同“悦”，愉快，高兴",
+        "examples": [
+          {"sentence": "学而时习之，不亦说乎", "source": "《〈论语〉十二章》"},
+          {"sentence": "秦王不说", "source": "《唐雎不辱使命》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 88,
+    "word": "素",
+    "pinyin": "sù",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "白的，白色的",
+        "examples": [
+          {"sentence": "春冬之时，则素湍绿潭", "source": "《三峡》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "朴素，不加装饰",
+        "examples": [
+          {"sentence": "可以调素琴，阅金经", "source": "《陋室铭》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 89,
+    "word": "汤",
+    "pinyin": "tāng / shāng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "热水，开水",
+        "examples": [
+          {"sentence": "日初出沧沧凉凉，及其日中如探汤", "source": "《两小儿辩日》"},
+          {"sentence": "媵人持汤沃灌", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "水流大而急的样子",
+        "examples": [
+          {"sentence": "汤汤乎若流水", "source": "《伯牙鼓琴》"},
+          {"sentence": "浩浩汤汤，横无际涯", "source": "《岳阳楼记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 90,
+    "word": "徒",
+    "pinyin": "tú",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "空，光",
+        "examples": [
+          {"sentence": "亦免冠徒跣，以头抢地尔", "source": "《唐雎不辱使命》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 91,
+    "word": "亡",
+    "pinyin": "wáng / wú",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "灭亡，死亡",
+        "examples": [
+          {"sentence": "出则无敌国外患者，国恒亡", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "此诚危急存亡之秋也", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "同“无”，没有",
+        "examples": [
+          {"sentence": "身亡所寄，废寝食者", "source": "《杞人忧天》"},
+          {"sentence": "天，积气耳，亡处亡气", "source": "《杞人忧天》"},
+          {"sentence": "河曲智叟亡以应", "source": "《愚公移山》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 92,
+    "word": "为",
+    "pinyin": "wéi / wèi",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "做，干（雕刻，制作，制造）",
+        "examples": [
+          {"sentence": "行拂乱其所为", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "则凡可以辟患者何不为也", "source": "《鱼我所欲也》"},
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"},
+          {"sentence": "能以径寸之木，为宫室、器皿、人物", "source": "《核舟记》"},
+          {"sentence": "通计一舟，为人五", "source": "《核舟记》"},
+          {"sentence": "盖简桃核修狭者为之", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "作为，当作（担任，充当）",
+        "examples": [
+          {"sentence": "全石以为底", "source": "《小石潭记》"},
+          {"sentence": "武陵人捕鱼为业", "source": "《桃花源记》"},
+          {"sentence": "温故而知新，可以为师矣", "source": "《〈论语〉十二章》"},
+          {"sentence": "孤岂欲卿治经为博士邪", "source": "《孙权劝学》"},
+          {"sentence": "是以众议举宠为督", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "是（叫作，称为）",
+        "examples": [
+          {"sentence": "此不为远者小而近者大乎", "source": "《两小儿辩日》"},
+          {"sentence": "中峨冠而多髯者为东坡", "source": "《核舟记》"},
+          {"sentence": "中轩敞者为舱", "source": "《核舟记》"},
+          {"sentence": "宫中府中，俱为一体", "source": "《出师表》"},
+          {"sentence": "北冥有鱼，其名为鲲", "source": "《北冥有鱼》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "变成，成为（形成）",
+        "examples": [
+          {"sentence": "必于石下迎水处啮沙为坎穴", "source": "《河中石兽》"},
+          {"sentence": "化而为鸟", "source": "《北冥有鱼》"},
+          {"sentence": "酿泉为酒", "source": "《醉翁亭记》"},
+          {"sentence": "为坻，为屿，为嵁，为岩", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "介词",
+        "meaning": "为了，给，替",
+        "examples": [
+          {"sentence": "以为世无足复为鼓琴者", "source": "《伯牙鼓琴》"},
+          {"sentence": "为人谋而不忠乎", "source": "《〈论语〉十二章》"}
+        ]
+      },
+      {
+        "part_of_speech": "介词",
+        "meaning": "被",
+        "examples": [
+          {"sentence": "岂能为暴涨携之去", "source": "《河中石兽》"},
+          {"sentence": "天子为动，改容式车", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "认为",
+        "examples": [
+          {"sentence": "自以为大有所益", "source": "《孙权劝学》"},
+          {"sentence": "以为顺流下矣", "source": "《河中石兽》"},
+          {"sentence": "孰为汝多知乎", "source": "《两小儿辩日》"},
+          {"sentence": "众服为确论", "source": "《河中石兽》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 93,
+    "word": "委",
+    "pinyin": "wěi",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "抛弃，舍弃",
+        "examples": [
+          {"sentence": "与人期行，相委而去", "source": "《陈太丘与友期行》"},
+          {"sentence": "委而去之，是地利不如人和也", "source": "《得道多助，失道寡助》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 94,
+    "word": "务",
+    "pinyin": "wù",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "事务，事情",
+        "examples": [
+          {"sentence": "蒙辞以军中多务", "source": "《孙权劝学》"},
+          {"sentence": "经纶世务者，窥谷忘反", "source": "《与朱元思书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 95,
+    "word": "鲜",
+    "pinyin": "xiān / xiǎn",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "鲜艳，鲜明",
+        "examples": [
+          {"sentence": "芳草鲜美，落英缤纷", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "滋味鲜美",
+        "examples": [
+          {"sentence": "无鲜肥滋味之享", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "少",
+        "examples": [
+          {"sentence": "菊之爱，陶后鲜有闻", "source": "《爱莲说》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 96,
+    "word": "向",
+    "pinyin": "xiàng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "对着，朝着",
+        "examples": [
+          {"sentence": "狼不敢前，眈眈相向", "source": "《狼》"},
+          {"sentence": "磨刀霍霍向猪羊", "source": "《木兰诗》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "过去，从前，原来",
+        "examples": [
+          {"sentence": "便扶向路，处处志之", "source": "《桃花源记》"},
+          {"sentence": "寻向所志", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 97,
+    "word": "效",
+    "pinyin": "xiào",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "任务，重任",
+        "examples": [
+          {"sentence": "愿陛下托臣以讨贼兴复之效", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "效果，见效，奏效",
+        "examples": [
+          {"sentence": "夙夜忧叹，恐托付不效", "source": "《出师表》"},
+          {"sentence": "不效，则治臣之罪", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 98,
+    "word": "谢",
+    "pinyin": "xiè",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "道谢",
+        "examples": [
+          {"sentence": "使人称谢", "source": "《周亚夫军细柳》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "道歉",
+        "examples": [
+          {"sentence": "秦王色挠，长跪而谢之曰", "source": "《唐雎不辱使命》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 99,
+    "word": "信",
+    "pinyin": "xìn",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "信用，诚信（讲信用）",
+        "examples": [
+          {"sentence": "日中不至，则是无信", "source": "《陈太丘与友期行》"},
+          {"sentence": "与朋友交而不信乎", "source": "《〈论语〉十二章》"},
+          {"sentence": "牺牲玉帛，弗敢加也，必以信", "source": "《曹刿论战》"},
+          {"sentence": "小信未孚，神弗福也", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "相信，信任",
+        "examples": [
+          {"sentence": "愿陛下亲之信之", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 100,
+    "word": "行",
+    "pinyin": "xíng / háng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "行走（行动 / 爬行 / 通行，出行 / 划船，划行）",
+        "examples": [
+          {"sentence": "陈太丘与友期行", "source": "《陈太丘与友期行》"},
+          {"sentence": "三人行，必有我师焉", "source": "《〈论语〉十二章》"},
+          {"sentence": "途中两狼，缀行甚远", "source": "《狼》"},
+          {"sentence": "方欲行", "source": "《狼》"},
+          {"sentence": "月色入户，欣然起行", "source": "《记承天寺夜游》"},
+          {"sentence": "从小丘西行百二十步", "source": "《小石潭记》"},
+          {"sentence": "复行数十步", "source": "《桃花源记》"},
+          {"sentence": "行者休于树", "source": "《醉翁亭记》"},
+          {"sentence": "终日在天中行止，奈何忧崩坠乎", "source": "《杞人忧天》"},
+          {"sentence": "斗折蛇行", "source": "《小石潭记》"},
+          {"sentence": "商旅不行", "source": "《岳阳楼记》"},
+          {"sentence": "缘溪行", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "做，实行，实施（做事）",
+        "examples": [
+          {"sentence": "行拂乱其所为", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "悉以咨之，然后施行", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "品德，品行",
+        "examples": [
+          {"sentence": "静以修身，俭以养德", "source": "《诫子书》"},
+          {"sentence": "将军向宠，性行淑均", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "行列，指队伍，军队",
+        "examples": [
+          {"sentence": "必能使行阵和睦，优劣得所", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 101,
+    "word": "形",
+    "pinyin": "xíng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "形体，躯体",
+        "examples": [
+          {"sentence": "无案牍之劳形", "source": "《陋室铭》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "形状，样子（形迹，踪迹，踪影）",
+        "examples": [
+          {"sentence": "罔不因势象形", "source": "《核舟记》"},
+          {"sentence": "日星隐曜，山岳潜形", "source": "《岳阳楼记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 102,
+    "word": "兴",
+    "pinyin": "xīng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "起，兴起",
+        "examples": [
+          {"sentence": "清风徐来，水波不兴", "source": "《核舟记》"},
+          {"sentence": "是故谋闭而不兴", "source": "《大道之行也》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "兴办，创办",
+        "examples": [
+          {"sentence": "越明年，政通人和，百废具兴", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "兴盛，振兴，复兴",
+        "examples": [
+          {"sentence": "此先汉所以兴隆也", "source": "《出师表》"},
+          {"sentence": "攘除奸凶，兴复汉室", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 103,
+    "word": "修",
+    "pinyin": "xiū",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "修建，建造",
+        "examples": [
+          {"sentence": "阅十余岁，僧募金重修", "source": "《河中石兽》"},
+          {"sentence": "乃重修岳阳楼", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "长，高",
+        "examples": [
+          {"sentence": "盖简桃核修狭者为之", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "培养",
+        "examples": [
+          {"sentence": "静以修身，俭以养德", "source": "《诫子书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 104,
+    "word": "徐",
+    "pinyin": "xú",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "缓慢，缓缓地，慢慢地",
+        "examples": [
+          {"sentence": "徐以杓酌油沥之", "source": "《卖油翁》"},
+          {"sentence": "清风徐来，水波不兴", "source": "《核舟记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 105,
+    "word": "许",
+    "pinyin": "xǔ",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "表约数，上下，光景",
+        "examples": [
+          {"sentence": "高可二黍许", "source": "《核舟记》"},
+          {"sentence": "潭中鱼可百许头", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "赞同，答应，应允",
+        "examples": [
+          {"sentence": "杂然相许", "source": "《愚公移山》"},
+          {"sentence": "遂许先帝以驱驰", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 106,
+    "word": "寻",
+    "pinyin": "xún",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "找寻，寻求，探求",
+        "examples": [
+          {"sentence": "寻十余里无迹", "source": "《河中石兽》"},
+          {"sentence": "遂至承天寺，寻张怀民", "source": "《记承天寺夜游》"},
+          {"sentence": "寻向所志，遂迷，不复得路", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "不久，随即",
+        "examples": [
+          {"sentence": "未果，寻病终", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 107,
+    "word": "业",
+    "pinyin": "yè",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "事业，功业",
+        "examples": [
+          {"sentence": "先帝创业未半而中道崩殂", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "职业（学业，学习的功课）",
+        "examples": [
+          {"sentence": "晋太元中，武陵人捕鱼为业", "source": "《桃花源记》"},
+          {"sentence": "其业有不精、德有不成者", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 108,
+    "word": "遗",
+    "pinyin": "yí / wèi",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "遗留，留下",
+        "examples": [
+          {"sentence": "邻人京城氏之孀妻有遗男", "source": "《愚公移山》"},
+          {"sentence": "以光先帝遗德", "source": "《出师表》"},
+          {"sentence": "深追先帝遗诏", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "留给，送给，馈赠",
+        "examples": [
+          {"sentence": "是以先帝简拔以遗陛下", "source": "《出师表》"},
+          {"sentence": "父母岁有裘葛之遗", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 109,
+    "word": "贻",
+    "pinyin": "yí",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "赠给",
+        "examples": [
+          {"sentence": "尝贻余核舟一", "source": "《核舟记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 110,
+    "word": "夷",
+    "pinyin": "yí",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "平坦",
+        "examples": [
+          {"sentence": "其船背稍夷", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "平易",
+        "examples": [
+          {"sentence": "言和而色夷", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 111,
+    "word": "异",
+    "pinyin": "yì",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "不同，不同的（特别的，奇特的，奇异的）",
+        "examples": [
+          {"sentence": "览物之情，得无异乎", "source": "《岳阳楼记》"},
+          {"sentence": "或异二者之为，何哉", "source": "《岳阳楼记》"},
+          {"sentence": "陟罚臧否，不宜异同", "source": "《出师表》"},
+          {"sentence": "不宜偏私，使内外异法也", "source": "《出师表》"},
+          {"sentence": "属引凄异", "source": "《三峡》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "惊异，惊奇，奇怪",
+        "examples": [
+          {"sentence": "渔人甚异之", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 112,
+    "word": "易",
+    "pinyin": "yì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "更换",
+        "examples": [
+          {"sentence": "寒暑易节，始一反焉", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "交换",
+        "examples": [
+          {"sentence": "寡人欲以五百里之地易安陵", "source": "《唐雎不辱使命》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 113,
+    "word": "诣",
+    "pinyin": "yì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "到，到达，到……去（拜访、谒见）",
+        "examples": [
+          {"sentence": "及郡下，诣太守，说如此", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 114,
+    "word": "益",
+    "pinyin": "yì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "增长，增加",
+        "examples": [
+          {"sentence": "所以动心忍性，曾益其所不能", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "至于斟酌损益，进尽忠言", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "好处，利益",
+        "examples": [
+          {"sentence": "孤常读书，自以为大有所益", "source": "《孙权劝学》"},
+          {"sentence": "必能裨补阙漏，有所广益", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "更，更加",
+        "examples": [
+          {"sentence": "香远益清", "source": "《爱莲说》"},
+          {"sentence": "益慕圣贤之道", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 115,
+    "word": "阴",
+    "pinyin": "yīn",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "山之北，水之南",
+        "examples": [
+          {"sentence": "达于汉阴，可乎", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "阴沉，阴冷",
+        "examples": [
+          {"sentence": "朝晖夕阴，气象万千", "source": "《岳阳楼记》"},
+          {"sentence": "阴风怒号", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "树阴，阴影",
+        "examples": [
+          {"sentence": "野芳发而幽香，佳木秀而繁阴", "source": "《醉翁亭记》"},
+          {"sentence": "树林阴翳", "source": "《醉翁亭记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 116,
+    "word": "引",
+    "pinyin": "yǐn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "称引，譬喻",
+        "examples": [
+          {"sentence": "不宜妄自菲薄，引喻失义", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "拉，牵引",
+        "examples": [
+          {"sentence": "友人惭，下车引之", "source": "《陈太丘与友期行》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "延长",
+        "examples": [
+          {"sentence": "属引凄异", "source": "《三峡》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 117,
+    "word": "盈",
+    "pinyin": "yíng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "满，充满",
+        "examples": [
+          {"sentence": "而计其长曾不盈寸", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "增长，旺盛",
+        "examples": [
+          {"sentence": "彼竭我盈，故克之", "source": "《曹刿论战》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 118,
+    "word": "余",
+    "pinyin": "yú",
+    "senses": [
+      {
+        "part_of_speech": "代词",
+        "meaning": "我，我的",
+        "examples": [
+          {"sentence": "尝贻余核舟一", "source": "《核舟记》"},
+          {"sentence": "余弟宗玄", "source": "《小石潭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "剩下，多余",
+        "examples": [
+          {"sentence": "以残年余力", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "数词",
+        "meaning": "多，表示整数后不定的零数",
+        "examples": [
+          {"sentence": "阅十余岁", "source": "《河中石兽》"},
+          {"sentence": "寻十余里无迹", "source": "《河中石兽》"}
+        ]
+      },
+      {
+        "part_of_speech": "代词",
+        "meaning": "以外，以后（其他，其余）",
+        "examples": [
+          {"sentence": "余人各复延至其家，皆出酒食", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 119,
+    "word": "狱",
+    "pinyin": "yù",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "诉讼案件",
+        "examples": [
+          {"sentence": "小大之狱", "source": "《曹刿论战》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 120,
+    "word": "御",
+    "pinyin": "yù",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "驾驭",
+        "examples": [
+          {"sentence": "虽乘奔御风，不以疾也", "source": "《三峡》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 121,
+    "word": "缘",
+    "pinyin": "yuán",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "沿着，顺着",
+        "examples": [
+          {"sentence": "缘溪行，忘路之远近", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 122,
+    "word": "远",
+    "pinyin": "yuǎn",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "遥远（指空间距离大 / 高远 / 偏僻之地）",
+        "examples": [
+          {"sentence": "而日中时远也", "source": "《两小儿辩日》"},
+          {"sentence": "有朋自远方来，不亦乐乎", "source": "《〈论语〉十二章》"},
+          {"sentence": "途中两狼，缀行甚远", "source": "《狼》"},
+          {"sentence": "可远观而不可亵玩焉", "source": "《爱莲说》"},
+          {"sentence": "香远益清", "source": "《爱莲说》"},
+          {"sentence": "俶尔远逝，往来翕忽", "source": "《小石潭记》"},
+          {"sentence": "忘路之远近", "source": "《桃花源记》"},
+          {"sentence": "衔远山，吞长江", "source": "《岳阳楼记》"},
+          {"sentence": "今当远离，临表涕零", "source": "《出师表》"},
+          {"sentence": "其远而无所至极邪", "source": "《北冥有鱼》"},
+          {"sentence": "处江湖之远则忧其君", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "深远",
+        "examples": [
+          {"sentence": "非宁静无以致远", "source": "《诫子书》"},
+          {"sentence": "肉食者鄙，未能远谋", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "疏远，不亲近，不接近",
+        "examples": [
+          {"sentence": "亲贤臣，远小人", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 123,
+    "word": "云",
+    "pinyin": "yún",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "说",
+        "examples": [
+          {"sentence": "古语有云", "source": "《书戴嵩画牛》"},
+          {"sentence": "孔子云：何陋之有", "source": "《陋室铭》"},
+          {"sentence": "自云先世避秦时乱", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "助词",
+        "meaning": "句末语气词，无实义",
+        "examples": [
+          {"sentence": "盖大苏泛赤壁云", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "天空的云，云彩（像云一样的）",
+        "examples": [
+          {"sentence": "不义而富且贵，于我如浮云", "source": "《〈论语〉十二章》"},
+          {"sentence": "高峰入云，清流见底", "source": "《答谢中书书》"},
+          {"sentence": "怒而飞，其翼若垂天之云", "source": "《北冥有鱼》"},
+          {"sentence": "云归而岩穴暝", "source": "《醉翁亭记》"},
+          {"sentence": "当窗理云鬓", "source": "《木兰诗》"}
+        ]
+      },
+      {
+        "part_of_speech": "代词",
+        "meaning": "如此，这样",
+        "examples": [
+          {"sentence": "子曰“汝安知鱼乐”云者", "source": "《庄子与惠子游于濠梁之上》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "word": "章",
+    "pinyin": "zhāng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "印章",
+        "examples": [
+          {"sentence": "又用篆章一", "source": "《核舟记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 125,
+    "word": "知",
+    "pinyin": "zhī",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "知道（懂得）",
+        "examples": [
+          {"sentence": "以我酌油知之", "source": "《卖油翁》"},
+          {"sentence": "然后知生于忧患而死于安乐也", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "鲲之大，不知其几千里也", "source": "《北冥有鱼》"},
+          {"sentence": "弗食，不知其旨也", "source": "《虽有嘉肴》"},
+          {"sentence": "乃不知有汉，无论魏晋", "source": "《桃花源记》"},
+          {"sentence": "然而禽鸟知山林之乐", "source": "《醉翁亭记》"},
+          {"sentence": "临表涕零，不知所言", "source": "《出师表》"},
+          {"sentence": "汝亦知射乎", "source": "《卖油翁》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "同“智”，智慧",
+        "examples": [
+          {"sentence": "两小儿笑曰：“孰为汝多知乎？”", "source": "《两小儿辩日》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 126,
+    "word": "止",
+    "pinyin": "zhǐ",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "停止",
+        "examples": [
+          {"sentence": "一狼得骨止，一狼仍从", "source": "《狼》"},
+          {"sentence": "后狼止而前狼又至", "source": "《狼》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "制止，阻止",
+        "examples": [
+          {"sentence": "河曲智叟笑而止之曰", "source": "《愚公移山》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "仅，只是",
+        "examples": [
+          {"sentence": "担中肉尽，止有剩骨", "source": "《狼》"},
+          {"sentence": "身已半入，止露尻尾", "source": "《狼》"},
+          {"sentence": "止增笑耳", "source": "《狼》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 127,
+    "word": "志",
+    "pinyin": "zhì",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "标记，记号",
+        "examples": [
+          {"sentence": "寻向所志，遂迷，不复得路", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "做标记，做记号",
+        "examples": [
+          {"sentence": "便扶向路，处处志之", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "记载",
+        "examples": [
+          {"sentence": "《齐谐》者，志怪者也", "source": "《北冥有鱼》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "心志，情志，志向",
+        "examples": [
+          {"sentence": "方鼓琴而志在太山", "source": "《伯牙鼓琴》"},
+          {"sentence": "吾十有五而志于学", "source": "《〈论语〉十二章》"},
+          {"sentence": "博学而笃志", "source": "《〈论语〉十二章》"},
+          {"sentence": "匹夫不可夺志也", "source": "《〈论语〉十二章》"},
+          {"sentence": "非淡泊无以明志", "source": "《诫子书》"},
+          {"sentence": "非志无以成学", "source": "《诫子书》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "志气，意志",
+        "examples": [
+          {"sentence": "恢弘志士之气", "source": "《出师表》"},
+          {"sentence": "必先苦其心志，劳其筋骨", "source": "《生于忧患，死于安乐》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 128,
+    "word": "致",
+    "pinyin": "zhì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "取得，得到",
+        "examples": [
+          {"sentence": "家贫，无以致书以观", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "达到，实现",
+        "examples": [
+          {"sentence": "非宁静无以致远", "source": "《诫子书》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 129,
+    "word": "质",
+    "pinyin": "zhì",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "询问",
+        "examples": [
+          {"sentence": "余立侍左右，援疑质理", "source": "《送东阳马生序》"}
+        ]
+      },
+      {
+        "part_of_speech": "名词",
+        "meaning": "资质",
+        "examples": [
+          {"sentence": "德有不成者，非天质之卑", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 130,
+    "word": "专",
+    "pinyin": "zhuān",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "独有，独占，专享",
+        "examples": [
+          {"sentence": "衣食所安，弗敢专也，必以分人", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "专门，专一",
+        "examples": [
+          {"sentence": "则心不若余之专耳，岂他人之过哉", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 131,
+    "word": "走",
+    "pinyin": "zǒu",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "跑，逃跑",
+        "examples": [
+          {"sentence": "双兔傍地走", "source": "《木兰诗》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 132,
+    "word": "足",
+    "pinyin": "zú",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "脚",
+        "examples": [
+          {"sentence": "愿驰千里足，送儿还故乡", "source": "《木兰诗》"},
+          {"sentence": "细若蚊足，钩画了了", "source": "《核舟记》"}
+        ]
+      },
+      {
+        "part_of_speech": "形容词",
+        "meaning": "足够，充足",
+        "examples": [
+          {"sentence": "是故学然后知不足", "source": "《虽有嘉肴》"},
+          {"sentence": "今南方已定，兵甲已足", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "副词",
+        "meaning": "值得，够得上",
+        "examples": [
+          {"sentence": "以为世无足复为鼓琴者", "source": "《伯牙鼓琴》"},
+          {"sentence": "不足为外人道也", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 133,
+    "word": "卒",
+    "pinyin": "zú",
+    "senses": [
+      {
+        "part_of_speech": "副词",
+        "meaning": "最后，终于",
+        "examples": [
+          {"sentence": "故余虽愚，卒获有所闻", "source": "《送东阳马生序》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 134,
+    "word": "作",
+    "pinyin": "zuò",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "振作，奋发",
+        "examples": [
+          {"sentence": "困于心，衡于虑，而后作", "source": "《生于忧患，死于安乐》"},
+          {"sentence": "一鼓作气，再而衰，三而竭", "source": "《曹刿论战》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "发出，出现",
+        "examples": [
+          {"sentence": "泉水激石，泠泠作响", "source": "《与朱元思书》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "写作，创作",
+        "examples": [
+          {"sentence": "属予作文以记之", "source": "《岳阳楼记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "建造，建筑",
+        "examples": [
+          {"sentence": "作亭者谁", "source": "《醉翁亭记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "做，制作",
+        "examples": [
+          {"sentence": "便要还家，设酒杀鸡作食", "source": "《桃花源记》"},
+          {"sentence": "若有作奸犯科及为忠善者", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "劳作，劳动",
+        "examples": [
+          {"sentence": "其中往来种作，男女衣着，悉如外人", "source": "《桃花源记》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "兴起",
+        "examples": [
+          {"sentence": "盗窃乱贼而不作", "source": "《大道之行也》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 135,
+    "word": "坐",
+    "pinyin": "zuò",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "坐着，坐下（古人双膝着地，臀部压在脚后跟上）",
+        "examples": [
+          {"sentence": "少时，一狼径去，其一犬坐于前", "source": "《狼》"},
+          {"sentence": "天子坐明堂", "source": "《木兰诗》"},
+          {"sentence": "坐我西阁床", "source": "《木兰诗》"},
+          {"sentence": "船头坐三人", "source": "《核舟记》"},
+          {"sentence": "坐潭上，四面竹树环合", "source": "《小石潭记》"},
+          {"sentence": "起坐而喧哗者，众宾欢也", "source": "《醉翁亭记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 136,
+    "word": "卑鄙",
+    "pinyin": "bēi bǐ",
+    "senses": [
+      {
+        "part_of_speech": "形容词",
+        "meaning": "社会地位低微，见识短浅",
+        "examples": [
+          {"sentence": "先帝不以臣卑鄙", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 137,
+    "word": "布衣",
+    "pinyin": "bù yī",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "平民百姓",
+        "examples": [
+          {"sentence": "臣本布衣，躬耕于南阳", "source": "《出师表》"},
+          {"sentence": "大王尝闻布衣之怒乎", "source": "《唐雎不辱使命》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 140,
+    "word": "菲薄",
+    "pinyin": "fěi bó",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "轻视，小看",
+        "examples": [
+          {"sentence": "不宜妄自菲薄，引喻失义", "source": "《出师表》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 139,
+    "word": "其实",
+    "pinyin": "qí shí",
+    "senses": [
+      {
+        "part_of_speech": "名词短语",
+        "meaning": "其，它的。实，果实",
+        "examples": [
+          {"sentence": "叶徒相似，其实味不同", "source": "《橘逾淮为枳》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 140,
+    "word": "亲戚",
+    "pinyin": "qīn qi",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "内外亲属，包括父系亲属和母系亲属",
+        "examples": [
+          {"sentence": "寡助之至，亲戚畔之", "source": "《得道多助，失道寡助》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 141,
+    "word": "驱驰",
+    "pinyin": "qū chí",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "奔走效劳",
+        "examples": [
+          {"sentence": "由是感激，遂许先帝以驱驰", "source": "《出师表》"}
+        ]
+      },
+      {
+        "part_of_speech": "动词",
+        "meaning": "策马快奔",
+        "examples": [
+          {"sentence": "将军曰，军中不得驱驰", "source": "《周亚夫军细柳》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 142,
+    "word": "无论",
+    "pinyin": "wú lùn",
+    "senses": [
+      {
+        "part_of_speech": "连词",
+        "meaning": "不要说，更不必说",
+        "examples": [
+          {"sentence": "乃不知有汉，无论魏晋", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 143,
+    "word": "牺牲",
+    "pinyin": "xī shēng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "指祭祀用的纯色全体牲畜",
+        "examples": [
+          {"sentence": "牺牲玉帛，弗敢加也，必以信", "source": "《曹刿论战》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 144,
+    "word": "鸿儒",
+    "pinyin": "hóng rú",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "博学的人",
+        "examples": [
+          {"sentence": "谈笑有鸿儒，往来无白丁", "source": "《陋室铭》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 145,
+    "word": "白丁",
+    "pinyin": "bái dīng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "平民，指没有功名的人",
+        "examples": [
+          {"sentence": "谈笑有鸿儒，往来无白丁", "source": "《陋室铭》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 146,
+    "word": "阡陌",
+    "pinyin": "qiān mò",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "田间小路",
+        "examples": [
+          {"sentence": "阡陌交通，鸡犬相闻", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 147,
+    "word": "交通",
+    "pinyin": "jiāo tōng",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "交错相通",
+        "examples": [
+          {"sentence": "阡陌交通，鸡犬相闻", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 148,
+    "word": "问津",
+    "pinyin": "wèn jīn",
+    "senses": [
+      {
+        "part_of_speech": "动词",
+        "meaning": "询问渡口，探求，访求",
+        "examples": [
+          {"sentence": "后遂无问津者", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 149,
+    "word": "绝境",
+    "pinyin": "jué jìng",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "与人世隔绝的地方",
+        "examples": [
+          {"sentence": "率妻子邑人来此绝境", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 150,
+    "word": "妻子",
+    "pinyin": "qī zǐ",
+    "senses": [
+      {
+        "part_of_speech": "名词",
+        "meaning": "妻子儿女",
+        "examples": [
+          {"sentence": "率妻子邑人来此绝境", "source": "《桃花源记》"}
+        ]
+      }
+    ]
+  }
+]

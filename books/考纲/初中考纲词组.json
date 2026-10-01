@@ -1,0 +1,1737 @@
+[
+  {
+    "name": "a bit (of)",
+    "trans": ["有一点儿"],
+    "mistake": ["little", "few"]
+  },
+  {
+    "name": "a couple of",
+    "trans": ["两个", "几个"],
+    "mistake": ["pair", "double"]
+  },
+  {
+    "name": "a kind of",
+    "trans": ["一种", "一类"],
+    "mistake": ["sorts", "types"]
+  },
+  {
+    "name": "a lot of/lots of",
+    "trans": ["许多"],
+    "mistake": ["much", "many"]
+  },
+  {
+    "name": "a pair of",
+    "trans": ["一双", "一副"],
+    "mistake": ["couple", "piece"]
+  },
+  {
+    "name": "a piece of",
+    "trans": ["一块", "一张", "一片", "一件"],
+    "mistake": ["sheet", "slice"]
+  },
+  {
+    "name": "above all",
+    "trans": ["首先", "尤其", "最重要的是"],
+    "mistake": ["over", "after"]
+  },
+  {
+    "name": "according to",
+    "trans": ["按照", "根据"],
+    "mistake": ["with", "by"]
+  },
+  {
+    "name": "add ... to",
+    "trans": ["加上"],
+    "mistake": ["in", "into"]
+  },
+  {
+    "name": "after all",
+    "trans": ["终究", "毕竟"],
+    "mistake": ["before", "above"]
+  },
+  {
+    "name": "agree with sb.",
+    "trans": ["同意某人的意见"],
+    "mistake": ["to", "on"]
+  },
+  {
+    "name": "all over",
+    "trans": ["到处"],
+    "mistake": ["above", "around"]
+  },
+  {
+    "name": "all right",
+    "trans": ["行了", "好吧", "(病)好了"],
+    "mistake": ["well", "good"]
+  },
+  {
+    "name": "all the way",
+    "trans": ["一路上"],
+    "mistake": ["road", "path"]
+  },
+  {
+    "name": "amusement park",
+    "trans": ["游乐园", "娱乐公园"],
+    "mistake": ["garden", "zoo"]
+  },
+  {
+    "name": "and so on",
+    "trans": ["等等"],
+    "mistake": ["forth", "off"]
+  },
+  {
+    "name": "apologize to sb. for sth.",
+    "trans": ["为某事向某人道歉"],
+    "mistake": ["with", "about"]
+  },
+  {
+    "name": "arrive at/in a place",
+    "trans": ["到达某地"],
+    "mistake": ["to", "on"]
+  },
+  {
+    "name": "as ... as",
+    "trans": ["像……一样", "如同"],
+    "mistake": ["so", "than"]
+  },
+  {
+    "name": "as long as",
+    "trans": ["只要"],
+    "mistake": ["far", "soon"]
+  },
+  {
+    "name": "as soon as",
+    "trans": ["一……就"],
+    "mistake": ["quick", "fast"]
+  },
+  {
+    "name": "as well",
+    "trans": ["也", "又"],
+    "mistake": ["also", "too"]
+  },
+  {
+    "name": "ask for",
+    "trans": ["请求", "寻求"],
+    "mistake": ["to", "about"]
+  },
+  {
+    "name": "at breakfast/lunch/supper",
+    "trans": ["早/午/晚餐时"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "at first/last",
+    "trans": ["起先；开始的时候/最后；终于"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "at home",
+    "trans": ["在家(里)"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "at least/most",
+    "trans": ["至少/至多"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "at once",
+    "trans": ["立刻", "马上"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "at present",
+    "trans": ["现在", "目前"],
+    "mistake": ["in", "for"]
+  },
+  {
+    "name": "at the end of",
+    "trans": ["在……结束的时候"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "at the same time",
+    "trans": ["同时"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "at/on weekends",
+    "trans": ["在周末"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "at work",
+    "trans": ["在工作"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "based on",
+    "trans": ["以……为依据", "以……为基础"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "be able to",
+    "trans": ["能够(有能力)"],
+    "mistake": ["can", "could"]
+  },
+  {
+    "name": "be afraid of",
+    "trans": ["害怕"],
+    "mistake": ["for", "about"]
+  },
+  {
+    "name": "be angry with sb.",
+    "trans": ["生某人的气"],
+    "mistake": ["at", "to"]
+  },
+  {
+    "name": "be/become aware of",
+    "trans": ["意识到", "觉察", "知道"],
+    "mistake": ["about", "with"]
+  },
+  {
+    "name": "be bad for",
+    "trans": ["有害于"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "be born",
+    "trans": ["出生"],
+    "mistake": ["bear", "bore"]
+  },
+  {
+    "name": "be busy with/doing sth.",
+    "trans": ["忙于做某事"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "be careful with",
+    "trans": ["小心"],
+    "mistake": ["for", "at"]
+  },
+  {
+    "name": "be connected to/with",
+    "trans": ["与……有联系"],
+    "mistake": ["by", "in"]
+  },
+  {
+    "name": "be covered with",
+    "trans": ["被……覆盖"],
+    "mistake": ["by", "in"]
+  },
+  {
+    "name": "be different from",
+    "trans": ["与……不同"],
+    "mistake": ["with", "than"]
+  },
+  {
+    "name": "be/get familiar to/with",
+    "trans": ["对……熟悉", "通晓"],
+    "mistake": ["about", "in"]
+  },
+  {
+    "name": "be famous for",
+    "trans": ["以……而著名"],
+    "mistake": ["as", "with"]
+  },
+  {
+    "name": "be fond of",
+    "trans": ["爱好"],
+    "mistake": ["for", "with"]
+  },
+  {
+    "name": "be full of",
+    "trans": ["充满"],
+    "mistake": ["with", "by"]
+  },
+  {
+    "name": "be good/poor at",
+    "trans": ["擅长于/对……比较差"],
+    "mistake": ["in", "for"]
+  },
+  {
+    "name": "be interested in",
+    "trans": ["对……感兴趣"],
+    "mistake": ["on", "with"]
+  },
+  {
+    "name": "be keen on",
+    "trans": ["喜爱"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "be late for",
+    "trans": ["……迟到"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "be located (in/on/at)",
+    "trans": ["位于"],
+    "mistake": ["to", "by"]
+  },
+  {
+    "name": "be made of",
+    "trans": ["由……制成"],
+    "mistake": ["from", "by"]
+  },
+  {
+    "name": "be made up of",
+    "trans": ["由……组成"],
+    "mistake": ["from", "with"]
+  },
+  {
+    "name": "be pleased with",
+    "trans": ["对……满意"],
+    "mistake": ["at", "to"]
+  },
+  {
+    "name": "be proud of",
+    "trans": ["为……而感到自豪"],
+    "mistake": ["for", "about"]
+  },
+  {
+    "name": "be ready for",
+    "trans": ["为……作准备"],
+    "mistake": ["to", "with"]
+  },
+  {
+    "name": "be responsible for",
+    "trans": ["对……负责任"],
+    "mistake": ["to", "with"]
+  },
+  {
+    "name": "be satisfied with",
+    "trans": ["对……感到满意"],
+    "mistake": ["at", "to"]
+  },
+  {
+    "name": "be similar to",
+    "trans": ["与……类似"],
+    "mistake": ["with", "as"]
+  },
+  {
+    "name": "be strict with sb.",
+    "trans": ["对某人严格"],
+    "mistake": ["to", "in"]
+  },
+  {
+    "name": "be supposed to",
+    "trans": ["应该", "被期望"],
+    "mistake": ["should", "ought"]
+  },
+  {
+    "name": "be surprised at",
+    "trans": ["对……感到惊奇"],
+    "mistake": ["by", "with"]
+  },
+  {
+    "name": "be thankful to sb.",
+    "trans": ["对某人很感激"],
+    "mistake": ["for", "with"]
+  },
+  {
+    "name": "be used to",
+    "trans": ["习惯于"],
+    "mistake": ["for", "with"]
+  },
+  {
+    "name": "because of",
+    "trans": ["由于"],
+    "mistake": ["for", "as"]
+  },
+  {
+    "name": "belong to",
+    "trans": ["属于"],
+    "mistake": ["in", "with"]
+  },
+  {
+    "name": "big deal",
+    "trans": ["大人物", "了不起的事"],
+    "mistake": ["great", "large"]
+  },
+  {
+    "name": "both ... and",
+    "trans": ["两者都"],
+    "mistake": ["or", "neither"]
+  },
+  {
+    "name": "break into",
+    "trans": ["闯入", "破门而入"],
+    "mistake": ["in", "to"]
+  },
+  {
+    "name": "break down",
+    "trans": ["损坏", "衰弱下来"],
+    "mistake": ["off", "out"]
+  },
+  {
+    "name": "by bus/train/plane",
+    "trans": ["乘公共汽车/火车/飞机"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "by oneself",
+    "trans": ["亲自"],
+    "mistake": ["for", "with"]
+  },
+  {
+    "name": "by the way",
+    "trans": ["顺便说", "顺便问一下"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "calm down",
+    "trans": ["使……平静下来"],
+    "mistake": ["up", "off"]
+  },
+  {
+    "name": "care for",
+    "trans": ["照顾", "喜欢"],
+    "mistake": ["about", "after"]
+  },
+  {
+    "name": "catch (a) cold",
+    "trans": ["着凉", "伤风"],
+    "mistake": ["take", "have"]
+  },
+  {
+    "name": "change one's mind",
+    "trans": ["改变主意"],
+    "mistake": ["idea", "thought"]
+  },
+  {
+    "name": "check in",
+    "trans": ["办理登机", "登记(入住等)"],
+    "mistake": ["out", "on"]
+  },
+  {
+    "name": "come from",
+    "trans": ["出生于", "来自"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "come on",
+    "trans": ["快", "走吧", "跟我来"],
+    "mistake": ["go", "in"]
+  },
+  {
+    "name": "come to an end",
+    "trans": ["结束"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "come true",
+    "trans": ["实现"],
+    "mistake": ["real", "right"]
+  },
+  {
+    "name": "come up with",
+    "trans": ["想出(主意或计划)", "提出", "赶上"],
+    "mistake": ["on", "by"]
+  },
+  {
+    "name": "communicate with",
+    "trans": ["与……交流"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "compete with",
+    "trans": ["与……竞争", "与……攀比"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "complain about",
+    "trans": ["投诉", "抱怨"],
+    "mistake": ["of", "to"]
+  },
+  {
+    "name": "consist of",
+    "trans": ["由……组成"],
+    "mistake": ["in", "with"]
+  },
+  {
+    "name": "cut down",
+    "trans": ["砍倒", "削减"],
+    "mistake": ["off", "out"]
+  },
+  {
+    "name": "deal with",
+    "trans": ["处理"],
+    "mistake": ["do", "handle"]
+  },
+  {
+    "name": "depend on",
+    "trans": ["依靠", "依赖"],
+    "mistake": ["in", "with"]
+  },
+  {
+    "name": "die of",
+    "trans": ["因……(病)而死"],
+    "mistake": ["from", "by"]
+  },
+  {
+    "name": "do harm to",
+    "trans": ["对……有害", "损害"],
+    "mistake": ["make", "for"]
+  },
+  {
+    "name": "do one's best",
+    "trans": ["尽最大努力"],
+    "mistake": ["make", "try"]
+  },
+  {
+    "name": "do sb. a favour",
+    "trans": ["帮某人忙"],
+    "mistake": ["make", "give"]
+  },
+  {
+    "name": "do some shopping",
+    "trans": ["买东西"],
+    "mistake": ["make", "go"]
+  },
+  {
+    "name": "dream of",
+    "trans": ["想到"],
+    "mistake": ["on", "with"]
+  },
+  {
+    "name": "dress up",
+    "trans": ["(穿着)打扮"],
+    "mistake": ["in", "on"]
+  },
+  {
+    "name": "each other",
+    "trans": ["互相"],
+    "mistake": ["another", "together"]
+  },
+  {
+    "name": "encourage sb. to do sth.",
+    "trans": ["鼓励某人做某事"],
+    "mistake": ["doing", "for"]
+  },
+  {
+    "name": "enjoy oneself",
+    "trans": ["过得愉快"],
+    "mistake": ["have", "feel"]
+  },
+  {
+    "name": "fall asleep",
+    "trans": ["入睡"],
+    "mistake": ["sleepy", "sleeping"]
+  },
+  {
+    "name": "far away (from)",
+    "trans": ["(离)遥远"],
+    "mistake": ["near", "out"]
+  },
+  {
+    "name": "fill in",
+    "trans": ["填充", "填写"],
+    "mistake": ["on", "with"]
+  },
+  {
+    "name": "find out",
+    "trans": ["找出", "查明", "了解"],
+    "mistake": ["look", "see"]
+  },
+  {
+    "name": "focus on",
+    "trans": ["聚焦于"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "for example",
+    "trans": ["例如"],
+    "mistake": ["as", "like"]
+  },
+  {
+    "name": "for free",
+    "trans": ["免费"],
+    "mistake": ["with", "by"]
+  },
+  {
+    "name": "for the first time",
+    "trans": ["第一次"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "for the time being",
+    "trans": ["暂时", "眼下"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "from time to time",
+    "trans": ["不时", "有时"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "get along/on (with)",
+    "trans": ["进展", "与……相处"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "get into the habit of",
+    "trans": ["养成……的习惯"],
+    "mistake": ["in", "to"]
+  },
+  {
+    "name": "get off",
+    "trans": ["下车"],
+    "mistake": ["down", "out"]
+  },
+  {
+    "name": "get on",
+    "trans": ["上车"],
+    "mistake": ["in", "up"]
+  },
+  {
+    "name": "get ready for",
+    "trans": ["为……作准备"],
+    "mistake": ["to", "with"]
+  },
+  {
+    "name": "get rid of",
+    "trans": ["摆脱"],
+    "mistake": ["from", "off"]
+  },
+  {
+    "name": "get tired of",
+    "trans": ["对……感到厌倦"],
+    "mistake": ["with", "about"]
+  },
+  {
+    "name": "get to",
+    "trans": ["到达"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "get up",
+    "trans": ["起床"],
+    "mistake": ["wake", "rise"]
+  },
+  {
+    "name": "give sb. a hand",
+    "trans": ["助某人一臂之力"],
+    "mistake": ["lend", "take"]
+  },
+  {
+    "name": "give up",
+    "trans": ["放弃"],
+    "mistake": ["out", "off"]
+  },
+  {
+    "name": "go ahead",
+    "trans": ["先走", "向前走", "去吧", "干吧"],
+    "mistake": ["front", "forward"]
+  },
+  {
+    "name": "go for a swim",
+    "trans": ["去游泳"],
+    "mistake": ["to", "in"]
+  },
+  {
+    "name": "go hiking",
+    "trans": ["去远足", "去徒步旅行"],
+    "mistake": ["walk", "climb"]
+  },
+  {
+    "name": "go home",
+    "trans": ["回家"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "go in for",
+    "trans": ["参加", "从事于", "酷爱"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "go on",
+    "trans": ["继续"],
+    "mistake": ["up", "off"]
+  },
+  {
+    "name": "go on a diet",
+    "trans": ["实行节食"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "go on a picnic",
+    "trans": ["去野餐"],
+    "mistake": ["for", "to"]
+  },
+  {
+    "name": "go on with/doing sth.",
+    "trans": ["继续做某事"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "go out",
+    "trans": ["外出", "熄灭"],
+    "mistake": ["away", "off"]
+  },
+  {
+    "name": "go over",
+    "trans": ["复习", "仔细地再读一遍"],
+    "mistake": ["through", "across"]
+  },
+  {
+    "name": "go sailing",
+    "trans": ["去航海", "去航行"],
+    "mistake": ["boat", "ship"]
+  },
+  {
+    "name": "go shopping",
+    "trans": ["去购物"],
+    "mistake": ["buying", "market"]
+  },
+  {
+    "name": "go sightseeing",
+    "trans": ["去观光"],
+    "mistake": ["look", "view"]
+  },
+  {
+    "name": "go to (the) hospital",
+    "trans": ["去医院(看病)"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "go to bed",
+    "trans": ["就寝"],
+    "mistake": ["sleep", "lay"]
+  },
+  {
+    "name": "go to college",
+    "trans": ["上大学"],
+    "mistake": ["university", "school"]
+  },
+  {
+    "name": "go to school",
+    "trans": ["上学"],
+    "mistake": ["study", "class"]
+  },
+  {
+    "name": "go to sleep",
+    "trans": ["入睡"],
+    "mistake": ["asleep", "bed"]
+  },
+  {
+    "name": "go to the cinema/movie(s)",
+    "trans": ["去看电影"],
+    "mistake": ["film", "theatre"]
+  },
+  {
+    "name": "go wrong",
+    "trans": ["出错"],
+    "mistake": ["bad", "false"]
+  },
+  {
+    "name": "grow up",
+    "trans": ["成年", "长大"],
+    "mistake": ["rise", "raise"]
+  },
+  {
+    "name": "had better",
+    "trans": ["最好还是", "还是……好"],
+    "mistake": ["would", "should"]
+  },
+  {
+    "name": "hand in",
+    "trans": ["上交"],
+    "mistake": ["out", "up"]
+  },
+  {
+    "name": "happen to do",
+    "trans": ["碰巧做"],
+    "mistake": ["doing", "make"]
+  },
+  {
+    "name": "happen to sb.",
+    "trans": ["发生到某人身上"],
+    "mistake": ["on", "with"]
+  },
+  {
+    "name": "have (got) to",
+    "trans": ["不得不"],
+    "mistake": ["must", "need"]
+  },
+  {
+    "name": "have a class/lesson",
+    "trans": ["上课"],
+    "mistake": ["take", "make"]
+  },
+  {
+    "name": "have a good time",
+    "trans": ["玩得很愉快", "过得很愉快"],
+    "mistake": ["enjoy", "spend"]
+  },
+  {
+    "name": "have breakfast",
+    "trans": ["吃早餐"],
+    "mistake": ["eat", "take"]
+  },
+  {
+    "name": "have no idea",
+    "trans": ["不清楚"],
+    "mistake": ["mind", "thought"]
+  },
+  {
+    "name": "have pity on sb.",
+    "trans": ["怜悯某人"],
+    "mistake": ["at", "to"]
+  },
+  {
+    "name": "have sports",
+    "trans": ["进行体育活动"],
+    "mistake": ["do", "play"]
+  },
+  {
+    "name": "hear from",
+    "trans": ["收到……来信"],
+    "mistake": ["of", "by"]
+  },
+  {
+    "name": "hear of",
+    "trans": ["听说"],
+    "mistake": ["from", "about"]
+  },
+  {
+    "name": "help sb. with sth.",
+    "trans": ["帮助某人做某事"],
+    "mistake": ["at", "in"]
+  },
+  {
+    "name": "here and there",
+    "trans": ["到处"],
+    "mistake": ["now", "where"]
+  },
+  {
+    "name": "hold a meeting",
+    "trans": ["举行会议"],
+    "mistake": ["take", "make"]
+  },
+  {
+    "name": "hold on",
+    "trans": ["等一等(别挂电话)"],
+    "mistake": ["up", "off"]
+  },
+  {
+    "name": "hold one's breath",
+    "trans": ["屏住呼吸"],
+    "mistake": ["stop", "keep"]
+  },
+  {
+    "name": "huge amounts of",
+    "trans": ["大量的"],
+    "mistake": ["number", "deal"]
+  },
+  {
+    "name": "in addition",
+    "trans": ["另外"],
+    "mistake": ["on", "with"]
+  },
+  {
+    "name": "in a hurry",
+    "trans": ["匆忙"],
+    "mistake": ["with", "on"]
+  },
+  {
+    "name": "in all",
+    "trans": ["总共"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in a minute",
+    "trans": ["一会儿"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in brief",
+    "trans": ["简而言之"],
+    "mistake": ["short", "simple"]
+  },
+  {
+    "name": "in charge of",
+    "trans": ["主管", "负责"],
+    "mistake": ["on", "for"]
+  },
+  {
+    "name": "in class",
+    "trans": ["在课上"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in danger",
+    "trans": ["处于危险中"],
+    "mistake": ["at", "under"]
+  },
+  {
+    "name": "in English",
+    "trans": ["用英语"],
+    "mistake": ["with", "by"]
+  },
+  {
+    "name": "in fact",
+    "trans": ["事实上", "实际上"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in favour of",
+    "trans": ["赞成"],
+    "mistake": ["with", "for"]
+  },
+  {
+    "name": "in front of",
+    "trans": ["在……前面"],
+    "mistake": ["at", "ahead"]
+  },
+  {
+    "name": "in hospital",
+    "trans": ["住院"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in one's fifties",
+    "trans": ["在某人五十多岁时"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in one's opinion",
+    "trans": ["根据某人的看法"],
+    "mistake": ["to", "from"]
+  },
+  {
+    "name": "in order to",
+    "trans": ["为了"],
+    "mistake": ["so", "as"]
+  },
+  {
+    "name": "in other words",
+    "trans": ["换句话说"],
+    "mistake": ["saying", "speak"]
+  },
+  {
+    "name": "in return",
+    "trans": ["作为回报"],
+    "mistake": ["as", "for"]
+  },
+  {
+    "name": "in surprise",
+    "trans": ["惊奇地"],
+    "mistake": ["with", "at"]
+  },
+  {
+    "name": "in the end",
+    "trans": ["最后", "终于"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in the future",
+    "trans": ["在将来"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "in the middle of",
+    "trans": ["在……中间"],
+    "mistake": ["at", "center"]
+  },
+  {
+    "name": "in the past",
+    "trans": ["在过去", "从前"],
+    "mistake": ["at", "passed"]
+  },
+  {
+    "name": "in this way",
+    "trans": ["这样"],
+    "mistake": ["by", "method"]
+  },
+  {
+    "name": "in time",
+    "trans": ["及时"],
+    "mistake": ["on", "at"]
+  },
+  {
+    "name": "in trouble",
+    "trans": ["处于困境中"],
+    "mistake": ["at", "under"]
+  },
+  {
+    "name": "instead of",
+    "trans": ["代替", "而不是"],
+    "mistake": ["without", "replace"]
+  },
+  {
+    "name": "jump to a conclusion",
+    "trans": ["贸然断定", "草率决定"],
+    "mistake": ["at", "come"]
+  },
+  {
+    "name": "just now",
+    "trans": ["刚才"],
+    "mistake": ["then", "right"]
+  },
+  {
+    "name": "keep a diary",
+    "trans": ["记日记"],
+    "mistake": ["write", "make"]
+  },
+  {
+    "name": "keep doing sth.",
+    "trans": ["继续做某事"],
+    "mistake": ["go", "stay"]
+  },
+  {
+    "name": "keep fit",
+    "trans": ["保持健康"],
+    "mistake": ["healthy", "strong"]
+  },
+  {
+    "name": "keep ... from",
+    "trans": ["阻止", "使……免于"],
+    "mistake": ["to", "away"]
+  },
+  {
+    "name": "keep in touch (with)",
+    "trans": ["(与……)保持联系"],
+    "mistake": ["contact", "connect"]
+  },
+  {
+    "name": "keep off",
+    "trans": ["阻挡", "不让……接近"],
+    "mistake": ["away", "out"]
+  },
+  {
+    "name": "keep quiet",
+    "trans": ["保持安静"],
+    "mistake": ["silent", "still"]
+  },
+  {
+    "name": "keep sb. busy",
+    "trans": ["让某人忙个不停"],
+    "mistake": ["make", "let"]
+  },
+  {
+    "name": "laugh at",
+    "trans": ["嘲笑"],
+    "mistake": ["to", "on"]
+  },
+  {
+    "name": "lay the table",
+    "trans": ["(饭前)摆好餐具"],
+    "mistake": ["lie", "set"]
+  },
+  {
+    "name": "learn from",
+    "trans": ["向……学习"],
+    "mistake": ["to", "by"]
+  },
+  {
+    "name": "leave (secondary) school",
+    "trans": ["(中学)毕业"],
+    "mistake": ["graduate", "finish"]
+  },
+  {
+    "name": "leave a message",
+    "trans": ["留个口信"],
+    "mistake": ["give", "take"]
+  },
+  {
+    "name": "leave for",
+    "trans": ["动身去"],
+    "mistake": ["to", "towards"]
+  },
+  {
+    "name": "less/more than",
+    "trans": ["少于/多于"],
+    "mistake": ["over", "under"]
+  },
+  {
+    "name": "listen to",
+    "trans": ["听……(讲话)"],
+    "mistake": ["hear", "at"]
+  },
+  {
+    "name": "live on",
+    "trans": ["靠……为生"],
+    "mistake": ["by", "with"]
+  },
+  {
+    "name": "look after",
+    "trans": ["照料", "照顾"],
+    "mistake": ["care", "take"]
+  },
+  {
+    "name": "look at",
+    "trans": ["看", "观看"],
+    "mistake": ["see", "watch"]
+  },
+  {
+    "name": "look for",
+    "trans": ["寻找"],
+    "mistake": ["find", "seek"]
+  },
+  {
+    "name": "look forward to",
+    "trans": ["期待着"],
+    "mistake": ["at", "for"]
+  },
+  {
+    "name": "look like",
+    "trans": ["看上去像"],
+    "mistake": ["as", "seem"]
+  },
+  {
+    "name": "look out",
+    "trans": ["注意", "留神"],
+    "mistake": ["watch", "see"]
+  },
+  {
+    "name": "look up",
+    "trans": ["查寻", "抬头看"],
+    "mistake": ["find", "search"]
+  },
+  {
+    "name": "lose one's life",
+    "trans": ["丧生"],
+    "mistake": ["die", "miss"]
+  },
+  {
+    "name": "lose one's way",
+    "trans": ["迷路"],
+    "mistake": ["miss", "drop"]
+  },
+  {
+    "name": "lose temper",
+    "trans": ["发脾气"],
+    "mistake": ["angry", "mood"]
+  },
+  {
+    "name": "lose weight",
+    "trans": ["减肥"],
+    "mistake": ["fat", "thin"]
+  },
+  {
+    "name": "make a decision",
+    "trans": ["作出决定"],
+    "mistake": ["take", "do"]
+  },
+  {
+    "name": "make a film",
+    "trans": ["拍电影"],
+    "mistake": ["shoot", "take"]
+  },
+  {
+    "name": "make a fire",
+    "trans": ["生火"],
+    "mistake": ["build", "light"]
+  },
+  {
+    "name": "make a living",
+    "trans": ["谋生"],
+    "mistake": ["earn", "live"]
+  },
+  {
+    "name": "make a mistake",
+    "trans": ["出差错", "犯错误"],
+    "mistake": ["do", "take"]
+  },
+  {
+    "name": "make a noise",
+    "trans": ["弄出声"],
+    "mistake": ["do", "sound"]
+  },
+  {
+    "name": "make friends with",
+    "trans": ["与……交朋友"],
+    "mistake": ["to", "and"]
+  },
+  {
+    "name": "make fun of",
+    "trans": ["拿……开玩笑"],
+    "mistake": ["joke", "play"]
+  },
+  {
+    "name": "make money",
+    "trans": ["挣钱", "赚钱"],
+    "mistake": ["earn", "get"]
+  },
+  {
+    "name": "make progress",
+    "trans": ["取得进步"],
+    "mistake": ["do", "get"]
+  },
+  {
+    "name": "make sure",
+    "trans": ["尽力做到", "务请", "确保", "查明", "确信"],
+    "mistake": ["ensure", "certain"]
+  },
+  {
+    "name": "make the bed",
+    "trans": ["整理床铺"],
+    "mistake": ["tidy", "clean"]
+  },
+  {
+    "name": "make up one's mind",
+    "trans": ["下决心"],
+    "mistake": ["decide", "heart"]
+  },
+  {
+    "name": "mobile phone",
+    "trans": ["手机"],
+    "mistake": ["cellphone", "telephone"]
+  },
+  {
+    "name": "next to",
+    "trans": ["紧挨着", "紧靠着"],
+    "mistake": ["near", "beside"]
+  },
+  {
+    "name": "no longer/not ... any longer",
+    "trans": ["不再"],
+    "mistake": ["more", "never"]
+  },
+  {
+    "name": "not ... at all",
+    "trans": ["一点也不", "根本不"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "now and then/again",
+    "trans": ["时而", "偶尔"],
+    "mistake": ["often", "always"]
+  },
+  {
+    "name": "of course",
+    "trans": ["当然"],
+    "mistake": ["sure", "certain"]
+  },
+  {
+    "name": "on average",
+    "trans": ["平均", "通常"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "on business",
+    "trans": ["有事", "出差"],
+    "mistake": ["in", "for"]
+  },
+  {
+    "name": "on foot",
+    "trans": ["步行", "走路"],
+    "mistake": ["by", "with"]
+  },
+  {
+    "name": "on holiday",
+    "trans": ["在休假"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "on one's side",
+    "trans": ["在某人一边"],
+    "mistake": ["at", "by"]
+  },
+  {
+    "name": "on the phone",
+    "trans": ["在听电话"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "on the other hand",
+    "trans": ["另外一方面"],
+    "mistake": ["in", "side"]
+  },
+  {
+    "name": "on the/one's way (to)",
+    "trans": ["在去……路上"],
+    "mistake": ["in", "road"]
+  },
+  {
+    "name": "on time",
+    "trans": ["准时"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "on weekdays",
+    "trans": ["在工作日"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "once every four years",
+    "trans": ["每四年一次"],
+    "mistake": ["per", "each"]
+  },
+  {
+    "name": "once more/again",
+    "trans": ["再次"],
+    "mistake": ["two", "second"]
+  },
+  {
+    "name": "one after another",
+    "trans": ["一个接一个", "连续地"],
+    "mistake": ["by", "behind"]
+  },
+  {
+    "name": "out of",
+    "trans": ["从……里出来", "缺乏"],
+    "mistake": ["from", "off"]
+  },
+  {
+    "name": "out of date",
+    "trans": ["过时"],
+    "mistake": ["time", "day"]
+  },
+  {
+    "name": "over and over",
+    "trans": ["再三", "一次次"],
+    "mistake": ["again", "time"]
+  },
+  {
+    "name": "pay for",
+    "trans": ["付……钱", "买"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "pay attention to",
+    "trans": ["注意"],
+    "mistake": ["at", "on"]
+  },
+  {
+    "name": "pick out",
+    "trans": ["挑选出"],
+    "mistake": ["choose", "select"]
+  },
+  {
+    "name": "pick up",
+    "trans": ["拾起"],
+    "mistake": ["take", "lift"]
+  },
+  {
+    "name": "play a trick on",
+    "trans": ["捉弄"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "play with",
+    "trans": ["玩耍", "摆弄"],
+    "mistake": ["at", "to"]
+  },
+  {
+    "name": "plenty of",
+    "trans": ["大量的", "充足的"],
+    "mistake": ["many", "much"]
+  },
+  {
+    "name": "point out",
+    "trans": ["指出"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "praise sb. for sth.",
+    "trans": ["为某事表扬某人"],
+    "mistake": ["about", "of"]
+  },
+  {
+    "name": "prefer ... to",
+    "trans": ["(比起……来)更喜欢"],
+    "mistake": ["than", "more"]
+  },
+  {
+    "name": "prepare for",
+    "trans": ["准备"],
+    "mistake": ["to", "ready"]
+  },
+  {
+    "name": "prevent ... from",
+    "trans": ["阻止……做"],
+    "mistake": ["to", "away"]
+  },
+  {
+    "name": "protect ... from",
+    "trans": ["保护……免受"],
+    "mistake": ["against", "of"]
+  },
+  {
+    "name": "provide ... with",
+    "trans": ["向……提供"],
+    "mistake": ["for", "to"]
+  },
+  {
+    "name": "put off",
+    "trans": ["延期"],
+    "mistake": ["delay", "away"]
+  },
+  {
+    "name": "put on",
+    "trans": ["穿上", "戴上", "上演"],
+    "mistake": ["wear", "dress"]
+  },
+  {
+    "name": "put out",
+    "trans": ["扑灭"],
+    "mistake": ["off", "down"]
+  },
+  {
+    "name": "put up",
+    "trans": ["举起", "挂起"],
+    "mistake": ["raise", "lift"]
+  },
+  {
+    "name": "refer to",
+    "trans": ["参考", "涉及", "指的是"],
+    "mistake": ["at", "about"]
+  },
+  {
+    "name": "rely on",
+    "trans": ["依靠"],
+    "mistake": ["in", "at"]
+  },
+  {
+    "name": "run away",
+    "trans": ["逃跑"],
+    "mistake": ["escape", "out"]
+  },
+  {
+    "name": "run out of",
+    "trans": ["用完", "耗尽"],
+    "mistake": ["from", "off"]
+  },
+  {
+    "name": "save one's life",
+    "trans": ["挽救某人生命"],
+    "mistake": ["keep", "rescue"]
+  },
+  {
+    "name": "search for",
+    "trans": ["搜寻", "搜查"],
+    "mistake": ["find", "seek"]
+  },
+  {
+    "name": "see ... off",
+    "trans": ["为……送行"],
+    "mistake": ["away", "out"]
+  },
+  {
+    "name": "sell out",
+    "trans": ["售完"],
+    "mistake": ["off", "up"]
+  },
+  {
+    "name": "set out",
+    "trans": ["动身", "出发", "着手做"],
+    "mistake": ["off", "up"]
+  },
+  {
+    "name": "shake hands with",
+    "trans": ["与……握手"],
+    "mistake": ["to", "hold"]
+  },
+  {
+    "name": "share ... with",
+    "trans": ["与……分享"],
+    "mistake": ["to", "and"]
+  },
+  {
+    "name": "shopping mall",
+    "trans": ["大商场", "大型购物中心"],
+    "mistake": ["center", "market"]
+  },
+  {
+    "name": "show off",
+    "trans": ["炫耀"],
+    "mistake": ["out", "up"]
+  },
+  {
+    "name": "show sb. around",
+    "trans": ["带某人参观"],
+    "mistake": ["round", "about"]
+  },
+  {
+    "name": "shut up",
+    "trans": ["住口"],
+    "mistake": ["close", "down"]
+  },
+  {
+    "name": "so far",
+    "trans": ["到目前为止"],
+    "mistake": ["by", "till"]
+  },
+  {
+    "name": "so that",
+    "trans": ["为了", "以便"],
+    "mistake": ["in", "order"]
+  },
+  {
+    "name": "social study",
+    "trans": ["社会研究", "社会学习"],
+    "mistake": ["society", "subject"]
+  },
+  {
+    "name": "some day",
+    "trans": ["将来有一天"],
+    "mistake": ["any", "one"]
+  },
+  {
+    "name": "sooner or later",
+    "trans": ["迟早"],
+    "mistake": ["and", "then"]
+  },
+  {
+    "name": "stand for",
+    "trans": ["代表"],
+    "mistake": ["to", "by"]
+  },
+  {
+    "name": "stay up",
+    "trans": ["熬夜"],
+    "mistake": ["night", "late"]
+  },
+  {
+    "name": "stop ... from",
+    "trans": ["阻止……做"],
+    "mistake": ["to", "away"]
+  },
+  {
+    "name": "such as",
+    "trans": ["例如"],
+    "mistake": ["like", "example"]
+  },
+  {
+    "name": "surf the Internet",
+    "trans": ["上网", "网上冲浪", "网上浏览"],
+    "mistake": ["play", "watch"]
+  },
+  {
+    "name": "take a look",
+    "trans": ["看一看"],
+    "mistake": ["have", "make"]
+  },
+  {
+    "name": "take an underground",
+    "trans": ["乘地铁"],
+    "mistake": ["by", "subway"]
+  },
+  {
+    "name": "take a message for sb.",
+    "trans": ["给某人捎个口信"],
+    "mistake": ["give", "leave"]
+  },
+  {
+    "name": "take action",
+    "trans": ["采取行动"],
+    "mistake": ["make", "do"]
+  },
+  {
+    "name": "take away",
+    "trans": ["拿走"],
+    "mistake": ["off", "out"]
+  },
+  {
+    "name": "take care of",
+    "trans": ["照料"],
+    "mistake": ["look", "after"]
+  },
+  {
+    "name": "take charge of",
+    "trans": ["负责", "管理"],
+    "mistake": ["in", "for"]
+  },
+  {
+    "name": "take hold of",
+    "trans": ["抓住"],
+    "mistake": ["catch", "grasp"]
+  },
+  {
+    "name": "take notes",
+    "trans": ["记笔记"],
+    "mistake": ["write", "make"]
+  },
+  {
+    "name": "take off",
+    "trans": ["脱掉(衣物等)", "起飞"],
+    "mistake": ["away", "out"]
+  },
+  {
+    "name": "take one's advice",
+    "trans": ["听从某人劝告"],
+    "mistake": ["listen", "follow"]
+  },
+  {
+    "name": "take out",
+    "trans": ["取出"],
+    "mistake": ["away", "off"]
+  },
+  {
+    "name": "take part in",
+    "trans": ["参加"],
+    "mistake": ["join", "attend"]
+  },
+  {
+    "name": "take place",
+    "trans": ["发生", "举行"],
+    "mistake": ["happen", "occur"]
+  },
+  {
+    "name": "take the place of",
+    "trans": ["取代"],
+    "mistake": ["replace", "instead"]
+  },
+  {
+    "name": "take up",
+    "trans": ["开始从事"],
+    "mistake": ["start", "begin"]
+  },
+  {
+    "name": "talk about",
+    "trans": ["谈到"],
+    "mistake": ["speak", "tell"]
+  },
+  {
+    "name": "talk to/with sb.",
+    "trans": ["与某人谈话"],
+    "mistake": ["speak", "tell"]
+  },
+  {
+    "name": "tell ... from",
+    "trans": ["区别", "分辨"],
+    "mistake": ["by", "to"]
+  },
+  {
+    "name": "tell a lie",
+    "trans": ["说谎"],
+    "mistake": ["say", "speak"]
+  },
+  {
+    "name": "the same ... as",
+    "trans": ["与……同样"],
+    "mistake": ["with", "like"]
+  },
+  {
+    "name": "the week after next",
+    "trans": ["下下周"],
+    "mistake": ["following", "later"]
+  },
+  {
+    "name": "think about",
+    "trans": ["考虑(做某事的可行性)"],
+    "mistake": ["of", "over"]
+  },
+  {
+    "name": "think of",
+    "trans": ["想起", "想到"],
+    "mistake": ["about", "to"]
+  },
+  {
+    "name": "think over",
+    "trans": ["仔细考虑"],
+    "mistake": ["through", "about"]
+  },
+  {
+    "name": "throw away",
+    "trans": ["扔掉"],
+    "mistake": ["off", "out"]
+  },
+  {
+    "name": "to one's joy/surprise",
+    "trans": ["使某人高兴/惊奇的是"],
+    "mistake": ["for", "in"]
+  },
+  {
+    "name": "too ... to",
+    "trans": ["太……以至不能"],
+    "mistake": ["so", "that"]
+  },
+  {
+    "name": "tour guide",
+    "trans": ["导游"],
+    "mistake": ["leader", "director"]
+  },
+  {
+    "name": "try on",
+    "trans": ["试穿"],
+    "mistake": ["in", "wear"]
+  },
+  {
+    "name": "turn down/up",
+    "trans": ["(把音量)调低/高"],
+    "mistake": ["low", "high"]
+  },
+  {
+    "name": "turn into",
+    "trans": ["变成"],
+    "mistake": ["to", "in"]
+  },
+  {
+    "name": "turn off",
+    "trans": ["关掉(电灯，电视，收音机等)"],
+    "mistake": ["close", "shut"]
+  },
+  {
+    "name": "turn on",
+    "trans": ["开", "旋开(电灯，电视，收音机等)"],
+    "mistake": ["open", "start"]
+  },
+  {
+    "name": "turn out",
+    "trans": ["结果是", "证明是"],
+    "mistake": ["become", "prove"]
+  },
+  {
+    "name": "turn over",
+    "trans": ["翻(车)", "翻(页)", "翻身"],
+    "mistake": ["across", "through"]
+  },
+  {
+    "name": "used to",
+    "trans": ["过去常常"],
+    "mistake": ["would", "was"]
+  },
+  {
+    "name": "wait for",
+    "trans": ["等候", "等待"],
+    "mistake": ["to", "at"]
+  },
+  {
+    "name": "wake up",
+    "trans": ["醒来", "叫醒"],
+    "mistake": ["get", "rise"]
+  },
+  {
+    "name": "what's more",
+    "trans": ["而且"],
+    "mistake": ["further", "besides"]
+  },
+  {
+    "name": "with great care",
+    "trans": ["非常小心"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "with pleasure",
+    "trans": ["愉快地"],
+    "mistake": ["in", "by"]
+  },
+  {
+    "name": "with the help of",
+    "trans": ["在……的帮助下"],
+    "mistake": ["under", "by"]
+  },
+  {
+    "name": "work out",
+    "trans": ["做出", "算出", "制定出"],
+    "mistake": ["make", "figure"]
+  },
+  {
+    "name": "worry about",
+    "trans": ["为……而担心"],
+    "mistake": ["for", "of"]
+  },
+  {
+    "name": "would like/love (to)",
+    "trans": ["想要(表示喜欢，愿意)", "很想", "很愿意"],
+    "mistake": ["want", "wish"]
+  },
+  {
+    "name": "would rather",
+    "trans": ["宁愿", "宁可"],
+    "mistake": ["prefer", "better"]
+  }
+]
