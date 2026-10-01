@@ -1324,7 +1324,21 @@ function searchLocalBooks(query) {
 
     allTargetBooks.forEach(b => {
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-        const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
+        const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+        let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
+        if (!words && b.path && BookManager.bookCache) words = BookManager.bookCache[b.path];
+        if (!words && BookManager.bookCache) {
+            const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+            if (aliasKey) words = BookManager.bookCache[aliasKey];
+        }
+        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        }
+        if (!words && b.id && typeof BookManager !== 'undefined' && typeof BookManager.loadBookData === 'function' && !b._isPreloading) {
+            b._isPreloading = true;
+            BookManager.loadBookData(b.id).catch(() => {});
+        }
+        words = words || [];
         words.forEach(w => {
             if (!w) return;
             const wordRaw = (w.word || w.name || '').trim();
@@ -1376,7 +1390,17 @@ function findPhrasesContainingWord(searchWord) {
 
     allTargetBooks.forEach(b => {
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-        const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
+        const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+        let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
+        if (!words && b.path && BookManager.bookCache) words = BookManager.bookCache[b.path];
+        if (!words && BookManager.bookCache) {
+            const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+            if (aliasKey) words = BookManager.bookCache[aliasKey];
+        }
+        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        }
+        words = words || [];
         words.forEach(w => {
             if (!w) return;
             const wName = (w.word || w.name || '').trim();

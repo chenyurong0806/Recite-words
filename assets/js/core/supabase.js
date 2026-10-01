@@ -314,6 +314,16 @@ async function supabaseUpdateUsername(oldUsername, newUsername) {
         .eq('username', oldUsername);
 
     if (error) throw new Error(error.message || '修改用户名失败');
+
+    // 级联同步更新 daily_wordle_records 历史记录中的 username
+    try {
+        await sbClient
+            .from('daily_wordle_records')
+            .update({ username: cleanNew })
+            .eq('username', oldUsername);
+    } catch (e) {
+        console.warn('Failed to cascade update daily_wordle_records:', e);
+    }
 }
 
 async function supabaseUpdatePassword(username, oldPassword, newPassword) {
@@ -339,6 +349,28 @@ async function supabaseUpdatePassword(username, oldPassword, newPassword) {
 
     if (error) throw new Error(error.message || '修改密码失败');
 }
+
+async function supabaseDeleteAccount(username, password = null) {
+    if (!username) throw new Error('用户名不能为空');
+    if (password) {
+        const hashedOld = await hashPassword(password);
+        const { data: user, error: verifyErr } = await sbClient
+            .from('user_accounts')
+            .select('username')
+            .eq('username', username)
+            .eq('password', hashedOld)
+            .maybeSingle();
+        if (verifyErr || !user) {
+            throw new Error('密码错误，无法注销账号');
+        }
+    }
+    const { error } = await sbClient
+        .from('user_accounts')
+        .delete()
+        .eq('username', username);
+    if (error) throw new Error(error.message || '删除账号失败');
+}
+window.supabaseDeleteAccount = supabaseDeleteAccount;
 
 async function supabaseUpdateAvatar(username, avatarUrl) {
     if (!username) return;
@@ -520,6 +552,23 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 return { success: false, error: updateError };
             }
 
+            // 同步今日 Wordle 记录到 daily_wordle_records 专用表，确保 username 与当前真实用户名同步
+            try {
+                const todayStr = (new Date()).toISOString().slice(0, 10);
+                if (payload.wordle_history && payload.wordle_history[todayStr]) {
+                    const todayRec = payload.wordle_history[todayStr];
+                    await sbClient.from('daily_wordle_records').upsert({
+                        date: todayStr,
+                        username: u,
+                        is_won: !!todayRec.isWon,
+                        attempts: todayRec.attempts || (todayRec.attemptDetails ? todayRec.attemptDetails.length : 0) || 1,
+                        time_spent: todayRec.timeSpent || 0
+                    }, { onConflict: 'date,username' });
+                }
+            } catch (wordleSyncErr) {
+                console.warn('[Wordle] daily_wordle_records sync warning:', wordleSyncErr);
+            }
+
             window.lastCloudSyncTimestamp = Date.now();
             if (typeof updateSyncButtonStatus === 'function') {
                 updateSyncButtonStatus(true);
@@ -570,7 +619,27 @@ function restoreUserDataFromCloud(user) {
     }
     if (ud.ebbinghaus) {
         try {
-            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, JSON.stringify(ud.ebbinghaus));
+            const localRaw = SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`) || (typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_ebbinghaus_db_${u}`) : null);
+            const localRecords = localRaw ? JSON.parse(localRaw) : {};
+            const merged = { ...ud.ebbinghaus };
+            Object.keys(localRecords).forEach(k => {
+                const locRec = localRecords[k];
+                const cldRec = merged[k];
+                if (!cldRec) {
+                    merged[k] = locRec;
+                } else {
+                    const lTime = locRec.lastPracticed || 0;
+                    const cTime = cldRec.lastPracticed || 0;
+                    if (lTime >= cTime) {
+                        merged[k] = locRec;
+                    }
+                }
+            });
+            const mergedStr = JSON.stringify(merged);
+            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr);
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr); } catch (e) { }
+            }
         } catch (e) { }
     }
     if (ud.daily_logs) {

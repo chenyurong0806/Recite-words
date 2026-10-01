@@ -35,7 +35,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-mistakes', 'view-result', 'view-leaderboard'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -166,6 +166,7 @@ window.addEventListener('offline', () => {
 });
 
 let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
+window.currentPresenceStatus = currentPresenceStatus;
 
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
@@ -187,6 +188,7 @@ function closeHubUserDropdown() {
 
 function setUserPresenceStatus(status) {
     currentPresenceStatus = status;
+    window.currentPresenceStatus = status;
     localStorage.setItem('vocab_presence_status', status);
     const chkOnline = document.getElementById('hub-dd-status-check-online');
     const chkInv = document.getElementById('hub-dd-status-check-invisible');
@@ -196,9 +198,12 @@ function setUserPresenceStatus(status) {
     // 同步更新首页顶部网络徽标的状态与文字
     checkNetworkStatus();
 
-    // 如果在线对战存在连接，通知更新状态
-    if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel && typeof updateMyLobbyPresence === 'function') {
+    // 如果在线对战存在连接，通知更新状态并刷新在线列表
+    if (typeof updateMyLobbyPresence === 'function') {
         updateMyLobbyPresence();
+    }
+    if (typeof syncGlobalPresenceState === 'function') {
+        syncGlobalPresenceState();
     }
     showToast(`状态已设为：${status === 'online' ? '在线' : '隐身'}`);
 }

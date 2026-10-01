@@ -402,6 +402,7 @@ function renderRoomInvitePlayersList() {
             if (pUsername === currentUser) return;
             if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
             if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+            if (pres.status === 'invisible' || pres.invisible === true) return;
             let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
             if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
             onlineUsers.push({
@@ -414,7 +415,7 @@ function renderRoomInvitePlayersList() {
         });
     }
 
-    const filtered = onlineUsers.filter(u => u.username !== currentUser);
+    const filtered = onlineUsers.filter(u => u.username !== currentUser && u.status !== 'invisible' && !u.invisible);
 
     if (filtered.length === 0) {
         container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); font-size:0.88rem;">当前暂无其他在线玩家</div>`;
@@ -1389,8 +1390,7 @@ function cleanUpAndBackToHub() {
         btnJoin.disabled = false;
         btnJoin.innerText = '加入房间';
     }
-    const target = (window.previousView && window.previousView !== 'view-online') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView('view-hub');
 }
 
 async function startOnlineGame() {
@@ -1501,13 +1501,21 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
     // 绑定对手头像（完全独立，不混淆）
     const oppoImg = document.getElementById('arena-oppo-avatar-img');
     const oppoIcon = document.getElementById('arena-oppo-avatar-icon');
-    if (oppoAvatar && oppoImg && oppoIcon) {
+    if (oppoAvatar === 'robot' || (oppoName && oppoName.includes('系统AI'))) {
+        if (oppoImg) oppoImg.style.display = 'none';
+        if (oppoIcon) {
+            oppoIcon.style.display = 'inline-flex';
+            oppoIcon.innerText = 'smart_toy';
+        }
+    } else if (oppoAvatar && oppoImg && oppoIcon) {
         oppoImg.src = oppoAvatar;
         oppoImg.style.display = 'block';
         oppoIcon.style.display = 'none';
+        oppoIcon.innerText = 'person';
     } else if (oppoImg && oppoIcon) {
         oppoImg.style.display = 'none';
         oppoIcon.style.display = 'inline-flex';
+        oppoIcon.innerText = 'person';
     }
 }
 
@@ -2746,14 +2754,19 @@ function renderResult() {
         if (btnResultHub) btnResultHub.innerText = '返回主页';
 
         const aiRank = (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1;
+        const myAvatar = (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : '');
+        const myAvatarHtml = myAvatar ? `<img src="${escapeHtml(myAvatar)}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">` : `<div style="width:44px; height:44px; border-radius:50%; background:var(--p1-sys-color, #ba1a1a); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">person</span></div>`;
+        const aiAvatarHtml = `<div style="width:44px; height:44px; border-radius:50%; background:var(--p2-sys-color, #006874); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:26px;">smart_toy</span></div>`;
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
-                    <div>
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser} (我方)</div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                        ${myAvatarHtml}
+                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
-                    <div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                        ${aiAvatarHtml}
                         <div style="font-weight:700; color:var(--p2-sys-color);">系统AI (${aiRank}段)</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
                     </div>
@@ -2779,7 +2792,7 @@ function renderResult() {
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div>
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser} (我方)</div>
+                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
@@ -2841,16 +2854,28 @@ async function applyForfeitPenalty() {
     if (LevelManager.isGuestUser(currentUser)) return;
 
     const isAi = (gameMode === 'ai_duel');
-    // 人机对战中途退出按用户要求扣除等级分；多人联机按排位模式结算
-    const isRanked = isAi ? true : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+
+    // 人机对战：看 aiDuelConfig.matchType；多人联机：看 roomConfig.matchType
+    // 默认 false —— 只有明确处于排位模式才扣分，友谊赛绝不扣分
+    const isRanked = isAi
+        ? (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType
+            ? aiDuelConfig.matchType === 'ranked'
+            : false)
+        : (typeof roomConfig !== 'undefined' && roomConfig.matchType
+            ? roomConfig.matchType === 'ranked'
+            : false);
 
     if (!isRanked) return;
 
     const myRankData = LevelManager.getUserRankData(currentUser);
-    const oppoRank = isAi 
-        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
+
+    const oppoRank = isAi
+        ? (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank ? aiDuelConfig.aiRank : 1)
         : (currentMatchOppoRank || 1);
-    const oppoRating = isAi ? ((oppoRank - 1) * 100 + 50) : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+
+    const oppoRating = isAi
+        ? ((oppoRank - 1) * 100 + 50)
+        : (typeof currentMatchOppoRating !== 'undefined' ? currentMatchOppoRating : 50);
 
     const matchResult = LevelManager.calculateMatchResult({
         isRanked: true,
@@ -2875,32 +2900,55 @@ async function applyForfeitPenalty() {
     }
 
     if (!isAi && realtimeChannel) {
-        safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出了对战，你获得了胜利！' });
+        safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出对战，恭喜胜利！' });
     }
 }
 window.applyForfeitPenalty = applyForfeitPenalty;
 
 async function confirmExitGame() {
     if (isPlayingMatch) {
+        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const isAi = (gameMode === 'ai_duel');
+        const isRanked = isAi 
+            ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : false)
+            : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : false);
+        const willDeductPoints = !isGuest && isRanked;
+
         let ok = true;
         if (typeof showConfirmModal === 'function') {
             ok = await showConfirmModal({
-                title: '退出对决确认',
-                message: '对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？',
+                title: '退出对决',
+                message: '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？',
                 confirmText: '退出并扣分',
+                title: willDeductPoints ? '退出对决' : '退出对战',
+                message: willDeductPoints
+                    ? '对局正在进行中，中途退出将受到扣分惩罚，确定要退出吗？'
+                    : (isGuest 
+                        ? '对局正在进行中，确定要退出吗？'
+                        : '对局正在进行中，确定要退出吗？'),
+                confirmText: willDeductPoints ? '退出并扣分' : '退出对战',
                 cancelText: '继续对战',
                 isDanger: true,
+                isDanger: willDeductPoints,
                 icon: 'logout'
             });
         } else {
             try {
-                ok = window.confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？');
+                ok = window.confirm('正在对战中，中途退出将受到扣分惩罚，确定要退出吗？');
+                ok = window.confirm(willDeductPoints
+                    ? '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？'
+                    : '对局正在进行中，确定要退出吗？');
             } catch (e) {
                 ok = true;
             }
         }
         if (!ok) return;
         await applyForfeitPenalty();
+        if (willDeductPoints) {
+            await applyForfeitPenalty();
+        } else if (!isAi && realtimeChannel) {
+            safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出对战，恭喜胜利！' });
+        }
     }
 
     clearInterval(gameTimer);
@@ -2978,7 +3026,20 @@ async function cleanAccountSwitchPresence(oldUser, newUser) {
 window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
 async function updateMyLobbyPresence() {
-    if (!globalLobbyChannel || !currentUser) return;
+    if (!currentUser) return;
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    if (myPresenceStatus === 'invisible') {
+        if (globalLobbyChannel) {
+            try {
+                await globalLobbyChannel.untrack();
+            } catch (e) { }
+        }
+        if (sbClient) {
+            sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+        }
+        return;
+    }
+    if (!globalLobbyChannel) return;
     let myRank = 1;
     let myRating = 0;
     if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
@@ -2987,8 +3048,7 @@ async function updateMyLobbyPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-    const status = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+    const status = isPlayingMatch ? 'playing' : 'idle';
     try {
         await globalLobbyChannel.track({
             username: currentUser,
@@ -3015,23 +3075,27 @@ function initGlobalPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-    const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
 
     if (globalLobbyChannel) {
         if (globalLobbyChannel.state === 'joined' && lobbyCurrentChannelUser === currentUser) {
             try {
-                globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
+                if (myPresenceStatus === 'invisible') {
+                    globalLobbyChannel.untrack();
+                } else {
+                    globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
+                }
             } catch (e) { }
             return;
         } else {
@@ -3097,17 +3161,19 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
-                await globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
+                if (myPresenceStatus !== 'invisible') {
+                    await globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
+                }
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -3115,13 +3181,18 @@ function initGlobalPresence() {
                     return;
                 }
                 console.warn('[Presence] Lobby channel disconnected, status:', status, 'scheduling reconnect...');
-                try {
-                    if (globalLobbyChannel) sbClient.removeChannel(globalLobbyChannel);
-                } catch (e) { }
+                const chanToRemove = globalLobbyChannel;
                 globalLobbyChannel = null;
+                intentionalLobbyClose = true;
+                if (chanToRemove) {
+                    try {
+                        sbClient.removeChannel(chanToRemove);
+                    } catch (e) { }
+                }
                 if (!lobbyReconnectTimer) {
                     lobbyReconnectTimer = setTimeout(() => {
                         lobbyReconnectTimer = null;
+                        intentionalLobbyClose = false;
                         initGlobalPresence();
                     }, 3000);
                 }
@@ -3136,30 +3207,34 @@ function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
         if (!currentUser) return;
-        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连）
+        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连，隐身状态保持 untrack）
+        const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
-                let myRank = 1;
-                let myRating = 0;
-                if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
-                    const rd = LevelManager.getUserRankData(currentUser);
-                    myRank = rd.rank;
-                    myRating = rd.rating;
+                if (myPresenceStatus === 'invisible') {
+                    globalLobbyChannel.untrack();
+                } else {
+                    let myRank = 1;
+                    let myRating = 0;
+                    if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
+                        const rd = LevelManager.getUserRankData(currentUser);
+                        myRank = rd.rank;
+                        myRating = rd.rating;
+                    }
+                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
+                    globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
                 }
-                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-                const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
-                globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
             } catch (e) { }
         } else if (!isConnectingLobby) {
             // 兜底：任何非 joined 状态（包括 leaving、joining 卡死等）均重连
@@ -3174,40 +3249,43 @@ function startPresenceHeartbeat() {
             initGlobalPresence();
         }
 
-        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（包括游客与已登录用户）
+        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（隐身状态彻底移除信标）
         try {
             if (sbClient && currentUser) {
-                const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-                const statusVal = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
-                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                if (myPresenceStatus === 'invisible') {
+                    sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+                } else {
+                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                    const statusVal = isPlayingMatch ? 'playing' : 'idle';
+                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
 
-                // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                sbClient.from('rooms').upsert({
-                    code: `ONL_${getUserRoomCode(currentUser)}`,
-                    name: currentUser,
-                    host: currentUser,
-                    capacity: 2,
-                    player_count: 1,
-                    status: statusVal,
-                    is_temporary: true,
-                    config: {
-                        avatar: myAvatar,
-                        rank: myRankData.rank,
-                        rating: myRankData.rating,
-                        isBili: isBili,
+                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                    sbClient.from('rooms').upsert({
+                        code: `ONL_${getUserRoomCode(currentUser)}`,
+                        name: currentUser,
+                        host: currentUser,
+                        capacity: 2,
+                        player_count: 1,
                         status: statusVal,
-                        clientSession: CLIENT_SESSION_ID
-                    },
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                // 2.2 登录用户额外更新 user_accounts 活跃时间戳
-                if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                    sbClient.from('user_accounts').update({
+                        is_temporary: true,
+                        config: {
+                            avatar: myAvatar,
+                            rank: myRankData.rank,
+                            rating: myRankData.rating,
+                            isBili: isBili,
+                            status: statusVal,
+                            clientSession: CLIENT_SESSION_ID
+                        },
                         updated_at: new Date().toISOString()
-                    }).eq('username', currentUser).then(() => { }).catch(() => { });
+                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳
+                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                        sbClient.from('user_accounts').update({
+                            updated_at: new Date().toISOString()
+                        }).eq('username', currentUser).then(() => { }).catch(() => { });
+                    }
                 }
             }
         } catch (e) { }
@@ -3271,9 +3349,10 @@ async function fetchRestOnlineUsers() {
         if (Array.isArray(beaconRooms)) {
             beaconRooms.forEach(br => {
                 const uName = br.host || br.name;
+                const cfg = br.config || {};
+                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) return;
                 if (uName && !seen.has(uName)) {
                     seen.add(uName);
-                    const cfg = br.config || {};
                     results.push({
                         username: uName,
                         avatar_url: cfg.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : ''),
@@ -3299,6 +3378,8 @@ async function fetchRestOnlineUsers() {
 
         if (Array.isArray(accounts)) {
             accounts.forEach(acc => {
+                const uData = acc.user_data || {};
+                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) return;
                 if (acc.username && !seen.has(acc.username)) {
                     seen.add(acc.username);
                     results.push(acc);
@@ -3364,6 +3445,8 @@ async function syncGlobalPresenceState() {
             if (!uName || uName === currentUser) return;
             if (recentlySwitchedAccounts.has(uName)) return;
             if (isLogged && savedGuestName && uName === savedGuestName) return;
+            const uData = ru.user_data || {};
+            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) return;
             if (!onlineUsersMap.has(uName)) {
                 let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
                 if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -3549,7 +3632,18 @@ function openCreateMatchInviteModal(targetUser) {
             const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
             const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
             const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
-            presetSummaryEl.innerText = `${modeTxt} | ${ruleTxt} | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
+
+            const elMode = document.getElementById('create-invite-summary-mode');
+            const elRule = document.getElementById('create-invite-summary-rule');
+            const elGauge = document.getElementById('create-invite-summary-gauge');
+            const elBook = document.getElementById('create-invite-summary-book');
+            if (elMode) elMode.innerText = modeTxt;
+            if (elRule) elRule.innerText = ruleTxt;
+            if (elGauge) elGauge.innerText = gaugeName;
+            if (elBook) {
+                elBook.innerText = bookSummary;
+                elBook.title = bookSummary;
+            }
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
@@ -3816,6 +3910,21 @@ async function confirmAndSendMatchInvite() {
 
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    if (myPresenceStatus === 'invisible') {
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isInvisible: true
+            });
+        }
+        if (payload.roomCode && sbClient) {
+            sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
+        }
+        return;
+    }
     currentIncomingInvite = payload;
 
     const modal = document.getElementById('modal-match-invite');
@@ -3961,7 +4070,10 @@ function handleMatchInviteResponse(payload) {
         connectSupabaseChannel(roomCode);
         switchView('view-online');
     } else {
-        showToast(`玩家【${payload.from}】${payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'}`);
+        const reason = payload.isInvisible
+            ? '当前处于隐身状态，已自动拒绝对决'
+            : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请');
+        showToast(`玩家【${payload.from}】${reason}`);
         if (payload.roomCode && payload.roomCode !== getUserRoomCode(currentUser)) {
             sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
         }

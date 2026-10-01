@@ -14,12 +14,22 @@ const EbbinghausEngine = {
     getRecords() {
         if (!currentUser) return {};
         try {
-            return JSON.parse(localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`) || '{}');
+            const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
+                ? SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`)
+                : localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
+            return raw ? JSON.parse(raw) : {};
         } catch (e) { return {}; }
     },
     saveRecords(records) {
         if (!currentUser) return;
-        localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, JSON.stringify(records));
+        const str = JSON.stringify(records);
+        try {
+            if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+                SafeStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+            } else {
+                localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+            }
+        } catch (e) { }
     },
     getDueWords() {
         const records = this.getRecords();
@@ -35,15 +45,21 @@ const EbbinghausEngine = {
         const allDue = this.getDueWords();
         if (allDue.length === 0) return [];
 
+        const normalizedTargetIds = new Set(bookIds.map(id => String(id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase()));
         const wordSet = new Set();
         bookIds.forEach(id => {
-            let words = BookManager.bookCache[id];
+            const normId = String(id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+            let words = BookManager.bookCache ? BookManager.bookCache[id] : null;
+            if (!words && (id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || id === 'builtin_default')) {
+                words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+            }
             if (!words && window.customBooks) {
-                const cb = window.customBooks.find(b => b.id === id);
+                const cb = window.customBooks.find(b => b.id === id || String(b.id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
                 if (cb && cb.words) words = cb.words;
             }
-            if (!words && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')) {
-                words = DEFAULT_WORDS;
+            if (!words && BookManager.bookCache) {
+                const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+                if (aliasKey) words = BookManager.bookCache[aliasKey];
             }
             if (words && Array.isArray(words)) {
                 words.forEach(w => {
@@ -54,7 +70,13 @@ const EbbinghausEngine = {
 
         return allDue.filter(r => {
             const key = (r.word || '').trim().toLowerCase();
-            return wordSet.has(key) || (r.bookId && bookIds.includes(r.bookId));
+            if (wordSet.has(key)) return true;
+            if (r.bookId) {
+                if (bookIds.includes(r.bookId)) return true;
+                const normRecId = String(r.bookId).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+                if (normalizedTargetIds.has(normRecId)) return true;
+            }
+            return false;
         });
     },
     getBookProgress(bookId, bookWords = null) {

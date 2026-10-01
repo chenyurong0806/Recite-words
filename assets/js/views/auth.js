@@ -31,21 +31,27 @@ function getSavedDeviceAccounts() {
 
 function recordDeviceAccount(username, avatar, type, hashedPassword) {
     if (!username || username.startsWith('游客')) return;
+    if (avatar) {
+        SafeStorage.setItem(`vocab_user_avatar_${username}`, avatar);
+    }
     let list = getSavedDeviceAccounts();
     const existingIdx = list.findIndex(a => a.username === username);
+    const compactAvatar = (avatar && avatar.length < 300) ? avatar : '';
     const item = {
         username,
-        avatar: avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(username) : ''),
+        avatar: compactAvatar,
         type: type || 'cloud',
         lastLoginTime: Date.now(),
         hashedPassword: hashedPassword || ''
     };
     if (existingIdx >= 0) {
         if (!item.hashedPassword) item.hashedPassword = list[existingIdx].hashedPassword;
+        if (!item.avatar && list[existingIdx].avatar) item.avatar = list[existingIdx].avatar;
         list[existingIdx] = item;
     } else {
         list.unshift(item);
     }
+    if (list.length > 10) list = list.slice(0, 10);
     SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 }
 

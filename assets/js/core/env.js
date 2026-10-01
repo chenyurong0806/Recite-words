@@ -1,13 +1,21 @@
 /**
- * 环境检测与 B 站 Toy 容器判断
+ * 环境检测与全局版本常量
  * Module: assets/js/core/env.js
  */
+
+if (typeof window !== 'undefined') {
+    window.APP_VERSION = '2.4.10';
+}
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
 ========================================================================== */
 const isBilibiliToy = (() => {
     try {
+        // 0. window.toy SDK 或缓存凭证存在
+        if (typeof window !== 'undefined' && (Boolean(window.toy) || Boolean(window.__cachedToyGuestId))) return true;
+
         // 1. URL 参数标记 (支持测试 ?bilibili=1 / ?bili_toy=1 / ?toy=1)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('bilibili') || urlParams.has('bili_toy') || urlParams.has('toy')) return true;

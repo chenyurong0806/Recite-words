@@ -488,6 +488,8 @@ function saveSingleProgress() {
         currentIdx: singleState.currentIdx,
         score: singleState.score,
         total: singleState.total,
+        targetTotal: singleState.targetTotal,
+        completedWords: Array.from(singleState.completedWords || []),
         sessionName: singleState.sessionName,
         isReview: isRev,
         time: Date.now()
@@ -514,6 +516,8 @@ async function startSingleLearning() {
                         currentIdx: parsed.currentIdx,
                         score: parsed.score || 0,
                         total: parsed.total || 0,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        completedWords: new Set(parsed.completedWords || []),
                         sessionName: parsed.sessionName || '新词学习',
                         isReview: false,
                         answered: false,
@@ -604,6 +608,8 @@ function updateReviewPageActiveBookLabel() {
 
     if (currentReviewBookId === 'all') {
         titleEl.innerText = '全部词书';
+    } else if (currentReviewBookId === 'other_due') {
+        titleEl.innerText = '其他词汇';
     } else {
         const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
             ? BookManager.availableBooks
@@ -633,7 +639,8 @@ function renderReviewPageBookDropdown() {
     if (!menu) return;
 
     const booksWithDue = getBooksWithDueWords();
-    const totalDue = EbbinghausEngine.getDueWords().length;
+    const allDueWords = EbbinghausEngine.getDueWords();
+    const totalDue = allDueWords.length;
 
     let html = '';
 
@@ -648,13 +655,16 @@ function renderReviewPageBookDropdown() {
                 </div>
             `;
 
-    if (booksWithDue.length === 0) {
+    const matchedDueWords = new Set();
+    if (booksWithDue.length === 0 && totalDue === 0) {
         html += `<div style="padding:10px 12px; font-size:0.82rem; color:var(--md-sys-color-outline); text-align:center;">暂无待复习词书</div>`;
     } else {
         html += `<div style="height:1px; background:var(--md-sys-color-outline-variant, #e2e8f0); margin:4px 0;"></div>`;
         booksWithDue.forEach(b => {
             const isSelected = currentReviewBookId === b.id;
-            const dueCount = EbbinghausEngine.getDueWordsForBooks([b.id]).length;
+            const bDues = EbbinghausEngine.getDueWordsForBooks([b.id]);
+            bDues.forEach(d => matchedDueWords.add((d.word || '').trim().toLowerCase()));
+            const dueCount = bDues.length;
             const bName = escapeHtml(cleanBookName(b.rawName || b.name));
             html += `
                         <div class="md3-custom-select-option ${isSelected ? 'selected' : ''}" onclick="switchReviewBook('${escapeHtml(b.id)}')" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer;">
@@ -666,6 +676,20 @@ function renderReviewPageBookDropdown() {
                         </div>
                     `;
         });
+
+        const otherDueCount = allDueWords.filter(d => !matchedDueWords.has((d.word || '').trim().toLowerCase())).length;
+        if (otherDueCount > 0) {
+            const isOtherSelected = currentReviewBookId === 'other_due';
+            html += `
+                        <div class="md3-custom-select-option ${isOtherSelected ? 'selected' : ''}" onclick="switchReviewBook('other_due')" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer;">
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <span class="material-symbols-rounded" style="font-size:16px; flex-shrink:0;">${isOtherSelected ? 'check' : 'auto_stories'}</span>
+                                <span style="font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">其他词汇</span>
+                            </div>
+                            <span style="font-size:0.78rem; font-weight:600; color:var(--md-sys-color-primary); margin-left:6px; flex-shrink:0;">${otherDueCount} 词</span>
+                        </div>
+                    `;
+        }
     }
 
     menu.innerHTML = html;
@@ -695,6 +719,8 @@ async function startSingleReview(specificBookId = null) {
                         currentIdx: parsed.currentIdx,
                         score: parsed.score || 0,
                         total: parsed.total || 0,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        completedWords: new Set(parsed.completedWords || []),
                         sessionName: parsed.sessionName || '智能复习',
                         isReview: true,
                         answered: false,
@@ -719,7 +745,11 @@ async function startSingleReview(specificBookId = null) {
 
         let targetBookIds = [];
         if (specificBookId && specificBookId !== 'all') {
-            targetBookIds = [specificBookId];
+            if (specificBookId === 'other_due') {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['GaoKao3500'];
+            } else {
+                targetBookIds = [specificBookId];
+            }
         } else {
             const booksWithDue = getBooksWithDueWords();
             if (booksWithDue.length > 0) {
@@ -731,8 +761,7 @@ async function startSingleReview(specificBookId = null) {
 
         let words = await BookManager.loadMultipleBooks(targetBookIds);
         if (!words || words.length === 0) {
-            showToast('未获取到词书词汇，请检查网络或选择词书！');
-            return;
+            words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
         }
 
         let wordMap = new Map();
@@ -740,7 +769,18 @@ async function startSingleReview(specificBookId = null) {
             if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
         });
 
-        let dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        let dueRecords = [];
+        if (specificBookId === 'other_due') {
+            const knownDueKeys = new Set();
+            getBooksWithDueWords().forEach(b => {
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add((d.word || '').trim().toLowerCase()));
+            });
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has((r.word || '').trim().toLowerCase()));
+        } else if (specificBookId && specificBookId !== 'all') {
+            dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        } else {
+            dueRecords = EbbinghausEngine.getDueWords();
+        }
         // 关键修复：排除本轮会话已复习过的词汇
         let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
 
@@ -876,6 +916,7 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     resetAllGameAlertsAndFeedback();
     gameMode = 'single';
     const isRev = defaultBookName.includes('复习');
+    const targetTot = new Set((pool || []).map(q => (q.word || '').trim().toLowerCase())).size || (pool ? pool.length : 1);
     singleState = {
         pool: pool,
         currentIdx: 0,
@@ -883,6 +924,8 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
         selectedIdx: -1,
         score: 0,
         total: 0,
+        targetTotal: targetTot,
+        completedWords: new Set(),
         sessionName: defaultBookName,
         isReview: isRev
     };

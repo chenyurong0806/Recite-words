@@ -16,6 +16,7 @@ function handleNavClick(dest) {
         switchView('view-hub');
     }
 }
+if (typeof window !== 'undefined') window.handleNavClick = handleNavClick;
 
 function openMeSubview(subviewKey) {
     const viewMe = document.getElementById('view-me');
@@ -88,14 +89,17 @@ function setPageMaxWidth(width) {
 }
 
 function setAppZoom(zoom) {
-    const allowed = ['0.9', '1', '1.1', '1.2'];
-    const val = allowed.includes(zoom) ? zoom : '1';
+    let num = parseFloat(zoom);
+    if (isNaN(num) || num < 0.7 || num > 1.5) num = 1;
+    const val = String(Math.round(num * 100) / 100);
     document.documentElement.style.setProperty('--app-zoom', val);
     document.body.style.zoom = val;
     localStorage.setItem('app_zoom', val);
-    document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-zoom') === val);
-    });
+
+    const slider = document.getElementById('slider-app-zoom');
+    if (slider && slider.value !== val) slider.value = val;
+    const valText = document.getElementById('app-zoom-val-text');
+    if (valText) valText.innerText = `${Math.round(num * 100)}%`;
 }
 
 function initDisplaySettings() {
@@ -106,6 +110,7 @@ function initDisplaySettings() {
     document.documentElement.style.setProperty('--app-zoom', savedZoom);
     document.body.style.zoom = savedZoom;
 }
+if (typeof window !== 'undefined') window.initDisplaySettings = initDisplaySettings;
 
 function switchSettingsSubview(subviewKey) {
     const meSubviews = ['books', 'words', 'mastered', 'trash'];
@@ -209,9 +214,10 @@ function renderSettingsMain() {
     });
 
     const savedZoom = localStorage.getItem('app_zoom') || '1';
-    document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(chip => {
-        chip.classList.toggle('selected', chip.getAttribute('data-zoom') === savedZoom);
-    });
+    const slider = document.getElementById('slider-app-zoom');
+    if (slider) slider.value = savedZoom;
+    const valText = document.getElementById('app-zoom-val-text');
+    if (valText) valText.innerText = `${Math.round(parseFloat(savedZoom) * 100)}%`;
 
     const kbEnabled = localStorage.getItem('dictation_virtual_keyboard_enabled') !== 'false';
     document.querySelectorAll('#chips-settings-dictation-kb .md3-chip').forEach(chip => {
@@ -228,7 +234,7 @@ function renderSettingsMain() {
     const masteredSummaryEl = document.getElementById('settings-mastered-summary-text');
     if (masteredSummaryEl) {
         const mCount = getMasteredWords().length;
-        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
+        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词，练习中不再抽取`;
     }
 
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
@@ -1388,26 +1394,26 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.4.9';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
 const APP_CHANGELOG = [
     {
-        version: 'v2.4.9',
-        date: '2026-09-30',
+        version: 'v2.4.10',
+        date: '2026-10-01',
         badge: '当前版本',
         items: [
             '支持使用第三方账号注册和登录。',
             '加入段位+等级分制度。',
             '加入排位赛。',
-            '加入今日Wordle。',
+            '加入每日Wordle竞赛。',
             '加入排行榜功能。',
+            '加入新词书。',
             '优化人机对战。',
-            '优化英语默写。',
-            '   答错后支持订正。',
-            '   添加工具栏。',
-            '   优化UI。',
+            '优化英语默写：答错后支持订正、添加工具栏、优化UI。',
             '优化标注熟词逻辑。',
+            '优化邀请对决逻辑。',
             '优化背词小结。',
             '优化数据同步。',
+            '优化Wordle设置逻辑。',
             '优化UI。',
             '修复英语词组中带有=、/的题，左右两边互换算错的bug。',
             '修复添加到主屏幕后无法保存本地数据的bug。',
@@ -1420,12 +1426,15 @@ const APP_CHANGELOG = [
             '修复更新弹窗无法下载最新版本文件的bug。',
             '修复登录账号时卡死的bug。',
             '修复人机模式退出对决按钮无效的bug。',
+            '修复待复习词数显示错误的bug。',
+            '修复答错题后增加进度和总题数的bug。',
             '修复抽取的题组答完无法继续答题的bug。',
             '支持记住登录状态和快捷切换账号。',
             '支持切换在线和隐身状态。',
+            '联机对战需要等待所有玩家准备后再开始。',
             'Wordle 草稿行与上方对齐，方便对照。',
             'Wordle 支持自由输入，且不再调起系统键盘。',
-            'Wordle 支持显示计时器。',
+            'Wordle 支持显示计时器、查看历史记录。',
             '词组答错，惩罚时间结束后自动放回错误的词块。',
             '仅本地词书支持添加词块和修改释义。',
             '在设置-更新日志中可以切换云端日志和本地日志。',
@@ -1692,9 +1701,19 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const isCurrent = semverCompare(version, APP_VERSION) === 0;
-                    const isNewer = semverCompare(version, APP_VERSION) > 0;
-                    const badge = isCurrent ? '当前版本' : (isNewer ? '最新版本' : '历史版本');
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.4.10'));
+                    const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
+                    const cmp = compareFn ? compareFn(version, currentVer) : 0;
+                    const isCurrent = cmp === 0;
+                    const isNewer = cmp > 0;
+                    let badge = '历史版本';
+                    if (isCurrent) {
+                        badge = '当前版本';
+                    } else if (isNewer) {
+                        badge = '最新版本';
+                    } else if (idx === 0) {
+                        badge = '云端最新';
+                    }
                     const date = (rel.published_at || '').substring(0, 10);
                     const rawBody = (rel.body || '').trim() || '查看 GitHub Release 获取完整详情';
                     return {
@@ -1704,7 +1723,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
                         rawBody,
                         items: [rawBody],
                         htmlUrl: rel.html_url,
-                        isHighlight: isCurrent || isNewer
+                        isHighlight: isCurrent || isNewer || idx === 0
                     };
                 });
             }

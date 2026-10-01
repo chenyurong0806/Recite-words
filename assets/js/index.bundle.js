@@ -1,14 +1,22 @@
 /* --- Begin: core/env.js --- */
 /**
- * 环境检测与 B 站 Toy 容器判断
+ * 环境检测与全局版本常量
  * Module: assets/js/core/env.js
  */
+
+if (typeof window !== 'undefined') {
+    window.APP_VERSION = '2.4.10';
+}
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
 ========================================================================== */
 const isBilibiliToy = (() => {
     try {
+        // 0. window.toy SDK 或缓存凭证存在
+        if (typeof window !== 'undefined' && (Boolean(window.toy) || Boolean(window.__cachedToyGuestId))) return true;
+
         // 1. URL 参数标记 (支持测试 ?bilibili=1 / ?bili_toy=1 / ?toy=1)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('bilibili') || urlParams.has('bili_toy') || urlParams.has('toy')) return true;
@@ -373,6 +381,16 @@ async function supabaseUpdateUsername(oldUsername, newUsername) {
         .eq('username', oldUsername);
 
     if (error) throw new Error(error.message || '修改用户名失败');
+
+    // 级联同步更新 daily_wordle_records 历史记录中的 username
+    try {
+        await sbClient
+            .from('daily_wordle_records')
+            .update({ username: cleanNew })
+            .eq('username', oldUsername);
+    } catch (e) {
+        console.warn('Failed to cascade update daily_wordle_records:', e);
+    }
 }
 
 async function supabaseUpdatePassword(username, oldPassword, newPassword) {
@@ -398,6 +416,28 @@ async function supabaseUpdatePassword(username, oldPassword, newPassword) {
 
     if (error) throw new Error(error.message || '修改密码失败');
 }
+
+async function supabaseDeleteAccount(username, password = null) {
+    if (!username) throw new Error('用户名不能为空');
+    if (password) {
+        const hashedOld = await hashPassword(password);
+        const { data: user, error: verifyErr } = await sbClient
+            .from('user_accounts')
+            .select('username')
+            .eq('username', username)
+            .eq('password', hashedOld)
+            .maybeSingle();
+        if (verifyErr || !user) {
+            throw new Error('密码错误，无法注销账号');
+        }
+    }
+    const { error } = await sbClient
+        .from('user_accounts')
+        .delete()
+        .eq('username', username);
+    if (error) throw new Error(error.message || '删除账号失败');
+}
+window.supabaseDeleteAccount = supabaseDeleteAccount;
 
 async function supabaseUpdateAvatar(username, avatarUrl) {
     if (!username) return;
@@ -579,6 +619,23 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 return { success: false, error: updateError };
             }
 
+            // 同步今日 Wordle 记录到 daily_wordle_records 专用表，确保 username 与当前真实用户名同步
+            try {
+                const todayStr = (new Date()).toISOString().slice(0, 10);
+                if (payload.wordle_history && payload.wordle_history[todayStr]) {
+                    const todayRec = payload.wordle_history[todayStr];
+                    await sbClient.from('daily_wordle_records').upsert({
+                        date: todayStr,
+                        username: u,
+                        is_won: !!todayRec.isWon,
+                        attempts: todayRec.attempts || (todayRec.attemptDetails ? todayRec.attemptDetails.length : 0) || 1,
+                        time_spent: todayRec.timeSpent || 0
+                    }, { onConflict: 'date,username' });
+                }
+            } catch (wordleSyncErr) {
+                console.warn('[Wordle] daily_wordle_records sync warning:', wordleSyncErr);
+            }
+
             window.lastCloudSyncTimestamp = Date.now();
             if (typeof updateSyncButtonStatus === 'function') {
                 updateSyncButtonStatus(true);
@@ -629,7 +686,27 @@ function restoreUserDataFromCloud(user) {
     }
     if (ud.ebbinghaus) {
         try {
-            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, JSON.stringify(ud.ebbinghaus));
+            const localRaw = SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`) || (typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_ebbinghaus_db_${u}`) : null);
+            const localRecords = localRaw ? JSON.parse(localRaw) : {};
+            const merged = { ...ud.ebbinghaus };
+            Object.keys(localRecords).forEach(k => {
+                const locRec = localRecords[k];
+                const cldRec = merged[k];
+                if (!cldRec) {
+                    merged[k] = locRec;
+                } else {
+                    const lTime = locRec.lastPracticed || 0;
+                    const cTime = cldRec.lastPracticed || 0;
+                    if (lTime >= cTime) {
+                        merged[k] = locRec;
+                    }
+                }
+            });
+            const mergedStr = JSON.stringify(merged);
+            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr);
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr); } catch (e) { }
+            }
         } catch (e) { }
     }
     if (ud.daily_logs) {
@@ -932,6 +1009,49 @@ const SafeStorage = {
         if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.saveKV === 'function') {
             VocabOfflineDB.saveKV(key, strVal).catch(() => {});
         }
+        // 如果运行在 Toy 平台环境，实时同步关键账号与登录凭证（严格遵守 Toy value ≤ 1024 字节规范）
+        if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function') {
+            if (key === 'vocab_auth_session' || key === 'vocab_device_accounts' || key === 'vocab_pk_user' || key === 'vocab_guest_name') {
+                try {
+                    const toyPayload = {};
+                    if (key === 'vocab_auth_session') {
+                        try {
+                            const p = JSON.parse(strVal);
+                            const compact = JSON.stringify({
+                                isLoggedIn: Boolean(p.isLoggedIn),
+                                type: p.type || 'cloud',
+                                username: p.username || '',
+                                openId: p.openId || ''
+                            });
+                            if (compact.length <= 1024) toyPayload['auth_session'] = compact;
+                        } catch (e) {
+                            if (strVal.length <= 1024) toyPayload['auth_session'] = strVal;
+                        }
+                    } else if (key === 'vocab_device_accounts') {
+                        try {
+                            const arr = JSON.parse(strVal);
+                            if (Array.isArray(arr)) {
+                                const compactArr = arr.slice(0, 5).map(a => ({
+                                    username: a.username,
+                                    type: a.type || 'cloud',
+                                    hashedPassword: a.hashedPassword || '',
+                                    lastLoginTime: a.lastLoginTime || Date.now()
+                                }));
+                                const compactStr = JSON.stringify(compactArr);
+                                if (compactStr.length <= 1024) toyPayload['device_accounts'] = compactStr;
+                            }
+                        } catch (e) { }
+                    } else if (key === 'vocab_pk_user') {
+                        if (strVal.length <= 1024) toyPayload['current_user'] = strVal;
+                    } else if (key === 'vocab_guest_name') {
+                        if (strVal.length <= 1024) toyPayload['guest_id'] = strVal;
+                    }
+                    if (Object.keys(toyPayload).length > 0) {
+                        window.toy.setCloudStorage(toyPayload).catch(() => {});
+                    }
+                } catch (e) { }
+            }
+        }
     },
 
     removeItem(key) {
@@ -966,12 +1086,14 @@ let folderTreeCollapseMap = {};
 
 const VocabOfflineDB = {
     dbName: 'VocabLocalBooksDB',
-    version: 2,
+    version: 3,
     db: null,
+    _initPromise: null,
 
     async init() {
         if (this.db) return this.db;
-        return new Promise((resolve) => {
+        if (this._initPromise) return this._initPromise;
+        this._initPromise = new Promise((resolve) => {
             try {
                 if (!window.indexedDB) {
                     resolve(null);
@@ -994,24 +1116,51 @@ const VocabOfflineDB = {
                     this.db = e.target.result;
                     // 同步从 IndexedDB 恢复可能缺失的 localStorage 关键数据 (如账号信息、段位等)
                     try {
-                        const tx = this.db.transaction('kv_store', 'readonly');
+                        if (!this.db.objectStoreNames.contains('kv_store')) {
+                            resolve(this.db);
+                            return;
+                        }
+                        const tx = this.db.transaction('kv_store', 'readwrite');
                         const store = tx.objectStore('kv_store');
                         const req = store.getAll();
                         req.onsuccess = () => {
                             const list = req.result || [];
+                            const idbKeys = new Set();
                             list.forEach(item => {
                                 if (item && item.k && item.v !== undefined) {
+                                    idbKeys.add(item.k);
                                     memoryStorageMap[item.k] = item.v;
                                     try {
-                                        if (SafeStorage.isAvailable && window.localStorage.getItem(item.k) === null) {
-                                            window.localStorage.setItem(item.k, item.v);
+                                        if (SafeStorage.isAvailable) {
+                                            const cur = window.localStorage.getItem(item.k);
+                                            if (cur === null || cur === '' || cur === 'null' || cur === 'undefined') {
+                                                window.localStorage.setItem(item.k, item.v);
+                                            }
                                         }
                                     } catch (err) { }
                                 }
                             });
+                            // 反向同步：若 localStorage 中存在 vocab_ 开头的数据但 IndexedDB 中尚未建立，自动同步进 IndexedDB
+                            try {
+                                if (SafeStorage.isAvailable && window.localStorage) {
+                                    for (let i = 0; i < window.localStorage.length; i++) {
+                                        const lsKey = window.localStorage.key(i);
+                                        if (lsKey && lsKey.startsWith('vocab_') && !idbKeys.has(lsKey)) {
+                                            const lsVal = window.localStorage.getItem(lsKey);
+                                            if (lsVal !== null && lsVal !== undefined) {
+                                                store.put({ k: lsKey, v: lsVal });
+                                                memoryStorageMap[lsKey] = lsVal;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (syncErr) { }
+                            resolve(this.db);
                         };
-                    } catch (err) { }
-                    resolve(this.db);
+                        req.onerror = () => resolve(this.db);
+                    } catch (err) {
+                        resolve(this.db);
+                    }
                 };
                 request.onerror = (e) => {
                     resolve(null);
@@ -1020,6 +1169,7 @@ const VocabOfflineDB = {
                 resolve(null);
             }
         });
+        return this._initPromise;
     },
 
     async saveKV(key, val) {
@@ -1556,10 +1706,15 @@ function getUniqueGuestName() {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
     }
     SafeStorage.setItem('vocab_guest_name', guestId);
-    SafeStorage.setItem('vocab_pk_user', guestId);
+    const existingPk = SafeStorage.getItem('vocab_pk_user');
+    if (!existingPk || existingPk.startsWith('游客')) {
+        SafeStorage.setItem('vocab_pk_user', guestId);
+    }
     if (typeof setCookie === 'function') {
         setCookie('vocab_guest_name', guestId, 365);
-        setCookie('vocab_pk_user', guestId, 365);
+        if (!existingPk || existingPk.startsWith('游客')) {
+            setCookie('vocab_pk_user', guestId, 365);
+        }
     }
     if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
         try {
@@ -1580,14 +1735,70 @@ let currentUserProfile = {
     openId: ''
 };
 
-try {
-    const savedSession = SafeStorage.getItem('vocab_auth_session');
-    if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        if (parsed && parsed.isLoggedIn && parsed.username) {
-            currentUserProfile = { ...currentUserProfile, ...parsed };
+function refreshCurrentUserProfileFromStorage() {
+    try {
+        const savedSession = SafeStorage.getItem('vocab_auth_session');
+        if (savedSession) {
+            const parsed = JSON.parse(savedSession);
+            if (parsed && parsed.isLoggedIn && parsed.username) {
+                currentUserProfile = { ...currentUserProfile, ...parsed };
+                currentUser = currentUserProfile.username;
+                window.currentUser = currentUser;
+                window.currentUserProfile = currentUserProfile;
+                return true;
+            }
         }
+    } catch (e) { }
+
+    const pkUser = SafeStorage.getItem('vocab_pk_user');
+    if (pkUser && !pkUser.startsWith('游客')) {
+        currentUser = pkUser;
+        currentUserProfile.username = pkUser;
+        currentUserProfile.isLoggedIn = true;
+        currentUserProfile.type = 'cloud';
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+        return true;
     }
+
+    // 检查是否有保存的设备登录账号 (防止 session 单项丢失或独立容器还原时登录态丢失)
+    try {
+        const rawAccounts = SafeStorage.getItem('vocab_device_accounts');
+        if (rawAccounts) {
+            const list = JSON.parse(rawAccounts);
+            if (Array.isArray(list) && list.length > 0) {
+                const latestAcc = list.find(a => a && a.username && !a.username.startsWith('游客'));
+                if (latestAcc) {
+                    currentUser = latestAcc.username;
+                    currentUserProfile = {
+                        isLoggedIn: true,
+                        type: latestAcc.type || 'cloud',
+                        username: latestAcc.username,
+                        avatar: latestAcc.avatar || '',
+                        openId: latestAcc.openId || ''
+                    };
+                    window.currentUser = currentUser;
+                    window.currentUserProfile = currentUserProfile;
+                    SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+                    return true;
+                }
+            }
+        }
+    } catch (e) { }
+
+    const guestId = SafeStorage.getItem('vocab_guest_name') || SafeStorage.getItem('vocab_pk_user');
+    if (guestId) {
+        currentUser = guestId;
+        currentUserProfile.username = guestId;
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+    }
+    return false;
+}
+window.refreshCurrentUserProfileFromStorage = refreshCurrentUserProfileFromStorage;
+
+try {
+    refreshCurrentUserProfileFromStorage();
 } catch (e) { }
 
 let currentUser = currentUserProfile.username || defaultGuestName;
@@ -1723,16 +1934,13 @@ function loadUserData(username, profile = null) {
     }
     updateHubResumeButtons();
 
-    // 如果为云端登录用户，且本地缺少艾宾浩斯记录（例如清除本地缓存后重新打开），主动从云端恢复全量数据
-    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.type === 'cloud') {
-        const hasLocalEbb = !!SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
-        if (!hasLocalEbb && typeof supabaseFetchUserData === 'function') {
-            supabaseFetchUserData(currentUser).then(cloudUser => {
-                if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
-                    restoreUserDataFromCloud(cloudUser);
-                }
-            }).catch(() => { });
-        }
+    // 如果为云端或B站已登录用户，主动从云端恢复与同步全量数据（包括艾宾浩斯待复习词数）
+    if (currentUserProfile && currentUserProfile.isLoggedIn && typeof supabaseFetchUserData === 'function') {
+        supabaseFetchUserData(currentUser).then(cloudUser => {
+            if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
+                restoreUserDataFromCloud(cloudUser);
+            }
+        }).catch(() => { });
     }
 }
 
@@ -1947,6 +2155,9 @@ const BookManager = {
 
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
+        const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高考3500', 'books/考纲/高考3500.json');
+        this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
+        this.bookCache['GaoKao3500'] = normGaoKao;
         try {
             await VocabOfflineDB.init();
             const offlineBooks = await VocabOfflineDB.getAllBooks();
@@ -1973,22 +2184,27 @@ const BookManager = {
         } catch (e) {
             console.warn('[BookManager] Offline books load error:', e);
         }
-        await this.fetchBookList();
-        this.preloadAllWorkerBooks();
+        // 异步后台获取最新词书列表并预加载，避免阻塞初始化及卡顿
+        this.fetchBookList().then(() => {
+            this.preloadAllWorkerBooks();
+            if (typeof renderBookSelectorView === 'function' && window.currentView === 'view-book-selector') {
+                renderBookSelectorView();
+            }
+        }).catch((err) => {
+            console.warn('[BookManager] Background fetchBookList error:', err);
+        });
     },
 
     async preloadAllWorkerBooks() {
-        try {
-            await this.loadBookData('books/考纲/高考3500.json');
-        } catch (e) { }
-        if (!Array.isArray(this.availableBooks)) return;
-        for (const book of this.availableBooks) {
-            if (book.id !== 'builtin_default' && !this.bookCache[book.id]) {
-                try {
-                    await this.loadBookData(book.id);
-                } catch (e) { }
-            }
+        if (!this.bookCache['books/考纲/高考3500.json'] && this.bookCache['builtin_default']) {
+            this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
+            this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
         }
+        const targetList = (Array.isArray(this.availableBooks) && this.availableBooks.length > 0)
+            ? this.availableBooks
+            : this.fallbackBooks;
+        const booksToLoad = targetList.filter(b => b && b.id !== 'builtin_default' && !this.bookCache[b.id]);
+        await Promise.allSettled(booksToLoad.map(book => this.loadBookData(book.id)));
         if (typeof _allDbWordsCache !== 'undefined') {
             _allDbWordsCache = null;
         }
@@ -2147,26 +2363,14 @@ const BookManager = {
         }
 
         const encodedRel = encodeURI(relPath);
-        const sources = [];
-        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
-            // 在 B 站 Toy 平台优先通过国内稳定 CDN 镜像读取，避免本地静态相对路径 404
-            sources.push(
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `./${relPath}`,
-                `./${encodedRel}`
-            );
-        } else {
-            sources.push(
-                `./${relPath}`,
-                `./${encodedRel}`,
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
-            );
-        }
+        const sources = [
+            `./${encodedRel}`,
+            `./${relPath}`,
+            `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
+        ];
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             sources.push(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
         }
@@ -2174,7 +2378,7 @@ const BookManager = {
         for (const url of sources) {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const timeoutId = setTimeout(() => controller.abort(), 2500);
                 const res = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (res.ok) {
@@ -2540,12 +2744,22 @@ const EbbinghausEngine = {
     getRecords() {
         if (!currentUser) return {};
         try {
-            return JSON.parse(localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`) || '{}');
+            const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
+                ? SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`)
+                : localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
+            return raw ? JSON.parse(raw) : {};
         } catch (e) { return {}; }
     },
     saveRecords(records) {
         if (!currentUser) return;
-        localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, JSON.stringify(records));
+        const str = JSON.stringify(records);
+        try {
+            if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+                SafeStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+            } else {
+                localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+            }
+        } catch (e) { }
     },
     getDueWords() {
         const records = this.getRecords();
@@ -2561,15 +2775,21 @@ const EbbinghausEngine = {
         const allDue = this.getDueWords();
         if (allDue.length === 0) return [];
 
+        const normalizedTargetIds = new Set(bookIds.map(id => String(id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase()));
         const wordSet = new Set();
         bookIds.forEach(id => {
-            let words = BookManager.bookCache[id];
+            const normId = String(id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+            let words = BookManager.bookCache ? BookManager.bookCache[id] : null;
+            if (!words && (id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || id === 'builtin_default')) {
+                words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+            }
             if (!words && window.customBooks) {
-                const cb = window.customBooks.find(b => b.id === id);
+                const cb = window.customBooks.find(b => b.id === id || String(b.id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
                 if (cb && cb.words) words = cb.words;
             }
-            if (!words && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')) {
-                words = DEFAULT_WORDS;
+            if (!words && BookManager.bookCache) {
+                const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+                if (aliasKey) words = BookManager.bookCache[aliasKey];
             }
             if (words && Array.isArray(words)) {
                 words.forEach(w => {
@@ -2580,7 +2800,13 @@ const EbbinghausEngine = {
 
         return allDue.filter(r => {
             const key = (r.word || '').trim().toLowerCase();
-            return wordSet.has(key) || (r.bookId && bookIds.includes(r.bookId));
+            if (wordSet.has(key)) return true;
+            if (r.bookId) {
+                if (bookIds.includes(r.bookId)) return true;
+                const normRecId = String(r.bookId).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+                if (normalizedTargetIds.has(normRecId)) return true;
+            }
+            return false;
         });
     },
     getBookProgress(bookId, bookWords = null) {
@@ -3807,11 +4033,22 @@ document.addEventListener('pointerdown', (e) => {
  * Module: assets/js/components/version-card.js
  */
 
+/* ============================================================
+ * 常量
+ * ============================================================ */
+const GH_REPO   = 'chenyurong0806/Recite-words';
+const GH_MIRROR = 'https://ghfast.top/';
 
+/* ============================================================
+ * 工具函数
+ * ============================================================ */
+
+/** 语义化版本比较：A > B 返回 1，A < B 返回 -1，相等返回 0 */
 function semverCompare(vA, vB) {
-    const pA = String(vA || '').replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-    const pB = String(vB || '').replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-    for (let i = 0; i < Math.max(pA.length, pB.length); i++) {
+    const pA = String(vA || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    const pB = String(vB || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    const len = Math.max(pA.length, pB.length);
+    for (let i = 0; i < len; i++) {
         const numA = pA[i] || 0;
         const numB = pB[i] || 0;
         if (numA > numB) return 1;
@@ -3820,73 +4057,136 @@ function semverCompare(vA, vB) {
     return 0;
 }
 
+/** 去掉 v / V 前缀，返回纯净版本号 */
+function normalizeTag(v) {
+    return String(v || '').replace(/^v/i, '');
+}
+
+/** 构造 assets.zip 的镜像下载地址 */
+function buildZipUrl(rawTag) {
+    return `${GH_MIRROR}https://github.com/${GH_REPO}/releases/download/v${rawTag}/assets.zip`;
+}
+
+/** 解析 release body 为 changelog 数组 */
+function parseChangelog(body) {
+    if (!body) return ['常规优化更新'];
+    const items = body
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map(line => line.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
+        .filter(line => line.length > 0 && !line.startsWith('#'));
+    return items.length > 0 ? items : ['常规优化更新'];
+}
+
+/** 判断 URL 是否无效（空 / index.html） */
+function isBadDownloadUrl(u) {
+    return !u || u.includes('index.html');
+}
+
+/* ============================================================
+ * 版本检查
+ * ============================================================ */
 let cachedLatestVersionData = null;
 
 async function checkCloudVersion(manual = false) {
+    // B 站小游戏环境下跳过
+    if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
+        if (manual) showToast(`当前已是最新离线版本 v${APP_VERSION}`);
+        return;
+    }
+
     let data = null;
 
-    // 1. 优先从 Worker 获取 (不走任何浏览器本地缓存)
-    if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
+    /* ---------- 1. GitHub Releases API（首选） ---------- */
+    try {
+        const ghRes = await fetch(
+            `https://api.github.com/repos/${GH_REPO}/releases/latest`,
+            { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+        );
+        if (ghRes.ok) {
+            const ghData = await ghRes.json();
+            const rawTag = normalizeTag(ghData.tag_name);
+            const releaseDate = (ghData.published_at || '').substring(0, 10);
+
+            const assets = Array.isArray(ghData.assets) ? ghData.assets : [];
+            const zipAsset =
+                assets.find(a => a.name === 'assets.zip') ||
+                assets.find(a => a.name && a.name.endsWith('.zip'));
+
+            const zipRawUrl = (zipAsset && zipAsset.browser_download_url)
+                ? zipAsset.browser_download_url
+                : `https://github.com/${GH_REPO}/releases/download/v${rawTag}/assets.zip`;
+
+            data = {
+                version: rawTag,
+                releaseDate,
+                changelog: parseChangelog(ghData.body),
+                downloadUrl: `${GH_MIRROR}${zipRawUrl}`,
+                mirrorDownloadUrl: `${GH_MIRROR}${zipRawUrl}`
+            };
+        }
+    } catch (e) {
+        console.warn('GitHub releases API check failed:', e);
+    }
+
+    /* ---------- 2. 备选：Worker ---------- */
+    if (!data && typeof BookManager !== 'undefined' && BookManager.API_BASE) {
         try {
-            const res = await fetch(`${BookManager.API_BASE}/api/version?t=${Date.now()}`, {
-                cache: 'no-store'
-            });
-            if (res.ok) data = await res.json();
+            const res = await fetch(
+                `${BookManager.API_BASE}/api/version?t=${Date.now()}`,
+                { cache: 'no-store' }
+            );
+            if (res.ok) {
+                const wData = await res.json(); // ⚠️ 只解析一次
+                if (wData && wData.version) {
+                    const rawTag = normalizeTag(wData.version);
+                    data = {
+                        version: rawTag,
+                        releaseDate: wData.releaseDate,
+                        changelog: wData.changelog || ['常规优化更新'],
+                        downloadUrl: buildZipUrl(rawTag),
+                        mirrorDownloadUrl: buildZipUrl(rawTag)
+                    };
+                }
+            }
         } catch (e) {
             console.warn('Worker version check failed:', e);
         }
     }
 
-    // 2. 备选：Worker 不可用时尝试直连 GitHub
-    if (!data) {
-        try {
-            const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases/latest');
-            if (ghRes.ok) {
-                const ghData = await ghRes.json();
-                const tag = (ghData.tag_name || '').replace(/^v/i, '');
-                const releaseDate = (ghData.published_at || '').substring(0, 10);
-                let changelogItems = [];
-                if (ghData.body) {
-                    changelogItems = ghData.body.replace(/\r\n/g, '\n').split('\n')
-                        .map(line => line.trim().replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, ''))
-                        .filter(line => line.length > 0 && !line.startsWith('#'));
-                }
-                const zipAsset = Array.isArray(ghData.assets) ? ghData.assets.find(a => a.name && a.name.endsWith('.zip')) : null;
-                const zipRawUrl = zipAsset ? zipAsset.browser_download_url : `https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${ghData.tag_name}.zip`;
-                data = {
-                    version: tag,
-                    releaseDate: releaseDate,
-                    changelog: changelogItems.length > 0 ? changelogItems : ['常规优化更新'],
-                    downloadUrl: `https://ghfast.top/${zipRawUrl}`,
-                    mirrorDownloadUrl: `https://ghfast.top/${zipRawUrl}`
-                };
-            }
-        } catch (e) { }
-    }
-
+    /* ---------- 3. 统一规范化 URL ---------- */
     if (data && data.version) {
-        cachedLatestVersionData = data;
-        const tag = data.version.startsWith('v') ? data.version : `v${data.version}`;
-        if (!data.downloadUrl) {
-            data.downloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+        const rawTag = normalizeTag(data.version);
+        data.version = rawTag;
+
+        if (isBadDownloadUrl(data.downloadUrl)) {
+            data.downloadUrl = buildZipUrl(rawTag);
         }
-        if (!data.mirrorDownloadUrl) {
-            data.mirrorDownloadUrl = `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+        if (isBadDownloadUrl(data.mirrorDownloadUrl)) {
+            data.mirrorDownloadUrl = buildZipUrl(rawTag);
         }
 
-        const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        cachedLatestVersionData = data;
+
+        const isLocal = window.location.protocol === 'file:'
+            || window.location.hostname === 'localhost'
+            || window.location.hostname === '127.0.0.1';
+
         const hasNewer = semverCompare(data.version, APP_VERSION) > 0;
 
         if (hasNewer) {
             showVersionUpdateCard(data, isLocal);
-        } else {
-            if (manual) showToast(`当前已是最新版本 v${APP_VERSION}`);
+        } else if (manual) {
+            showToast(`当前已是最新版本 v${APP_VERSION}`);
         }
-    } else {
-        if (manual) showToast(`当前已是最新离线版本 v${APP_VERSION}`);
+    } else if (manual) {
+        showToast(`当前已是最新离线版本 v${APP_VERSION}`);
     }
 }
 
+/* ============================================================
+ * 更新卡片 UI
+ * ============================================================ */
 function showVersionUpdateCard(data, isLocal) {
     if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) return;
 
@@ -3894,13 +4194,14 @@ function showVersionUpdateCard(data, isLocal) {
     const card = document.getElementById('version-update-card');
     if (!card) return;
 
-    const titleEl = document.getElementById('version-card-title');
-    const dateEl = document.getElementById('version-card-date');
-    const descEl = document.getElementById('version-card-desc');
+    const titleEl   = document.getElementById('version-card-title');
+    const dateEl    = document.getElementById('version-card-date');
+    const descEl    = document.getElementById('version-card-desc');
     const actionBtn = document.getElementById('btn-version-card-action');
 
     if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
-    if (dateEl) dateEl.innerText = `发布日期：${data.releaseDate || '近期'}`;
+    if (dateEl)  dateEl.innerText  = `发布日期：${data.releaseDate || '近期'}`;
+
     if (descEl && Array.isArray(data.changelog)) {
         if (typeof renderMarkdownChangelog === 'function') {
             descEl.innerHTML = `
@@ -3908,17 +4209,24 @@ function showVersionUpdateCard(data, isLocal) {
                 ${renderMarkdownChangelog(data.changelog.slice(0, 4))}
             `;
         } else {
+            const escape = typeof escapeHtml === 'function'
+                ? escapeHtml
+                : (s) => String(s).replace(/[&<>"']/g, c => (
+                    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+                ));
             descEl.innerHTML = `
                 <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
                 <ul style="padding-left:16px; margin:0; line-height:1.5;">
-                    ${data.changelog.slice(0, 4).map(it => `<li>${escapeHtml(it.replace(/^[>*\-•\s]+/, ''))}</li>`).join('')}
+                    ${data.changelog.slice(0, 4)
+                        .map(it => `<li>${escape(it.replace(/^[>*\-•\s]+/, ''))}</li>`)
+                        .join('')}
                 </ul>
             `;
         }
     }
 
     if (actionBtn) {
-        actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载更新压缩包 (.zip)</span>';
+        actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载最新版本</span>';
         actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
     }
 
@@ -3936,24 +4244,28 @@ function openChangelogInSettings() {
     switchSettingsSubview('changelog');
 }
 
+/* ============================================================
+ * 下载
+ * ============================================================ */
 function handleDownloadLatestZip(downloadUrl, version) {
     const data = cachedLatestVersionData || {};
-    const finalVersion = version || data.version || APP_VERSION || 'latest';
-    const tag = String(finalVersion).startsWith('v') ? finalVersion : `v${finalVersion}`;
-    const targetUrl = downloadUrl 
-        || data.downloadUrl 
-        || data.mirrorDownloadUrl 
-        || `https://ghfast.top/https://github.com/chenyurong0806/Recite-words/archive/refs/tags/${tag}.zip`;
+    const finalVersion = version || data.version || APP_VERSION || '2.4.3';
+    const rawTag = normalizeTag(finalVersion);
 
-    showToast(`正在启动下载 ${tag} 更新压缩包，请稍候...`);
+    let targetUrl = downloadUrl || data.downloadUrl || data.mirrorDownloadUrl;
+    if (isBadDownloadUrl(targetUrl)) {
+        targetUrl = buildZipUrl(rawTag);
+    }
 
-    // 1. 创建 a 标签并配置 target="_blank"
+    showToast(`正在启动下载 v${rawTag} 的 assets.zip，请稍候...`);
+
+    // 主路径：动态 a 标签
     try {
         const a = document.createElement('a');
         a.href = targetUrl;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.download = `Recite-words-${tag}.zip`;
+        a.download = `Recite-words-v${rawTag}.zip`;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {
@@ -3963,7 +4275,7 @@ function handleDownloadLatestZip(downloadUrl, version) {
         console.warn('Direct a.click failed:', e);
     }
 
-    // 2. 备用安全降级：如果某些浏览器阻止动态 a.click，延迟通过 window.open 打开
+    // 兜底：window.open
     setTimeout(() => {
         try {
             window.open(targetUrl, '_blank', 'noopener,noreferrer');
@@ -3982,12 +4294,14 @@ function handleVersionUpdateAction() {
     handleDownloadLatestZip();
 }
 
-window.checkCloudVersion = checkCloudVersion;
-window.showVersionUpdateCard = showVersionUpdateCard;
-window.dismissVersionUpdateCard = dismissVersionUpdateCard;
-window.handleDownloadLatestZip = handleDownloadLatestZip;
-window.handleVersionUpdateAction = handleVersionUpdateAction;
-
+/* ============================================================
+ * 导出到 window
+ * ============================================================ */
+window.checkCloudVersion          = checkCloudVersion;
+window.showVersionUpdateCard      = showVersionUpdateCard;
+window.dismissVersionUpdateCard   = dismissVersionUpdateCard;
+window.handleDownloadLatestZip    = handleDownloadLatestZip;
+window.handleVersionUpdateAction  = handleVersionUpdateAction;
 /* --- End: components/version-card.js --- */
 
 /* --- Begin: components/avatar-cropper.js --- */
@@ -4288,21 +4602,27 @@ function getSavedDeviceAccounts() {
 
 function recordDeviceAccount(username, avatar, type, hashedPassword) {
     if (!username || username.startsWith('游客')) return;
+    if (avatar) {
+        SafeStorage.setItem(`vocab_user_avatar_${username}`, avatar);
+    }
     let list = getSavedDeviceAccounts();
     const existingIdx = list.findIndex(a => a.username === username);
+    const compactAvatar = (avatar && avatar.length < 300) ? avatar : '';
     const item = {
         username,
-        avatar: avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(username) : ''),
+        avatar: compactAvatar,
         type: type || 'cloud',
         lastLoginTime: Date.now(),
         hashedPassword: hashedPassword || ''
     };
     if (existingIdx >= 0) {
         if (!item.hashedPassword) item.hashedPassword = list[existingIdx].hashedPassword;
+        if (!item.avatar && list[existingIdx].avatar) item.avatar = list[existingIdx].avatar;
         list[existingIdx] = item;
     } else {
         list.unshift(item);
     }
+    if (list.length > 10) list = list.slice(0, 10);
     SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 }
 
@@ -4792,7 +5112,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-mistakes', 'view-result', 'view-leaderboard'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -4923,6 +5243,7 @@ window.addEventListener('offline', () => {
 });
 
 let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
+window.currentPresenceStatus = currentPresenceStatus;
 
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
@@ -4944,6 +5265,7 @@ function closeHubUserDropdown() {
 
 function setUserPresenceStatus(status) {
     currentPresenceStatus = status;
+    window.currentPresenceStatus = status;
     localStorage.setItem('vocab_presence_status', status);
     const chkOnline = document.getElementById('hub-dd-status-check-online');
     const chkInv = document.getElementById('hub-dd-status-check-invisible');
@@ -4953,9 +5275,12 @@ function setUserPresenceStatus(status) {
     // 同步更新首页顶部网络徽标的状态与文字
     checkNetworkStatus();
 
-    // 如果在线对战存在连接，通知更新状态
-    if (typeof globalLobbyChannel !== 'undefined' && globalLobbyChannel && typeof updateMyLobbyPresence === 'function') {
+    // 如果在线对战存在连接，通知更新状态并刷新在线列表
+    if (typeof updateMyLobbyPresence === 'function') {
         updateMyLobbyPresence();
+    }
+    if (typeof syncGlobalPresenceState === 'function') {
+        syncGlobalPresenceState();
     }
     showToast(`状态已设为：${status === 'online' ? '在线' : '隐身'}`);
 }
@@ -5446,7 +5771,12 @@ function isBookIdSelectedInCurrentMode(bookId) {
 
 function isWordleSupportedBook(b) {
     if (!b) return false;
-    const nameStr = (b.name || b.title || b.id || '').toString();
+    let nameStr = '';
+    if (typeof b === 'string') {
+        nameStr = b;
+    } else {
+        nameStr = (b.name || b.title || b.id || '').toString();
+    }
     const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
     const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇'];
     return allowed.some(kw => cleanLower.includes(kw));
@@ -5965,6 +6295,9 @@ function switchLeaderboardTab(tab) {
     }
 }
 
+const LEADERBOARD_BILI_BADGE_HTML = `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 5px; border-radius:8px; line-height:1.2; flex-shrink:0;"><svg style="width:10px; height:10px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>`;
+let cachedBiliUsernamesSet = new Set();
+
 // ----------------- 等级榜控制器 -----------------
 async function renderLevelLeaderboard() {
     const listContainer = document.getElementById('lb-level-list');
@@ -5989,6 +6322,12 @@ async function renderLevelLeaderboard() {
                 .limit(100);
             if (!error && Array.isArray(data)) {
                 accounts = data;
+                data.forEach(acc => {
+                    const ud = acc.user_data || {};
+                    if (ud.account_type === 'bilibili' || ud.isBili === true || acc.account_type === 'bilibili') {
+                        cachedBiliUsernamesSet.add(acc.username);
+                    }
+                });
             }
         }
     } catch (e) {
@@ -5997,6 +6336,10 @@ async function renderLevelLeaderboard() {
 
     // 2. 本地用户补充（若当前用户已登录且不在云端列表中）
     const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+    const isCurrBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+    if (isCurrBili && currUser) {
+        cachedBiliUsernamesSet.add(currUser);
+    }
     const hasCurrent = accounts.some(a => a.username === currUser);
     if (!hasCurrent && currUser && !currUser.startsWith('游客')) {
         let currAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currUser) : '';
@@ -6006,7 +6349,9 @@ async function renderLevelLeaderboard() {
             avatar_url: currAvatar,
             level: currLevelData ? currLevelData.level : 1,
             user_data: {
-                levelData: currLevelData ? { level: currLevelData.level, score: currLevelData.score } : null
+                levelData: currLevelData ? { level: currLevelData.level, score: currLevelData.score } : null,
+                account_type: isCurrBili ? 'bilibili' : 'cloud',
+                isBili: isCurrBili
             }
         });
     }
@@ -6045,11 +6390,22 @@ async function renderLevelLeaderboard() {
             rank = Math.min(9, Math.max(1, Math.ceil(rating / 100)));
         }
 
+        const uData = acc.user_data || {};
+        const isBili = Boolean(
+            acc.isBili ||
+            uData.account_type === 'bilibili' ||
+            uData.isBili === true ||
+            acc.account_type === 'bilibili' ||
+            cachedBiliUsernamesSet.has(acc.username) ||
+            (acc.username === currUser && isCurrBili)
+        );
+
         return {
             username: acc.username,
             avatar: acc.avatar_url || '',
             rank,
             rating,
+            isBili,
             isMe: acc.username === currUser
         };
     });
@@ -6085,7 +6441,10 @@ async function renderLevelLeaderboard() {
                     </div>
                     <div>
                         <div style="font-weight:700; font-size:1rem; color:#0f172a;">我的当前排名</div>
-                        <div style="font-size:0.82rem; color:#64748b; margin-top:2px;">${escapeHtml(currUser)}</div>
+                        <div style="display:flex; align-items:center; gap:6px; font-size:0.82rem; color:#64748b; margin-top:2px;">
+                            <span>${escapeHtml(currUser)}</span>
+                            ${myData.isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
+                        </div>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -6138,6 +6497,7 @@ async function renderLevelLeaderboard() {
                     <div style="min-width:0; flex:1;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f172a;">${escapeHtml(u.username)}</span>
+                            ${u.isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
                             ${u.isMe ? `<span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 7px; border-radius:9999px; font-weight:700;">我</span>` : ''}
                         </div>
                     </div>
@@ -6171,14 +6531,7 @@ function renderWordleSevenDaysPicker() {
 
     container.innerHTML = days.map(item => {
         const isSelected = (item.dateStr === wordleLeaderboardDate);
-        return `
-            <button type="button" 
-                class="lb-day-circle-btn ${isSelected ? 'active' : ''}" 
-                onclick="selectWordleLeaderboardDate('${item.dateStr}')" 
-                title="${item.dateStr}${item.isToday ? ' (今日)' : ''}">
-                ${item.dayNumber}
-            </button>
-        `;
+        return `<button type="button" class="lb-day-circle-btn ${isSelected ? 'active' : ''}" onclick="selectWordleLeaderboardDate('${item.dateStr}')" title="${item.dateStr}${item.isToday ? ' (今日)' : ''}"><span class="lb-day-label">${item.isToday ? '今' : item.dayNumber}</span></button>`;
     }).join('');
 }
 
@@ -6493,6 +6846,12 @@ async function renderWordleLeaderboard() {
         let avatarSrc = r.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : '');
         if (avatarSrc && avatarSrc.startsWith('//')) avatarSrc = 'https:' + avatarSrc;
 
+        const isBili = Boolean(
+            r.isBili ||
+            cachedBiliUsernamesSet.has(r.username) ||
+            (r.username === currUser && typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili))
+        );
+
         return `
             <div class="lb-user-row ${r.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${r.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
                 <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
@@ -6506,6 +6865,7 @@ async function renderWordleLeaderboard() {
                     <div style="min-width:0; flex:1;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f172a;">${escapeHtml(r.username)}</span>
+                            ${isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
                             ${r.isMe ? `<span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 7px; border-radius:9999px; font-weight:700;">我</span>` : ''}
                         </div>
                     </div>
@@ -6900,7 +7260,7 @@ let riddleConfig = {
     selectedBooks: ["books/考纲/高考3500.json"],
     wordLength: 5,
     maxAttempts: 6,
-    letterCase: "upper",
+    letterCase: "lower",
     enableTimer: false
 };
 try {
@@ -6941,6 +7301,8 @@ function startDailyTimer() {
         if (t) t.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
         if (isDailyWordleMode && !riddleState.gameOver) {
             saveDailyWordleProgress();
+        } else if (!isDailyWordleMode && !riddleState.gameOver && riddleConfig.enableTimer) {
+            saveRiddleProgress();
         }
     }, 1000);
 }
@@ -7041,7 +7403,8 @@ function saveRiddleProgress() {
         revealedPositions: Array.from(riddleState.revealedPositions || []),
         pendingHint: riddleState.pendingHint,
         revealedMeaning: riddleState.revealedMeaning,
-        hintLevel: riddleState.hintLevel || 0
+        hintLevel: riddleState.hintLevel || 0,
+        elapsedSeconds: dailyWordleElapsedSeconds
     };
     localStorage.setItem(`riddle_progress_${currentUser}`, JSON.stringify(dataToSave));
     updateHubResumeButtons();
@@ -7058,14 +7421,13 @@ function confirmExitRiddle() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    const target = (window.previousView && window.previousView !== 'view-riddle') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView('view-hub');
 }
 
 function selectRiddleCase(letterCase) {
     riddleConfig.letterCase = letterCase;
-    localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
-    updateRiddleCaseUI();
+    updateRiddleSettingsChips();
+    updateRiddleSettingsFooterButtons();
 }
 
 function formatRiddleCase(str) {
@@ -7094,10 +7456,22 @@ function updateRiddleCaseUI() {
     }
 }
 
+let riddleInitialSettings = null;
+
 function openRiddleSettings() {
     folderTreeCollapseMap = {};
     const modal = document.getElementById('modal-riddle-settings');
     if (!modal) return;
+
+    // 记录打开弹窗时的初始设置快照，用于判断是否修改了核心题型参数，并在取消时准确还原
+    riddleInitialSettings = {
+        wordLength: riddleConfig.wordLength,
+        maxAttempts: riddleConfig.maxAttempts,
+        letterCase: riddleConfig.letterCase,
+        enableTimer: !!riddleConfig.enableTimer,
+        selectedBooks: [...(riddleConfig.selectedBooks || [])],
+        bookId: riddleConfig.bookId
+    };
 
     const lenGroup = document.getElementById('riddle-settings-group-len');
     const attGroup = document.getElementById('riddle-settings-group-att');
@@ -7110,12 +7484,133 @@ function openRiddleSettings() {
 
     renderRiddleBookChips();
     updateRiddleSettingsChips();
+    updateRiddleSettingsFooterButtons();
     modal.classList.add('active');
 }
 
-function closeRiddleSettings() {
+function isRiddleCoreSettingsChanged() {
+    return !isDailyWordleMode && riddleInitialSettings && (
+        riddleConfig.wordLength !== riddleInitialSettings.wordLength ||
+        riddleConfig.maxAttempts !== riddleInitialSettings.maxAttempts ||
+        riddleConfig.enableTimer !== riddleInitialSettings.enableTimer
+    );
+}
+
+function updateRiddleSettingsFooterButtons() {
+    const leftBtn = document.getElementById('btn-riddle-settings-left');
+    const rightBtn = document.getElementById('btn-riddle-settings-right');
+    if (!leftBtn || !rightBtn) return;
+
+    const hasCoreChanged = isRiddleCoreSettingsChanged();
+
+    if (hasCoreChanged) {
+        // 如果修改了单词长度、可尝试次数或计时器开关，将两个按钮改成“保存并重开”和“下一题生效”
+        leftBtn.className = 'btn btn-outlined btn-touch-large';
+        leftBtn.style.flex = '1';
+        leftBtn.style.background = '';
+        leftBtn.style.color = '';
+        leftBtn.onclick = handleRiddleLeftBtnClick;
+        leftBtn.innerHTML = `
+            <span class="material-symbols-rounded">replay</span>
+            <span class="btn-label-text">保存并重开</span>
+        `;
+
+        rightBtn.className = 'btn btn-filled btn-touch-large';
+        rightBtn.style.flex = '1';
+        rightBtn.style.background = '#6750A4';
+        rightBtn.style.color = '#ffffff';
+        rightBtn.onclick = handleRiddleRightBtnClick;
+        rightBtn.innerHTML = `
+            <span class="material-symbols-rounded">schedule</span>
+            <span class="btn-label-text">下一题生效</span>
+        `;
+    } else {
+        // 如果只是修改字母大小写（或未修改）：将下方两个按钮改成“取消”和“保存设置”
+        leftBtn.className = 'btn btn-outlined btn-touch-large';
+        leftBtn.style.flex = '1';
+        leftBtn.style.background = '';
+        leftBtn.style.color = '';
+        leftBtn.onclick = handleRiddleLeftBtnClick;
+        leftBtn.innerHTML = `
+            <span class="material-symbols-rounded">close</span>
+            <span class="btn-label-text">取消</span>
+        `;
+
+        rightBtn.className = 'btn btn-filled btn-touch-large';
+        rightBtn.style.flex = '1';
+        rightBtn.style.background = '#6750A4';
+        rightBtn.style.color = '#ffffff';
+        rightBtn.onclick = handleRiddleRightBtnClick;
+        rightBtn.innerHTML = `
+            <span class="material-symbols-rounded">check</span>
+            <span class="btn-label-text">保存设置</span>
+        `;
+    }
+}
+
+async function handleRiddleLeftBtnClick() {
+    const hasCoreChanged = isRiddleCoreSettingsChanged();
+
+    if (hasCoreChanged) {
+        // 点击“保存并重开”
+        localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+        riddleInitialSettings = null;
+        closeRiddleSettingsModalDirectly();
+        if (isDailyWordleMode) {
+            updateRiddleCaseUI();
+            showToast('设置已保存');
+        } else {
+            await startWordRiddleGame(true);
+            showToast('已重开题目并应用新设置');
+        }
+    } else {
+        // 点击“取消”
+        cancelRiddleSettings();
+    }
+}
+
+function handleRiddleRightBtnClick() {
+    const hasCoreChanged = isRiddleCoreSettingsChanged();
+
+    if (hasCoreChanged) {
+        // 点击“下一题生效”
+        localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+        updateRiddleCaseUI();
+        riddleInitialSettings = null;
+        closeRiddleSettingsModalDirectly();
+        showToast('设置已保存，将在下一题生效');
+    } else {
+        // 点击“保存设置” (此时只修改了大小写或无改动)
+        localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
+        updateRiddleCaseUI();
+        riddleInitialSettings = null;
+        closeRiddleSettingsModalDirectly();
+        showToast('设置已保存');
+    }
+}
+
+function cancelRiddleSettings() {
+    if (riddleInitialSettings) {
+        riddleConfig.wordLength = riddleInitialSettings.wordLength;
+        riddleConfig.maxAttempts = riddleInitialSettings.maxAttempts;
+        riddleConfig.letterCase = riddleInitialSettings.letterCase;
+        riddleConfig.enableTimer = riddleInitialSettings.enableTimer;
+        riddleConfig.selectedBooks = [...riddleInitialSettings.selectedBooks];
+        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
+        updateRiddleSettingsChips();
+        updateRiddleCaseUI();
+        riddleInitialSettings = null;
+    }
+    closeRiddleSettingsModalDirectly();
+}
+
+function closeRiddleSettingsModalDirectly() {
     const modal = document.getElementById('modal-riddle-settings');
     if (modal) modal.classList.remove('active');
+}
+
+function closeRiddleSettings() {
+    cancelRiddleSettings();
 }
 
 function toggleRiddleBook(bookId) {
@@ -7133,8 +7628,8 @@ function toggleRiddleBook(bookId) {
         riddleConfig.selectedBooks.push(bookId);
     }
     riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
-    localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
     renderRiddleBookChips();
+    updateRiddleSettingsFooterButtons();
 }
 
 async function renderRiddleBookChips() {
@@ -7179,16 +7674,19 @@ function updateRiddleSettingsChips() {
 function selectRiddleLength(len) {
     riddleConfig.wordLength = len;
     updateRiddleSettingsChips();
+    updateRiddleSettingsFooterButtons();
 }
 
 function selectRiddleAttempts(att) {
     riddleConfig.maxAttempts = att;
     updateRiddleSettingsChips();
+    updateRiddleSettingsFooterButtons();
 }
 
 function selectRiddleTimer(enabled) {
     riddleConfig.enableTimer = !!enabled;
     updateRiddleSettingsChips();
+    updateRiddleSettingsFooterButtons();
 }
 
 function recordNormalWordleHistory(isWon) {
@@ -7218,15 +7716,21 @@ function recordNormalWordleHistory(isWon) {
     }
 }
 
+let riddleHistoryPreviousView = 'view-riddle';
+
 function openNormalWordleHistoryModal() {
+    closeRiddleSettings();
+    riddleHistoryPreviousView = (typeof currentView !== 'undefined' && currentView) ? currentView : 'view-riddle';
     renderNormalWordleHistoryList();
-    const modal = document.getElementById('modal-riddle-history');
-    if (modal) modal.classList.add('active');
+    switchView('view-riddle-history');
+}
+
+function exitWordleHistoryView() {
+    switchView(riddleHistoryPreviousView || 'view-riddle');
 }
 
 function closeNormalWordleHistoryModal() {
-    const modal = document.getElementById('modal-riddle-history');
-    if (modal) modal.classList.remove('active');
+    exitWordleHistoryView();
 }
 
 function renderNormalWordleHistoryList() {
@@ -7243,8 +7747,7 @@ function renderNormalWordleHistoryList() {
         container.innerHTML = `
             <div style="text-align:center; padding:36px 16px; color:var(--md-sys-color-outline);">
                 <span class="material-symbols-rounded" style="font-size:44px; opacity:0.6; display:block; margin-bottom:8px;">history_toggle_off</span>
-                <p style="margin:0; font-size:0.92rem;">暂无普通模式猜词历史记录</p>
-                <p style="margin:4px 0 0; font-size:0.8rem;">完成猜词挑战后将在此记录尝试次数与用时</p>
+                <p style="margin:0; font-size:0.92rem;">暂无猜词历史记录</p>
             </div>
         `;
         return;
@@ -7294,32 +7797,17 @@ function clearNormalWordleHistory() {
 }
 
 function saveRiddleSettingsOnly() {
-    localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
-    updateRiddleCaseUI();
-    closeRiddleSettings();
-    showToast('设置已保存');
+    handleRiddleRightBtnClick();
 }
 
 async function saveAndStartRiddle() {
-    localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
-    closeRiddleSettings();
-    if (isDailyWordleMode) {
-        updateRiddleCaseUI();
-        showToast('设置已保存');
-    } else {
-        await startWordRiddleGame(true);
-    }
+    await handleRiddleLeftBtnClick();
 }
 
 async function startWordRiddleGame(forceNew = false) {
     isDailyWordleMode = false;
+    stopDailyTimer();
     dailyWordleElapsedSeconds = 0;
-    if (riddleConfig.enableTimer) {
-        startDailyTimer();
-    } else {
-        stopDailyTimer();
-    }
-    updateRiddleModeUI();
 
     if (forceNew) {
         resetAllGameAlertsAndFeedback();
@@ -7362,6 +7850,7 @@ async function startWordRiddleGame(forceNew = false) {
                             pendingHint: p.pendingHint || null,
                             revealedMeaning: p.revealedMeaning || false
                         };
+                        dailyWordleElapsedSeconds = (typeof p.elapsedSeconds === 'number' && !isNaN(p.elapsedSeconds)) ? Math.max(0, p.elapsedSeconds) : 0;
 
                         const topBookName = document.getElementById('riddle-top-book-name');
                         if (topBookName) topBookName.innerText = riddleState.bookName;
@@ -7375,6 +7864,15 @@ async function startWordRiddleGame(forceNew = false) {
                         renderRiddleKeyboard();
                         if (riddleState.hintLevel > 0) renderRiddleHintContent();
 
+                        const timerText = document.getElementById('riddle-daily-timer-text');
+                        if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
+                        if (riddleConfig.enableTimer) {
+                            startDailyTimer();
+                        } else {
+                            stopDailyTimer();
+                        }
+                        updateRiddleModeUI();
+
                         switchView('view-riddle');
                         return;
                     }
@@ -7384,6 +7882,19 @@ async function startWordRiddleGame(forceNew = false) {
     }
 
     let candidatePool = [];
+    if (typeof isWordleSupportedBook === 'function') {
+        const supported = (Array.isArray(riddleConfig.selectedBooks) ? riddleConfig.selectedBooks : []).filter(id => {
+            const b = (typeof BookManager !== 'undefined' && BookManager.getBookMeta) ? (BookManager.getBookMeta(id) || id) : id;
+            return isWordleSupportedBook(b);
+        });
+        if (supported.length > 0) {
+            riddleConfig.selectedBooks = supported;
+            riddleConfig.bookId = supported[0];
+        } else {
+            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            riddleConfig.bookId = 'books/考纲/高考3500.json';
+        }
+    }
     const selected = (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.length > 0)
         ? riddleConfig.selectedBooks
         : ['books/考纲/高考3500.json'];
@@ -7466,6 +7977,16 @@ async function startWordRiddleGame(forceNew = false) {
         pendingHint: null,
         revealedMeaning: false
     };
+
+    dailyWordleElapsedSeconds = 0;
+    const timerText = document.getElementById('riddle-daily-timer-text');
+    if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
+    if (riddleConfig.enableTimer) {
+        startDailyTimer();
+    } else {
+        stopDailyTimer();
+    }
+    updateRiddleModeUI();
 
     saveRiddleProgress();
 
@@ -7769,7 +8290,7 @@ async function startDailyWordleGame() {
 
 async function recordDailyWordleFinish(isWon) {
     const todayStr = (new Date()).toISOString().slice(0, 10);
-    const userKey = currentUser || 'guest';
+    const userKey = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username) || (typeof currentUser !== 'undefined' ? currentUser : '') || 'guest';
     const record = {
         date: todayStr,
         word: riddleState.targetWord,
@@ -7794,8 +8315,9 @@ async function recordDailyWordleFinish(isWon) {
         console.warn('Failed to save wordle history locally:', e);
     }
 
-    // 2. 同步到 Supabase 专用表 daily_wordle_records 与 user_accounts（仅限已登录用户）
-    if (userKey && !userKey.startsWith('游客') && typeof sbClient !== 'undefined' && sbClient) {
+    // 2. 同步到 Supabase 专用表 daily_wordle_records 与 user_accounts（仅限已登录真实用户）
+    const isGuest = !userKey || userKey === 'guest' || userKey.startsWith('游客');
+    if (!isGuest && typeof sbClient !== 'undefined' && sbClient) {
         try {
             await sbClient.from('daily_wordle_records').upsert({
                 date: todayStr,
@@ -8524,6 +9046,19 @@ async function giveUpRiddle() {
     }
 }
 
+window.handleRiddleLeftBtnClick = handleRiddleLeftBtnClick;
+window.handleRiddleRightBtnClick = handleRiddleRightBtnClick;
+window.cancelRiddleSettings = cancelRiddleSettings;
+window.closeRiddleSettings = closeRiddleSettings;
+window.openRiddleSettings = openRiddleSettings;
+window.saveAndStartRiddle = saveAndStartRiddle;
+window.saveRiddleSettingsOnly = saveRiddleSettingsOnly;
+window.selectRiddleCase = selectRiddleCase;
+window.selectRiddleLength = selectRiddleLength;
+window.selectRiddleAttempts = selectRiddleAttempts;
+window.selectRiddleTimer = selectRiddleTimer;
+
+
 
 /* --- End: views/riddle.js --- */
 
@@ -9018,6 +9553,8 @@ function saveSingleProgress() {
         currentIdx: singleState.currentIdx,
         score: singleState.score,
         total: singleState.total,
+        targetTotal: singleState.targetTotal,
+        completedWords: Array.from(singleState.completedWords || []),
         sessionName: singleState.sessionName,
         isReview: isRev,
         time: Date.now()
@@ -9044,6 +9581,8 @@ async function startSingleLearning() {
                         currentIdx: parsed.currentIdx,
                         score: parsed.score || 0,
                         total: parsed.total || 0,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        completedWords: new Set(parsed.completedWords || []),
                         sessionName: parsed.sessionName || '新词学习',
                         isReview: false,
                         answered: false,
@@ -9134,6 +9673,8 @@ function updateReviewPageActiveBookLabel() {
 
     if (currentReviewBookId === 'all') {
         titleEl.innerText = '全部词书';
+    } else if (currentReviewBookId === 'other_due') {
+        titleEl.innerText = '其他词汇';
     } else {
         const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
             ? BookManager.availableBooks
@@ -9163,7 +9704,8 @@ function renderReviewPageBookDropdown() {
     if (!menu) return;
 
     const booksWithDue = getBooksWithDueWords();
-    const totalDue = EbbinghausEngine.getDueWords().length;
+    const allDueWords = EbbinghausEngine.getDueWords();
+    const totalDue = allDueWords.length;
 
     let html = '';
 
@@ -9178,13 +9720,16 @@ function renderReviewPageBookDropdown() {
                 </div>
             `;
 
-    if (booksWithDue.length === 0) {
+    const matchedDueWords = new Set();
+    if (booksWithDue.length === 0 && totalDue === 0) {
         html += `<div style="padding:10px 12px; font-size:0.82rem; color:var(--md-sys-color-outline); text-align:center;">暂无待复习词书</div>`;
     } else {
         html += `<div style="height:1px; background:var(--md-sys-color-outline-variant, #e2e8f0); margin:4px 0;"></div>`;
         booksWithDue.forEach(b => {
             const isSelected = currentReviewBookId === b.id;
-            const dueCount = EbbinghausEngine.getDueWordsForBooks([b.id]).length;
+            const bDues = EbbinghausEngine.getDueWordsForBooks([b.id]);
+            bDues.forEach(d => matchedDueWords.add((d.word || '').trim().toLowerCase()));
+            const dueCount = bDues.length;
             const bName = escapeHtml(cleanBookName(b.rawName || b.name));
             html += `
                         <div class="md3-custom-select-option ${isSelected ? 'selected' : ''}" onclick="switchReviewBook('${escapeHtml(b.id)}')" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer;">
@@ -9196,6 +9741,20 @@ function renderReviewPageBookDropdown() {
                         </div>
                     `;
         });
+
+        const otherDueCount = allDueWords.filter(d => !matchedDueWords.has((d.word || '').trim().toLowerCase())).length;
+        if (otherDueCount > 0) {
+            const isOtherSelected = currentReviewBookId === 'other_due';
+            html += `
+                        <div class="md3-custom-select-option ${isOtherSelected ? 'selected' : ''}" onclick="switchReviewBook('other_due')" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; cursor:pointer;">
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <span class="material-symbols-rounded" style="font-size:16px; flex-shrink:0;">${isOtherSelected ? 'check' : 'auto_stories'}</span>
+                                <span style="font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">其他词汇</span>
+                            </div>
+                            <span style="font-size:0.78rem; font-weight:600; color:var(--md-sys-color-primary); margin-left:6px; flex-shrink:0;">${otherDueCount} 词</span>
+                        </div>
+                    `;
+        }
     }
 
     menu.innerHTML = html;
@@ -9225,6 +9784,8 @@ async function startSingleReview(specificBookId = null) {
                         currentIdx: parsed.currentIdx,
                         score: parsed.score || 0,
                         total: parsed.total || 0,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        completedWords: new Set(parsed.completedWords || []),
                         sessionName: parsed.sessionName || '智能复习',
                         isReview: true,
                         answered: false,
@@ -9249,7 +9810,11 @@ async function startSingleReview(specificBookId = null) {
 
         let targetBookIds = [];
         if (specificBookId && specificBookId !== 'all') {
-            targetBookIds = [specificBookId];
+            if (specificBookId === 'other_due') {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['GaoKao3500'];
+            } else {
+                targetBookIds = [specificBookId];
+            }
         } else {
             const booksWithDue = getBooksWithDueWords();
             if (booksWithDue.length > 0) {
@@ -9261,8 +9826,7 @@ async function startSingleReview(specificBookId = null) {
 
         let words = await BookManager.loadMultipleBooks(targetBookIds);
         if (!words || words.length === 0) {
-            showToast('未获取到词书词汇，请检查网络或选择词书！');
-            return;
+            words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
         }
 
         let wordMap = new Map();
@@ -9270,7 +9834,18 @@ async function startSingleReview(specificBookId = null) {
             if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
         });
 
-        let dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        let dueRecords = [];
+        if (specificBookId === 'other_due') {
+            const knownDueKeys = new Set();
+            getBooksWithDueWords().forEach(b => {
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add((d.word || '').trim().toLowerCase()));
+            });
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has((r.word || '').trim().toLowerCase()));
+        } else if (specificBookId && specificBookId !== 'all') {
+            dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        } else {
+            dueRecords = EbbinghausEngine.getDueWords();
+        }
         // 关键修复：排除本轮会话已复习过的词汇
         let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
 
@@ -9406,6 +9981,7 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     resetAllGameAlertsAndFeedback();
     gameMode = 'single';
     const isRev = defaultBookName.includes('复习');
+    const targetTot = new Set((pool || []).map(q => (q.word || '').trim().toLowerCase())).size || (pool ? pool.length : 1);
     singleState = {
         pool: pool,
         currentIdx: 0,
@@ -9413,6 +9989,8 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
         selectedIdx: -1,
         score: 0,
         total: 0,
+        targetTotal: targetTot,
+        completedWords: new Set(),
         sessionName: defaultBookName,
         isReview: isRev
     };
@@ -10265,6 +10843,32 @@ let singlePhraseState = {
     q: null
 };
 
+function updateSingleProgressDisplay() {
+    if (!singleState || !singleState.pool) return;
+    const progEl = document.getElementById('single-progress-text');
+    const progFillEl = document.getElementById('single-progress-fill');
+
+    const isImmediateRetest = (typeof singleConfig !== 'undefined' && singleConfig.immediateRetest !== false);
+    const targetTotal = singleState.targetTotal || new Set(singleState.pool.filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || singleState.pool.length;
+
+    let currentProgress = 0;
+    if (isImmediateRetest) {
+        // 开启即时复习时：当前进度按完整完成该词学习的单词数计算，答错题不增加进度和总题数
+        currentProgress = singleState.completedWords ? singleState.completedWords.size : 0;
+    } else {
+        currentProgress = Math.min(singleState.currentIdx + 1, targetTotal);
+    }
+
+    if (progEl) {
+        progEl.innerText = `${currentProgress} / ${targetTotal}`;
+    }
+    if (progFillEl) {
+        const pct = Math.min(100, Math.max(0, Math.round((currentProgress / targetTotal) * 100)));
+        progFillEl.style.width = `${pct}%`;
+    }
+}
+window.updateSingleProgressDisplay = updateSingleProgressDisplay;
+
 function renderSingleQuestion() {
     if (singlePhraseTimer) {
         clearTimeout(singlePhraseTimer);
@@ -10294,16 +10898,7 @@ function renderSingleQuestion() {
         updateReviewPageActiveBookLabel();
     }
 
-    const progEl = document.getElementById('single-progress-text');
-    if (progEl) {
-        progEl.innerText = `${singleState.currentIdx + 1} / ${singleState.pool.length}`;
-    }
-
-    const progFillEl = document.getElementById('single-progress-fill');
-    if (progFillEl) {
-        const correctCount = singleState.score || 0;
-        progFillEl.style.width = Math.round((correctCount / singleState.pool.length) * 100) + '%';
-    }
+    updateSingleProgressDisplay();
 
     const retestTag = document.getElementById('single-retest-tag');
     if (retestTag) {
@@ -10537,10 +11132,13 @@ function checkSinglePhraseAnswer() {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
-        const progFillEl = document.getElementById('single-progress-fill');
-        if (progFillEl) {
-            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        const wKey = (q.word || '').trim().toLowerCase();
+        const hasRemainingInPool = singleState.pool.slice(singleState.currentIdx + 1).some(item => (item.word || '').trim().toLowerCase() === wKey);
+        if (!hasRemainingInPool) {
+            if (!singleState.completedWords) singleState.completedWords = new Set();
+            singleState.completedWords.add(wKey);
         }
+        updateSingleProgressDisplay();
         q.isCorrect = true;
         q.wrongSlotIndices = [];
 
@@ -10602,8 +11200,11 @@ function checkSinglePhraseAnswer() {
             const uWord = chip ? chip.text : '';
             return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
+        const wKey = (q.word || '').trim().toLowerCase();
+        if (singleState.completedWords) singleState.completedWords.delete(wKey);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
+        updateSingleProgressDisplay();
 
         singlePhraseState.targetWords.forEach((tw, i) => {
             const slotEl = document.getElementById(`single-slot-${i}`);
@@ -10651,10 +11252,13 @@ function revealSingleAnswer() {
     q.skipped = true;
     q.answered = true;
 
+    const wKey = (q.word || '').trim().toLowerCase();
+    if (singleState.completedWords) singleState.completedWords.delete(wKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
     scheduleRetestForCurrentQuestion();
+    updateSingleProgressDisplay();
     const currentBookId = q.bookId || (typeof currentReviewBookId !== 'undefined' && currentReviewBookId !== 'all' ? currentReviewBookId : null);
     EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false, currentBookId);
     renderCardMasteryDiamonds(q.word, 'loss');
@@ -10762,9 +11366,11 @@ function handleSingleAnswer(idx) {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
-        const progFillEl = document.getElementById('single-progress-fill');
-        if (progFillEl) {
-            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        const wKey = (q.word || '').trim().toLowerCase();
+        const hasRemainingInPool = singleState.pool.slice(singleState.currentIdx + 1).some(item => (item.word || '').trim().toLowerCase() === wKey);
+        if (!hasRemainingInPool) {
+            if (!singleState.completedWords) singleState.completedWords = new Set();
+            singleState.completedWords.add(wKey);
         }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
             delete userStats.mistakes[q.word];
@@ -10775,11 +11381,14 @@ function handleSingleAnswer(idx) {
             DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
         }
     } else {
+        const wKey = (q.word || '').trim().toLowerCase();
+        if (singleState.completedWords) singleState.completedWords.delete(wKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
         renderCardMasteryDiamonds(q.word, 'loss');
     }
+    updateSingleProgressDisplay();
     saveCurrentUserData();
     saveSingleProgress();
     updateSingleCardToolbar(q); // 解禁发音按钮
@@ -11273,13 +11882,13 @@ function renderMeView() {
     const masteredSummaryEl = document.getElementById('settings-mastered-summary-text');
     if (masteredSummaryEl) {
         const mCount = getMasteredWords().length;
-        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
+        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词，练习中不再抽取`;
     }
 
     const mistakesSummaryEl = document.getElementById('settings-mistakes-summary-text');
     if (mistakesSummaryEl) {
         const mCount = Object.keys(userStats.mistakes || {}).length;
-        mistakesSummaryEl.innerText = `集中查看与复习做题过程中收录的错题（共 ${mCount} 词）`;
+        mistakesSummaryEl.innerText = `在对战和练习过程中收录的错题，共 ${mCount} 题`;
     }
 
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
@@ -11531,6 +12140,74 @@ async function confirmUpdatePassword() {
         alert(e.message || '修改密码失败');
     }
 }
+
+// ----------------- 删除 / 注销账号 -----------------
+function openDeleteAccountModal() {
+    const modal = document.getElementById('modal-delete-account');
+    if (!modal) return;
+    const nameEl = document.getElementById('delete-account-target-name');
+    if (nameEl) nameEl.innerText = currentUser || '';
+    const passRow = document.getElementById('delete-account-pass-row');
+    const isCloud = currentUserProfile && currentUserProfile.type === 'cloud';
+    if (passRow) passRow.style.display = isCloud ? 'block' : 'none';
+    const passInput = document.getElementById('input-delete-account-pass');
+    if (passInput) passInput.value = '';
+    modal.classList.add('active');
+}
+
+function closeDeleteAccountModal() {
+    const modal = document.getElementById('modal-delete-account');
+    if (modal) modal.classList.remove('active');
+}
+
+async function confirmDeleteAccount() {
+    const targetUser = currentUser;
+    if (!targetUser) return;
+    const isCloud = currentUserProfile && currentUserProfile.type === 'cloud';
+    let pass = '';
+    if (isCloud) {
+        const passInput = document.getElementById('input-delete-account-pass');
+        pass = passInput ? passInput.value.trim() : '';
+        if (!pass) {
+            showToast('请输入账号密码以验证身份');
+            return;
+        }
+    }
+
+    try {
+        if (isCloud && typeof supabaseDeleteAccount === 'function') {
+            await supabaseDeleteAccount(targetUser, pass);
+        } else if (currentUserProfile && currentUserProfile.type === 'bilibili' && typeof supabaseDeleteAccount === 'function') {
+            await supabaseDeleteAccount(targetUser, null);
+        }
+
+        // 本地清理
+        if (typeof removeSavedDeviceAccount === 'function') {
+            removeSavedDeviceAccount(targetUser);
+        }
+        allUsersList = (allUsersList || []).filter(u => u !== targetUser);
+        SafeStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+        SafeStorage.removeItem(`vocab_stats_${targetUser}`);
+        SafeStorage.removeItem(`vocab_user_avatar_${targetUser}`);
+        SafeStorage.removeItem('vocab_auth_session');
+        SafeStorage.removeItem('vocab_pk_user');
+        SafeStorage.removeItem('vocab_guest_name');
+
+        closeDeleteAccountModal();
+        showToast(`账号 “${targetUser}” 已成功删除`);
+        if (typeof handleLogout === 'function') {
+            handleLogout(false);
+        } else {
+            location.reload();
+        }
+    } catch (e) {
+        alert(e.message || '删除账号失败');
+    }
+}
+window.openDeleteAccountModal = openDeleteAccountModal;
+window.closeDeleteAccountModal = closeDeleteAccountModal;
+window.confirmDeleteAccount = confirmDeleteAccount;
+
 
 // ----------------- 词书选择“确定”按钮 -----------------
 function confirmSingleBookSelection() {
@@ -12039,6 +12716,7 @@ function renderRoomInvitePlayersList() {
             if (pUsername === currentUser) return;
             if (pres.sessionId && pres.sessionId === CLIENT_SESSION_ID) return;
             if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
+            if (pres.status === 'invisible' || pres.invisible === true) return;
             let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
             if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
             onlineUsers.push({
@@ -12051,7 +12729,7 @@ function renderRoomInvitePlayersList() {
         });
     }
 
-    const filtered = onlineUsers.filter(u => u.username !== currentUser);
+    const filtered = onlineUsers.filter(u => u.username !== currentUser && u.status !== 'invisible' && !u.invisible);
 
     if (filtered.length === 0) {
         container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); font-size:0.88rem;">当前暂无其他在线玩家</div>`;
@@ -13026,8 +13704,7 @@ function cleanUpAndBackToHub() {
         btnJoin.disabled = false;
         btnJoin.innerText = '加入房间';
     }
-    const target = (window.previousView && window.previousView !== 'view-online') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView('view-hub');
 }
 
 async function startOnlineGame() {
@@ -13138,13 +13815,21 @@ function renderArenaPlayersUI(myName, myAvatar, oppoName, oppoAvatar) {
     // 绑定对手头像（完全独立，不混淆）
     const oppoImg = document.getElementById('arena-oppo-avatar-img');
     const oppoIcon = document.getElementById('arena-oppo-avatar-icon');
-    if (oppoAvatar && oppoImg && oppoIcon) {
+    if (oppoAvatar === 'robot' || (oppoName && oppoName.includes('系统AI'))) {
+        if (oppoImg) oppoImg.style.display = 'none';
+        if (oppoIcon) {
+            oppoIcon.style.display = 'inline-flex';
+            oppoIcon.innerText = 'smart_toy';
+        }
+    } else if (oppoAvatar && oppoImg && oppoIcon) {
         oppoImg.src = oppoAvatar;
         oppoImg.style.display = 'block';
         oppoIcon.style.display = 'none';
+        oppoIcon.innerText = 'person';
     } else if (oppoImg && oppoIcon) {
         oppoImg.style.display = 'none';
         oppoIcon.style.display = 'inline-flex';
+        oppoIcon.innerText = 'person';
     }
 }
 
@@ -14383,14 +15068,19 @@ function renderResult() {
         if (btnResultHub) btnResultHub.innerText = '返回主页';
 
         const aiRank = (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1;
+        const myAvatar = (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : '');
+        const myAvatarHtml = myAvatar ? `<img src="${escapeHtml(myAvatar)}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">` : `<div style="width:44px; height:44px; border-radius:50%; background:var(--p1-sys-color, #ba1a1a); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">person</span></div>`;
+        const aiAvatarHtml = `<div style="width:44px; height:44px; border-radius:50%; background:var(--p2-sys-color, #006874); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:26px;">smart_toy</span></div>`;
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
-                    <div>
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser} (我方)</div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                        ${myAvatarHtml}
+                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
-                    <div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                        ${aiAvatarHtml}
                         <div style="font-weight:700; color:var(--p2-sys-color);">系统AI (${aiRank}段)</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
                     </div>
@@ -14416,7 +15106,7 @@ function renderResult() {
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div>
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser} (我方)</div>
+                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
                         <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                     </div>
                     <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
@@ -14478,16 +15168,28 @@ async function applyForfeitPenalty() {
     if (LevelManager.isGuestUser(currentUser)) return;
 
     const isAi = (gameMode === 'ai_duel');
-    // 人机对战中途退出按用户要求扣除等级分；多人联机按排位模式结算
-    const isRanked = isAi ? true : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : true);
+
+    // 人机对战：看 aiDuelConfig.matchType；多人联机：看 roomConfig.matchType
+    // 默认 false —— 只有明确处于排位模式才扣分，友谊赛绝不扣分
+    const isRanked = isAi
+        ? (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType
+            ? aiDuelConfig.matchType === 'ranked'
+            : false)
+        : (typeof roomConfig !== 'undefined' && roomConfig.matchType
+            ? roomConfig.matchType === 'ranked'
+            : false);
 
     if (!isRanked) return;
 
     const myRankData = LevelManager.getUserRankData(currentUser);
-    const oppoRank = isAi 
-        ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1)
+
+    const oppoRank = isAi
+        ? (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank ? aiDuelConfig.aiRank : 1)
         : (currentMatchOppoRank || 1);
-    const oppoRating = isAi ? ((oppoRank - 1) * 100 + 50) : (currentMatchOppoRating !== undefined ? currentMatchOppoRating : 50);
+
+    const oppoRating = isAi
+        ? ((oppoRank - 1) * 100 + 50)
+        : (typeof currentMatchOppoRating !== 'undefined' ? currentMatchOppoRating : 50);
 
     const matchResult = LevelManager.calculateMatchResult({
         isRanked: true,
@@ -14512,32 +15214,55 @@ async function applyForfeitPenalty() {
     }
 
     if (!isAi && realtimeChannel) {
-        safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出了对战，你获得了胜利！' });
+        safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出对战，恭喜胜利！' });
     }
 }
 window.applyForfeitPenalty = applyForfeitPenalty;
 
 async function confirmExitGame() {
     if (isPlayingMatch) {
+        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const isAi = (gameMode === 'ai_duel');
+        const isRanked = isAi 
+            ? ((typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType) ? aiDuelConfig.matchType === 'ranked' : false)
+            : ((typeof roomConfig !== 'undefined' && roomConfig.matchType) ? roomConfig.matchType === 'ranked' : false);
+        const willDeductPoints = !isGuest && isRanked;
+
         let ok = true;
         if (typeof showConfirmModal === 'function') {
             ok = await showConfirmModal({
-                title: '退出对决确认',
-                message: '对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？',
+                title: '退出对决',
+                message: '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？',
                 confirmText: '退出并扣分',
+                title: willDeductPoints ? '退出对决' : '退出对战',
+                message: willDeductPoints
+                    ? '对局正在进行中，中途退出将受到扣分惩罚，确定要退出吗？'
+                    : (isGuest 
+                        ? '对局正在进行中，确定要退出吗？'
+                        : '对局正在进行中，确定要退出吗？'),
+                confirmText: willDeductPoints ? '退出并扣分' : '退出对战',
                 cancelText: '继续对战',
                 isDanger: true,
+                isDanger: willDeductPoints,
                 icon: 'logout'
             });
         } else {
             try {
-                ok = window.confirm('对战正在进行中，中途退出将按战败处理并受到扣分惩罚，确定退出吗？');
+                ok = window.confirm('正在对战中，中途退出将受到扣分惩罚，确定要退出吗？');
+                ok = window.confirm(willDeductPoints
+                    ? '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？'
+                    : '对局正在进行中，确定要退出吗？');
             } catch (e) {
                 ok = true;
             }
         }
         if (!ok) return;
         await applyForfeitPenalty();
+        if (willDeductPoints) {
+            await applyForfeitPenalty();
+        } else if (!isAi && realtimeChannel) {
+            safeBroadcast(realtimeChannel, 'game_over', { msg: '🎉 对方中途退出对战，恭喜胜利！' });
+        }
     }
 
     clearInterval(gameTimer);
@@ -14615,7 +15340,20 @@ async function cleanAccountSwitchPresence(oldUser, newUser) {
 window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
 async function updateMyLobbyPresence() {
-    if (!globalLobbyChannel || !currentUser) return;
+    if (!currentUser) return;
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    if (myPresenceStatus === 'invisible') {
+        if (globalLobbyChannel) {
+            try {
+                await globalLobbyChannel.untrack();
+            } catch (e) { }
+        }
+        if (sbClient) {
+            sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+        }
+        return;
+    }
+    if (!globalLobbyChannel) return;
     let myRank = 1;
     let myRating = 0;
     if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
@@ -14624,8 +15362,7 @@ async function updateMyLobbyPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-    const status = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+    const status = isPlayingMatch ? 'playing' : 'idle';
     try {
         await globalLobbyChannel.track({
             username: currentUser,
@@ -14652,23 +15389,27 @@ function initGlobalPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-    const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
 
     if (globalLobbyChannel) {
         if (globalLobbyChannel.state === 'joined' && lobbyCurrentChannelUser === currentUser) {
             try {
-                globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
+                if (myPresenceStatus === 'invisible') {
+                    globalLobbyChannel.untrack();
+                } else {
+                    globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
+                }
             } catch (e) { }
             return;
         } else {
@@ -14734,17 +15475,19 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
-                await globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
+                if (myPresenceStatus !== 'invisible') {
+                    await globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
+                }
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -14752,13 +15495,18 @@ function initGlobalPresence() {
                     return;
                 }
                 console.warn('[Presence] Lobby channel disconnected, status:', status, 'scheduling reconnect...');
-                try {
-                    if (globalLobbyChannel) sbClient.removeChannel(globalLobbyChannel);
-                } catch (e) { }
+                const chanToRemove = globalLobbyChannel;
                 globalLobbyChannel = null;
+                intentionalLobbyClose = true;
+                if (chanToRemove) {
+                    try {
+                        sbClient.removeChannel(chanToRemove);
+                    } catch (e) { }
+                }
                 if (!lobbyReconnectTimer) {
                     lobbyReconnectTimer = setTimeout(() => {
                         lobbyReconnectTimer = null;
+                        intentionalLobbyClose = false;
                         initGlobalPresence();
                     }, 3000);
                 }
@@ -14773,30 +15521,34 @@ function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
         if (!currentUser) return;
-        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连）
+        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连，隐身状态保持 untrack）
+        const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
-                let myRank = 1;
-                let myRating = 0;
-                if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
-                    const rd = LevelManager.getUserRankData(currentUser);
-                    myRank = rd.rank;
-                    myRating = rd.rating;
+                if (myPresenceStatus === 'invisible') {
+                    globalLobbyChannel.untrack();
+                } else {
+                    let myRank = 1;
+                    let myRating = 0;
+                    if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
+                        const rd = LevelManager.getUserRankData(currentUser);
+                        myRank = rd.rank;
+                        myRating = rd.rating;
+                    }
+                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
+                    globalLobbyChannel.track({
+                        username: currentUser,
+                        sessionId: CLIENT_SESSION_ID,
+                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                        level: myRank,
+                        rank: myRank,
+                        rating: myRating,
+                        isBili: isBili,
+                        status: initialStatus,
+                        joinedAt: Date.now()
+                    });
                 }
-                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-                const initialStatus = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
-                globalLobbyChannel.track({
-                    username: currentUser,
-                    sessionId: CLIENT_SESSION_ID,
-                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                    level: myRank,
-                    rank: myRank,
-                    rating: myRating,
-                    isBili: isBili,
-                    status: initialStatus,
-                    joinedAt: Date.now()
-                });
             } catch (e) { }
         } else if (!isConnectingLobby) {
             // 兜底：任何非 joined 状态（包括 leaving、joining 卡死等）均重连
@@ -14811,40 +15563,43 @@ function startPresenceHeartbeat() {
             initGlobalPresence();
         }
 
-        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（包括游客与已登录用户）
+        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（隐身状态彻底移除信标）
         try {
             if (sbClient && currentUser) {
-                const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : 'online';
-                const statusVal = isPlayingMatch ? 'playing' : (myPresenceStatus === 'invisible' ? 'invisible' : 'idle');
-                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                if (myPresenceStatus === 'invisible') {
+                    sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+                } else {
+                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                    const statusVal = isPlayingMatch ? 'playing' : 'idle';
+                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
 
-                // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                sbClient.from('rooms').upsert({
-                    code: `ONL_${getUserRoomCode(currentUser)}`,
-                    name: currentUser,
-                    host: currentUser,
-                    capacity: 2,
-                    player_count: 1,
-                    status: statusVal,
-                    is_temporary: true,
-                    config: {
-                        avatar: myAvatar,
-                        rank: myRankData.rank,
-                        rating: myRankData.rating,
-                        isBili: isBili,
+                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                    sbClient.from('rooms').upsert({
+                        code: `ONL_${getUserRoomCode(currentUser)}`,
+                        name: currentUser,
+                        host: currentUser,
+                        capacity: 2,
+                        player_count: 1,
                         status: statusVal,
-                        clientSession: CLIENT_SESSION_ID
-                    },
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                // 2.2 登录用户额外更新 user_accounts 活跃时间戳
-                if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                    sbClient.from('user_accounts').update({
+                        is_temporary: true,
+                        config: {
+                            avatar: myAvatar,
+                            rank: myRankData.rank,
+                            rating: myRankData.rating,
+                            isBili: isBili,
+                            status: statusVal,
+                            clientSession: CLIENT_SESSION_ID
+                        },
                         updated_at: new Date().toISOString()
-                    }).eq('username', currentUser).then(() => { }).catch(() => { });
+                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳
+                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                        sbClient.from('user_accounts').update({
+                            updated_at: new Date().toISOString()
+                        }).eq('username', currentUser).then(() => { }).catch(() => { });
+                    }
                 }
             }
         } catch (e) { }
@@ -14908,9 +15663,10 @@ async function fetchRestOnlineUsers() {
         if (Array.isArray(beaconRooms)) {
             beaconRooms.forEach(br => {
                 const uName = br.host || br.name;
+                const cfg = br.config || {};
+                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) return;
                 if (uName && !seen.has(uName)) {
                     seen.add(uName);
-                    const cfg = br.config || {};
                     results.push({
                         username: uName,
                         avatar_url: cfg.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : ''),
@@ -14936,6 +15692,8 @@ async function fetchRestOnlineUsers() {
 
         if (Array.isArray(accounts)) {
             accounts.forEach(acc => {
+                const uData = acc.user_data || {};
+                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) return;
                 if (acc.username && !seen.has(acc.username)) {
                     seen.add(acc.username);
                     results.push(acc);
@@ -15001,6 +15759,8 @@ async function syncGlobalPresenceState() {
             if (!uName || uName === currentUser) return;
             if (recentlySwitchedAccounts.has(uName)) return;
             if (isLogged && savedGuestName && uName === savedGuestName) return;
+            const uData = ru.user_data || {};
+            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) return;
             if (!onlineUsersMap.has(uName)) {
                 let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
                 if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -15186,7 +15946,18 @@ function openCreateMatchInviteModal(targetUser) {
             const bookSummary = getBookNamesSummary(activeInviteRules.selectedBooks);
             const modeTxt = activeInviteRules.matchType === 'friendly' ? '友谊赛' : '排位赛';
             const ruleTxt = activeInviteRules.mode === 'timed' ? `限时: ${Math.round((activeInviteRules.duration || 120) / 60)} 分钟` : `领先: ${activeInviteRules.winLead || 6} 题`;
-            presetSummaryEl.innerText = `${modeTxt} | ${ruleTxt} | 仪表盘: ${gaugeName} | 词书: ${bookSummary}`;
+
+            const elMode = document.getElementById('create-invite-summary-mode');
+            const elRule = document.getElementById('create-invite-summary-rule');
+            const elGauge = document.getElementById('create-invite-summary-gauge');
+            const elBook = document.getElementById('create-invite-summary-book');
+            if (elMode) elMode.innerText = modeTxt;
+            if (elRule) elRule.innerText = ruleTxt;
+            if (elGauge) elGauge.innerText = gaugeName;
+            if (elBook) {
+                elBook.innerText = bookSummary;
+                elBook.title = bookSummary;
+            }
         }
         if (rulesEditor) rulesEditor.style.display = 'none';
         const toggleBtnText = document.getElementById('text-toggle-invite-rules');
@@ -15453,6 +16224,21 @@ async function confirmAndSendMatchInvite() {
 
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+    if (myPresenceStatus === 'invisible') {
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isInvisible: true
+            });
+        }
+        if (payload.roomCode && sbClient) {
+            sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
+        }
+        return;
+    }
     currentIncomingInvite = payload;
 
     const modal = document.getElementById('modal-match-invite');
@@ -15598,7 +16384,10 @@ function handleMatchInviteResponse(payload) {
         connectSupabaseChannel(roomCode);
         switchView('view-online');
     } else {
-        showToast(`玩家【${payload.from}】${payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'}`);
+        const reason = payload.isInvisible
+            ? '当前处于隐身状态，已自动拒绝对决'
+            : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请');
+        showToast(`玩家【${payload.from}】${reason}`);
         if (payload.roomCode && payload.roomCode !== getUserRoomCode(currentUser)) {
             sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
         }
@@ -16338,7 +17127,7 @@ async function startAiDuel() {
 
     const aiTitle = `系统AI (${aiDuelConfig.aiRank || 1}段)`;
     if (typeof renderArenaPlayersUI === 'function') {
-        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, '');
+        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, 'robot');
     } else {
         const myBadge = document.getElementById('arena-my-badge');
         const oppoBadge = document.getElementById('arena-oppo-badge');
@@ -16587,9 +17376,9 @@ async function renderMistakesList() {
 
     // 动态刷新顶部 Tab 数量提示
     const tabEn = document.getElementById('tab-mistakes-english');
-    if (tabEn) tabEn.innerText = `【英语错题】(${englishKeys.length})`;
+    if (tabEn) tabEn.innerText = `英语错题(${englishKeys.length})`;
     const tabShici = document.getElementById('tab-mistakes-shici');
-    if (tabShici) tabShici.innerText = `【实词错题】(${shiciKeys.length})`;
+    if (tabShici) tabShici.innerText = `实词错题(${shiciKeys.length})`;
 
     if (currentMistakesCategory === 'english') {
         if (englishKeys.length === 0) {
@@ -16820,22 +17609,33 @@ function renderLocalDuelOpponents() {
     if (!container) return;
 
     const myName = currentUser || '红方';
-    const otherUsers = (allUsersList || []).filter(u => u && u !== myName);
-    const candidates = ['挑战者', ...otherUsers];
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let validAccounts = [];
+    if (typeof getSavedDeviceAccounts === 'function') {
+        const accounts = getSavedDeviceAccounts();
+        validAccounts = accounts
+            .filter(a => a && a.username && a.username !== myName && (now - (a.lastLoginTime || 0) <= SEVEN_DAYS_MS))
+            .map(a => a.username);
+    }
 
-    if (!localDuelConfig.opponentName || localDuelConfig.opponentName === myName) {
+    let candidates = Array.from(new Set(validAccounts));
+    if (candidates.length === 0) {
+        candidates = ['挑战者'];
+    }
+
+    if (!localDuelConfig.opponentName || localDuelConfig.opponentName === myName || !candidates.includes(localDuelConfig.opponentName)) {
         localDuelConfig.opponentName = candidates[0];
-    } else if (!candidates.includes(localDuelConfig.opponentName)) {
-        candidates.push(localDuelConfig.opponentName);
     }
 
     container.innerHTML = candidates.map(name => {
         const isSelected = (localDuelConfig.opponentName === name);
+        const safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
         return `
                 <div class="md3-chip ${isSelected ? 'selected' : ''}" 
-                     data-opp="${name}" 
-                     onclick="selectLocalDuelOpponent('${name}')">
-                    ${isSelected ? '✓ ' : ''} ${name}
+                     data-opp="${safeName}" 
+                     onclick="selectLocalDuelOpponent('${safeName}')">
+                    ${isSelected ? '✓ ' : ''} ${safeName}
                 </div>
             `;
     }).join('');
@@ -20232,6 +21032,7 @@ function handleNavClick(dest) {
         switchView('view-hub');
     }
 }
+if (typeof window !== 'undefined') window.handleNavClick = handleNavClick;
 
 function openMeSubview(subviewKey) {
     const viewMe = document.getElementById('view-me');
@@ -20304,14 +21105,17 @@ function setPageMaxWidth(width) {
 }
 
 function setAppZoom(zoom) {
-    const allowed = ['0.9', '1', '1.1', '1.2'];
-    const val = allowed.includes(zoom) ? zoom : '1';
+    let num = parseFloat(zoom);
+    if (isNaN(num) || num < 0.7 || num > 1.5) num = 1;
+    const val = String(Math.round(num * 100) / 100);
     document.documentElement.style.setProperty('--app-zoom', val);
     document.body.style.zoom = val;
     localStorage.setItem('app_zoom', val);
-    document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(c => {
-        c.classList.toggle('selected', c.getAttribute('data-zoom') === val);
-    });
+
+    const slider = document.getElementById('slider-app-zoom');
+    if (slider && slider.value !== val) slider.value = val;
+    const valText = document.getElementById('app-zoom-val-text');
+    if (valText) valText.innerText = `${Math.round(num * 100)}%`;
 }
 
 function initDisplaySettings() {
@@ -20322,6 +21126,7 @@ function initDisplaySettings() {
     document.documentElement.style.setProperty('--app-zoom', savedZoom);
     document.body.style.zoom = savedZoom;
 }
+if (typeof window !== 'undefined') window.initDisplaySettings = initDisplaySettings;
 
 function switchSettingsSubview(subviewKey) {
     const meSubviews = ['books', 'words', 'mastered', 'trash'];
@@ -20425,9 +21230,10 @@ function renderSettingsMain() {
     });
 
     const savedZoom = localStorage.getItem('app_zoom') || '1';
-    document.querySelectorAll('#chips-app-zoom .md3-chip').forEach(chip => {
-        chip.classList.toggle('selected', chip.getAttribute('data-zoom') === savedZoom);
-    });
+    const slider = document.getElementById('slider-app-zoom');
+    if (slider) slider.value = savedZoom;
+    const valText = document.getElementById('app-zoom-val-text');
+    if (valText) valText.innerText = `${Math.round(parseFloat(savedZoom) * 100)}%`;
 
     const kbEnabled = localStorage.getItem('dictation_virtual_keyboard_enabled') !== 'false';
     document.querySelectorAll('#chips-settings-dictation-kb .md3-chip').forEach(chip => {
@@ -20444,7 +21250,7 @@ function renderSettingsMain() {
     const masteredSummaryEl = document.getElementById('settings-mastered-summary-text');
     if (masteredSummaryEl) {
         const mCount = getMasteredWords().length;
-        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
+        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词，练习中不再抽取`;
     }
 
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
@@ -21604,10 +22410,10 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-const APP_VERSION = '2.4.9';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.10';
 const APP_CHANGELOG = [
     {
-        version: 'v2.4.9',
+        version: 'v2.4.10',
         date: '2026-09-30',
         badge: '当前版本',
         items: [
@@ -21908,9 +22714,19 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const isCurrent = semverCompare(version, APP_VERSION) === 0;
-                    const isNewer = semverCompare(version, APP_VERSION) > 0;
-                    const badge = isCurrent ? '当前版本' : (isNewer ? '最新版本' : '历史版本');
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.4.10'));
+                    const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
+                    const cmp = compareFn ? compareFn(version, currentVer) : 0;
+                    const isCurrent = cmp === 0;
+                    const isNewer = cmp > 0;
+                    let badge = '历史版本';
+                    if (isCurrent) {
+                        badge = '当前版本';
+                    } else if (isNewer) {
+                        badge = '最新版本';
+                    } else if (idx === 0) {
+                        badge = '云端最新';
+                    }
                     const date = (rel.published_at || '').substring(0, 10);
                     const rawBody = (rel.body || '').trim() || '查看 GitHub Release 获取完整详情';
                     return {
@@ -21920,7 +22736,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
                         rawBody,
                         items: [rawBody],
                         htmlUrl: rel.html_url,
-                        isHighlight: isCurrent || isNewer
+                        isHighlight: isCurrent || isNewer || idx === 0
                     };
                 });
             }
@@ -23522,7 +24338,21 @@ function searchLocalBooks(query) {
 
     allTargetBooks.forEach(b => {
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-        const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
+        const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+        let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
+        if (!words && b.path && BookManager.bookCache) words = BookManager.bookCache[b.path];
+        if (!words && BookManager.bookCache) {
+            const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+            if (aliasKey) words = BookManager.bookCache[aliasKey];
+        }
+        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        }
+        if (!words && b.id && typeof BookManager !== 'undefined' && typeof BookManager.loadBookData === 'function' && !b._isPreloading) {
+            b._isPreloading = true;
+            BookManager.loadBookData(b.id).catch(() => {});
+        }
+        words = words || [];
         words.forEach(w => {
             if (!w) return;
             const wordRaw = (w.word || w.name || '').trim();
@@ -23574,7 +24404,17 @@ function findPhrasesContainingWord(searchWord) {
 
     allTargetBooks.forEach(b => {
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-        const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
+        const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+        let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
+        if (!words && b.path && BookManager.bookCache) words = BookManager.bookCache[b.path];
+        if (!words && BookManager.bookCache) {
+            const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
+            if (aliasKey) words = BookManager.bookCache[aliasKey];
+        }
+        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        }
+        words = words || [];
         words.forEach(w => {
             if (!w) return;
             const wName = (w.word || w.name || '').trim();
@@ -24823,56 +25663,75 @@ async function confirmEditMeaning() {
    ========================================================================== */
 async function bootstrapApp() {
     initDisplaySettings();
-    if (typeof renderAuthUsersList === 'function') {
-        renderAuthUsersList();
-    }
-    checkCloudVersion(false);
-    checkFirstOpenWelcome();
-    checkIosSafariPwa();
-    checkLocalIconFontAvailability();
-    initGlobalVirtualKeyboard();
 
-    // 检查 Toy 云端是否有持久化游客身份或统计数据（防止苹果手机/Iframe环境刷新重置游客编号）
-    const isToyContainer = typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
-    if (isToyContainer) {
+    // 1. 首先初始化并等待 IndexedDB 本地数据库恢复所有离线 KV 数据 (解决 PWA/Toy 添加到主屏幕数据重置)
+    if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.init === 'function') {
         try {
-            const fetchPromise = window.toy.getCloudStorage(['guest_id', 'toy_stats']);
-            if (fetchPromise && typeof fetchPromise.catch === 'function') fetchPromise.catch(() => { });
-            const tData = await fetchPromise;
-            if (tData && tData.guest_id && /^游客_\d{4}$/.test(tData.guest_id)) {
-                window.__cachedToyGuestId = tData.guest_id;
-                SafeStorage.setItem('vocab_guest_name', tData.guest_id);
-                if (typeof setCookie === 'function') setCookie('vocab_guest_name', tData.guest_id, 365);
-                if (currentUserProfile && currentUserProfile.type === 'guest') {
-                    currentUserProfile.username = tData.guest_id;
+            await VocabOfflineDB.init();
+        } catch (e) { }
+    }
+
+    // 2. 检查 Toy 云端是否有持久化账号、登录态、游客身份或统计数据（保障添加到主屏幕及独立窗口持久化）
+    const hasToyApi = typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function';
+    if (hasToyApi) {
+        try {
+            const fetchPromise = window.toy.getCloudStorage(['guest_id', 'auth_session', 'device_accounts', 'current_user', 'toy_stats', 'vocab_auth_session', 'vocab_device_accounts', 'vocab_pk_user', 'vocab_guest_name']);
+            const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1200));
+            const tData = await Promise.race([fetchPromise, timeoutPromise]);
+            if (tData) {
+                const rawAuth = tData.auth_session || tData.vocab_auth_session;
+                if (rawAuth) {
+                    const sStr = typeof rawAuth === 'string' ? rawAuth : JSON.stringify(rawAuth);
+                    SafeStorage.setItem('vocab_auth_session', sStr);
                 }
-            }
-            if (tData && tData.toy_stats) {
-                try {
-                    const p = typeof tData.toy_stats === 'string' ? JSON.parse(tData.toy_stats) : tData.toy_stats;
-                    const gid = (tData && tData.guest_id) || SafeStorage.getItem('vocab_guest_name');
-                    if (gid && !SafeStorage.getItem(`vocab_stats_${gid}`)) {
-                        SafeStorage.setItem(`vocab_stats_${gid}`, JSON.stringify({ total: p.t || 0, correct: p.c || 0, mistakes: {} }));
-                    }
-                } catch (e) { }
+                const rawAccounts = tData.device_accounts || tData.vocab_device_accounts;
+                if (rawAccounts) {
+                    const aStr = typeof rawAccounts === 'string' ? rawAccounts : JSON.stringify(rawAccounts);
+                    SafeStorage.setItem('vocab_device_accounts', aStr);
+                }
+                const rawUser = tData.current_user || tData.vocab_pk_user;
+                if (rawUser && !String(rawUser).startsWith('游客')) {
+                    SafeStorage.setItem('vocab_pk_user', String(rawUser));
+                }
+                const gid = tData.guest_id || tData.vocab_guest_name;
+                if (gid && /^游客_\d{4,}$/.test(gid)) {
+                    window.__cachedToyGuestId = gid;
+                    SafeStorage.setItem('vocab_guest_name', gid);
+                    if (typeof setCookie === 'function') setCookie('vocab_guest_name', gid, 365);
+                }
+                if (tData.toy_stats) {
+                    try {
+                        const p = typeof tData.toy_stats === 'string' ? JSON.parse(tData.toy_stats) : tData.toy_stats;
+                        const statGid = gid || SafeStorage.getItem('vocab_guest_name');
+                        if (statGid && !SafeStorage.getItem(`vocab_stats_${statGid}`)) {
+                            SafeStorage.setItem(`vocab_stats_${statGid}`, JSON.stringify({ total: p.t || 0, correct: p.c || 0, mistakes: {} }));
+                        }
+                    } catch (e) { }
+                }
             }
         } catch (e) { }
     }
 
-    const isLocalStartup = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocalStartup && typeof BookManager !== 'undefined' && typeof BookManager.fetchBookList === 'function') {
-        BookManager.fetchBookList(true);
+    // 3. 从已恢复的存储中刷新当前登录用户 Profile 与设备账号列表
+    if (typeof refreshCurrentUserProfileFromStorage === 'function') {
+        refreshCurrentUserProfileFromStorage();
+    }
+    if (typeof renderAuthUsersList === 'function') {
+        renderAuthUsersList();
+    }
+    if (typeof renderSavedDeviceAccounts === 'function') {
+        renderSavedDeviceAccounts();
     }
 
-    if (typeof updatePronunciationSettingsChips === 'function') {
-        updatePronunciationSettingsChips();
-    }
-
+    // 4. 加载当前用户数据
     if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username) {
         loadUserData(currentUserProfile.username, currentUserProfile);
         if (currentUserProfile.type === 'cloud' && typeof supabaseFetchUserData === 'function') {
             supabaseFetchUserData(currentUserProfile.username).then(user => {
                 if (user) {
+                    if (typeof restoreUserDataFromCloud === 'function') {
+                        restoreUserDataFromCloud(user);
+                    }
                     if (user.user_data && user.user_data.stats) {
                         try {
                             SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
@@ -24891,7 +25750,26 @@ async function bootstrapApp() {
     } else {
         loadUserData((currentUserProfile && currentUserProfile.username) || (typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客'));
     }
-    switchView('view-hub');
+
+    // 5. 首次且唯一一次切换到主页，避免异步任务完成后再次 switchView 导致页面闪烁重置
+    if (typeof switchView === 'function') {
+        switchView('view-hub');
+    }
+
+    if (typeof updatePronunciationSettingsChips === 'function') {
+        updatePronunciationSettingsChips();
+    }
+
+    // 6. 后台异步执行其他初始化任务（不阻塞主线程，不触发 switchView）
+    checkCloudVersion(false);
+    checkFirstOpenWelcome();
+    checkIosSafariPwa();
+    checkLocalIconFontAvailability();
+    initGlobalVirtualKeyboard();
+
+    if (typeof BookManager !== 'undefined' && typeof BookManager.init === 'function') {
+        BookManager.init().catch(e => console.warn('[BookManager] init error:', e));
+    }
 }
 
 if (document.readyState === 'loading') {

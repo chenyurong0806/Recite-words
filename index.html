@@ -98,7 +98,7 @@
     <script src="./assets/js/app.js"></script>
 </head>
 
-<body>
+<body class="has-nav">
     <!-- Google MD3 左侧导航栏 (桌面端) -->
     <nav id="app-nav-rail" class="md3-nav-rail">
         <div class="md3-nav-rail-menu">
@@ -347,8 +347,35 @@
                             <span id="text-toggle-invite-rules">修改规则</span>
                         </button>
                     </div>
-                    <div style="background:var(--md-sys-color-surface-container-low); padding:10px 12px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant); font-size:0.84rem; line-height:1.6;" id="create-invite-preset-summary">
-                        限时: 1 分钟 | 胜出: 领先 6 题 | 仪表盘: 拔河 | 词书: 高考3500
+                    <div id="create-invite-preset-summary" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:var(--md-sys-color-surface-container-low); padding:12px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">sports_esports</span>
+                            <div style="min-width:0;">
+                                <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">对战模式</div>
+                                <div id="create-invite-summary-mode" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">排位赛</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">emoji_events</span>
+                            <div style="min-width:0;">
+                                <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">胜出规则</div>
+                                <div id="create-invite-summary-rule" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">领先 6 题</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">speed</span>
+                            <div style="min-width:0;">
+                                <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">仪表盘样式</div>
+                                <div id="create-invite-summary-gauge" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">拔河</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">menu_book</span>
+                            <div style="min-width:0;">
+                                <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">对决词书</div>
+                                <div id="create-invite-summary-book" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">高考3500</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -604,7 +631,7 @@
         </div>
 
         <!-- VIEW 2: 学习对战大厅 -->
-        <div id="view-hub" class="view">
+        <div id="view-hub" class="view active">
             <div class="app-bar">
                 <div id="hub-header-title-box">
                     <h2 id="hub-header-title">首页</h2>
@@ -692,7 +719,7 @@
             <!-- 模式卡片 -->
             <div class="modes-grid">
                 <!-- 模式 1: 联机模式 (远程对决 / 人机对决 / 希沃同屏) -->
-                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);">
+                <div class="mode-card">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -727,7 +754,7 @@
                 </div>
 
                 <!-- 模式 2: 学习模式 -->
-                <div class="mode-card" style="border-color: var(--md-sys-color-primary-container);">
+                <div class="mode-card">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -762,7 +789,7 @@
                 </div>
 
                 <!-- 模式 3: 文言背实词 -->
-                <div class="mode-card" style="border-color: #B4E6EE;">
+                <div class="mode-card">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -797,7 +824,7 @@
                 </div>
 
                 <!-- 模式 4: Wordle 单词谜题 -->
-                <div class="mode-card" style="border-color: #E8DEF8;">
+                <div class="mode-card">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -819,15 +846,11 @@
                             <span class="material-symbols-rounded">auto_stories</span>
                             <span class="btn-label-text">选择词书</span>
                         </button>
-                        <button class="btn btn-outlined" onclick="openRiddleSettings();">
-                            <span class="material-symbols-rounded">tune</span>
-                            <span class="btn-label-text">设置</span>
-                        </button>
                     </div>
                 </div>
 
                 <!-- 模式 5: 听音/看义默写 -->
-                <div class="mode-card" style="border-color: #C2E7FF;">
+                <div class="mode-card">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -858,13 +881,16 @@
             <!-- 实时在线玩家卡片 (MD3 规范，彻底修复文字竖排/挤压问题) -->
             <div class="card" id="hub-online-players-card" style="margin-top: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="material-symbols-rounded filled"
-                            style="color: var(--md-sys-color-primary); font-size: 24px;">group</span>
-                        <h3 style="margin: 0; font-size: 1.15rem;">在线玩家</h3>
-                        <span class="badge" id="hub-online-players-count"
-                            style="background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-size: 0.76rem;">0
-                            人在线</span>
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                            <span class="material-symbols-rounded filled" style="font-size: 24px;">group</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">在线玩家</h3>
+                            <span class="badge" id="hub-online-players-count"
+                                style="background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-size: 0.76rem;">0
+                                人在线</span>
+                        </div>
                     </div>
                     <button type="button" class="btn btn-outlined btn-sm" onclick="syncGlobalPresence()">
                         <span class="material-symbols-rounded" style="font-size: 16px;">refresh</span>
@@ -882,7 +908,7 @@
             <!-- 排行榜入口卡片 (MD3规范) -->
             <div class="card leaderboard-entry-card" onclick="openLeaderboardView()" style="margin-top: 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease;">
                 <div style="display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                    <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                         <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
                     </div>
                     <div>
@@ -1053,25 +1079,32 @@
                         </div>
 
                         <!-- 移到下方的账号操作列表 (非按钮形式展示) -->
-                        <div id="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 4px;">
-                            <div id="me-row-edit-username" class="settings-row clickable" onclick="openEditUsernameModal()" style="padding: 10px 4px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 10px;">
+                        <div id="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
+                            <div id="me-row-edit-username" class="settings-row me-account-action-row clickable" onclick="openEditUsernameModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">edit</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">修改用户名</span>
                                 </div>
                                 <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                             </div>
-                            <div id="me-row-edit-password" class="settings-row clickable" onclick="openEditPasswordModal()" style="padding: 10px 4px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 10px;">
+                            <div id="me-row-edit-password" class="settings-row me-account-action-row clickable" onclick="openEditPasswordModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">lock_reset</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">修改密码</span>
                                 </div>
                                 <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                             </div>
-                            <div class="settings-row clickable" onclick="handleSwitchAccount()" style="padding: 10px 4px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="settings-row me-account-action-row clickable" onclick="handleSwitchAccount()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">switch_account</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">切换账号</span>
+                                </div>
+                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                            </div>
+                            <div id="me-row-delete-account" class="settings-row me-account-action-row danger clickable" onclick="openDeleteAccountModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-error, #ba1a1a); font-size: 20px;">person_remove</span>
+                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-error, #ba1a1a);">删除账号</span>
                                 </div>
                                 <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                             </div>
@@ -1107,7 +1140,7 @@
                 <!-- 管理词书 -->
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">library_books</span>
-                    <span>管理词书</span>
+                    <span>我的词书</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row clickable" onclick="openMeSubview('books');">
@@ -1117,7 +1150,7 @@
                                 <span class="material-symbols-rounded">folder_managed</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>管理词书</h4>
+                                <h4>云端和本地词书</h4>
                                 <p id="settings-books-summary-text">查看云端与本地词书、学习进度、新建/重学词书、导入与分类管理</p>
                             </div>
                         </div>
@@ -1131,8 +1164,8 @@
                                 <span class="material-symbols-rounded">bookmark</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>我的错题本</h4>
-                                <p id="settings-mistakes-summary-text">集中查看与复习做题过程中收录的错题</p>
+                                <h4>错题本</h4>
+                                <p id="settings-mistakes-summary-text">在对战和练习过程中收录的错题</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded"
@@ -1145,7 +1178,7 @@
                                 <span class="material-symbols-rounded">check_circle</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>熟词</h4>
+                                <h4>熟词本</h4>
                                 <p id="settings-mastered-summary-text">查看已标注为熟词的单词（练习与对战中不再抽取）</p>
                             </div>
                         </div>
@@ -1159,7 +1192,7 @@
                                 <span class="material-symbols-rounded">delete</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>已删除词汇</h4>
+                                <h4>回收站</h4>
                                 <p id="settings-trash-summary-text">查看从本地词书中删除的词汇，支持恢复或移至其他词书</p>
                             </div>
                         </div>
@@ -1249,7 +1282,6 @@
                         </button>
                         <div>
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">熟词本</h3>
-                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-mastered-count">共 0 词</span>
                         </div>
                     </div>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllMasteredWords()">
@@ -1284,7 +1316,6 @@
                         </button>
                         <div>
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">已删除词汇</h3>
-                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);" id="settings-trash-count">共 0 词</span>
                         </div>
                     </div>
                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllTrashWords()">
@@ -1309,26 +1340,23 @@
                     <div id="settings-trash-container" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
             </div>
-            <footer class="site-global-footer">
-                <div>Copyright © 2026 词迹 All Rights Reserved.</div>
-                <div>网址：<a href="https://www.bilibili.com/toy/cyr/index.html" target="_blank" rel="noopener noreferrer">https://www.bilibili.com/toy/cyr/index.html</a></div>
-            </footer>
         </div>
 
                 <!-- VIEW 3: 联机房间等待大厅与规则配置 -->
         <div id="view-online" class="view">
-            <div class="riddle-top-bar" style="margin-bottom: 12px;">
-                <div class="riddle-top-left">
-                    <button type="button" class="nav-back-btn" onclick="leaveOnlineLobby()" title="返回">
-                        <span class="material-symbols-rounded">arrow_back</span>
-                    </button>
-                    <div class="riddle-title-group">
-                        <h2 class="riddle-top-title">联机大厅</h2>
+            <div style="max-width: 680px; margin: 0 auto; width: 100%;">
+                <div class="riddle-top-bar" style="margin-bottom: 12px;">
+                    <div class="riddle-top-left">
+                        <button type="button" class="nav-back-btn" onclick="leaveOnlineLobby()" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div class="riddle-title-group">
+                            <h2 class="riddle-top-title">联机大厅</h2>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="card" style="max-width: 680px; margin: 0 auto;">
+                <div class="card" style="width: 100%;">
                 <div id="online-pre-join" style="display: flex; flex-direction: column; gap: 20px;">
 
 
@@ -1554,6 +1582,7 @@
                 </div>
             </div>
         </div>
+    </div>
 
         <!-- VIEW 7: 学习练习模式 -->
         <div id="view-single" class="view">
@@ -1760,7 +1789,7 @@
                     <button type="button" class="nav-back-btn" onclick="exitMistakesView()" title="返回">
                         <span class="material-symbols-rounded">arrow_back</span>
                     </button>
-                    <h2 style="margin:0;">我的错题本</h2>
+                    <h2 style="margin:0;">错题本</h2>
                 </div>
             </div>
             <div class="card">
@@ -1768,10 +1797,10 @@
                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <div class="settings-category-tabs" id="mistakes-category-tabs" style="margin:0;">
                         <button type="button" class="settings-cat-tab active" data-cat="english" onclick="switchMistakesCategory('english')" id="tab-mistakes-english">
-                            【英语错题】
+                            英语错题
                         </button>
                         <button type="button" class="settings-cat-tab" data-cat="shici" onclick="switchMistakesCategory('shici')" id="tab-mistakes-shici">
-                            【实词错题】
+                            实词错题
                         </button>
                     </div>
                     <div style="display: flex; gap: 8px;">
@@ -1908,6 +1937,32 @@
                         <span class="material-symbols-rounded" style="font-size:18px;">visibility</span>
                         <span class="btn-label-text">揭晓答案</span>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: Wordle 普通模式历史记录页面 -->
+        <div id="view-riddle-history" class="view">
+            <div style="max-width: 680px; margin: 0 auto; width: 100%;">
+                <div class="riddle-top-bar" style="margin-bottom: 16px;">
+                    <div class="riddle-top-left">
+                        <button type="button" class="nav-back-btn" onclick="exitWordleHistoryView()" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div class="riddle-title-group">
+                            <h2 class="riddle-top-title">猜词历史</h2>
+                        </div>
+                    </div>
+                    <div class="riddle-top-right">
+                        <button type="button" class="btn btn-outlined btn-danger btn-sm" onclick="clearNormalWordleHistory()" style="border-radius: var(--md-shape-full);">
+                            <span class="material-symbols-rounded" style="font-size: 16px;">delete_sweep</span>
+                            <span class="btn-label-text">清空记录</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card" style="width: 100%; padding: 16px;">
+                    <div id="normal-wordle-history-list" style="display:flex; flex-direction:column; gap:12px;"></div>
                 </div>
             </div>
         </div>
@@ -2292,7 +2347,7 @@
                     <span>显示</span>
                 </div>
                 <div class="settings-card">
-                    <div class="settings-row" style="flex-direction:column; align-items:flex-start;">
+                    <div class="settings-row desktop-only-setting" style="flex-direction:column; align-items:flex-start;">
                         <div class="settings-row-left" style="width:100%; justify-content:space-between;">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <div class="settings-icon-box">
@@ -2300,16 +2355,14 @@
                                 </div>
                                 <div class="settings-row-text">
                                     <h4>页面宽度</h4>
-                                    <p>调整界面元素的最大宽度。</p>
+                                    <p>调整界面元素的最大宽度 (仅电脑端生效)</p>
                                 </div>
                             </div>
                         </div>
                         <div class="chip-group" id="chips-page-width" style="margin-top:10px; width:100%;">
                             <div class="md3-chip" data-width="720px" onclick="setPageMaxWidth('720px')">紧凑 (720px)</div>
-                            <div class="md3-chip selected" data-width="960px" onclick="setPageMaxWidth('960px')">标准
-                                (960px)</div>
-                            <div class="md3-chip" data-width="1200px" onclick="setPageMaxWidth('1200px')">宽屏 (1200px)
-                            </div>
+                            <div class="md3-chip selected" data-width="960px" onclick="setPageMaxWidth('960px')">标准 (960px)</div>
+                            <div class="md3-chip" data-width="1200px" onclick="setPageMaxWidth('1200px')">宽屏 (1200px)</div>
                             <div class="md3-chip" data-width="100%" onclick="setPageMaxWidth('100%')">全宽 (100%)</div>
                         </div>
                     </div>
@@ -2325,12 +2378,13 @@
                                     <p>调整界面元素大小</p>
                                 </div>
                             </div>
+                            <span id="app-zoom-val-text" style="font-size:0.95rem; font-weight:700; color:var(--md-sys-color-primary, #0061a4);">100%</span>
                         </div>
-                        <div class="chip-group" id="chips-app-zoom" style="margin-top:10px; width:100%;">
-                            <div class="md3-chip" data-zoom="0.9" onclick="setAppZoom('0.9')">90%</div>
-                            <div class="md3-chip selected" data-zoom="1" onclick="setAppZoom('1')">100% (默认)</div>
-                            <div class="md3-chip" data-zoom="1.1" onclick="setAppZoom('1.1')">110%</div>
-                            <div class="md3-chip" data-zoom="1.2" onclick="setAppZoom('1.2')">120%</div>
+                        <div style="display:flex; align-items:center; gap:12px; width:100%; margin-top:12px;">
+                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline); font-size:18px;">text_fields</span>
+                            <input type="range" id="slider-app-zoom" class="md3-slider" min="0.85" max="1.25" step="0.05" value="1"
+                                oninput="setAppZoom(this.value)">
+                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline); font-size:24px;">text_fields</span>
                         </div>
                     </div>
                 </div>
@@ -2431,7 +2485,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                                    <h4 style="margin:0;">网页版</h4>
+                                    <h4 style="margin:0;">访问网页版</h4>
                                 </div>
                                 <p id="settings-online-tip">https://www.bilibili.com/toy/cyr/index.html</p>
                             </div>
@@ -2596,7 +2650,7 @@
                         <span id="ai-difficulty-display" style="font-weight:800; font-size:1.05rem; color:var(--md-sys-color-primary);">1段</span>
                     </div>
                     <div style="padding:10px 4px 4px 4px;">
-                        <input type="range" id="ai-difficulty-slider" min="1" max="9" step="1" value="1" style="width:100%; cursor:pointer;" oninput="handleAiDifficultySliderChange(this.value)">
+                        <input type="range" id="ai-difficulty-slider" class="md3-slider" min="1" max="9" step="1" value="1" oninput="handleAiDifficultySliderChange(this.value)">
                         <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:4px;">
                             <span>1段</span>
                             <span>5段</span>
@@ -2886,7 +2940,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.9</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.10</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -3167,19 +3221,19 @@
                     </div>
                 </div>
 
-                <div class="rule-group">
-                    <span class="rule-label">字母大小写</span>
-                    <div class="chip-group" id="chips-riddle-case">
-                        <div class="md3-chip selected" data-case="upper" onclick="selectRiddleCase('upper')">ABC</div>
-                        <div class="md3-chip" data-case="lower" onclick="selectRiddleCase('lower')">abc</div>
-                    </div>
-                </div>
-
                 <div class="rule-group" id="riddle-settings-group-timer">
                     <span class="rule-label">计时器</span>
                     <div class="chip-group" id="chips-riddle-timer">
                         <div class="md3-chip selected" data-timer="on" onclick="selectRiddleTimer(true)">开启</div>
                         <div class="md3-chip" data-timer="off" onclick="selectRiddleTimer(false)">关闭</div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">字母大小写</span>
+                    <div class="chip-group" id="chips-riddle-case">
+                        <div class="md3-chip" data-case="upper" onclick="selectRiddleCase('upper')">ABC</div>
+                        <div class="md3-chip selected" data-case="lower" onclick="selectRiddleCase('lower')">abc</div>
                     </div>
                 </div>
 
@@ -3195,12 +3249,12 @@
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="saveAndStartRiddle()">
-                    <span class="material-symbols-rounded">play_arrow</span>
-                    <span class="btn-label-text">保存并开始</span>
+                <button class="btn btn-outlined btn-touch-large" id="btn-riddle-settings-left" style="flex:1;" onclick="handleRiddleLeftBtnClick()">
+                    <span class="material-symbols-rounded">close</span>
+                    <span class="btn-label-text">取消</span>
                 </button>
-                <button class="btn btn-filled btn-touch-large" style="flex:1; background:#6750A4;"
-                    onclick="saveRiddleSettingsOnly()">
+                <button class="btn btn-filled btn-touch-large" id="btn-riddle-settings-right" style="flex:1; background:#6750A4;"
+                    onclick="handleRiddleRightBtnClick()">
                     <span class="material-symbols-rounded">check</span>
                     <span class="btn-label-text">保存设置</span>
                 </button>
@@ -3208,32 +3262,6 @@
         </div>
     </div>
 
-    <!-- Wordle 普通模式历史记录弹窗 -->
-    <div id="modal-riddle-history" class="modal-overlay">
-        <div class="modal-card" style="max-width: 520px; max-height: 80vh; display: flex; flex-direction: column;">
-            <div class="modal-header">
-                <div>
-                    <h3 style="font-size:1.18rem; font-weight:700;">普通模式猜词历史</h3>
-                    <p style="font-size:0.82rem; color:var(--md-sys-color-outline); margin:2px 0 0;">可查看尝试次数与用时</p>
-                </div>
-                <button class="modal-close-btn" onclick="closeNormalWordleHistoryModal()">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <div class="modal-body md3-scroll-view" style="flex:1; overflow-y:auto; padding:16px;">
-                <div id="normal-wordle-history-list" style="display:flex; flex-direction:column; gap:10px;"></div>
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:space-between;">
-                <button type="button" class="btn btn-outlined btn-danger btn-sm" onclick="clearNormalWordleHistory()">
-                    <span class="material-symbols-rounded" style="font-size:16px;">delete_sweep</span>
-                    <span class="btn-label-text">清空记录</span>
-                </button>
-                <button type="button" class="btn btn-tonal btn-sm" onclick="closeNormalWordleHistoryModal()">
-                    <span class="btn-label-text">关闭</span>
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- 同屏对决规则与词书设置弹窗 -->
     <div id="modal-local-duel-settings" class="modal-overlay">
@@ -3264,31 +3292,7 @@
                 </div>
 
                 <div class="rule-group">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                        <span class="rule-label" style="margin:0;">选择对手 (蓝方)</span>
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="toggleCreateOpponentInput()"
-                            style="padding: 0 12px; height: 32px; min-height: 32px; font-size: 0.84rem; gap: 5px; border-radius: var(--md-shape-full);">
-                            <span class="material-symbols-rounded"
-                                style="font-size:17px; width: 17px; height: 17px; margin-top: -1px;">person_add</span>
-                            <span class="btn-label-text">新建账号</span>
-                        </button>
-                    </div>
-
-                    <div id="local-duel-new-opp-box"
-                        style="display:none; margin-bottom: 12px; background: var(--md-sys-color-surface-container); padding: 10px 14px; border-radius: var(--md-shape-l); border: 1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <input type="text" id="input-new-opponent" class="input-field" placeholder="请输入账号昵称..."
-                                maxlength="12"
-                                style="flex:1; height: 40px; padding: 0 14px; font-size: 0.9rem; border-radius: var(--md-shape-full);"
-                                onkeydown="if(event.key==='Enter') createAndSelectLocalOpponent()">
-                            <button type="button" class="btn btn-filled btn-sm"
-                                style="height: 40px; min-height: 40px; padding: 0 16px; border-radius: var(--md-shape-full); font-size: 0.85rem;"
-                                onclick="createAndSelectLocalOpponent()">
-                                <span class="btn-label-text">创建并选择</span>
-                            </button>
-                        </div>
-                    </div>
-
+                    <span class="rule-label">选择对手 (蓝方)</span>
                     <div class="chip-group" id="chips-local-duel-opponents"></div>
                 </div>
 
@@ -3296,8 +3300,7 @@
                     <span class="rule-label">选择规则</span>
                     <div class="chip-group" id="chips-local-duel-rule">
                         <div class="md3-chip" data-rule="timed" onclick="selectLocalDuelRule('timed')">限时</div>
-                        <div class="md3-chip selected" data-rule="lead" onclick="selectLocalDuelRule('lead')">不限时 (拔河)
-                        </div>
+                        <div class="md3-chip selected" data-rule="lead" onclick="selectLocalDuelRule('lead')">不限时</div>
                     </div>
                 </div>
 
@@ -3730,6 +3733,40 @@
                 <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" onclick="confirmUpdatePassword()">
                     <span class="material-symbols-rounded">check</span>
                     <span class="btn-label-text">确认更新</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除账号确认弹窗 -->
+    <div id="modal-delete-account" class="modal-overlay">
+        <div class="modal-card" style="max-width: 400px; width: 92%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.15rem; font-weight:700; color:var(--md-sys-color-error, #ba1a1a);">删除账号</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeDeleteAccountModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px; display:flex; flex-direction:column; gap:14px;">
+                <p style="font-size:0.9rem; color:var(--md-sys-color-on-surface-variant); margin:0; line-height:1.5;">
+                    确定要注销并删除账号<strong id="delete-account-target-name" style="color:var(--md-sys-color-on-surface);"></strong>吗？<br>该账号的所有数据将被<strong style="color:var(--md-sys-color-error, #ba1a1a);">永久清除</strong>，无法恢复。
+                </p>
+                <div id="delete-account-pass-row" style="display:none;">
+                    <div class="md3-text-field" style="margin-bottom:0;">
+                        <input type="password" id="input-delete-account-pass" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter')confirmDeleteAccount()">
+                        <label for="input-delete-account-pass" class="md3-text-field-label">输入密码以确认</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="closeDeleteAccountModal()">
+                    <span class="btn-label-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-danger btn-touch-large" style="flex:1; background:var(--md-sys-color-error, #ba1a1a); color:#fff;" onclick="confirmDeleteAccount()">
+                    <span class="material-symbols-rounded">delete_forever</span>
+                    <span class="btn-label-text">确认删除</span>
                 </button>
             </div>
         </div>

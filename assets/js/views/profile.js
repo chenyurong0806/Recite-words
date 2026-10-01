@@ -376,6 +376,32 @@ let singlePhraseState = {
     q: null
 };
 
+function updateSingleProgressDisplay() {
+    if (!singleState || !singleState.pool) return;
+    const progEl = document.getElementById('single-progress-text');
+    const progFillEl = document.getElementById('single-progress-fill');
+
+    const isImmediateRetest = (typeof singleConfig !== 'undefined' && singleConfig.immediateRetest !== false);
+    const targetTotal = singleState.targetTotal || new Set(singleState.pool.filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || singleState.pool.length;
+
+    let currentProgress = 0;
+    if (isImmediateRetest) {
+        // 开启即时复习时：当前进度按完整完成该词学习的单词数计算，答错题不增加进度和总题数
+        currentProgress = singleState.completedWords ? singleState.completedWords.size : 0;
+    } else {
+        currentProgress = Math.min(singleState.currentIdx + 1, targetTotal);
+    }
+
+    if (progEl) {
+        progEl.innerText = `${currentProgress} / ${targetTotal}`;
+    }
+    if (progFillEl) {
+        const pct = Math.min(100, Math.max(0, Math.round((currentProgress / targetTotal) * 100)));
+        progFillEl.style.width = `${pct}%`;
+    }
+}
+window.updateSingleProgressDisplay = updateSingleProgressDisplay;
+
 function renderSingleQuestion() {
     if (singlePhraseTimer) {
         clearTimeout(singlePhraseTimer);
@@ -405,16 +431,7 @@ function renderSingleQuestion() {
         updateReviewPageActiveBookLabel();
     }
 
-    const progEl = document.getElementById('single-progress-text');
-    if (progEl) {
-        progEl.innerText = `${singleState.currentIdx + 1} / ${singleState.pool.length}`;
-    }
-
-    const progFillEl = document.getElementById('single-progress-fill');
-    if (progFillEl) {
-        const correctCount = singleState.score || 0;
-        progFillEl.style.width = Math.round((correctCount / singleState.pool.length) * 100) + '%';
-    }
+    updateSingleProgressDisplay();
 
     const retestTag = document.getElementById('single-retest-tag');
     if (retestTag) {
@@ -648,10 +665,13 @@ function checkSinglePhraseAnswer() {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
-        const progFillEl = document.getElementById('single-progress-fill');
-        if (progFillEl) {
-            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        const wKey = (q.word || '').trim().toLowerCase();
+        const hasRemainingInPool = singleState.pool.slice(singleState.currentIdx + 1).some(item => (item.word || '').trim().toLowerCase() === wKey);
+        if (!hasRemainingInPool) {
+            if (!singleState.completedWords) singleState.completedWords = new Set();
+            singleState.completedWords.add(wKey);
         }
+        updateSingleProgressDisplay();
         q.isCorrect = true;
         q.wrongSlotIndices = [];
 
@@ -713,8 +733,11 @@ function checkSinglePhraseAnswer() {
             const uWord = chip ? chip.text : '';
             return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
+        const wKey = (q.word || '').trim().toLowerCase();
+        if (singleState.completedWords) singleState.completedWords.delete(wKey);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
+        updateSingleProgressDisplay();
 
         singlePhraseState.targetWords.forEach((tw, i) => {
             const slotEl = document.getElementById(`single-slot-${i}`);
@@ -762,10 +785,13 @@ function revealSingleAnswer() {
     q.skipped = true;
     q.answered = true;
 
+    const wKey = (q.word || '').trim().toLowerCase();
+    if (singleState.completedWords) singleState.completedWords.delete(wKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
     scheduleRetestForCurrentQuestion();
+    updateSingleProgressDisplay();
     const currentBookId = q.bookId || (typeof currentReviewBookId !== 'undefined' && currentReviewBookId !== 'all' ? currentReviewBookId : null);
     EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false, currentBookId);
     renderCardMasteryDiamonds(q.word, 'loss');
@@ -873,9 +899,11 @@ function handleSingleAnswer(idx) {
     if (isRight) {
         userStats.correct++;
         singleState.score++;
-        const progFillEl = document.getElementById('single-progress-fill');
-        if (progFillEl) {
-            progFillEl.style.width = Math.round((singleState.score / singleState.pool.length) * 100) + '%';
+        const wKey = (q.word || '').trim().toLowerCase();
+        const hasRemainingInPool = singleState.pool.slice(singleState.currentIdx + 1).some(item => (item.word || '').trim().toLowerCase() === wKey);
+        if (!hasRemainingInPool) {
+            if (!singleState.completedWords) singleState.completedWords = new Set();
+            singleState.completedWords.add(wKey);
         }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
             delete userStats.mistakes[q.word];
@@ -886,11 +914,14 @@ function handleSingleAnswer(idx) {
             DailyStudyTracker.record(singleState.sessionName === '复习' ? 'reviewed' : 'learned', 1);
         }
     } else {
+        const wKey = (q.word || '').trim().toLowerCase();
+        if (singleState.completedWords) singleState.completedWords.delete(wKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
         renderCardMasteryDiamonds(q.word, 'loss');
     }
+    updateSingleProgressDisplay();
     saveCurrentUserData();
     saveSingleProgress();
     updateSingleCardToolbar(q); // 解禁发音按钮
@@ -1384,13 +1415,13 @@ function renderMeView() {
     const masteredSummaryEl = document.getElementById('settings-mastered-summary-text');
     if (masteredSummaryEl) {
         const mCount = getMasteredWords().length;
-        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词（练习与对战中不再抽取）`;
+        masteredSummaryEl.innerText = `已标注 ${mCount} 个熟词，练习中不再抽取`;
     }
 
     const mistakesSummaryEl = document.getElementById('settings-mistakes-summary-text');
     if (mistakesSummaryEl) {
         const mCount = Object.keys(userStats.mistakes || {}).length;
-        mistakesSummaryEl.innerText = `集中查看与复习做题过程中收录的错题（共 ${mCount} 词）`;
+        mistakesSummaryEl.innerText = `在对战和练习过程中收录的错题，共 ${mCount} 题`;
     }
 
     const trashSummaryEl = document.getElementById('settings-trash-summary-text');
@@ -1642,6 +1673,74 @@ async function confirmUpdatePassword() {
         alert(e.message || '修改密码失败');
     }
 }
+
+// ----------------- 删除 / 注销账号 -----------------
+function openDeleteAccountModal() {
+    const modal = document.getElementById('modal-delete-account');
+    if (!modal) return;
+    const nameEl = document.getElementById('delete-account-target-name');
+    if (nameEl) nameEl.innerText = currentUser || '';
+    const passRow = document.getElementById('delete-account-pass-row');
+    const isCloud = currentUserProfile && currentUserProfile.type === 'cloud';
+    if (passRow) passRow.style.display = isCloud ? 'block' : 'none';
+    const passInput = document.getElementById('input-delete-account-pass');
+    if (passInput) passInput.value = '';
+    modal.classList.add('active');
+}
+
+function closeDeleteAccountModal() {
+    const modal = document.getElementById('modal-delete-account');
+    if (modal) modal.classList.remove('active');
+}
+
+async function confirmDeleteAccount() {
+    const targetUser = currentUser;
+    if (!targetUser) return;
+    const isCloud = currentUserProfile && currentUserProfile.type === 'cloud';
+    let pass = '';
+    if (isCloud) {
+        const passInput = document.getElementById('input-delete-account-pass');
+        pass = passInput ? passInput.value.trim() : '';
+        if (!pass) {
+            showToast('请输入账号密码以验证身份');
+            return;
+        }
+    }
+
+    try {
+        if (isCloud && typeof supabaseDeleteAccount === 'function') {
+            await supabaseDeleteAccount(targetUser, pass);
+        } else if (currentUserProfile && currentUserProfile.type === 'bilibili' && typeof supabaseDeleteAccount === 'function') {
+            await supabaseDeleteAccount(targetUser, null);
+        }
+
+        // 本地清理
+        if (typeof removeSavedDeviceAccount === 'function') {
+            removeSavedDeviceAccount(targetUser);
+        }
+        allUsersList = (allUsersList || []).filter(u => u !== targetUser);
+        SafeStorage.setItem('vocab_users_list', JSON.stringify(allUsersList));
+        SafeStorage.removeItem(`vocab_stats_${targetUser}`);
+        SafeStorage.removeItem(`vocab_user_avatar_${targetUser}`);
+        SafeStorage.removeItem('vocab_auth_session');
+        SafeStorage.removeItem('vocab_pk_user');
+        SafeStorage.removeItem('vocab_guest_name');
+
+        closeDeleteAccountModal();
+        showToast(`账号 “${targetUser}” 已成功删除`);
+        if (typeof handleLogout === 'function') {
+            handleLogout(false);
+        } else {
+            location.reload();
+        }
+    } catch (e) {
+        alert(e.message || '删除账号失败');
+    }
+}
+window.openDeleteAccountModal = openDeleteAccountModal;
+window.closeDeleteAccountModal = closeDeleteAccountModal;
+window.confirmDeleteAccount = confirmDeleteAccount;
+
 
 // ----------------- 词书选择“确定”按钮 -----------------
 function confirmSingleBookSelection() {

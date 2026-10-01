@@ -56,10 +56,15 @@ function getUniqueGuestName() {
         guestId = '游客_' + Math.floor(1000 + Math.random() * 9000);
     }
     SafeStorage.setItem('vocab_guest_name', guestId);
-    SafeStorage.setItem('vocab_pk_user', guestId);
+    const existingPk = SafeStorage.getItem('vocab_pk_user');
+    if (!existingPk || existingPk.startsWith('游客')) {
+        SafeStorage.setItem('vocab_pk_user', guestId);
+    }
     if (typeof setCookie === 'function') {
         setCookie('vocab_guest_name', guestId, 365);
-        setCookie('vocab_pk_user', guestId, 365);
+        if (!existingPk || existingPk.startsWith('游客')) {
+            setCookie('vocab_pk_user', guestId, 365);
+        }
     }
     if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
         try {
@@ -80,14 +85,70 @@ let currentUserProfile = {
     openId: ''
 };
 
-try {
-    const savedSession = SafeStorage.getItem('vocab_auth_session');
-    if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        if (parsed && parsed.isLoggedIn && parsed.username) {
-            currentUserProfile = { ...currentUserProfile, ...parsed };
+function refreshCurrentUserProfileFromStorage() {
+    try {
+        const savedSession = SafeStorage.getItem('vocab_auth_session');
+        if (savedSession) {
+            const parsed = JSON.parse(savedSession);
+            if (parsed && parsed.isLoggedIn && parsed.username) {
+                currentUserProfile = { ...currentUserProfile, ...parsed };
+                currentUser = currentUserProfile.username;
+                window.currentUser = currentUser;
+                window.currentUserProfile = currentUserProfile;
+                return true;
+            }
         }
+    } catch (e) { }
+
+    const pkUser = SafeStorage.getItem('vocab_pk_user');
+    if (pkUser && !pkUser.startsWith('游客')) {
+        currentUser = pkUser;
+        currentUserProfile.username = pkUser;
+        currentUserProfile.isLoggedIn = true;
+        currentUserProfile.type = 'cloud';
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+        return true;
     }
+
+    // 检查是否有保存的设备登录账号 (防止 session 单项丢失或独立容器还原时登录态丢失)
+    try {
+        const rawAccounts = SafeStorage.getItem('vocab_device_accounts');
+        if (rawAccounts) {
+            const list = JSON.parse(rawAccounts);
+            if (Array.isArray(list) && list.length > 0) {
+                const latestAcc = list.find(a => a && a.username && !a.username.startsWith('游客'));
+                if (latestAcc) {
+                    currentUser = latestAcc.username;
+                    currentUserProfile = {
+                        isLoggedIn: true,
+                        type: latestAcc.type || 'cloud',
+                        username: latestAcc.username,
+                        avatar: latestAcc.avatar || '',
+                        openId: latestAcc.openId || ''
+                    };
+                    window.currentUser = currentUser;
+                    window.currentUserProfile = currentUserProfile;
+                    SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+                    return true;
+                }
+            }
+        }
+    } catch (e) { }
+
+    const guestId = SafeStorage.getItem('vocab_guest_name') || SafeStorage.getItem('vocab_pk_user');
+    if (guestId) {
+        currentUser = guestId;
+        currentUserProfile.username = guestId;
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+    }
+    return false;
+}
+window.refreshCurrentUserProfileFromStorage = refreshCurrentUserProfileFromStorage;
+
+try {
+    refreshCurrentUserProfileFromStorage();
 } catch (e) { }
 
 let currentUser = currentUserProfile.username || defaultGuestName;
@@ -223,16 +284,13 @@ function loadUserData(username, profile = null) {
     }
     updateHubResumeButtons();
 
-    // 如果为云端登录用户，且本地缺少艾宾浩斯记录（例如清除本地缓存后重新打开），主动从云端恢复全量数据
-    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.type === 'cloud') {
-        const hasLocalEbb = !!SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
-        if (!hasLocalEbb && typeof supabaseFetchUserData === 'function') {
-            supabaseFetchUserData(currentUser).then(cloudUser => {
-                if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
-                    restoreUserDataFromCloud(cloudUser);
-                }
-            }).catch(() => { });
-        }
+    // 如果为云端或B站已登录用户，主动从云端恢复与同步全量数据（包括艾宾浩斯待复习词数）
+    if (currentUserProfile && currentUserProfile.isLoggedIn && typeof supabaseFetchUserData === 'function') {
+        supabaseFetchUserData(currentUser).then(cloudUser => {
+            if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
+                restoreUserDataFromCloud(cloudUser);
+            }
+        }).catch(() => { });
     }
 }
 

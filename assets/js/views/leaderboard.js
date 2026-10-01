@@ -56,6 +56,9 @@ function switchLeaderboardTab(tab) {
     }
 }
 
+const LEADERBOARD_BILI_BADGE_HTML = `<span class="bili-badge" style="display:inline-flex; align-items:center; gap:2px; font-size:0.68rem; font-weight:700; color:#fff; background:linear-gradient(135deg, #fb7299, #ff85ad); padding:1px 5px; border-radius:8px; line-height:1.2; flex-shrink:0;"><svg style="width:10px; height:10px; fill:currentColor;" viewBox="0 0 24 24"><path d="M17.813 4.653h.854c1.51 0 2.733 1.224 2.733 2.734v10.36c0 1.51-1.223 2.734-2.733 2.734H5.333C3.823 20.48 2.6 19.257 2.6 17.747V7.387c0-1.51 1.223-2.734 2.733-2.734h.854L4.35 2.816a.8.8 0 1 1 1.132-1.132L8.27 4.47h7.46l2.788-2.786a.8.8 0 1 1 1.132 1.132l-1.837 1.837zM5.333 6.253a1.133 1.133 0 0 0-1.133 1.134v10.36c0 .626.507 1.134 1.133 1.134h13.334c.626 0 1.133-.508 1.133-1.134V7.387c0-.626-.507-1.134-1.133-1.134H5.333zm3.2 4.267c.59 0 1.067.477 1.067 1.067v2.133a1.067 1.067 0 1 1-2.134 0v-2.133c0-.59.478-1.067 1.067-1.067zm6.934 0c.59 0 1.066.477 1.066 1.067v2.133a1.067 1.067 0 1 1-2.133 0v-2.133c0-.59.477-1.067 1.067-1.067z"/></svg>B站</span>`;
+let cachedBiliUsernamesSet = new Set();
+
 // ----------------- 等级榜控制器 -----------------
 async function renderLevelLeaderboard() {
     const listContainer = document.getElementById('lb-level-list');
@@ -80,6 +83,12 @@ async function renderLevelLeaderboard() {
                 .limit(100);
             if (!error && Array.isArray(data)) {
                 accounts = data;
+                data.forEach(acc => {
+                    const ud = acc.user_data || {};
+                    if (ud.account_type === 'bilibili' || ud.isBili === true || acc.account_type === 'bilibili') {
+                        cachedBiliUsernamesSet.add(acc.username);
+                    }
+                });
             }
         }
     } catch (e) {
@@ -88,6 +97,10 @@ async function renderLevelLeaderboard() {
 
     // 2. 本地用户补充（若当前用户已登录且不在云端列表中）
     const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+    const isCurrBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+    if (isCurrBili && currUser) {
+        cachedBiliUsernamesSet.add(currUser);
+    }
     const hasCurrent = accounts.some(a => a.username === currUser);
     if (!hasCurrent && currUser && !currUser.startsWith('游客')) {
         let currAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currUser) : '';
@@ -97,7 +110,9 @@ async function renderLevelLeaderboard() {
             avatar_url: currAvatar,
             level: currLevelData ? currLevelData.level : 1,
             user_data: {
-                levelData: currLevelData ? { level: currLevelData.level, score: currLevelData.score } : null
+                levelData: currLevelData ? { level: currLevelData.level, score: currLevelData.score } : null,
+                account_type: isCurrBili ? 'bilibili' : 'cloud',
+                isBili: isCurrBili
             }
         });
     }
@@ -136,11 +151,22 @@ async function renderLevelLeaderboard() {
             rank = Math.min(9, Math.max(1, Math.ceil(rating / 100)));
         }
 
+        const uData = acc.user_data || {};
+        const isBili = Boolean(
+            acc.isBili ||
+            uData.account_type === 'bilibili' ||
+            uData.isBili === true ||
+            acc.account_type === 'bilibili' ||
+            cachedBiliUsernamesSet.has(acc.username) ||
+            (acc.username === currUser && isCurrBili)
+        );
+
         return {
             username: acc.username,
             avatar: acc.avatar_url || '',
             rank,
             rating,
+            isBili,
             isMe: acc.username === currUser
         };
     });
@@ -176,7 +202,10 @@ async function renderLevelLeaderboard() {
                     </div>
                     <div>
                         <div style="font-weight:700; font-size:1rem; color:#0f172a;">我的当前排名</div>
-                        <div style="font-size:0.82rem; color:#64748b; margin-top:2px;">${escapeHtml(currUser)}</div>
+                        <div style="display:flex; align-items:center; gap:6px; font-size:0.82rem; color:#64748b; margin-top:2px;">
+                            <span>${escapeHtml(currUser)}</span>
+                            ${myData.isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
+                        </div>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -229,6 +258,7 @@ async function renderLevelLeaderboard() {
                     <div style="min-width:0; flex:1;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f172a;">${escapeHtml(u.username)}</span>
+                            ${u.isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
                             ${u.isMe ? `<span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 7px; border-radius:9999px; font-weight:700;">我</span>` : ''}
                         </div>
                     </div>
@@ -262,14 +292,7 @@ function renderWordleSevenDaysPicker() {
 
     container.innerHTML = days.map(item => {
         const isSelected = (item.dateStr === wordleLeaderboardDate);
-        return `
-            <button type="button" 
-                class="lb-day-circle-btn ${isSelected ? 'active' : ''}" 
-                onclick="selectWordleLeaderboardDate('${item.dateStr}')" 
-                title="${item.dateStr}${item.isToday ? ' (今日)' : ''}">
-                ${item.dayNumber}
-            </button>
-        `;
+        return `<button type="button" class="lb-day-circle-btn ${isSelected ? 'active' : ''}" onclick="selectWordleLeaderboardDate('${item.dateStr}')" title="${item.dateStr}${item.isToday ? ' (今日)' : ''}"><span class="lb-day-label">${item.isToday ? '今' : item.dayNumber}</span></button>`;
     }).join('');
 }
 
@@ -584,6 +607,12 @@ async function renderWordleLeaderboard() {
         let avatarSrc = r.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : '');
         if (avatarSrc && avatarSrc.startsWith('//')) avatarSrc = 'https:' + avatarSrc;
 
+        const isBili = Boolean(
+            r.isBili ||
+            cachedBiliUsernamesSet.has(r.username) ||
+            (r.username === currUser && typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili))
+        );
+
         return `
             <div class="lb-user-row ${r.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${r.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
                 <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
@@ -597,6 +626,7 @@ async function renderWordleLeaderboard() {
                     <div style="min-width:0; flex:1;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f172a;">${escapeHtml(r.username)}</span>
+                            ${isBili ? LEADERBOARD_BILI_BADGE_HTML : ''}
                             ${r.isMe ? `<span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 7px; border-radius:9999px; font-weight:700;">我</span>` : ''}
                         </div>
                     </div>

@@ -45,22 +45,33 @@ function renderLocalDuelOpponents() {
     if (!container) return;
 
     const myName = currentUser || '红方';
-    const otherUsers = (allUsersList || []).filter(u => u && u !== myName);
-    const candidates = ['挑战者', ...otherUsers];
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let validAccounts = [];
+    if (typeof getSavedDeviceAccounts === 'function') {
+        const accounts = getSavedDeviceAccounts();
+        validAccounts = accounts
+            .filter(a => a && a.username && a.username !== myName && (now - (a.lastLoginTime || 0) <= SEVEN_DAYS_MS))
+            .map(a => a.username);
+    }
 
-    if (!localDuelConfig.opponentName || localDuelConfig.opponentName === myName) {
+    let candidates = Array.from(new Set(validAccounts));
+    if (candidates.length === 0) {
+        candidates = ['挑战者'];
+    }
+
+    if (!localDuelConfig.opponentName || localDuelConfig.opponentName === myName || !candidates.includes(localDuelConfig.opponentName)) {
         localDuelConfig.opponentName = candidates[0];
-    } else if (!candidates.includes(localDuelConfig.opponentName)) {
-        candidates.push(localDuelConfig.opponentName);
     }
 
     container.innerHTML = candidates.map(name => {
         const isSelected = (localDuelConfig.opponentName === name);
+        const safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
         return `
                 <div class="md3-chip ${isSelected ? 'selected' : ''}" 
-                     data-opp="${name}" 
-                     onclick="selectLocalDuelOpponent('${name}')">
-                    ${isSelected ? '✓ ' : ''} ${name}
+                     data-opp="${safeName}" 
+                     onclick="selectLocalDuelOpponent('${safeName}')">
+                    ${isSelected ? '✓ ' : ''} ${safeName}
                 </div>
             `;
     }).join('');

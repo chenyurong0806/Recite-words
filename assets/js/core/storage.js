@@ -116,6 +116,49 @@ const SafeStorage = {
         if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.saveKV === 'function') {
             VocabOfflineDB.saveKV(key, strVal).catch(() => {});
         }
+        // 如果运行在 Toy 平台环境，实时同步关键账号与登录凭证（严格遵守 Toy value ≤ 1024 字节规范）
+        if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function') {
+            if (key === 'vocab_auth_session' || key === 'vocab_device_accounts' || key === 'vocab_pk_user' || key === 'vocab_guest_name') {
+                try {
+                    const toyPayload = {};
+                    if (key === 'vocab_auth_session') {
+                        try {
+                            const p = JSON.parse(strVal);
+                            const compact = JSON.stringify({
+                                isLoggedIn: Boolean(p.isLoggedIn),
+                                type: p.type || 'cloud',
+                                username: p.username || '',
+                                openId: p.openId || ''
+                            });
+                            if (compact.length <= 1024) toyPayload['auth_session'] = compact;
+                        } catch (e) {
+                            if (strVal.length <= 1024) toyPayload['auth_session'] = strVal;
+                        }
+                    } else if (key === 'vocab_device_accounts') {
+                        try {
+                            const arr = JSON.parse(strVal);
+                            if (Array.isArray(arr)) {
+                                const compactArr = arr.slice(0, 5).map(a => ({
+                                    username: a.username,
+                                    type: a.type || 'cloud',
+                                    hashedPassword: a.hashedPassword || '',
+                                    lastLoginTime: a.lastLoginTime || Date.now()
+                                }));
+                                const compactStr = JSON.stringify(compactArr);
+                                if (compactStr.length <= 1024) toyPayload['device_accounts'] = compactStr;
+                            }
+                        } catch (e) { }
+                    } else if (key === 'vocab_pk_user') {
+                        if (strVal.length <= 1024) toyPayload['current_user'] = strVal;
+                    } else if (key === 'vocab_guest_name') {
+                        if (strVal.length <= 1024) toyPayload['guest_id'] = strVal;
+                    }
+                    if (Object.keys(toyPayload).length > 0) {
+                        window.toy.setCloudStorage(toyPayload).catch(() => {});
+                    }
+                } catch (e) { }
+            }
+        }
     },
 
     removeItem(key) {
@@ -150,12 +193,14 @@ let folderTreeCollapseMap = {};
 
 const VocabOfflineDB = {
     dbName: 'VocabLocalBooksDB',
-    version: 2,
+    version: 3,
     db: null,
+    _initPromise: null,
 
     async init() {
         if (this.db) return this.db;
-        return new Promise((resolve) => {
+        if (this._initPromise) return this._initPromise;
+        this._initPromise = new Promise((resolve) => {
             try {
                 if (!window.indexedDB) {
                     resolve(null);
@@ -178,24 +223,51 @@ const VocabOfflineDB = {
                     this.db = e.target.result;
                     // 同步从 IndexedDB 恢复可能缺失的 localStorage 关键数据 (如账号信息、段位等)
                     try {
-                        const tx = this.db.transaction('kv_store', 'readonly');
+                        if (!this.db.objectStoreNames.contains('kv_store')) {
+                            resolve(this.db);
+                            return;
+                        }
+                        const tx = this.db.transaction('kv_store', 'readwrite');
                         const store = tx.objectStore('kv_store');
                         const req = store.getAll();
                         req.onsuccess = () => {
                             const list = req.result || [];
+                            const idbKeys = new Set();
                             list.forEach(item => {
                                 if (item && item.k && item.v !== undefined) {
+                                    idbKeys.add(item.k);
                                     memoryStorageMap[item.k] = item.v;
                                     try {
-                                        if (SafeStorage.isAvailable && window.localStorage.getItem(item.k) === null) {
-                                            window.localStorage.setItem(item.k, item.v);
+                                        if (SafeStorage.isAvailable) {
+                                            const cur = window.localStorage.getItem(item.k);
+                                            if (cur === null || cur === '' || cur === 'null' || cur === 'undefined') {
+                                                window.localStorage.setItem(item.k, item.v);
+                                            }
                                         }
                                     } catch (err) { }
                                 }
                             });
+                            // 反向同步：若 localStorage 中存在 vocab_ 开头的数据但 IndexedDB 中尚未建立，自动同步进 IndexedDB
+                            try {
+                                if (SafeStorage.isAvailable && window.localStorage) {
+                                    for (let i = 0; i < window.localStorage.length; i++) {
+                                        const lsKey = window.localStorage.key(i);
+                                        if (lsKey && lsKey.startsWith('vocab_') && !idbKeys.has(lsKey)) {
+                                            const lsVal = window.localStorage.getItem(lsKey);
+                                            if (lsVal !== null && lsVal !== undefined) {
+                                                store.put({ k: lsKey, v: lsVal });
+                                                memoryStorageMap[lsKey] = lsVal;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (syncErr) { }
+                            resolve(this.db);
                         };
-                    } catch (err) { }
-                    resolve(this.db);
+                        req.onerror = () => resolve(this.db);
+                    } catch (err) {
+                        resolve(this.db);
+                    }
                 };
                 request.onerror = (e) => {
                     resolve(null);
@@ -204,6 +276,7 @@ const VocabOfflineDB = {
                 resolve(null);
             }
         });
+        return this._initPromise;
     },
 
     async saveKV(key, val) {

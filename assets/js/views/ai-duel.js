@@ -413,7 +413,7 @@ async function startAiDuel() {
 
     const aiTitle = `系统AI (${aiDuelConfig.aiRank || 1}段)`;
     if (typeof renderArenaPlayersUI === 'function') {
-        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, '');
+        renderArenaPlayersUI(currentUser || '我方', getUserAvatar(currentUser), aiTitle, 'robot');
     } else {
         const myBadge = document.getElementById('arena-my-badge');
         const oppoBadge = document.getElementById('arena-oppo-badge');

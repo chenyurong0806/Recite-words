@@ -57,9 +57,9 @@ async function renderMistakesList() {
 
     // 动态刷新顶部 Tab 数量提示
     const tabEn = document.getElementById('tab-mistakes-english');
-    if (tabEn) tabEn.innerText = `【英语错题】(${englishKeys.length})`;
+    if (tabEn) tabEn.innerText = `英语错题(${englishKeys.length})`;
     const tabShici = document.getElementById('tab-mistakes-shici');
-    if (tabShici) tabShici.innerText = `【实词错题】(${shiciKeys.length})`;
+    if (tabShici) tabShici.innerText = `实词错题(${shiciKeys.length})`;
 
     if (currentMistakesCategory === 'english') {
         if (englishKeys.length === 0) {

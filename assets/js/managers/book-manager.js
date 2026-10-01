@@ -36,6 +36,9 @@ const BookManager = {
 
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
+        const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高考3500', 'books/考纲/高考3500.json');
+        this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
+        this.bookCache['GaoKao3500'] = normGaoKao;
         try {
             await VocabOfflineDB.init();
             const offlineBooks = await VocabOfflineDB.getAllBooks();
@@ -62,22 +65,27 @@ const BookManager = {
         } catch (e) {
             console.warn('[BookManager] Offline books load error:', e);
         }
-        await this.fetchBookList();
-        this.preloadAllWorkerBooks();
+        // 异步后台获取最新词书列表并预加载，避免阻塞初始化及卡顿
+        this.fetchBookList().then(() => {
+            this.preloadAllWorkerBooks();
+            if (typeof renderBookSelectorView === 'function' && window.currentView === 'view-book-selector') {
+                renderBookSelectorView();
+            }
+        }).catch((err) => {
+            console.warn('[BookManager] Background fetchBookList error:', err);
+        });
     },
 
     async preloadAllWorkerBooks() {
-        try {
-            await this.loadBookData('books/考纲/高考3500.json');
-        } catch (e) { }
-        if (!Array.isArray(this.availableBooks)) return;
-        for (const book of this.availableBooks) {
-            if (book.id !== 'builtin_default' && !this.bookCache[book.id]) {
-                try {
-                    await this.loadBookData(book.id);
-                } catch (e) { }
-            }
+        if (!this.bookCache['books/考纲/高考3500.json'] && this.bookCache['builtin_default']) {
+            this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
+            this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
         }
+        const targetList = (Array.isArray(this.availableBooks) && this.availableBooks.length > 0)
+            ? this.availableBooks
+            : this.fallbackBooks;
+        const booksToLoad = targetList.filter(b => b && b.id !== 'builtin_default' && !this.bookCache[b.id]);
+        await Promise.allSettled(booksToLoad.map(book => this.loadBookData(book.id)));
         if (typeof _allDbWordsCache !== 'undefined') {
             _allDbWordsCache = null;
         }
@@ -236,26 +244,14 @@ const BookManager = {
         }
 
         const encodedRel = encodeURI(relPath);
-        const sources = [];
-        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) {
-            // 在 B 站 Toy 平台优先通过国内稳定 CDN 镜像读取，避免本地静态相对路径 404
-            sources.push(
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `./${relPath}`,
-                `./${encodedRel}`
-            );
-        } else {
-            sources.push(
-                `./${relPath}`,
-                `./${encodedRel}`,
-                `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
-                `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
-            );
-        }
+        const sources = [
+            `./${encodedRel}`,
+            `./${relPath}`,
+            `https://cdn.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://testingcf.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
+            `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
+        ];
         if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
             sources.push(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
         }
@@ -263,7 +259,7 @@ const BookManager = {
         for (const url of sources) {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const timeoutId = setTimeout(() => controller.abort(), 2500);
                 const res = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (res.ok) {
