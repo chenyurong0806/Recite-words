@@ -361,8 +361,8 @@ function submitRiddleDraftRow(rowIndex) {
    9. Wordle 单词解谜 (退出免确认、断点恢复与进度保存)
    ========================================================================== */
 let riddleConfig = {
-    bookId: "books/考纲/高考3500.json",
-    selectedBooks: ["books/考纲/高考3500.json"],
+    bookId: "books/经典/高中考纲词汇.json",
+    selectedBooks: ["books/经典/高中考纲词汇.json"],
     wordLength: 5,
     maxAttempts: 6,
     letterCase: "lower",
@@ -371,11 +371,13 @@ let riddleConfig = {
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
     if (saved && typeof saved === 'object') {
-        if (saved.bookId && saved.bookId !== 'GaoKao3500') {
+        if (saved.bookId && saved.bookId !== 'GaoKao3500' && saved.bookId !== 'books/考纲/高考3500.json') {
             riddleConfig.bookId = saved.bookId;
+        } else {
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
         }
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            riddleConfig.selectedBooks = saved.selectedBooks.map(b => b === 'GaoKao3500' ? 'books/考纲/高考3500.json' : b);
+            riddleConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
         } else if (riddleConfig.bookId) {
             riddleConfig.selectedBooks = [riddleConfig.bookId];
         }
@@ -701,7 +703,7 @@ function cancelRiddleSettings() {
         riddleConfig.letterCase = riddleInitialSettings.letterCase;
         riddleConfig.enableTimer = riddleInitialSettings.enableTimer;
         riddleConfig.selectedBooks = [...riddleInitialSettings.selectedBooks];
-        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
+        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
         updateRiddleSettingsChips();
         updateRiddleCaseUI();
         riddleInitialSettings = null;
@@ -720,7 +722,7 @@ function closeRiddleSettings() {
 
 function toggleRiddleBook(bookId) {
     if (!Array.isArray(riddleConfig.selectedBooks)) {
-        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/考纲/高考3500.json'];
+        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/经典/高中考纲词汇.json'];
     }
     const hasIt = isBookIdSelected(riddleConfig.selectedBooks, bookId);
     if (hasIt) {
@@ -732,7 +734,7 @@ function toggleRiddleBook(bookId) {
     } else {
         riddleConfig.selectedBooks.push(bookId);
     }
-    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
+    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
     renderRiddleBookChips();
     updateRiddleSettingsFooterButtons();
 }
@@ -746,7 +748,7 @@ async function renderRiddleBookChips() {
             return isWordleSupportedBook(b);
         });
         if (riddleConfig.selectedBooks.length === 0) {
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
         riddleConfig.bookId = riddleConfig.selectedBooks[0];
     }
@@ -996,13 +998,13 @@ async function startWordRiddleGame(forceNew = false) {
             riddleConfig.selectedBooks = supported;
             riddleConfig.bookId = supported[0];
         } else {
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
         }
     }
     const selected = (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.length > 0)
         ? riddleConfig.selectedBooks
-        : ['books/考纲/高考3500.json'];
+        : ['books/经典/高中考纲词汇.json'];
 
     candidatePool = await BookManager.loadMultipleBooks(selected);
     if (!candidatePool || candidatePool.length === 0) {
@@ -1031,13 +1033,13 @@ async function startWordRiddleGame(forceNew = false) {
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             return startWordRiddleGame(true);
         } else {
-            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高考3500默认词书，绝不卡死
-            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高考3500》');
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高中考纲词汇默认词书，绝不卡死
+            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高中考纲词汇》');
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             try {
-                candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+                candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
             } catch (e) { }
             if (!candidatePool || candidatePool.length === 0) {
                 candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
@@ -1157,7 +1159,7 @@ async function getDailyWordForDate(dateStr) {
     let candidatePool = [];
     try {
         if (typeof BookManager !== 'undefined' && BookManager.loadMultipleBooks) {
-            candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+            candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
         }
     } catch (e) { }
 

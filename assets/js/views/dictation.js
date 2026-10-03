@@ -10,7 +10,7 @@ let dictationConfig = {
     type: 'listen',
     batchSize: 20,
     autoPlay: true,
-    selectedBooks: ['books/考纲/高考3500.json']
+    selectedBooks: ['books/经典/高中考纲词汇.json']
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_dictation_config') || '{}');
@@ -19,9 +19,9 @@ try {
         if (saved.batchSize) dictationConfig.batchSize = saved.batchSize;
         if (saved.autoPlay !== undefined) dictationConfig.autoPlay = saved.autoPlay;
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            dictationConfig.selectedBooks = saved.selectedBooks;
+            dictationConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
         } else {
-            dictationConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            dictationConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
     }
 } catch (e) { }

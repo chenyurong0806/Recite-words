@@ -71,24 +71,33 @@ export default {
 
       // 静态备用目录
       const defaultBooks = [
-        { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3892, path: 'books/考纲/高考3500.json', isCloud: true },
-        { id: 'books/考纲/初中考纲词汇.json', name: '初中考纲词汇', category: '考纲', count: 1741, path: 'books/考纲/初中考纲词汇.json', isCloud: true },
-        { id: 'books/考纲/初中考纲词组.json', name: '初中考纲词组', category: '考纲', count: 347, path: 'books/考纲/初中考纲词组.json', isCloud: true },
-        { id: 'books/考纲/518.json', name: '518', category: '考纲', count: 570, path: 'books/考纲/518.json', isCloud: true },
-        { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1200, path: 'books/考纲/考纲词组.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 1.json', name: 'Wordbank 1', category: 'Doris', count: 84, path: 'books/Doris/Wordbank 1.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 3.json', name: 'Wordbank 3', category: 'Doris', count: 81, path: 'books/Doris/Wordbank 3.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 4.json', name: 'Wordbank 4', category: 'Doris', count: 77, path: 'books/Doris/Wordbank 4.json', isCloud: true },
-        { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 67, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
-        { id: 'books/Doris/基础闯关a-b.json', name: '基础闯关a-b', category: 'Doris', count: 42, path: 'books/Doris/基础闯关a-b.json', isCloud: true },
-        { id: 'books/Doris/基础闯关b-c.json', name: '基础闯关b-c', category: 'Doris', count: 42, path: 'books/Doris/基础闯关b-c.json', isCloud: true },
-        { id: 'books/Doris/基础闯关c-d.json', name: '基础闯关c-d', category: 'Doris', count: 42, path: 'books/Doris/基础闯关c-d.json', isCloud: true },
-        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 107, path: 'books/Doris/翻译.json', isCloud: true },
-        { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
-        { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1021, path: 'books/Doris/高一高二笔记.json', isCloud: true },
-        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 446, path: 'books/Doris/高三笔记.json', isCloud: true },
-        { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
-        { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true },
+        // 经典分类 (11本)
+        { id: 'books/经典/高中考纲词汇.json', name: '高中考纲词汇', category: '经典', count: 3892, path: 'books/经典/高中考纲词汇.json', isCloud: true },
+        { id: 'books/经典/初中考纲词汇.json', name: '初中考纲词汇', category: '经典', count: 1741, path: 'books/经典/初中考纲词汇.json', isCloud: true },
+        { id: 'books/经典/初中考纲词组.json', name: '初中考纲词组', category: '经典', count: 347, path: 'books/经典/初中考纲词组.json', isCloud: true },
+        { id: 'books/经典/高中考纲词组.json', name: '高中考纲词组', category: '经典', count: 1200, path: 'books/经典/高中考纲词组.json', isCloud: true },
+        { id: 'books/经典/高中518词组.json', name: '高中518词组', category: '经典', count: 570, path: 'books/经典/高中518词组.json', isCloud: true },
+        { id: 'books/经典/高考真题高频.json', name: '高考真题高频', category: '经典', count: 785, path: 'books/经典/高考真题高频.json', isCloud: true },
+        { id: 'books/经典/高考阅读高频.json', name: '高考阅读高频', category: '经典', count: 686, path: 'books/经典/高考阅读高频.json', isCloud: true },
+        { id: 'books/经典/基础词汇.json', name: '基础词汇', category: '经典', count: 2991, path: 'books/经典/基础词汇.json', isCloud: true },
+        { id: 'books/经典/四级词汇.json', name: '四级词汇', category: '经典', count: 2607, path: 'books/经典/四级词汇.json', isCloud: true },
+        { id: 'books/经典/六级词汇.json', name: '六级词汇', category: '经典', count: 2088, path: 'books/经典/六级词汇.json', isCloud: true },
+        { id: 'books/经典/考研红宝书.json', name: '考研红宝书', category: '经典', count: 5493, path: 'books/经典/考研红宝书.json', isCloud: true },
+
+        // 高中精选分类 (11本)
+        { id: 'books/高中精选/Wordbank 1.json', name: 'Wordbank 1', category: '高中精选', count: 84, path: 'books/高中精选/Wordbank 1.json', isCloud: true },
+        { id: 'books/高中精选/Wordbank 3.json', name: 'Wordbank 3', category: '高中精选', count: 81, path: 'books/高中精选/Wordbank 3.json', isCloud: true },
+        { id: 'books/高中精选/Wordbank 4.json', name: 'Wordbank 4', category: '高中精选', count: 77, path: 'books/高中精选/Wordbank 4.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关a-as.json', name: '基础闯关a-as', category: '高中精选', count: 67, path: 'books/高中精选/基础闯关a-as.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关a-b.json', name: '基础闯关a-b', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关a-b.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关b-c.json', name: '基础闯关b-c', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关b-c.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关c-d.json', name: '基础闯关c-d', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关c-d.json', isCloud: true },
+        { id: 'books/高中精选/翻译.json', name: '翻译', category: '高中精选', count: 107, path: 'books/高中精选/翻译.json', isCloud: true },
+        { id: 'books/高中精选/词汇测试a-as.json', name: '词汇测试a-as', category: '高中精选', count: 25, path: 'books/高中精选/词汇测试a-as.json', isCloud: true },
+        { id: 'books/高中精选/高一高二.json', name: '高一高二', category: '高中精选', count: 1021, path: 'books/高中精选/高一高二.json', isCloud: true },
+        { id: 'books/高中精选/高三.json', name: '高三', category: '高中精选', count: 446, path: 'books/高中精选/高三.json', isCloud: true },
+
+        // 实词分类 (2本)
         { id: 'books/实词/初中150实词.json', name: '初中150实词', category: '实词', count: 150, path: 'books/实词/初中150实词.json', isCloud: true },
         { id: 'books/实词/高中300实词.json', name: '高中300实词', category: '实词', count: 300, path: 'books/实词/高中300实词.json', isCloud: true }
       ];
@@ -105,20 +114,46 @@ export default {
       }
 
       let bookPath = id.trim();
+      const legacyMap = {
+        'GaoKao3500': 'books/经典/高中考纲词汇.json',
+        'books/考纲/高考3500.json': 'books/经典/高中考纲词汇.json',
+        'books/考纲/初中考纲词汇.json': 'books/经典/初中考纲词汇.json',
+        'books/考纲/初中考纲词组.json': 'books/经典/初中考纲词组.json',
+        'books/考纲/518.json': 'books/经典/高中518词组.json',
+        'books/考纲/高中518词组.json': 'books/经典/高中518词组.json',
+        'books/考纲/考纲词组.json': 'books/经典/高中考纲词组.json',
+        'books/考纲/高中考纲词组.json': 'books/经典/高中考纲词组.json',
+        'books/其他/CET4.json': 'books/经典/四级词汇.json',
+        'books/其他/CET6.json': 'books/经典/六级词汇.json',
+        'books/其他/小学词汇.json': 'books/经典/基础词汇.json',
+        'books/Doris/高一高二笔记.json': 'books/高中精选/高一高二.json',
+        'books/Doris/高三笔记.json': 'books/高中精选/高三.json'
+      };
+      if (legacyMap[bookPath]) {
+        bookPath = legacyMap[bookPath];
+      } else if (bookPath.startsWith('books/Doris/')) {
+        bookPath = bookPath.replace('books/Doris/', 'books/高中精选/');
+      } else if (bookPath.startsWith('books/其他/')) {
+        bookPath = bookPath.replace('books/其他/', 'books/经典/');
+      }
+
       if (!bookPath.startsWith('books/') && !bookPath.includes('/')) {
         const idLower = bookPath.toLowerCase();
-        if (idLower.includes('gaokao') || idLower.includes('3500')) bookPath = 'books/考纲/高考3500.json';
-        else if (idLower.includes('初中考纲词汇')) bookPath = 'books/考纲/初中考纲词汇.json';
-        else if (idLower.includes('初中考纲词组')) bookPath = 'books/考纲/初中考纲词组.json';
-        else if (idLower.includes('518')) bookPath = 'books/考纲/518.json';
-        else if (idLower.includes('cet4')) bookPath = 'books/其他/CET4.json';
-        else if (idLower.includes('gre')) bookPath = 'books/其他/GRE1500.json';
-        else if (idLower.includes('小学')) bookPath = 'books/其他/小学词汇.json';
+        if (idLower.includes('gaokao') || idLower.includes('3500') || idLower.includes('高中考纲词汇')) bookPath = 'books/经典/高中考纲词汇.json';
+        else if (idLower.includes('初中考纲词汇')) bookPath = 'books/经典/初中考纲词汇.json';
+        else if (idLower.includes('初中考纲词组')) bookPath = 'books/经典/初中考纲词组.json';
+        else if (idLower.includes('518')) bookPath = 'books/经典/高中518词组.json';
+        else if (idLower.includes('cet4') || idLower.includes('四级')) bookPath = 'books/经典/四级词汇.json';
+        else if (idLower.includes('cet6') || idLower.includes('六级')) bookPath = 'books/经典/六级词汇.json';
+        else if (idLower.includes('考研') || idLower.includes('红宝书')) bookPath = 'books/经典/考研红宝书.json';
+        else if (idLower.includes('小学') || idLower.includes('基础词汇')) bookPath = 'books/经典/基础词汇.json';
         else if (idLower.includes('初中150') || idLower.includes('150实词')) bookPath = 'books/实词/初中150实词.json';
         else if (idLower.includes('高中300') || idLower.includes('300实词')) bookPath = 'books/实词/高中300实词.json';
         else if (idLower.includes('实词')) bookPath = 'books/实词/高中300实词.json';
-        else if (idLower.includes('词组')) bookPath = 'books/考纲/考纲词组.json';
-        else bookPath = `books/其他/${bookPath}.json`;
+        else if (idLower.includes('高一高二')) bookPath = 'books/高中精选/高一高二.json';
+        else if (idLower.includes('高三')) bookPath = 'books/高中精选/高三.json';
+        else if (idLower.includes('词组')) bookPath = 'books/经典/高中考纲词组.json';
+        else bookPath = `books/经典/${bookPath}.json`;
       }
       if (bookPath === 'books/实词/实词.json') {
         bookPath = 'books/实词/高中300实词.json';

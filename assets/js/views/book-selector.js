@@ -193,47 +193,58 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
-function isWordleSupportedBook(b) {
+function isWordleUnsupportedBook(b) {
     if (!b) return false;
     let nameStr = '';
+    let idStr = '';
     if (typeof b === 'string') {
         nameStr = b;
+        idStr = b;
     } else {
-        nameStr = (b.name || b.title || b.id || '').toString();
+        nameStr = (b.name || b.title || b.rawName || '').toString();
+        idStr = (b.id || b.path || '').toString();
     }
-    const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
-    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇', '初中考纲词汇'];
-    return allowed.some(kw => cleanLower.includes(kw));
-}
-window.isWordleSupportedBook = isWordleSupportedBook;
+    const cleanName = nameStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
+    const cleanId = idStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
+    const target = `${cleanName} ${cleanId}`;
 
-function isWordleUnsupportedBook(b) {
-    return !isWordleSupportedBook(b);
+    // 文言实词不支持 Wordle
+    if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return true;
+    if (typeof isShiCiBook === 'function' && isShiCiBook(b)) return true;
+    if (target.includes('实词')) return true;
+
+    // 只有初中考纲词组、高中考纲词组、高中518词组、翻译词书不支持Wordle
+    if (target.includes('初中考纲词组')) return true;
+    if (target.includes('高中考纲词组') || target.includes('考纲词组')) return true;
+    if (target.includes('高中518词组') || target.includes('518词组') || cleanName === '518' || cleanName.includes('518')) return true;
+    if (target.includes('翻译') || cleanName === '翻译') return true;
+
+    return false;
 }
 window.isWordleUnsupportedBook = isWordleUnsupportedBook;
 
+function isWordleSupportedBook(b) {
+    return !isWordleUnsupportedBook(b);
+}
+window.isWordleSupportedBook = isWordleSupportedBook;
+
 function isPhraseBook(b) {
-    if (!b) return false;
-    const nameStr = (b.name || b.title || b.id || '').toLowerCase();
-    const cleanLower = nameStr.replace(/\s+/g, '');
-    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
-        return true;
+    return isWordleUnsupportedBook(b);
+}
+window.isPhraseBook = isPhraseBook;
+
+function isCurrentModeRankedRestricted() {
+    if (bookSelectorMode === 'ai_duel') {
+        return (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked');
     }
-    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase') || nameStr.includes('518') || nameStr.includes('翻译') || nameStr.includes('基础闯关') || nameStr.includes('词汇测试')) {
-        return true;
+    if (bookSelectorMode === 'room') {
+        return (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked');
     }
-    if (Array.isArray(b.words) && b.words.length > 0) {
-        let spaceCount = 0;
-        const sample = b.words.slice(0, 30);
-        sample.forEach(w => {
-            const wordText = (w.word || w.name || '').trim();
-            if (wordText.includes(' ') || wordText.includes('...') || wordText.includes('.')) {
-                spaceCount++;
-            }
-        });
-        if (spaceCount / sample.length > 0.4) {
-            return true;
-        }
+    if (bookSelectorMode === 'preset') {
+        return (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked');
+    }
+    if (bookSelectorMode === 'invite') {
+        return (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked');
     }
     return false;
 }
@@ -243,13 +254,13 @@ function renderBookSelectorPage() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (!container) return;
 
-    const isMultiplayer = (bookSelectorMode === 'room' || bookSelectorMode === 'preset' || bookSelectorMode === 'invite' || bookSelectorMode === 'ai_duel');
+    const isRankedOnly = isCurrentModeRankedRestricted();
     const allBooks = getAllUniqueBooks();
     const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
     let filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
 
-    // 远程联机禁止选择本地词书
-    if (isMultiplayer) {
+    // 仅排位赛限制云端词书，友谊赛及其他模式允许选择本地词书
+    if (isRankedOnly) {
         filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
     }
 
@@ -268,16 +279,16 @@ function renderBookSelectorPage() {
 
     const folderGroups = {};
     filteredBooks.forEach(b => {
-        let folder = b.category || '精选';
+        let folder = b.category || '经典';
         if (b.id === 'builtin_default') folder = '内置';
         else if (String(b.id).startsWith('custom_')) folder = '自定义词书';
         if (!folderGroups[folder]) folderGroups[folder] = [];
         folderGroups[folder].push(b);
     });
 
-    const folderOrder = isMultiplayer
-        ? ['考纲', 'Doris', '精选', '实词', '其他']
-        : ['内置', '考纲', 'Doris', '精选', '实词', '其他', '自定义词书'];
+    const folderOrder = isRankedOnly
+        ? ['经典', '高中精选', '实词']
+        : ['内置', '经典', '高中精选', '实词', '自定义词书'];
     const sortedFolderKeys = Object.keys(folderGroups).sort((a, b) => {
         let idxA = folderOrder.indexOf(a);
         let idxB = folderOrder.indexOf(b);
@@ -300,8 +311,7 @@ function renderBookSelectorPage() {
             const isSelected = isBookIdSelectedInCurrentMode(b.id);
             const gradient = getProceduralBookGradient(b.name, b.category);
             const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
-            const isPhrase = isPhraseBook(b);
-            const isBlockedForWordle = (bookSelectorMode === 'riddle' && (isPhrase || isWordleUnsupportedBook(b)));
+            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
 
             // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
             let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
@@ -491,7 +501,7 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
-        if (isPhraseBook(bookMeta) || isWordleUnsupportedBook(bookMeta)) {
+        if (isWordleUnsupportedBook(bookMeta)) {
             showToast('该词书不支持 Wordle，请选择其他单词词书');
             return;
         }
@@ -525,8 +535,10 @@ async function handleBookSelectorToggle(bookId) {
         if (badge) badge.innerText = bookMeta.name;
     } else if (bookSelectorMode === 'room') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.includes(bookId);
@@ -544,8 +556,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof broadcastRuleChange === 'function' && isHost) broadcastRuleChange();
     } else if (bookSelectorMode === 'preset') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!window.activeEditingPreset) window.activeEditingPreset = { selectedBooks: [] };
         if (!activeEditingPreset.selectedBooks) activeEditingPreset.selectedBooks = [];
@@ -563,8 +577,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
     } else if (bookSelectorMode === 'invite') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!window.activeInviteRules) window.activeInviteRules = { selectedBooks: [] };
         if (!activeInviteRules.selectedBooks) activeInviteRules.selectedBooks = [];
@@ -582,8 +598,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
     } else if (bookSelectorMode === 'ai_duel') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('人机对战禁止选择本地词书');
-            return;
+            if (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (typeof aiDuelConfig === 'undefined') window.aiDuelConfig = { selectedBooks: [] };
         if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];

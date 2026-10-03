@@ -466,16 +466,16 @@ async function loadCustomBook(e) {
 
 function isBookIdSelected(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) return false;
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
-    return selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
+    return selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
 }
 
 function toggleBookIdInList(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) selectedIds = [];
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
-    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
+    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
     if (hasIt) {
-        return selectedIds.filter(id => id !== bookId && !(isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+        return selectedIds.filter(id => id !== bookId && !(isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
     } else {
         return [...selectedIds, bookId];
     }

@@ -99,32 +99,7 @@ async function checkCloudVersion(manual = false) {
         console.warn('GitHub releases API check failed:', e);
     }
 
-    /* ---------- 2. 备选：Worker ---------- */
-    if (!data && typeof BookManager !== 'undefined' && BookManager.API_BASE) {
-        try {
-            const res = await fetch(
-                `${BookManager.API_BASE}/api/version?t=${Date.now()}`,
-                { cache: 'no-store' }
-            );
-            if (res.ok) {
-                const wData = await res.json(); // ⚠️ 只解析一次
-                if (wData && wData.version) {
-                    const rawTag = normalizeTag(wData.version);
-                    data = {
-                        version: rawTag,
-                        releaseDate: wData.releaseDate,
-                        changelog: wData.changelog || ['常规优化更新'],
-                        downloadUrl: buildZipUrl(rawTag),
-                        mirrorDownloadUrl: buildZipUrl(rawTag)
-                    };
-                }
-            }
-        } catch (e) {
-            console.warn('Worker version check failed:', e);
-        }
-    }
-
-    /* ---------- 3. 统一规范化 URL ---------- */
+    /* ---------- 2. 统一规范化 URL ---------- */
     if (data && data.version) {
         const rawTag = normalizeTag(data.version);
         data.version = rawTag;

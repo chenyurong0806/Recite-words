@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>词迹 - 沉浸式多维记忆 · 探索词汇宇宙</title>
+    <title>词迹</title>
     <!-- Google 官方字体与 Material Symbols Rounded 图标库 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./promo.css">
 </head>
 
 <body class="promo-body">
@@ -124,7 +124,7 @@
     <!-- 极隐毫秒级商业进度微条 -->
     <div id="stealth-progress" class="stealth-progress-bar"></div>
 
-    <!-- 虚拟高精度鼠标指针 (点击只进行缩放 scale 0.72，无涟漪，节奏紧实) -->
+    <!-- 虚拟高精度鼠标指针 -->
     <div id="virtual-cursor" class="virtual-mouse-cursor" style="display: none; left: -100px; top: -100px;">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
             <path d="M4 3L18 13L11.5 14L8.5 21L4 3Z" fill="#191C20" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
@@ -139,7 +139,6 @@
                  镜头 1：【开篇】(3D 首页掠过 -> 白色Logo -> 亮色标题 -> 逐个弹出的子标签)
                  ========================================================== -->
             <section id="scene-intro" class="scene-layer">
-                <!-- 3D 掠过真实首页 DOM 展板 -->
                 <div class="intro-flyover-stage" id="intro-flyover-stage">
                     <div class="intro-home-board" id="intro-home-board">
                         <img src="./assets/home_snapshot.png" alt="词迹首页真实截图">
@@ -147,7 +146,6 @@
                     </div>
                 </div>
 
-                <!-- 居中定格 Logo 与名称组 -->
                 <div class="intro-hero-lockup" id="intro-hero-lockup">
                     <div class="intro-logo-cube" id="intro-logo-cube">
                         <img src="./icon.png" alt="词迹">
@@ -157,7 +155,6 @@
                         <span class="brand-gradient">词迹</span>
                     </h1>
 
-                    <!-- 逐个灵动弹出的三个胶囊 -->
                     <div class="intro-pills-row">
                         <div class="intro-feature-pill" id="intro-pill-1">MD3 设计</div>
                         <div class="intro-feature-pill" id="intro-pill-2">多端适配</div>
@@ -170,7 +167,6 @@
                  镜头 2：【查词功能】(多标签页 + 相关词组 vs 链接 + 真实点击与操作)
                  ========================================================== -->
             <section id="scene-search" class="scene-layer">
-                <!-- 灵动情境标签 (简化核心关键词) -->
                 <div class="context-badge" id="badge-search-tabs" style="top: -20px; left: 40px;">
                     <span class="material-symbols-rounded" style="color: #0061A4; font-size: 20px;">tab</span>
                     <span>多标签页</span>
@@ -185,7 +181,6 @@
                 </div>
 
                 <div class="search-mock-window" id="search-mock-window">
-                    <!-- 顶栏胶囊多标签页系统 -->
                     <div class="search-top-bar">
                         <div class="search-input-capsule" id="search-input-capsule">
                             <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 24px;">search</span>
@@ -208,7 +203,6 @@
                         </div>
                     </div>
 
-                    <!-- 释义主卡片 -->
                     <div class="search-definition-card" id="search-definition-card">
                         <div class="search-word-header">
                             <div>
@@ -234,13 +228,11 @@
                             <strong>n.</strong> 放任，纵情
                         </div>
 
-                        <!-- 左右对比并置排版：相关词组 vs 相关链接 -->
                         <div class="search-comparison-grid">
-                            <!-- 左侧：相关词组 -->
                             <div class="compare-column">
                                 <div class="compare-column-title">
                                     <span class="material-symbols-rounded" style="font-size: 18px;">format_quote</span>
-                                    <span>相关词组 (核心高亮)</span>
+                                    <span>相关词组</span>
                                 </div>
                                 <div class="phrase-item-row">
                                     <div>
@@ -257,11 +249,10 @@
                                 </div>
                             </div>
 
-                            <!-- 右侧：相关链接网格 -->
                             <div class="compare-column">
                                 <div class="compare-column-title">
                                     <span class="material-symbols-rounded" style="font-size: 18px;">hub</span>
-                                    <span>相关链接 (派生/近义)</span>
+                                    <span>相关链接</span>
                                 </div>
                                 <div class="related-cards-matrix">
                                     <div class="search-related-card hovered" id="rel-card-1">
@@ -276,25 +267,24 @@
                             </div>
                         </div>
 
-                        <!-- 浮动弹窗 1：添加到词书词块 -->
-                        <div class="floating-overlay-card" id="modal-add-book-demo" style="top: 20px; right: 40px; width: 360px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div class="floating-overlay-card" id="modal-add-book-demo" style="top: 88px; right: 30px; width: 360px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                                 <strong style="font-size: 1rem; color: var(--md-sys-color-primary);">添加到本地词书</strong>
+                            </div>
+                            <div class="refined-book-check-item">
                                 <span class="material-symbols-rounded" style="color: #146C2E; font-size: 22px;">check_circle</span>
+                                <span class="check-pos-tag">v.</span>
+                                <span class="check-def-text">放弃，舍弃</span>
                             </div>
-                            <div style="background: var(--md-sys-color-surface-container-low); padding: 10px 14px; border-radius: 8px; font-size: 0.92rem; margin-bottom: 10px;">
-                                ☑ [v. 放弃，舍弃]
-                            </div>
-                            <div style="font-size: 0.85rem; color: var(--md-sys-color-outline);">
+                            <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 10px;">
                                 已加入《高考3500》重点词汇库
                             </div>
                         </div>
 
-                        <!-- 浮动弹窗 2：轻量修改释义 -->
-                        <div class="floating-overlay-card" id="modal-edit-meaning-demo" style="top: 70px; right: 40px; width: 360px;">
+                        <div class="floating-overlay-card" id="modal-edit-meaning-demo" style="top: 88px; right: 30px; width: 360px;">
                             <strong style="font-size: 1rem; color: var(--md-sys-color-primary); display: block; margin-bottom: 8px;">自定义词书释义</strong>
                             <div style="border: 1.5px solid var(--md-sys-color-primary); background: #FFFFFF; border-radius: 8px; padding: 8px 12px; font-size: 0.92rem; margin-bottom: 10px;">
-                                <span id="edit-meaning-input-text">v. 放弃；【考点】沉溺于...</span><span class="blinking-caret">|</span>
+                                <span id="edit-meaning-input-text">v. 一背到就放弃</span><span class="blinking-caret">|</span>
                             </div>
                             <div style="text-align: right;">
                                 <span style="font-size: 0.85rem; background: var(--md-sys-color-primary); color: #fff; padding: 5px 14px; border-radius: 999px; font-weight: 700;">已保存</span>
@@ -305,52 +295,51 @@
             </section>
 
             <!-- ==========================================================
-                 镜头 3：【爆发点 · 对决】(远程联机 -> 真实房间 -> 逻辑过渡 -> 人机设置 -> 同屏拔河)
+                 镜头 3：【爆发点 · 对决】(大厅 -> 排位房间 -> 挑战弹窗 -> 真实房间 -> 逻辑过渡 -> 人机设置 -> 同屏拔河)
                  ========================================================== -->
             <section id="scene-duel" class="scene-layer">
                 <div class="duel-stage-wrap">
-                    <!-- 子模式 1：远程联机 (Remote Duel 16.80 - 19.80s) -->
+                    <!-- 子模式 1：远程联机 -->
                     <div class="duel-subview" id="duel-sub-remote">
                         <div class="context-badge" id="badge-duel-remote" style="top: -24px; left: 20px;">
                             <span class="material-symbols-rounded" style="color: #0061A4; font-size: 20px;">public</span>
-                            <span>天梯排位</span>
+                            <span>排位系统</span>
                         </div>
 
                         <div class="remote-lobby-grid">
-                            <div class="player-presence-list">
+                            <div class="player-presence-list" id="duel-lobby-list">
                                 <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--md-sys-color-primary); margin-bottom: 8px;">在线匹配大厅</h3>
                                 <div class="player-item-pill">
                                     <div class="player-avatar">7</div>
                                     <div style="flex:1;">
                                         <div style="font-weight: 700; font-size: 0.95rem;">作者大人</div>
-                                        <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">7段 · 580/699分</div>
+                                        <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">6段 · 666分</div>
                                     </div>
                                     <span style="font-size: 0.78rem; color: #146C2E; font-weight: 700;">18ms</span>
                                 </div>
                                 <div class="player-item-pill">
                                     <div class="player-avatar" style="background:#E0F2F1; color:#006874;">5</div>
                                     <div style="flex:1;">
-                                        <div style="font-weight: 700; font-size: 0.95rem;">晨曦学者</div>
-                                        <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">5段 · 420/499分</div>
+                                        <div style="font-weight: 700; font-size: 0.95rem;">观众</div>
+                                        <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">9段 · 999分</div>
                                     </div>
                                     <span style="font-size: 0.78rem; color: #146C2E; font-weight: 700;">24ms</span>
                                 </div>
                             </div>
 
-                            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-l); padding:28px;">
+                            <div class="remote-room-intro-card" id="duel-lobby-card" style="opacity: 0; transform: translateY(16px); transition: all 0.4s var(--md-motion-bounce);">
                                 <span class="material-symbols-rounded" style="font-size: 64px; color: var(--md-sys-color-primary); margin-bottom: 12px;">sports_esports</span>
-                                <div style="font-size: 1.35rem; font-weight: 900; margin-bottom: 6px;">天梯排位房间</div>
-                                <div style="font-size: 0.95rem; color: var(--md-sys-color-outline);">全网实时毫秒级对决</div>
+                                <div style="font-size: 1.35rem; font-weight: 900; margin-bottom: 6px;">排位房间</div>
+                                <div style="font-size: 0.95rem; color: var(--md-sys-color-outline);">实时匹配中</div>
                             </div>
                         </div>
 
-                        <!-- 实时对决邀请弹窗 (#modal-match-invite) -->
                         <div class="match-invite-modal" id="modal-match-invite">
                             <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 2.5px solid var(--md-sys-color-primary);">
                                 <span class="material-symbols-rounded" style="font-size: 36px;">sports_esports</span>
                             </div>
                             <h3 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 4px;">对决挑战</h3>
-                            <div style="font-size: 0.98rem; font-weight: 700; color: var(--md-sys-color-primary); margin-bottom: 12px;">巅峰排位赛 · 1号房</div>
+                            <div style="font-size: 0.98rem; font-weight: 700; color: var(--md-sys-color-primary); margin-bottom: 12px;">排位赛模式</div>
                             <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-m); padding: 14px 18px; margin-bottom: 16px; text-align: left; font-size: 0.9rem; line-height: 1.8; border: 1px solid var(--md-sys-color-outline-variant);">
                                 <div style="display: flex; justify-content: space-between;">
                                     <span style="color: var(--md-sys-color-outline);">获胜规则:</span>
@@ -371,34 +360,35 @@
                         </div>
                     </div>
 
-                    <!-- 子模式 1.5：真实房间 DOM 展示 (Room View 19.80 - 22.00s) -->
+                    <!-- 子模式 1.5：真实房间 DOM 展示 (结束入场后多停留0.4s) -->
                     <div class="duel-subview" id="duel-sub-room">
-                        <div class="context-badge" id="badge-room-ready" style="top: -24px; right: 20px;">
+                        <div class="context-badge" id="badge-room-ready" style="top: -24px; right: 60px;">
                             <span class="material-symbols-rounded" style="color: #146C2E; font-size: 20px;">check_circle</span>
                             <span>实时对战</span>
                         </div>
-                        <div class="real-room-card" id="real-room-card">
-                            <img src="./assets/room_snapshot.png" alt="对战真实房间界面">
+                        <div class="real-room-card-wrapper" id="real-room-card-wrapper">
+                            <div class="real-room-card" id="real-room-card">
+                                <img src="./assets/room_snapshot.png" alt="对战真实房间界面">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 板块过渡桥接层 (没有人在线？ -> 试试人机对战 22.00 - 24.20s) -->
+                    <!-- 板块过渡桥接层 -->
                     <div class="transition-bridge-card" id="duel-transition-bridge" style="display: none;">
                         <div class="bridge-wonder-bubble" id="bridge-wonder">
-                            没有人在线？ 🤔
+                            没有人在线？
                         </div>
                         <div class="bridge-ai-prompt" id="bridge-prompt">
-                            <span class="material-symbols-rounded" style="font-size: 26px;">smart_toy</span>
-                            <span>试试人机对战 →</span>
+                            <span>试试离线对战 →</span>
                         </div>
                     </div>
 
-                    <!-- 子模式 2：人机对战配置 (AI Duel 24.20 - 27.20s) -->
+                    <!-- 子模式 2：人机对战配置 -->
                     <div class="duel-subview" id="duel-sub-ai">
                         <div class="context-badge" id="badge-ai-config" style="top: -24px; left: 20px;">
                             <span class="material-symbols-rounded" style="color: #006874; font-size: 20px;">tune</span>
                             <span>自适应人机</span>
-                        </div>
+                        </div> 
 
                         <div class="ai-settings-modal-card">
                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
@@ -417,11 +407,11 @@
                             <div class="ai-setting-row">
                                 <div class="ai-setting-label">
                                     <span>AI 难度段位</span>
-                                    <strong style="color: var(--md-sys-color-primary); font-size: 1.25rem;" id="ai-rank-text">8段 宗师进阶 · 720/799分</strong>
+                                    <strong style="color: var(--md-sys-color-primary); font-size: 1.25rem;" id="ai-rank-text">1段</strong>
                                 </div>
                                 <div class="ai-slider-track" id="ai-slider-track">
-                                    <div class="ai-slider-fill" id="ai-slider-fill"></div>
-                                    <div class="ai-slider-thumb" id="ai-slider-thumb"></div>
+                                    <div class="ai-slider-fill" id="ai-slider-fill" style="width: 0%;"></div>
+                                    <div class="ai-slider-thumb" id="ai-slider-thumb" style="left: 0%;"></div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--md-sys-color-outline); margin-top: 2px;">
                                     <span>1段</span>
@@ -461,24 +451,25 @@
                         </div>
                     </div>
 
-                    <!-- 子模式 3：希沃同屏对战 (Local Split-Screen 27.20 - 32.80s) -->
+                    <!-- 子模式 3：希沃同屏拔河 (修复图 3：标签拔高 top:-68px，不再紧贴卡片) -->
                     <div class="duel-subview" id="duel-sub-local">
-                        <div class="context-badge" id="badge-tug" style="top: -24px; left: 20px;">
+                        <!-- 顶层空间胶囊充分拔高至 -68px -->
+                        <div class="context-badge" id="badge-tug" style="top: -68px; left: 20px;">
                             <span class="material-symbols-rounded" style="color: #B3261E; font-size: 20px;">fitness_center</span>
-                            <span>同屏拔河</span>
+                            <span>同屏对决</span>
                         </div>
-                        <div class="context-badge" id="badge-penalty" style="top: -24px; right: 20px;">
+                        <div class="context-badge" id="badge-penalty" style="top: -68px; right: 20px;">
                             <span class="material-symbols-rounded" style="color: #006874; font-size: 20px;">ac_unit</span>
                             <span>答错惩罚</span>
                         </div>
 
+                        <!-- 拔河仪表盘独立间距卡片 (圆角统一，边距透气) -->
                         <div class="tug-gauge-wrapper">
                             <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 1.05rem;">
-                                <span style="color: var(--p1-sys-color);" id="tug-p1-label">🔴 红方 1</span>
-                                <span style="color: var(--md-sys-color-outline); font-size: 0.9rem;">领先 6 题胜出 · 拔河仪表</span>
-                                <span style="color: var(--p2-sys-color);" id="tug-p2-label">蓝方 0 🔵</span>
+                                <span style="color: var(--p1-sys-color);" id="tug-p1-label">🔴 红方</span>
+                                <span style="color: var(--md-sys-color-outline); font-size: 0.9rem;">同屏对决 · 适配希沃多触控</span>
+                                <span style="color: var(--p2-sys-color);" id="tug-p2-label">蓝方 🔵</span>
                             </div>
-                            <!-- 拔河仪表：红方领先时，红方进度条占比扩大 (50% -> 64%) -->
                             <div class="local-tug-track" id="local-tug-track">
                                 <div class="local-tug-fill-p1" id="local-tug-fill-p1" style="width: 50%;"></div>
                                 <div class="local-tug-fill-p2" id="local-tug-fill-p2" style="width: 50%;"></div>
@@ -487,7 +478,7 @@
                         </div>
 
                         <div class="local-arena-split">
-                            <!-- 红方 (P1)：初始前 1s 保持普通中立配色，答对后再变为高光绿 -->
+                            <!-- 红方 (P1) -->
                             <div class="local-player-side p1" id="local-side-p1">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                                     <span style="background: var(--p1-sys-container); color: var(--p1-sys-color); font-weight: 800; padding: 4px 16px; border-radius: var(--md-shape-full); font-size: 0.95rem;">🔴 红方 P1</span>
@@ -502,7 +493,7 @@
                                 </div>
                             </div>
 
-                            <!-- 蓝方 (P2)：初始保持中立，答错后再变为惩罚红 -->
+                            <!-- 蓝方 (P2) -->
                             <div class="local-player-side p2" id="local-side-p2">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                                     <span style="background: var(--p2-sys-container); color: var(--p2-sys-color); font-weight: 800; padding: 4px 16px; border-radius: var(--md-shape-full); font-size: 0.95rem;">🔵 蓝方 P2</span>
@@ -516,9 +507,8 @@
                                     <div class="action-circle-btn" style="justify-content: center; height: 48px;">D. 寻找，搜寻</div>
                                 </div>
 
-                                <!-- 惩罚遮罩 (.local-freeze-overlay) -->
                                 <div class="local-freeze-overlay" id="p2-freeze-overlay">
-                                    <div style="font-weight: 800; font-size: 1.25rem; color: var(--md-sys-color-error);">答错惩罚冻结</div>
+                                    <div style="font-weight: 800; font-size: 1.25rem; color: var(--md-sys-color-error);">答错惩罚</div>
                                     <div class="local-freeze-countdown" id="p2-freeze-num">3</div>
                                     <div class="local-freeze-bar">
                                         <div class="local-freeze-bar-inner" id="p2-freeze-bar-inner"></div>
@@ -531,16 +521,16 @@
             </section>
 
             <!-- ==========================================================
-                 新增镜头 3.5：【选择词书展示】(真实 DOM 截图展示海量词书生态)
+                 镜头 3.5：【选择词书展示】
                  ========================================================== -->
             <section id="scene-book-select" class="scene-layer">
                 <div class="context-badge" id="badge-book-select" style="top: -24px; left: 40px;">
                     <span class="material-symbols-rounded" style="color: #0061A4; font-size: 20px;">auto_stories</span>
-                    <span>海量词书</span>
+                    <span>精选词书</span>
                 </div>
                 <div class="context-badge" id="badge-book-toggle" style="top: -24px; right: 40px;">
                     <span class="material-symbols-rounded" style="color: #146C2E; font-size: 20px;">check_circle</span>
-                    <span>一键切换</span>
+                    <span>任君挑选</span>
                 </div>
 
                 <div class="book-selection-stage" id="book-selection-stage">
@@ -551,20 +541,19 @@
             </section>
 
             <!-- ==========================================================
-                 镜头 4：【背单词与背实词】(看中文释义写英文 + 逐字默写标绿 + 5星爆亮 + 文言实词4选项)
+                 镜头 4：【背单词与背实词】
                  ========================================================== -->
             <section id="scene-recite" class="scene-layer">
                 <div class="context-badge" id="badge-recite-mastery" style="top: -24px; left: 40px;">
                     <span class="material-symbols-rounded" style="color: #EAA000; font-size: 20px;">grade</span>
-                    <span>艾宾浩斯</span>
+                    <span>艾宾浩斯记忆曲线</span>
                 </div>
                 <div class="context-badge" id="badge-recite-shici" style="top: -24px; right: 40px;">
                     <span class="material-symbols-rounded" style="color: #006874; font-size: 20px;">menu_book</span>
-                    <span>背实词</span>
+                    <span>双语学习</span>
                 </div>
 
                 <div class="recite-triptych-stage">
-                    <!-- 左侧：英语背词与默写 (看中文释义写英文) -->
                     <div class="recite-card-shell" id="recite-english-card">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 1.15rem; font-weight: 800; color: var(--md-sys-color-primary);">英语默写</span>
@@ -577,17 +566,12 @@
                             </div>
                         </div>
 
-                        <!-- 看中文释义写英文提示区域 -->
                         <div class="dictation-prompt-zone" style="text-align: center; margin: 16px 0 10px;">
                             <div class="dictation-meaning-prompt" id="dictation-meaning-prompt" style="font-size: 1.45rem; font-weight: 800; color: var(--md-sys-color-on-surface);">
                                 v. 放弃，舍弃；遗弃
                             </div>
-                            <div class="dictation-phonetic-hint" style="font-size: 1rem; color: var(--md-sys-color-outline); font-family: 'Roboto Mono', monospace; margin-top: 4px;">
-                                /əˈbændən/ · 7 字符
-                            </div>
                         </div>
 
-                        <!-- 默写输入框与悬浮长度气泡 (标绿反馈) -->
                         <div class="dictation-input-box">
                             <div class="dictation-slot-len-badge pop-show" id="dictation-badge">7 字符</div>
                             <div class="dictation-display-bar" id="dictation-display-bar">
@@ -595,13 +579,11 @@
                             </div>
                         </div>
 
-                        <!-- MD3 虚拟键盘 -->
                         <div class="virtual-keyboard-mock">
                             <div class="kb-row">
                                 <div class="kb-key" id="key-q">Q</div>
                                 <div class="kb-key" id="key-w">W</div>
                                 <div class="kb-key" id="key-e">E</div>
-                                <div class="kb-key" id="key-r">R</div>
                                 <div class="kb-key" id="key-t">T</div>
                                 <div class="kb-key" id="key-y">Y</div>
                                 <div class="kb-key" id="key-u">U</div>
@@ -632,7 +614,6 @@
                         </div>
                     </div>
 
-                    <!-- 右侧：背实词 (完整 4 个选项，初始中立，聚焦时动态选择) -->
                     <div class="recite-card-shell shici-card-shell" id="recite-shici-card">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 1.15rem; font-weight: 800; color: var(--p2-sys-color);">背实词</span>
@@ -648,7 +629,6 @@
                             </div>
                         </div>
 
-                        <!-- 完整的 4 个选项 (初始保持中立) -->
                         <div class="shici-options-grid">
                             <div class="action-circle-btn" style="height: 44px;" id="shici-opt-a">
                                 <span>A. [形容词] 悲伤，悲痛</span>
@@ -664,8 +644,7 @@
                             </div>
                         </div>
 
-                        <!-- 展开释义抽屉卡 -->
-                        <div class="shici-drawer-preview" id="shici-drawer-preview" style="max-height: 0; opacity: 0;">
+                        <div class="shici-drawer-preview" id="shici-drawer-preview">
                             <div style="display: flex; align-items: center; gap: 6px; color: #146C2E; font-weight: 800; font-size: 0.92rem;">
                                 <span class="material-symbols-rounded" style="font-size: 20px;">check_circle</span>
                                 <span>回答正确 · 语境义项</span>
@@ -679,19 +658,19 @@
             </section>
 
             <!-- ==========================================================
-                 镜头 5：【Wordle 解谜】(加快3D翻转 + 动态倒计时 + 提示第2步 + 草稿校验 + 猜中弹窗)
+                 镜头 5：【Wordle 解谜】
                  ========================================================== -->
             <section id="scene-wordle" class="scene-layer">
                 <div class="context-badge" id="badge-wordle-tech" style="top: -24px; left: 40px;">
                     <span class="material-symbols-rounded" style="color: #6750A4; font-size: 20px;">extension</span>
-                    <span>3D 翻转</span>
+                    <span>每日挑战</span>
                 </div>
                 <div class="context-badge" id="badge-wordle-draft" style="top: -24px; right: 40px;">
                     <span class="material-symbols-rounded" style="color: #0061A4; font-size: 20px;">edit_note</span>
-                    <span>独创草稿行</span>
+                    <span>支持草稿</span>
                 </div>
 
-                <div class="riddle-mock-container">
+                <div class="riddle-mock-container" id="riddle-mock-container">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <h2 style="font-size: 2rem; font-weight: 900; color: var(--md-sys-color-primary); margin: 0;">Wordle 猜词</h2>
@@ -700,28 +679,22 @@
                                 <span id="riddle-timer-text">00:00</span>
                             </div>
                         </div>
-                        <div class="riddle-hint-counter" id="riddle-hint-counter">
-                            💡 提示 (3/4)
-                        </div>
                     </div>
 
-                    <!-- 动态多态提示栏：默认阶梯提示 -> 猜中后直接平滑替换为释义栏 (不挡棋盘) -->
                     <div class="riddle-prompt-banner" id="riddle-prompt-banner">
                         <div class="prompt-hint-view" id="prompt-hint-view">
                             <span class="riddle-step-label">提示 第2步</span>
-                            <span class="riddle-step-content">已定位格：<strong style="color: #146C2E; font-size: 1.28rem; letter-spacing: 5px;">_ _ e _ t</strong> · 包含字母 [ p ]</span>
+                            <span class="riddle-step-content"><strong style="color: #146C2E; font-size: 1.28rem; letter-spacing: 5px;">_ _ e _ t</strong></span>
                         </div>
-                        <div class="prompt-success-view" id="prompt-success-view" style="display: none;">
+                        <div class="prompt-success-view" id="prompt-success-view">
                             <div class="success-banner-main">
-                                <span class="success-icon-badge">🎉 猜词成功</span>
+                                <span class="success-icon-badge">猜词成功</span>
                                 <span class="success-word-title">adept</span>
-                                <span class="success-phone">/əˈdept/</span>
                                 <span class="success-sense"><strong>adj.</strong> 熟练的，内行的</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 3D 翻转主阵列 (按演示单词 SPENT 与 ADEPT 严密契合) -->
                     <div class="riddle-main-grid" id="riddle-main-grid">
                         <div class="riddle-row" id="riddle-row-1">
                             <div class="riddle-tile" id="tile-1-1">S</div>
@@ -739,7 +712,6 @@
                         </div>
                     </div>
 
-                    <!-- 独创草稿行 (带清空与提交按键) -->
                     <div class="riddle-draft-section" id="riddle-draft-section">
                         <span style="font-size: 0.9rem; font-weight: 800; color: var(--md-sys-color-primary);">草稿行:</span>
                         <div style="display: flex; gap: 8px;" id="riddle-draft-tiles">
@@ -750,18 +722,20 @@
                             <div class="riddle-tile draft-slot" id="draft-5"></div>
                         </div>
                         <div style="display: flex; gap: 6px;">
-                            <button type="button" class="riddle-draft-btn" id="btn-clear-draft" title="清空草稿">✕</button>
-                            <button type="button" class="riddle-draft-btn highlight" id="btn-submit-draft" title="一键填入并校验">✓</button>
+                            <button type="button" class="riddle-draft-btn" id="btn-clear-draft" title="清空草稿">
+                                <span class="material-symbols-rounded" style="font-size: 20px;">close</span>
+                            </button>
+                            <button type="button" class="riddle-draft-btn highlight" id="btn-submit-draft" title="一键填入并校验">
+                                <span class="material-symbols-rounded" style="font-size: 22px;">check</span>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- 键盘颜色实时同步显示 -->
                     <div class="virtual-keyboard-mock" style="width: 100%; max-width: 520px;">
                         <div class="kb-row">
                             <div class="kb-key" id="rk-q">Q</div>
                             <div class="kb-key" id="rk-w">W</div>
                             <div class="kb-key" id="rk-e">E</div>
-                            <div class="kb-key" id="rk-r">R</div>
                             <div class="kb-key" id="rk-t">T</div>
                             <div class="kb-key" id="rk-y">Y</div>
                             <div class="kb-key" id="rk-u">U</div>
@@ -785,7 +759,7 @@
             </section>
 
             <!-- ==========================================================
-                 镜头 6：【云端同步与多端适配】(简化关键词 + 动态弹出胶囊 + 真实多端DOM截图)
+                 镜头 6：【云端同步与多端适配】(先显示左侧云端同步，后逐个弹出右侧数据标签)
                  ========================================================== -->
             <section id="scene-cloud" class="scene-layer">
                 <div class="context-badge" id="badge-cloud-sync" style="top: -24px; left: 40px;">
@@ -798,7 +772,6 @@
                 </div>
 
                 <div class="cloud-sync-flow-box">
-                    <!-- 逐个弹出的数据同步项胶囊：学习记录、等级分、词书 -->
                     <div class="sync-popping-cluster" id="sync-badges-cluster">
                         <div class="sync-data-pill" id="sync-pill-record">
                             <span class="material-symbols-rounded" style="color: #0061A4; font-size: 18px;">history_edu</span>
@@ -820,19 +793,13 @@
                     </button>
                 </div>
 
-                <!-- 3D 悬浮多端全景画廊 (嵌入真实 DOM 截图) -->
                 <div class="devices-triptych-scene" id="devices-triptych">
-                    <!-- 桌面端 (完整呈现真实首页 DOM 截图) -->
                     <div class="device-frame device-desktop" id="device-desktop">
                         <img src="./assets/home_snapshot.png" alt="桌面端真实截图">
                     </div>
-
-                    <!-- 手机端 (完整呈现真实移动端首页截图) -->
                     <div class="device-frame device-mobile" id="device-mobile">
                         <img src="./assets/mobile_home_snapshot.png" alt="移动端真实首页截图">
                     </div>
-
-                    <!-- 希沃教学一体机 (巨幕横屏双人同屏) -->
                     <div class="device-frame device-seewo" id="device-seewo">
                         <div style="width: 100%; height: 100%; background: #F8F9FF; display: flex; flex-direction: column;">
                             <div style="background: #001D36; color: #fff; padding: 8px 20px; display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700;">
@@ -853,7 +820,7 @@
             </section>
 
             <!-- ==========================================================
-                 镜头 7：【收束】(纯白 Logo + 亮色标题 + 三大胶囊 + 商业级网站地址)
+                 镜头 7：【收束】
                  ========================================================== -->
             <section id="scene-outro" class="scene-layer">
                 <div class="outro-hero-lockup">
@@ -863,10 +830,9 @@
 
                     <h1 class="outro-title">词迹</h1>
 
-                    <!-- 底部三个核心胶囊 (彻底删除右上角重复项) -->
                     <div class="outro-tags-row">
-                        <div class="outro-tag-pill" id="outro-pill-1">多端适配</div>
-                        <div class="outro-tag-pill" id="outro-pill-2">云端同步</div>
+                        <div class="outro-tag-pill" id="outro-pill-1">MD3设计</div>
+                        <div class="outro-tag-pill" id="outro-pill-2">多端适配</div>
                         <div class="outro-tag-pill" id="outro-pill-3">游戏化学习</div>
                     </div>
 
@@ -879,7 +845,6 @@
         </div>
     </main>
 
-    <!-- 宣传片全时钟核心驱动器 -->
     <script src="./promo.js"></script>
 </body>
 

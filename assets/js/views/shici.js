@@ -663,10 +663,6 @@ const ShiCiManager = {
             `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
             `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
         ];
-        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent(relPath)}`);
-            urls.push(`${BookManager.API_BASE}/api/book?id=${encodeURIComponent(relPath)}`);
-        }
 
         for (const u of urls) {
             try {

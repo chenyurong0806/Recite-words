@@ -26,7 +26,7 @@ function renderSingleBookList() {
     if (!listEl) return;
 
     if (!Array.isArray(singleSelectedBookIds)) {
-        singleSelectedBookIds = ['books/考纲/高考3500.json'];
+        singleSelectedBookIds = ['books/经典/高中考纲词汇.json'];
     }
 
     renderBookFolderTree('single-book-list', {

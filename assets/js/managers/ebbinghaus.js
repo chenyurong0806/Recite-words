@@ -192,7 +192,7 @@ const EbbinghausEngine = {
         if (!currentUser || !bookId) return;
         let words = await BookManager.loadBookData(bookId);
         if (!words || words.length === 0) {
-            if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json') {
+            if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json') {
                 words = DEFAULT_WORDS;
             }
         }

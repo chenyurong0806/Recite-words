@@ -66,7 +66,14 @@ function renderBookFolderTree(containerId, options = {}) {
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push(b);
         });
-        const catNames = Object.keys(categories);
+        const catOrder = ['经典', '高中精选', '实词'];
+        const catNames = Object.keys(categories).sort((a, b) => {
+            let idxA = catOrder.indexOf(a);
+            let idxB = catOrder.indexOf(b);
+            if (idxA === -1) idxA = 99;
+            if (idxB === -1) idxB = 99;
+            return idxA - idxB;
+        });
         if (catNames.length > 1) {
             catNames.forEach(cat => {
                 const booksInCat = categories[cat];

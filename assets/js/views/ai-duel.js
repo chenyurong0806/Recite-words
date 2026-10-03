@@ -7,7 +7,7 @@
    7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR & RANK MATCHING)
    ========================================================================== */
 let aiDuelConfig = {
-    selectedBooks: ['books/考纲/高考3500.json'],
+    selectedBooks: ['books/经典/高中考纲词汇.json'],
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     aiRank: 1, // 1段 ~ 9段
     speedMode: 'smart',
@@ -20,18 +20,18 @@ try {
     const savedAi = JSON.parse(localStorage.getItem('vocab_ai_duel_config') || '{}');
     if (savedAi) {
         Object.assign(aiDuelConfig, savedAi);
-        // 确保过滤掉本地自定义词书
-        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+        if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
+        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
+        if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
             aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-            if (aiDuelConfig.selectedBooks.length === 0) {
-                aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            }
+        }
+        if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
+            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
         if (typeof aiDuelConfig.aiRank !== 'number') {
             aiDuelConfig.aiRank = 1;
         }
         aiDuelConfig.aiRank = Math.max(1, Math.min(9, aiDuelConfig.aiRank));
-        if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
     }
 } catch (e) { }
 
@@ -70,7 +70,19 @@ function selectAiMatchType(type) {
         } else if (aiDuelConfig.mode === 'timed') {
             aiDuelConfig.duration = 120;
         }
+        // 排位赛限制仅限云端词书
+        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+            const beforeCount = aiDuelConfig.selectedBooks.length;
+            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (aiDuelConfig.selectedBooks.length === 0) {
+                aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (aiDuelConfig.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updateAiDuelBookSummaryUI();
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
@@ -113,18 +125,18 @@ function openAiDuelSettings() {
     const modal = document.getElementById('modal-ai-duel-settings');
     if (!modal) return;
 
-    // 清理可能误存的本地词书
-    if (Array.isArray(aiDuelConfig.selectedBooks)) {
-        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-        if (aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
-        }
-    }
-
     // 游客禁止参与排位赛
     const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
     if (isGuest) {
         aiDuelConfig.matchType = 'friendly';
+    }
+
+    // 仅排位赛过滤本地词书，友谊赛允许使用本地词书
+    if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+    }
+    if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
+        aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
     }
 
     // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
@@ -151,14 +163,21 @@ function updateAiDuelBookSummaryUI() {
     const titleEl = document.getElementById('ai-duel-selected-book-title');
     const summaryEl = document.getElementById('ai-duel-books-summary');
     if (!aiDuelConfig || !Array.isArray(aiDuelConfig.selectedBooks)) return;
-    // 过滤本地词书
-    aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+    // 仅排位赛过滤本地词书
+    if (aiDuelConfig.matchType === 'ranked') {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+        if (aiDuelConfig.selectedBooks.length === 0) {
+            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+        }
+    }
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
     const count = aiDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = `已选 ${count} 本词书 (仅支持云端词书)`;
+        summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
+            ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
+            : `已选 ${count} 本词书`;
     }
     if (titleEl) {
         if (count === 0) {
@@ -373,8 +392,8 @@ async function startAiDuel() {
             aiDuelConfig.matchType = 'friendly';
         }
     }
-    // 强制过滤掉本地词书
-    if (Array.isArray(aiDuelConfig.selectedBooks)) {
+    // 仅排位赛强制过滤掉本地词书
+    if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
     if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {

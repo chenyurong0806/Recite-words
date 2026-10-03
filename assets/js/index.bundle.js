@@ -2132,37 +2132,41 @@ function cleanBookName(str) {
 }
 
 const BookManager = {
-    API_BASE: 'https://vocab-api.chenyurong.qzz.io',
     availableBooks: [],
     bookCache: {},
     cloudFetchSuccess: false,
     fallbackBooks: [
         { id: 'builtin_default', name: '默认词书', category: '内置', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS, path: '', isCloud: false },
-        { id: 'books/考纲/高考3500.json', name: '高考3500', category: '考纲', count: 3892, path: 'books/考纲/高考3500.json', isCloud: true },
-        { id: 'books/考纲/初中考纲词汇.json', name: '初中考纲词汇', category: '考纲', count: 1741, path: 'books/考纲/初中考纲词汇.json', isCloud: true },
-        { id: 'books/考纲/初中考纲词组.json', name: '初中考纲词组', category: '考纲', count: 347, path: 'books/考纲/初中考纲词组.json', isCloud: true },
-        { id: 'books/考纲/518.json', name: '518', category: '考纲', count: 570, path: 'books/考纲/518.json', isCloud: true },
-        { id: 'books/考纲/考纲词组.json', name: '考纲词组', category: '考纲', count: 1200, path: 'books/考纲/考纲词组.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 1.json', name: 'Wordbank 1', category: 'Doris', count: 84, path: 'books/Doris/Wordbank 1.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 3.json', name: 'Wordbank 3', category: 'Doris', count: 81, path: 'books/Doris/Wordbank 3.json', isCloud: true },
-        { id: 'books/Doris/Wordbank 4.json', name: 'Wordbank 4', category: 'Doris', count: 77, path: 'books/Doris/Wordbank 4.json', isCloud: true },
-        { id: 'books/Doris/基础闯关a-as.json', name: '基础闯关a-as', category: 'Doris', count: 67, path: 'books/Doris/基础闯关a-as.json', isCloud: true },
-        { id: 'books/Doris/基础闯关a-b.json', name: '基础闯关a-b', category: 'Doris', count: 42, path: 'books/Doris/基础闯关a-b.json', isCloud: true },
-        { id: 'books/Doris/基础闯关b-c.json', name: '基础闯关b-c', category: 'Doris', count: 42, path: 'books/Doris/基础闯关b-c.json', isCloud: true },
-        { id: 'books/Doris/基础闯关c-d.json', name: '基础闯关c-d', category: 'Doris', count: 42, path: 'books/Doris/基础闯关c-d.json', isCloud: true },
-        { id: 'books/Doris/翻译.json', name: '翻译', category: 'Doris', count: 107, path: 'books/Doris/翻译.json', isCloud: true },
-        { id: 'books/Doris/词汇测试a-as.json', name: '词汇测试a-as', category: 'Doris', count: 25, path: 'books/Doris/词汇测试a-as.json', isCloud: true },
-        { id: 'books/Doris/高一高二笔记.json', name: '高一高二笔记', category: 'Doris', count: 1021, path: 'books/Doris/高一高二笔记.json', isCloud: true },
-        { id: 'books/Doris/高三笔记.json', name: '高三笔记', category: 'Doris', count: 446, path: 'books/Doris/高三笔记.json', isCloud: true },
-        { id: 'books/其他/CET4.json', name: 'CET4', category: '其他', count: 2607, path: 'books/其他/CET4.json', isCloud: true },
-        { id: 'books/其他/小学词汇.json', name: '小学词汇', category: '其他', count: 2991, path: 'books/其他/小学词汇.json', isCloud: true },
+        { id: 'books/经典/高中考纲词汇.json', name: '高中考纲词汇', category: '经典', count: 3892, path: 'books/经典/高中考纲词汇.json', isCloud: true },
+        { id: 'books/经典/初中考纲词汇.json', name: '初中考纲词汇', category: '经典', count: 1741, path: 'books/经典/初中考纲词汇.json', isCloud: true },
+        { id: 'books/经典/初中考纲词组.json', name: '初中考纲词组', category: '经典', count: 347, path: 'books/经典/初中考纲词组.json', isCloud: true },
+        { id: 'books/经典/高中518词组.json', name: '高中518词组', category: '经典', count: 570, path: 'books/经典/高中518词组.json', isCloud: true },
+        { id: 'books/经典/高中考纲词组.json', name: '高中考纲词组', category: '经典', count: 1200, path: 'books/经典/高中考纲词组.json', isCloud: true },
+        { id: 'books/经典/四级词汇.json', name: '四级词汇', category: '经典', count: 2607, path: 'books/经典/四级词汇.json', isCloud: true },
+        { id: 'books/经典/六级词汇.json', name: '六级词汇', category: '经典', count: 2345, path: 'books/经典/六级词汇.json', isCloud: true },
+        { id: 'books/经典/基础词汇.json', name: '基础词汇', category: '经典', count: 2991, path: 'books/经典/基础词汇.json', isCloud: true },
+        { id: 'books/经典/考研红宝书.json', name: '考研红宝书', category: '经典', count: 6705, path: 'books/经典/考研红宝书.json', isCloud: true },
+        { id: 'books/经典/高考真题高频.json', name: '高考真题高频', category: '经典', count: 799, path: 'books/经典/高考真题高频.json', isCloud: true },
+        { id: 'books/经典/高考阅读高频.json', name: '高考阅读高频', category: '经典', count: 688, path: 'books/经典/高考阅读高频.json', isCloud: true },
+        { id: 'books/高中精选/Wordbank 1.json', name: 'Wordbank 1', category: '高中精选', count: 84, path: 'books/高中精选/Wordbank 1.json', isCloud: true },
+        { id: 'books/高中精选/Wordbank 3.json', name: 'Wordbank 3', category: '高中精选', count: 81, path: 'books/高中精选/Wordbank 3.json', isCloud: true },
+        { id: 'books/高中精选/Wordbank 4.json', name: 'Wordbank 4', category: '高中精选', count: 77, path: 'books/高中精选/Wordbank 4.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关a-as.json', name: '基础闯关a-as', category: '高中精选', count: 67, path: 'books/高中精选/基础闯关a-as.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关a-b.json', name: '基础闯关a-b', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关a-b.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关b-c.json', name: '基础闯关b-c', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关b-c.json', isCloud: true },
+        { id: 'books/高中精选/基础闯关c-d.json', name: '基础闯关c-d', category: '高中精选', count: 42, path: 'books/高中精选/基础闯关c-d.json', isCloud: true },
+        { id: 'books/高中精选/翻译.json', name: '翻译', category: '高中精选', count: 107, path: 'books/高中精选/翻译.json', isCloud: true },
+        { id: 'books/高中精选/词汇测试a-as.json', name: '词汇测试a-as', category: '高中精选', count: 25, path: 'books/高中精选/词汇测试a-as.json', isCloud: true },
+        { id: 'books/高中精选/高一高二.json', name: '高一高二', category: '高中精选', count: 1021, path: 'books/高中精选/高一高二.json', isCloud: true },
+        { id: 'books/高中精选/高三.json', name: '高三', category: '高中精选', count: 446, path: 'books/高中精选/高三.json', isCloud: true },
         { id: 'books/实词/初中150实词.json', name: '初中150实词', category: '实词', count: 150, path: 'books/实词/初中150实词.json', isCloud: true },
         { id: 'books/实词/高中300实词.json', name: '高中300实词', category: '实词', count: 300, path: 'books/实词/高中300实词.json', isCloud: true }
     ],
 
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
-        const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高考3500', 'books/考纲/高考3500.json');
+        const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高中考纲词汇', 'books/经典/高中考纲词汇.json');
+        this.bookCache['books/经典/高中考纲词汇.json'] = normGaoKao;
         this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
         this.bookCache['GaoKao3500'] = normGaoKao;
         try {
@@ -2203,7 +2207,8 @@ const BookManager = {
     },
 
     async preloadAllWorkerBooks() {
-        if (!this.bookCache['books/考纲/高考3500.json'] && this.bookCache['builtin_default']) {
+        if (!this.bookCache['books/经典/高中考纲词汇.json'] && this.bookCache['builtin_default']) {
+            this.bookCache['books/经典/高中考纲词汇.json'] = this.bookCache['builtin_default'];
             this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
             this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
         }
@@ -2238,7 +2243,7 @@ const BookManager = {
                             const parts = item.path.split('/');
                             const filename = parts[parts.length - 1];
                             const name = cleanBookName(filename.replace(/\.json$/i, ''));
-                            const category = cleanBookName(parts.length > 2 ? parts[1] : '精选');
+                            const category = cleanBookName(parts.length > 2 ? parts[1] : '经典');
                             return {
                                 id: item.path,
                                 name: name,
@@ -2256,34 +2261,10 @@ const BookManager = {
                 }
             }
         } catch (ghErr) {
-            console.warn('[BookManager] Direct GitHub trees fetch failed, trying worker:', ghErr);
+            console.warn('[BookManager] Direct GitHub trees fetch failed, using fallback:', ghErr);
         }
 
-        // 2. 若 GitHub API 受限或失败，尝试从 Cloudflare Worker 获取 (且必须是包含 books/ 规范路径的新结构)
-        if ((!fetchedBooks || fetchedBooks.length === 0) && !(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-                const res = await fetch(`${this.API_BASE}/api/books`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (res.ok) {
-                    const data = await res.json();
-                    // 检查返回的是否为新的 GitHub books 结构（过滤掉旧版 KV 遗留的旧字典清单）
-                    if (Array.isArray(data) && data.length > 0) {
-                        const isNewFormat = data.some(b => (b.path && b.path.startsWith('books/')) || b.category);
-                        if (isNewFormat) {
-                            fetchedBooks = data;
-                        } else {
-                            console.warn('[BookManager] Worker returned legacy KV books, ignoring in favor of books/ folder.');
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('[BookManager] Worker fetch failed:', err);
-            }
-        }
-
-        // 3. 处理获取到的词书或使用 fallbackBooks
+        // 2. 处理获取到的词书或使用 fallbackBooks
         if (fetchedBooks && fetchedBooks.length > 0) {
             this.cloudFetchSuccess = true;
             this.availableBooks = fetchedBooks.map(item => ({
@@ -2322,14 +2303,38 @@ const BookManager = {
         if (bookId === 'builtin_default' || bookId === 'DEFAULT_WORDS') {
             return this.bookCache['builtin_default'] || this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
         }
-        if (this.bookCache[bookId]) return this.bookCache[bookId];
-
-        if (bookId === 'books/实词/实词.json') {
-            bookId = 'books/实词/高中300实词.json';
+        const legacyBookMap = {
+            'GaoKao3500': 'books/经典/高中考纲词汇.json',
+            'books/考纲/高考3500.json': 'books/经典/高中考纲词汇.json',
+            'books/考纲/初中考纲词汇.json': 'books/经典/初中考纲词汇.json',
+            'books/考纲/初中考纲词组.json': 'books/经典/初中考纲词组.json',
+            'books/考纲/518.json': 'books/经典/高中518词组.json',
+            'books/考纲/考纲词组.json': 'books/经典/高中考纲词组.json',
+            'books/其他/CET4.json': 'books/经典/四级词汇.json',
+            'books/其他/小学词汇.json': 'books/经典/基础词汇.json',
+            'books/Doris/Wordbank 1.json': 'books/高中精选/Wordbank 1.json',
+            'books/Doris/Wordbank 3.json': 'books/高中精选/Wordbank 3.json',
+            'books/Doris/wordbank 3.json': 'books/高中精选/Wordbank 3.json',
+            'books/Doris/Wordbank 4.json': 'books/高中精选/Wordbank 4.json',
+            'books/Doris/基础闯关a-as.json': 'books/高中精选/基础闯关a-as.json',
+            'books/Doris/基础闯关a-b.json': 'books/高中精选/基础闯关a-b.json',
+            'books/Doris/基础闯关b-c.json': 'books/高中精选/基础闯关b-c.json',
+            'books/Doris/基础闯关c-d.json': 'books/高中精选/基础闯关c-d.json',
+            'books/Doris/翻译.json': 'books/高中精选/翻译.json',
+            'books/Doris/词汇测试a-as.json': 'books/高中精选/词汇测试a-as.json',
+            'books/Doris/高一高二笔记.json': 'books/高中精选/高一高二.json',
+            'books/Doris/高三笔记.json': 'books/高中精选/高三.json',
+            'books/实词/实词.json': 'books/实词/高中300实词.json'
+        };
+        if (legacyBookMap[bookId]) {
+            bookId = legacyBookMap[bookId];
         }
 
-        const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
+        if (this.bookCache[bookId]) return this.bookCache[bookId];
+
+        const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
         if (isGaoKao) {
+            if (this.bookCache['books/经典/高中考纲词汇.json']) return this.bookCache['books/经典/高中考纲词汇.json'];
             if (this.bookCache['books/考纲/高考3500.json']) return this.bookCache['books/考纲/高考3500.json'];
             if (this.bookCache['GaoKao3500']) return this.bookCache['GaoKao3500'];
         }
@@ -2369,8 +2374,8 @@ const BookManager = {
 
         let relPath = bookMeta.path || bookId;
         if (!relPath.startsWith('books/') && !relPath.includes('/')) {
-            if (isGaoKao) relPath = 'books/考纲/高考3500.json';
-            else relPath = `books/${bookMeta.category || '其他'}/${bookMeta.name || bookId}.json`;
+            if (isGaoKao) relPath = 'books/经典/高中考纲词汇.json';
+            else relPath = `books/${bookMeta.category || '经典'}/${bookMeta.name || bookId}.json`;
         }
 
         const encodedRel = encodeURI(relPath);
@@ -2382,9 +2387,6 @@ const BookManager = {
             `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
             `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
         ];
-        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            sources.push(`${this.API_BASE}/api/book?id=${encodeURIComponent(bookId)}`);
-        }
 
         for (const url of sources) {
             try {
@@ -2402,6 +2404,7 @@ const BookManager = {
                             if (isGaoKao) {
                                 this.bookCache['GaoKao3500'] = normalized;
                                 this.bookCache['books/考纲/高考3500.json'] = normalized;
+                                this.bookCache['books/经典/高中考纲词汇.json'] = normalized;
                             }
                             VocabOfflineDB.saveBook({
                                 id: bookId,
@@ -2946,7 +2949,7 @@ const EbbinghausEngine = {
         if (!currentUser || !bookId) return;
         let words = await BookManager.loadBookData(bookId);
         if (!words || words.length === 0) {
-            if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json') {
+            if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json') {
                 words = DEFAULT_WORDS;
             }
         }
@@ -3805,7 +3808,14 @@ function renderBookFolderTree(containerId, options = {}) {
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push(b);
         });
-        const catNames = Object.keys(categories);
+        const catOrder = ['经典', '高中精选', '实词'];
+        const catNames = Object.keys(categories).sort((a, b) => {
+            let idxA = catOrder.indexOf(a);
+            let idxB = catOrder.indexOf(b);
+            if (idxA === -1) idxA = 99;
+            if (idxB === -1) idxB = 99;
+            return idxA - idxB;
+        });
         if (catNames.length > 1) {
             catNames.forEach(cat => {
                 const booksInCat = categories[cat];
@@ -4153,32 +4163,7 @@ async function checkCloudVersion(manual = false) {
         console.warn('GitHub releases API check failed:', e);
     }
 
-    /* ---------- 2. 备选：Worker ---------- */
-    if (!data && typeof BookManager !== 'undefined' && BookManager.API_BASE) {
-        try {
-            const res = await fetch(
-                `${BookManager.API_BASE}/api/version?t=${Date.now()}`,
-                { cache: 'no-store' }
-            );
-            if (res.ok) {
-                const wData = await res.json(); // ⚠️ 只解析一次
-                if (wData && wData.version) {
-                    const rawTag = normalizeTag(wData.version);
-                    data = {
-                        version: rawTag,
-                        releaseDate: wData.releaseDate,
-                        changelog: wData.changelog || ['常规优化更新'],
-                        downloadUrl: buildZipUrl(rawTag),
-                        mirrorDownloadUrl: buildZipUrl(rawTag)
-                    };
-                }
-            }
-        } catch (e) {
-            console.warn('Worker version check failed:', e);
-        }
-    }
-
-    /* ---------- 3. 统一规范化 URL ---------- */
+    /* ---------- 2. 统一规范化 URL ---------- */
     if (data && data.version) {
         const rawTag = normalizeTag(data.version);
         data.version = rawTag;
@@ -5567,16 +5552,16 @@ async function loadCustomBook(e) {
 
 function isBookIdSelected(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) return false;
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
-    return selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
+    return selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
 }
 
 function toggleBookIdInList(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) selectedIds = [];
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json';
-    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
+    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
     if (hasIt) {
-        return selectedIds.filter(id => id !== bookId && !(isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json')));
+        return selectedIds.filter(id => id !== bookId && !(isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
     } else {
         return [...selectedIds, bookId];
     }
@@ -5796,47 +5781,58 @@ function isBookIdSelectedInCurrentMode(bookId) {
     return false;
 }
 
-function isWordleSupportedBook(b) {
+function isWordleUnsupportedBook(b) {
     if (!b) return false;
     let nameStr = '';
+    let idStr = '';
     if (typeof b === 'string') {
         nameStr = b;
+        idStr = b;
     } else {
-        nameStr = (b.name || b.title || b.id || '').toString();
+        nameStr = (b.name || b.title || b.rawName || '').toString();
+        idStr = (b.id || b.path || '').toString();
     }
-    const cleanLower = nameStr.toLowerCase().replace(/[\s\-_《》]/g, '');
-    const allowed = ['高考3500', 'gaokao3500', '高一高二笔记', '高三笔记', 'cet4', '小学词汇', '初中考纲词汇'];
-    return allowed.some(kw => cleanLower.includes(kw));
-}
-window.isWordleSupportedBook = isWordleSupportedBook;
+    const cleanName = nameStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
+    const cleanId = idStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
+    const target = `${cleanName} ${cleanId}`;
 
-function isWordleUnsupportedBook(b) {
-    return !isWordleSupportedBook(b);
+    // 文言实词不支持 Wordle
+    if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return true;
+    if (typeof isShiCiBook === 'function' && isShiCiBook(b)) return true;
+    if (target.includes('实词')) return true;
+
+    // 只有初中考纲词组、高中考纲词组、高中518词组、翻译词书不支持Wordle
+    if (target.includes('初中考纲词组')) return true;
+    if (target.includes('高中考纲词组') || target.includes('考纲词组')) return true;
+    if (target.includes('高中518词组') || target.includes('518词组') || cleanName === '518' || cleanName.includes('518')) return true;
+    if (target.includes('翻译') || cleanName === '翻译') return true;
+
+    return false;
 }
 window.isWordleUnsupportedBook = isWordleUnsupportedBook;
 
+function isWordleSupportedBook(b) {
+    return !isWordleUnsupportedBook(b);
+}
+window.isWordleSupportedBook = isWordleSupportedBook;
+
 function isPhraseBook(b) {
-    if (!b) return false;
-    const nameStr = (b.name || b.title || b.id || '').toLowerCase();
-    const cleanLower = nameStr.replace(/\s+/g, '');
-    if (cleanLower.includes('weekly3') || cleanLower.includes('wordbank3')) {
-        return true;
+    return isWordleUnsupportedBook(b);
+}
+window.isPhraseBook = isPhraseBook;
+
+function isCurrentModeRankedRestricted() {
+    if (bookSelectorMode === 'ai_duel') {
+        return (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked');
     }
-    if (nameStr.includes('词组') || nameStr.includes('短语') || nameStr.includes('phrase') || nameStr.includes('518') || nameStr.includes('翻译') || nameStr.includes('基础闯关') || nameStr.includes('词汇测试')) {
-        return true;
+    if (bookSelectorMode === 'room') {
+        return (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked');
     }
-    if (Array.isArray(b.words) && b.words.length > 0) {
-        let spaceCount = 0;
-        const sample = b.words.slice(0, 30);
-        sample.forEach(w => {
-            const wordText = (w.word || w.name || '').trim();
-            if (wordText.includes(' ') || wordText.includes('...') || wordText.includes('.')) {
-                spaceCount++;
-            }
-        });
-        if (spaceCount / sample.length > 0.4) {
-            return true;
-        }
+    if (bookSelectorMode === 'preset') {
+        return (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked');
+    }
+    if (bookSelectorMode === 'invite') {
+        return (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked');
     }
     return false;
 }
@@ -5846,13 +5842,13 @@ function renderBookSelectorPage() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (!container) return;
 
-    const isMultiplayer = (bookSelectorMode === 'room' || bookSelectorMode === 'preset' || bookSelectorMode === 'invite' || bookSelectorMode === 'ai_duel');
+    const isRankedOnly = isCurrentModeRankedRestricted();
     const allBooks = getAllUniqueBooks();
     const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
     let filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
 
-    // 远程联机禁止选择本地词书
-    if (isMultiplayer) {
+    // 仅排位赛限制云端词书，友谊赛及其他模式允许选择本地词书
+    if (isRankedOnly) {
         filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
     }
 
@@ -5871,16 +5867,16 @@ function renderBookSelectorPage() {
 
     const folderGroups = {};
     filteredBooks.forEach(b => {
-        let folder = b.category || '精选';
+        let folder = b.category || '经典';
         if (b.id === 'builtin_default') folder = '内置';
         else if (String(b.id).startsWith('custom_')) folder = '自定义词书';
         if (!folderGroups[folder]) folderGroups[folder] = [];
         folderGroups[folder].push(b);
     });
 
-    const folderOrder = isMultiplayer
-        ? ['考纲', 'Doris', '精选', '实词', '其他']
-        : ['内置', '考纲', 'Doris', '精选', '实词', '其他', '自定义词书'];
+    const folderOrder = isRankedOnly
+        ? ['经典', '高中精选', '实词']
+        : ['内置', '经典', '高中精选', '实词', '自定义词书'];
     const sortedFolderKeys = Object.keys(folderGroups).sort((a, b) => {
         let idxA = folderOrder.indexOf(a);
         let idxB = folderOrder.indexOf(b);
@@ -5903,8 +5899,7 @@ function renderBookSelectorPage() {
             const isSelected = isBookIdSelectedInCurrentMode(b.id);
             const gradient = getProceduralBookGradient(b.name, b.category);
             const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
-            const isPhrase = isPhraseBook(b);
-            const isBlockedForWordle = (bookSelectorMode === 'riddle' && (isPhrase || isWordleUnsupportedBook(b)));
+            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
 
             // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
             let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
@@ -6094,7 +6089,7 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateShiCiProgressStatusUI === 'function') updateShiCiProgressStatusUI();
     } else if (bookSelectorMode === 'riddle') {
-        if (isPhraseBook(bookMeta) || isWordleUnsupportedBook(bookMeta)) {
+        if (isWordleUnsupportedBook(bookMeta)) {
             showToast('该词书不支持 Wordle，请选择其他单词词书');
             return;
         }
@@ -6128,8 +6123,10 @@ async function handleBookSelectorToggle(bookId) {
         if (badge) badge.innerText = bookMeta.name;
     } else if (bookSelectorMode === 'room') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.includes(bookId);
@@ -6147,8 +6144,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof broadcastRuleChange === 'function' && isHost) broadcastRuleChange();
     } else if (bookSelectorMode === 'preset') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!window.activeEditingPreset) window.activeEditingPreset = { selectedBooks: [] };
         if (!activeEditingPreset.selectedBooks) activeEditingPreset.selectedBooks = [];
@@ -6166,8 +6165,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
     } else if (bookSelectorMode === 'invite') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('远程联机禁止选择本地词书');
-            return;
+            if (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (!window.activeInviteRules) window.activeInviteRules = { selectedBooks: [] };
         if (!activeInviteRules.selectedBooks) activeInviteRules.selectedBooks = [];
@@ -6185,8 +6186,10 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
     } else if (bookSelectorMode === 'ai_duel') {
         if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            showToast('人机对战禁止选择本地词书');
-            return;
+            if (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked') {
+                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
+                return;
+            }
         }
         if (typeof aiDuelConfig === 'undefined') window.aiDuelConfig = { selectedBooks: [] };
         if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
@@ -7324,8 +7327,8 @@ function submitRiddleDraftRow(rowIndex) {
    9. Wordle 单词解谜 (退出免确认、断点恢复与进度保存)
    ========================================================================== */
 let riddleConfig = {
-    bookId: "books/考纲/高考3500.json",
-    selectedBooks: ["books/考纲/高考3500.json"],
+    bookId: "books/经典/高中考纲词汇.json",
+    selectedBooks: ["books/经典/高中考纲词汇.json"],
     wordLength: 5,
     maxAttempts: 6,
     letterCase: "lower",
@@ -7334,11 +7337,13 @@ let riddleConfig = {
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
     if (saved && typeof saved === 'object') {
-        if (saved.bookId && saved.bookId !== 'GaoKao3500') {
+        if (saved.bookId && saved.bookId !== 'GaoKao3500' && saved.bookId !== 'books/考纲/高考3500.json') {
             riddleConfig.bookId = saved.bookId;
+        } else {
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
         }
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            riddleConfig.selectedBooks = saved.selectedBooks.map(b => b === 'GaoKao3500' ? 'books/考纲/高考3500.json' : b);
+            riddleConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
         } else if (riddleConfig.bookId) {
             riddleConfig.selectedBooks = [riddleConfig.bookId];
         }
@@ -7664,7 +7669,7 @@ function cancelRiddleSettings() {
         riddleConfig.letterCase = riddleInitialSettings.letterCase;
         riddleConfig.enableTimer = riddleInitialSettings.enableTimer;
         riddleConfig.selectedBooks = [...riddleInitialSettings.selectedBooks];
-        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
+        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
         updateRiddleSettingsChips();
         updateRiddleCaseUI();
         riddleInitialSettings = null;
@@ -7683,7 +7688,7 @@ function closeRiddleSettings() {
 
 function toggleRiddleBook(bookId) {
     if (!Array.isArray(riddleConfig.selectedBooks)) {
-        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/考纲/高考3500.json'];
+        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/经典/高中考纲词汇.json'];
     }
     const hasIt = isBookIdSelected(riddleConfig.selectedBooks, bookId);
     if (hasIt) {
@@ -7695,7 +7700,7 @@ function toggleRiddleBook(bookId) {
     } else {
         riddleConfig.selectedBooks.push(bookId);
     }
-    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/考纲/高考3500.json';
+    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
     renderRiddleBookChips();
     updateRiddleSettingsFooterButtons();
 }
@@ -7709,7 +7714,7 @@ async function renderRiddleBookChips() {
             return isWordleSupportedBook(b);
         });
         if (riddleConfig.selectedBooks.length === 0) {
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
         riddleConfig.bookId = riddleConfig.selectedBooks[0];
     }
@@ -7959,13 +7964,13 @@ async function startWordRiddleGame(forceNew = false) {
             riddleConfig.selectedBooks = supported;
             riddleConfig.bookId = supported[0];
         } else {
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
         }
     }
     const selected = (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.length > 0)
         ? riddleConfig.selectedBooks
-        : ['books/考纲/高考3500.json'];
+        : ['books/经典/高中考纲词汇.json'];
 
     candidatePool = await BookManager.loadMultipleBooks(selected);
     if (!candidatePool || candidatePool.length === 0) {
@@ -7994,13 +7999,13 @@ async function startWordRiddleGame(forceNew = false) {
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             return startWordRiddleGame(true);
         } else {
-            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高考3500默认词书，绝不卡死
-            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高考3500》');
-            riddleConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            riddleConfig.bookId = 'books/考纲/高考3500.json';
+            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高中考纲词汇默认词书，绝不卡死
+            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高中考纲词汇》');
+            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             try {
-                candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+                candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
             } catch (e) { }
             if (!candidatePool || candidatePool.length === 0) {
                 candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
@@ -8120,7 +8125,7 @@ async function getDailyWordForDate(dateStr) {
     let candidatePool = [];
     try {
         if (typeof BookManager !== 'undefined' && BookManager.loadMultipleBooks) {
-            candidatePool = await BookManager.loadMultipleBooks(['books/考纲/高考3500.json']);
+            candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
         }
     } catch (e) { }
 
@@ -9168,7 +9173,7 @@ function renderSingleBookList() {
     if (!listEl) return;
 
     if (!Array.isArray(singleSelectedBookIds)) {
-        singleSelectedBookIds = ['books/考纲/高考3500.json'];
+        singleSelectedBookIds = ['books/经典/高中考纲词汇.json'];
     }
 
     renderBookFolderTree('single-book-list', {
@@ -12474,7 +12479,7 @@ function getDefaultRoomPreset(user) {
     const name = user ? `${user}的房间` : '对战房间';
     const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
-        : ['books/考纲/高考3500.json'];
+        : ['books/经典/高中考纲词汇.json'];
     return {
         name: name,
         capacity: 2,
@@ -12625,7 +12630,18 @@ function selectPresetMatchType(val) {
     if (val === 'ranked') {
         activeEditingPreset.mode = 'lead';
         activeEditingPreset.winLead = 6;
+        if (Array.isArray(activeEditingPreset.selectedBooks)) {
+            const beforeCount = activeEditingPreset.selectedBooks.length;
+            activeEditingPreset.selectedBooks = activeEditingPreset.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (activeEditingPreset.selectedBooks.length === 0) {
+                activeEditingPreset.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (activeEditingPreset.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updatePresetBookSummaryUI();
     renderPresetChips();
 }
 window.selectPresetMatchType = selectPresetMatchType;
@@ -12658,10 +12674,11 @@ window.selectPresetGauge = selectPresetGauge;
 function updatePresetBookSummaryUI() {
     if (!activeEditingPreset) return;
     const books = activeEditingPreset.selectedBooks || [];
+    const isRanked = activeEditingPreset.matchType === 'ranked';
     const titleEl = document.getElementById('preset-selected-book-title');
     const summaryEl = document.getElementById('preset-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
 }
 
 async function saveRoomPreset() {
@@ -12990,8 +13007,14 @@ function selectAllRoomBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    // 远程联机禁止选择本地词书，且不选择内置单机测试词书
-    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && !String(b.id).startsWith('custom_') && (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    const isRanked = roomConfig && roomConfig.matchType === 'ranked';
+    let targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (isRanked ? !String(b.id).startsWith('custom_') : true) && (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    if (!isRanked && window.customBooks) {
+        const localMatched = window.customBooks.filter(b => (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+        localMatched.forEach(lb => {
+            if (!targetBooks.some(tb => tb.id === lb.id)) targetBooks.push(lb);
+        });
+    }
 
     if (selectAll) {
         targetBooks.forEach(b => {
@@ -13012,6 +13035,7 @@ function updateRoomBookSummaryUI() {
     const titleEl = document.getElementById('room-selected-books-title');
     const summaryEl = document.getElementById('room-selected-books-summary');
     const selectBtn = document.getElementById('btn-room-select-books');
+    const isRanked = roomConfig && roomConfig.matchType === 'ranked';
 
     if (!isHost) {
         const names = roomConfig.selectedBookNames || [];
@@ -13031,7 +13055,7 @@ function updateRoomBookSummaryUI() {
 
     if (selectBtn) selectBtn.style.display = 'inline-flex';
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书 (远程联机仅支持云端词书)`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
 }
 
 function renderRoomBookChips() {
@@ -13059,6 +13083,16 @@ function changeRuleMatchType(type) {
     if (type === 'ranked') {
         roomConfig.mode = 'lead';
         roomConfig.winLead = 6;
+        if (Array.isArray(roomConfig.selectedBooks)) {
+            const beforeCount = roomConfig.selectedBooks.length;
+            roomConfig.selectedBooks = roomConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (roomConfig.selectedBooks.length === 0) {
+                roomConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (roomConfig.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
     guestReady = false;
     renderRuleChips();
@@ -16212,7 +16246,18 @@ function selectInviteRuleMatchType(val) {
     if (val === 'ranked') {
         activeInviteRules.mode = 'lead';
         activeInviteRules.winLead = 6;
+        if (Array.isArray(activeInviteRules.selectedBooks)) {
+            const beforeCount = activeInviteRules.selectedBooks.length;
+            activeInviteRules.selectedBooks = activeInviteRules.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (activeInviteRules.selectedBooks.length === 0) {
+                activeInviteRules.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (activeInviteRules.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updateInviteBookSummaryUI();
     renderInviteRuleChips();
 }
 window.selectInviteRuleMatchType = selectInviteRuleMatchType;
@@ -16245,10 +16290,11 @@ window.selectInviteRuleGauge = selectInviteRuleGauge;
 function updateInviteBookSummaryUI() {
     if (!activeInviteRules) return;
     const books = activeInviteRules.selectedBooks || [];
+    const isRanked = activeInviteRules.matchType === 'ranked';
     const titleEl = document.getElementById('invite-selected-book-title');
     const summaryEl = document.getElementById('invite-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
     updateInvitePresetSummaryUI();
 }
 
@@ -16828,7 +16874,7 @@ window.addEventListener('beforeunload', () => {
    7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR & RANK MATCHING)
    ========================================================================== */
 let aiDuelConfig = {
-    selectedBooks: ['books/考纲/高考3500.json'],
+    selectedBooks: ['books/经典/高中考纲词汇.json'],
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     aiRank: 1, // 1段 ~ 9段
     speedMode: 'smart',
@@ -16841,18 +16887,18 @@ try {
     const savedAi = JSON.parse(localStorage.getItem('vocab_ai_duel_config') || '{}');
     if (savedAi) {
         Object.assign(aiDuelConfig, savedAi);
-        // 确保过滤掉本地自定义词书
-        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+        if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
+        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
+        if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
             aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-            if (aiDuelConfig.selectedBooks.length === 0) {
-                aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
-            }
+        }
+        if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
+            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
         if (typeof aiDuelConfig.aiRank !== 'number') {
             aiDuelConfig.aiRank = 1;
         }
         aiDuelConfig.aiRank = Math.max(1, Math.min(9, aiDuelConfig.aiRank));
-        if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
     }
 } catch (e) { }
 
@@ -16891,7 +16937,19 @@ function selectAiMatchType(type) {
         } else if (aiDuelConfig.mode === 'timed') {
             aiDuelConfig.duration = 120;
         }
+        // 排位赛限制仅限云端词书
+        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+            const beforeCount = aiDuelConfig.selectedBooks.length;
+            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (aiDuelConfig.selectedBooks.length === 0) {
+                aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (aiDuelConfig.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updateAiDuelBookSummaryUI();
     updateAiDuelSettingsChips();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
@@ -16934,18 +16992,18 @@ function openAiDuelSettings() {
     const modal = document.getElementById('modal-ai-duel-settings');
     if (!modal) return;
 
-    // 清理可能误存的本地词书
-    if (Array.isArray(aiDuelConfig.selectedBooks)) {
-        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-        if (aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/考纲/高考3500.json'];
-        }
-    }
-
     // 游客禁止参与排位赛
     const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
     if (isGuest) {
         aiDuelConfig.matchType = 'friendly';
+    }
+
+    // 仅排位赛过滤本地词书，友谊赛允许使用本地词书
+    if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+    }
+    if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
+        aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
     }
 
     // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
@@ -16972,14 +17030,21 @@ function updateAiDuelBookSummaryUI() {
     const titleEl = document.getElementById('ai-duel-selected-book-title');
     const summaryEl = document.getElementById('ai-duel-books-summary');
     if (!aiDuelConfig || !Array.isArray(aiDuelConfig.selectedBooks)) return;
-    // 过滤本地词书
-    aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+    // 仅排位赛过滤本地词书
+    if (aiDuelConfig.matchType === 'ranked') {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+        if (aiDuelConfig.selectedBooks.length === 0) {
+            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+        }
+    }
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
     const count = aiDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = `已选 ${count} 本词书 (仅支持云端词书)`;
+        summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
+            ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
+            : `已选 ${count} 本词书`;
     }
     if (titleEl) {
         if (count === 0) {
@@ -17194,8 +17259,8 @@ async function startAiDuel() {
             aiDuelConfig.matchType = 'friendly';
         }
     }
-    // 强制过滤掉本地词书
-    if (Array.isArray(aiDuelConfig.selectedBooks)) {
+    // 仅排位赛强制过滤掉本地词书
+    if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
     if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
@@ -18849,7 +18914,7 @@ let dictationConfig = {
     type: 'listen',
     batchSize: 20,
     autoPlay: true,
-    selectedBooks: ['books/考纲/高考3500.json']
+    selectedBooks: ['books/经典/高中考纲词汇.json']
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_dictation_config') || '{}');
@@ -18858,9 +18923,9 @@ try {
         if (saved.batchSize) dictationConfig.batchSize = saved.batchSize;
         if (saved.autoPlay !== undefined) dictationConfig.autoPlay = saved.autoPlay;
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            dictationConfig.selectedBooks = saved.selectedBooks;
+            dictationConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
         } else {
-            dictationConfig.selectedBooks = ['books/考纲/高考3500.json'];
+            dictationConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
         }
     }
 } catch (e) { }
@@ -20278,10 +20343,6 @@ const ShiCiManager = {
             `https://gcore.jsdelivr.net/gh/chenyurong0806/Recite-words@main/${encodedRel}`,
             `https://raw.githubusercontent.com/chenyurong0806/Recite-words/main/${encodedRel}`
         ];
-        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            urls.push(`${BookManager.API_BASE}/api/book?path=${encodeURIComponent(relPath)}`);
-            urls.push(`${BookManager.API_BASE}/api/book?id=${encodeURIComponent(relPath)}`);
-        }
 
         for (const u of urls) {
             try {
@@ -22884,18 +22945,9 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        let ghRes = null;
-        if (!(typeof isBilibiliToy !== 'undefined' && isBilibiliToy)) {
-            ghRes = await fetch(`${BookManager.API_BASE}/api/releases`, {
-                signal: controller.signal
-            }).catch(() => null);
-        }
-
-        if (!ghRes || !ghRes.ok) {
-            ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
-                signal: controller.signal
-            }).catch(() => null);
-        }
+        const ghRes = await fetch('https://api.github.com/repos/chenyurong0806/Recite-words/releases?per_page=15', {
+            signal: controller.signal
+        }).catch(() => null);
 
         clearTimeout(timeoutId);
 

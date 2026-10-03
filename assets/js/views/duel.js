@@ -81,7 +81,7 @@ function getDefaultRoomPreset(user) {
     const name = user ? `${user}的房间` : '对战房间';
     const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
-        : ['books/考纲/高考3500.json'];
+        : ['books/经典/高中考纲词汇.json'];
     return {
         name: name,
         capacity: 2,
@@ -232,7 +232,18 @@ function selectPresetMatchType(val) {
     if (val === 'ranked') {
         activeEditingPreset.mode = 'lead';
         activeEditingPreset.winLead = 6;
+        if (Array.isArray(activeEditingPreset.selectedBooks)) {
+            const beforeCount = activeEditingPreset.selectedBooks.length;
+            activeEditingPreset.selectedBooks = activeEditingPreset.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (activeEditingPreset.selectedBooks.length === 0) {
+                activeEditingPreset.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (activeEditingPreset.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updatePresetBookSummaryUI();
     renderPresetChips();
 }
 window.selectPresetMatchType = selectPresetMatchType;
@@ -265,10 +276,11 @@ window.selectPresetGauge = selectPresetGauge;
 function updatePresetBookSummaryUI() {
     if (!activeEditingPreset) return;
     const books = activeEditingPreset.selectedBooks || [];
+    const isRanked = activeEditingPreset.matchType === 'ranked';
     const titleEl = document.getElementById('preset-selected-book-title');
     const summaryEl = document.getElementById('preset-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
 }
 
 async function saveRoomPreset() {
@@ -597,8 +609,14 @@ function selectAllRoomBooks(selectAll = true) {
     const allBooks = (BookManager.availableBooks && BookManager.availableBooks.length > 0)
         ? BookManager.availableBooks
         : BookManager.fallbackBooks;
-    // 远程联机禁止选择本地词书，且不选择内置单机测试词书
-    const targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && !String(b.id).startsWith('custom_') && (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    const isRanked = roomConfig && roomConfig.matchType === 'ranked';
+    let targetBooks = allBooks.filter(b => (!BookManager.cloudFetchSuccess || b.id !== 'builtin_default') && (isRanked ? !String(b.id).startsWith('custom_') : true) && (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+    if (!isRanked && window.customBooks) {
+        const localMatched = window.customBooks.filter(b => (currentRoomBookCategory === 'shici' ? isShiCiBook(b) : isEnglishBook(b)));
+        localMatched.forEach(lb => {
+            if (!targetBooks.some(tb => tb.id === lb.id)) targetBooks.push(lb);
+        });
+    }
 
     if (selectAll) {
         targetBooks.forEach(b => {
@@ -619,6 +637,7 @@ function updateRoomBookSummaryUI() {
     const titleEl = document.getElementById('room-selected-books-title');
     const summaryEl = document.getElementById('room-selected-books-summary');
     const selectBtn = document.getElementById('btn-room-select-books');
+    const isRanked = roomConfig && roomConfig.matchType === 'ranked';
 
     if (!isHost) {
         const names = roomConfig.selectedBookNames || [];
@@ -638,7 +657,7 @@ function updateRoomBookSummaryUI() {
 
     if (selectBtn) selectBtn.style.display = 'inline-flex';
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书 (远程联机仅支持云端词书)`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
 }
 
 function renderRoomBookChips() {
@@ -666,6 +685,16 @@ function changeRuleMatchType(type) {
     if (type === 'ranked') {
         roomConfig.mode = 'lead';
         roomConfig.winLead = 6;
+        if (Array.isArray(roomConfig.selectedBooks)) {
+            const beforeCount = roomConfig.selectedBooks.length;
+            roomConfig.selectedBooks = roomConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (roomConfig.selectedBooks.length === 0) {
+                roomConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (roomConfig.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
     guestReady = false;
     renderRuleChips();
@@ -3819,7 +3848,18 @@ function selectInviteRuleMatchType(val) {
     if (val === 'ranked') {
         activeInviteRules.mode = 'lead';
         activeInviteRules.winLead = 6;
+        if (Array.isArray(activeInviteRules.selectedBooks)) {
+            const beforeCount = activeInviteRules.selectedBooks.length;
+            activeInviteRules.selectedBooks = activeInviteRules.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+            if (activeInviteRules.selectedBooks.length === 0) {
+                activeInviteRules.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            }
+            if (activeInviteRules.selectedBooks.length !== beforeCount) {
+                showToast('排位赛仅支持云端词书，已自动移除本地词书');
+            }
+        }
     }
+    updateInviteBookSummaryUI();
     renderInviteRuleChips();
 }
 window.selectInviteRuleMatchType = selectInviteRuleMatchType;
@@ -3852,10 +3892,11 @@ window.selectInviteRuleGauge = selectInviteRuleGauge;
 function updateInviteBookSummaryUI() {
     if (!activeInviteRules) return;
     const books = activeInviteRules.selectedBooks || [];
+    const isRanked = activeInviteRules.matchType === 'ranked';
     const titleEl = document.getElementById('invite-selected-book-title');
     const summaryEl = document.getElementById('invite-selected-book-summary');
     if (titleEl) titleEl.innerText = getBookNamesSummary(books);
-    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书`;
+    if (summaryEl) summaryEl.innerText = `已选 ${books.length} 本词书${isRanked ? ' (排位赛仅支持云端词书)' : ''}`;
     updateInvitePresetSummaryUI();
 }
 

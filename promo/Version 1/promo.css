@@ -110,7 +110,7 @@ html, body {
     font-feature-settings: 'liga';
 }
 
-/* 背景细腻环境层 (微妙网格与动态环境光) */
+/* 背景细腻环境层 */
 .ambient-backdrop {
     position: fixed;
     inset: 0;
@@ -134,7 +134,7 @@ html, body {
     mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 90%);
 }
 
-/* 核心背景功能装饰层 (随场景联动唤醒) */
+/* 背景功能装饰层 */
 .scene-decorations {
     position: absolute;
     inset: 0;
@@ -155,7 +155,7 @@ html, body {
     opacity: 1;
 }
 
-/* 镜头 1 装饰 */
+/* 装饰元素 */
 .decor-intro .decor-text {
     position: absolute;
     font-size: 5.5rem;
@@ -176,7 +176,6 @@ html, body {
 .glyph-1 { top: 28%; left: 8%; animation: floatGlow 4s ease-in-out infinite alternate; }
 .glyph-2 { bottom: 25%; right: 12%; animation: floatGlow 3.5s ease-in-out infinite alternate-reverse; }
 
-/* 镜头 2 装饰：国际音标、词性与语法星芒 */
 .decor-search .decor-ipa {
     position: absolute;
     font-family: 'Roboto Mono', monospace;
@@ -211,7 +210,6 @@ html, body {
 .sp-2 { top: 52%; right: 6%; }
 .sp-3 { top: 20%; right: 28%; font-size: 1.8rem; opacity: 0.2; }
 
-/* 镜头 3 装饰：对战网格脉冲、能量环与火花 */
 .decor-duel .decor-vs-badge {
     position: absolute;
     top: 15%;
@@ -245,7 +243,6 @@ html, body {
     opacity: 0.15;
 }
 
-/* 镜头 3.5 装饰：词书 */
 .decor-book .decor-book-icon {
     position: absolute;
     top: 20%;
@@ -275,7 +272,6 @@ html, body {
     opacity: 0.13;
 }
 
-/* 镜头 4 装饰：遗忘曲线与印章 */
 .decor-recite .decor-curve-svg {
     position: absolute;
     top: 10%;
@@ -312,7 +308,6 @@ html, body {
 .sp-r2 { bottom: 28%; left: 8%; font-size: 2.8rem; }
 .sp-r3 { bottom: 14%; right: 26%; font-size: 2.0rem; }
 
-/* 镜头 5 装饰：Wordle */
 .decor-wordle .decor-wordle-tile-bg {
     position: absolute;
     font-size: 4.5rem;
@@ -336,7 +331,6 @@ html, body {
     opacity: 0.07;
 }
 
-/* 镜头 6 装饰：云端 */
 .decor-cloud .decor-cloud-icon {
     position: absolute;
     top: 18%;
@@ -389,7 +383,6 @@ html, body {
     justify-content: center;
 }
 
-/* 镜头独立场景包装器 (严格 display: none 防止幽灵重叠) */
 .scene-layer {
     position: absolute;
     width: 1320px;
@@ -409,7 +402,7 @@ html, body {
     pointer-events: auto;
 }
 
-/* 灵动场景关联关键词胶囊 (随主体动态布局，告别呆板右上角) */
+/* 上下文标签 */
 .context-badge {
     position: absolute;
     background: rgba(255, 255, 255, 0.94);
@@ -438,14 +431,13 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 1：【开篇】(3D 掠过真实首页 DOM + 白色Logo + 亮色标题 + 逐个弹出的子标签)
+   镜头 1：【开篇】
    ========================================================================== */
 #scene-intro {
     text-align: center;
     position: relative;
 }
 
-/* 3D 首页掠过容器 */
 .intro-flyover-stage {
     position: absolute;
     width: 820px;
@@ -478,7 +470,6 @@ html, body {
     display: block;
 }
 
-/* 掠过光芒扫描线 */
 .home-scanline {
     position: absolute;
     top: -100%;
@@ -490,7 +481,6 @@ html, body {
     transform: translateY(0);
 }
 
-/* 居中定格 Logo 与名称组 */
 .intro-hero-lockup {
     display: flex;
     flex-direction: column;
@@ -521,7 +511,6 @@ html, body {
     border-radius: 20px;
 }
 
-/* 更明亮有活力的渐变标题 */
 .intro-brand-title {
     font-size: 86px;
     font-weight: 900;
@@ -539,7 +528,6 @@ html, body {
     filter: drop-shadow(0 4px 18px rgba(0, 136, 255, 0.28));
 }
 
-/* 逐个灵动弹出的三个胶囊 */
 .intro-pills-row {
     display: flex;
     gap: 14px;
@@ -566,7 +554,7 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 2：【查词功能】(多标签页 + 相关词组 vs 链接 + 真实点击与操作)
+   镜头 2：【查词功能】
    ========================================================================== */
 #scene-search {
     width: 1280px;
@@ -587,7 +575,6 @@ html, body {
     transform-style: preserve-3d;
 }
 
-/* 顶部搜索条与胶囊标签 */
 .search-top-bar {
     display: flex;
     align-items: center;
@@ -642,7 +629,6 @@ html, body {
     border-color: var(--md-sys-color-primary);
 }
 
-/* 释义主卡片 */
 .search-definition-card {
     background: #FFFFFF;
     border-radius: var(--md-shape-l);
@@ -711,7 +697,6 @@ html, body {
     margin-bottom: 20px;
 }
 
-/* 左右对比并置排版 */
 .search-comparison-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -784,7 +769,6 @@ html, body {
     box-shadow: var(--md-elevation-2);
 }
 
-/* 浮动轻量弹窗 */
 .floating-overlay-card {
     position: absolute;
     background: rgba(255, 255, 255, 0.98);
@@ -807,7 +791,7 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 3：【爆发点 · 对决】(远程联机 -> 真实房间 -> 逻辑过渡 -> 人机设置 -> 同屏拔河)
+   镜头 3：【爆发点 · 对决】
    ========================================================================== */
 #scene-duel {
     width: 1300px;
@@ -819,7 +803,6 @@ html, body {
     min-height: 640px;
 }
 
-/* 模式一：远程联机大厅 */
 .remote-lobby-grid {
     display: grid;
     grid-template-columns: 360px 1fr;
@@ -861,7 +844,6 @@ html, body {
     font-size: 1.05rem;
 }
 
-/* 实时匹配对决弹窗 (#modal-match-invite) */
 .match-invite-modal {
     position: absolute;
     top: 50%;
@@ -886,10 +868,9 @@ html, body {
     transform: translate(-50%, -50%) scale(1);
 }
 
-/* 真实房间 DOM 展示卡 (#duel-room-view) */
 .real-room-card {
-    width: 395px;
-    height: 675px;
+    width: 611px;
+    height: 1039px;
     margin: 0 auto;
     background: #FFFFFF;
     border-radius: 28px;
@@ -907,7 +888,6 @@ html, body {
     display: block;
 }
 
-/* 板块过渡桥接卡片 (#duel-transition-bridge) */
 .transition-bridge-card {
     position: absolute;
     top: 50%;
@@ -962,7 +942,6 @@ html, body {
     opacity: 1;
 }
 
-/* 人机对战设置弹窗 (#duel-sub-ai) 规范升级版 */
 .ai-settings-modal-card {
     width: 540px;
     margin: 0 auto;
@@ -1048,7 +1027,20 @@ html, body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-/* 希沃同屏拔河 */
+/* 希沃同屏拔河 (修复图 3：统一圆角为 28px，下边距扩充为 24px 透气防挤压) */
+.tug-gauge-wrapper {
+    grid-column: span 2;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: var(--md-shape-xl); /* 圆角统一为 28px，与下方选手卡片协调一致 */
+    padding: 18px 26px;
+    box-shadow: var(--md-elevation-2);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px; /* 从 8px 扩充至 24px，上下卡片呼吸感十足，不再拥挤 */
+}
+
 .local-arena-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1058,7 +1050,7 @@ html, body {
 }
 
 .local-player-side {
-    border-radius: var(--md-shape-xl);
+    border-radius: var(--md-shape-xl); /* 28px */
     padding: 26px 30px;
     background: rgba(255, 255, 255, 0.94);
     border: 2px solid transparent;
@@ -1069,19 +1061,6 @@ html, body {
 
 .local-player-side.p1 { border-color: rgba(179, 38, 30, 0.35); }
 .local-player-side.p2 { border-color: rgba(0, 104, 116, 0.35); }
-
-.tug-gauge-wrapper {
-    grid-column: span 2;
-    background: rgba(255, 255, 255, 0.96);
-    border-radius: var(--md-shape-l);
-    padding: 18px 26px;
-    box-shadow: var(--md-elevation-2);
-    border: 1px solid var(--md-sys-color-outline-variant);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 8px;
-}
 
 .local-tug-track {
     position: relative;
@@ -1164,7 +1143,7 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 4：【背单词与背实词】(默写逐字敲击标绿 + 文言背实词4选项)
+   镜头 4：【背单词与背实词】
    ========================================================================== */
 #scene-recite {
     width: 1300px;
@@ -1317,7 +1296,7 @@ html, body {
     transform: scale(0.9);
 }
 
-/* 独创文言背实词卡片 (完整 4 选项) */
+/* 独创文言背实词卡片 */
 .shici-card-shell {
     background: rgba(255, 255, 255, 0.94);
     border: 2px solid rgba(0, 104, 116, 0.3);
@@ -1328,42 +1307,6 @@ html, body {
     border-radius: var(--md-shape-m);
     padding: 18px 22px;
     border-left: 5px solid var(--p2-sys-color);
-}
-
-.shici-sentence-text {
-    font-size: 1.35rem;
-    font-weight: 600;
-    color: var(--p2-sys-on-container);
-    line-height: 1.6;
-}
-
-/* ==========================================================================
-   新增镜头 3.5：【选择词书展示】
-   ========================================================================== */
-#scene-book-select {
-    width: 1100px;
-}
-
-.book-selection-stage {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.book-selection-card {
-    width: 900px;
-    background: #FFFFFF;
-    border-radius: 28px;
-    box-shadow: var(--md-elevation-4);
-    border: 1.5px solid var(--md-sys-color-outline-variant);
-    overflow: hidden;
-    transform-style: preserve-3d;
-}
-
-.book-selection-card img {
-    width: 100%;
-    height: auto;
-    display: block;
 }
 
 .shici-sentence-text {
@@ -1400,7 +1343,36 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 5：【Wordle 解谜】(加快3D翻转 + 草稿逐字输入 + 提示卡片)
+   镜头 3.5：【选择词书展示】
+   ========================================================================== */
+#scene-book-select {
+    width: 1100px;
+}
+
+.book-selection-stage {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.book-selection-card {
+    width: 900px;
+    background: #FFFFFF;
+    border-radius: 28px;
+    box-shadow: var(--md-elevation-4);
+    border: 1.5px solid var(--md-sys-color-outline-variant);
+    overflow: hidden;
+    transform-style: preserve-3d;
+}
+
+.book-selection-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* ==========================================================================
+   镜头 5：【Wordle 解谜】
    ========================================================================== */
 #scene-wordle {
     width: 960px;
@@ -1420,7 +1392,6 @@ html, body {
     position: relative;
 }
 
-/* Wordle 动态多态提示栏 (无弹窗遮挡，完美融入) */
 .riddle-prompt-banner {
     width: 100%;
     min-height: 48px;
@@ -1594,7 +1565,7 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 6：【云端同步与多端适配】(真实 DOM 截图多端嵌入)
+   镜头 6：【云端同步与多端适配】
    ========================================================================== */
 #scene-cloud {
     width: 1320px;
@@ -1608,7 +1579,6 @@ html, body {
     z-index: 50;
 }
 
-/* 从云端按钮逐个弹出的数据项胶囊 */
 .sync-popping-cluster {
     display: flex;
     gap: 16px;
@@ -1686,7 +1656,6 @@ html, body {
     transform-style: preserve-3d;
 }
 
-/* 桌面端完整展示 (1024x935 比例无裁切) */
 .device-desktop {
     width: 560px;
     height: 512px;
@@ -1702,7 +1671,6 @@ html, body {
     display: block;
 }
 
-/* 手机端完整展示 (476x874 移动端首页全貌) */
 .device-mobile {
     width: 260px;
     height: 478px;
@@ -1727,7 +1695,7 @@ html, body {
 }
 
 /* ==========================================================================
-   镜头 7：【收束】(纯白 Logo + 亮色标题 + 三大胶囊 + 商业级网站地址)
+   镜头 7：【收束】
    ========================================================================== */
 #scene-outro {
     text-align: center;
@@ -1830,7 +1798,7 @@ html, body {
 }
 
 /* ==========================================================================
-   虚拟光标系统 (纯物理按压缩放 scale 0.75，无涟漪，节奏紧实)
+   虚拟光标系统
    ========================================================================== */
 .virtual-mouse-cursor {
     position: fixed;
