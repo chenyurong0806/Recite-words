@@ -438,6 +438,52 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     if (!username || !password) throw new Error('用户名和密码不能为空');
 
     const cleanName = username.trim();
+    const deviceId = (typeof getDeviceId === 'function') ? getDeviceId() : 'dev_unknown';
+
+    // 1. 检查本地是否被封禁
+    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
+        throw new Error('当前设备已被管理员封禁，禁止注册新账号');
+    }
+
+    // 2. 检查云端：当前设备是否存在被封禁的账号
+    try {
+        const { data: bannedDevAccounts } = await sbClient
+            .from('user_accounts')
+            .select('username, is_banned')
+            .eq('device_id', deviceId)
+            .eq('is_banned', true)
+            .limit(1);
+
+        if (bannedDevAccounts && bannedDevAccounts.length > 0) {
+            if (typeof markDeviceBanned === 'function') {
+                markDeviceBanned(bannedDevAccounts[0].username, deviceId);
+            }
+            throw new Error(`当前设备绑定的账号（${bannedDevAccounts[0].username}）已被管理员封禁，禁止注册新账号`);
+        }
+    } catch (e) {
+        if (e.message && e.message.includes('封禁')) throw e;
+    }
+
+    // 3. 检查设备注册限制：一个设备最多注册一个 Supabase 账号
+    try {
+        const { data: existingDevAccounts, error: devQueryErr } = await sbClient
+            .from('user_accounts')
+            .select('username')
+            .eq('device_id', deviceId)
+            .limit(1);
+
+        if (!devQueryErr && existingDevAccounts && existingDevAccounts.length > 0) {
+            const regName = existingDevAccounts[0].username;
+            try {
+                localStorage.setItem('vocab_registered_account', regName);
+                localStorage.setItem('vocab_device_has_registered', 'true');
+            } catch (e) { }
+            throw new Error(`当前设备已绑定注册过账号“${regName}”，一台设备仅限注册一个账号`);
+        }
+    } catch (e) {
+        if (e.message && e.message.includes('一台设备')) throw e;
+    }
+
     // 检查用户名是否已存在
     const { data: existing, error: checkErr } = await sbClient
         .from('user_accounts')
@@ -459,6 +505,8 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
             username: cleanName,
             password: hashedPassword,
             avatar_url: avatarUrl || '',
+            device_id: deviceId,
+            is_banned: false,
             user_data: {},
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -469,6 +517,13 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     if (error) {
         throw new Error(error.message || '注册失败，请稍后重试');
     }
+
+    // 注册成功，记录在本地设备绑定标记中
+    try {
+        localStorage.setItem('vocab_registered_account', cleanName);
+        localStorage.setItem('vocab_device_has_registered', 'true');
+    } catch (e) { }
+
     return data;
 }
 
@@ -502,6 +557,22 @@ async function supabaseLoginUser(arg1, arg2) {
     if (!data) {
         throw new Error('用户名或密码错误，请重试');
     }
+
+    // 检查账号是否被封禁
+    if (data.is_banned) {
+        if (typeof markDeviceBanned === 'function') {
+            markDeviceBanned(cleanName, data.device_id);
+        }
+        throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    }
+
+    // 自动补全设备绑定 (老账号初次登录时无 device_id)
+    const currentDevId = (typeof getDeviceId === 'function') ? getDeviceId() : null;
+    if (currentDevId && !data.device_id) {
+        sbClient.from('user_accounts').update({ device_id: currentDevId }).eq('username', cleanName).then(() => { }).catch(() => { });
+        data.device_id = currentDevId;
+    }
+
     return data;
 }
 
@@ -518,8 +589,56 @@ async function supabaseLoginWithHash(username, hashedPassword) {
     if (error || !data) {
         throw new Error('登录凭证已失效，请重新输入密码');
     }
+
+    // 检查账号是否被封禁
+    if (data.is_banned) {
+        if (typeof markDeviceBanned === 'function') {
+            markDeviceBanned(cleanName, data.device_id);
+        }
+        throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    }
+
+    // 自动补全设备绑定
+    const currentDevId = (typeof getDeviceId === 'function') ? getDeviceId() : null;
+    if (currentDevId && !data.device_id) {
+        sbClient.from('user_accounts').update({ device_id: currentDevId }).eq('username', cleanName).then(() => { }).catch(() => { });
+        data.device_id = currentDevId;
+    }
+
     return data;
 }
+
+async function supabaseVerifyAccountStatus(username) {
+    if (!username || username.startsWith('游客')) {
+        return { exists: false, isBanned: false, isGuest: true };
+    }
+    const cleanName = username.trim();
+    try {
+        const { data, error } = await sbClient
+            .from('user_accounts')
+            .select('username, is_banned, device_id')
+            .eq('username', cleanName)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('[Supabase] verifyAccountStatus error:', error);
+            // 网络异常或服务离线，返回 networkError 标记，避免在网络差时误踢下线或误删本地数据
+            return { exists: true, isBanned: false, networkError: true, error };
+        }
+
+        if (!data) {
+            // 明确表示该账号在云端已被删除或不存在
+            return { exists: false, isBanned: false, user: null };
+        }
+
+        const isBanned = Boolean(data.is_banned);
+        return { exists: true, isBanned, deviceId: data.device_id, user: data };
+    } catch (e) {
+        console.warn('[Supabase] verifyAccountStatus exception:', e);
+        return { exists: true, isBanned: false, networkError: true, error: e };
+    }
+}
+window.supabaseVerifyAccountStatus = supabaseVerifyAccountStatus;
 
 async function supabaseUpdateUsername(oldUsername, newUsername) {
     if (!oldUsername || !newUsername) throw new Error('用户名不能为空');

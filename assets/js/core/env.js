@@ -59,4 +59,74 @@ if (typeof window !== 'undefined') {
     };
 }
 
+/* ==========================================================================
+   设备唯一标识与封禁状态检测
+   ========================================================================== */
+function getDeviceId() {
+    let deviceId = null;
+    try {
+        deviceId = localStorage.getItem('vocab_device_unique_id');
+    } catch (e) { }
+
+    if (!deviceId) {
+        try {
+            if (typeof document !== 'undefined' && document.cookie) {
+                const match = document.cookie.match(/(?:^|; )vocab_device_unique_id=([^;]*)/);
+                if (match) deviceId = decodeURIComponent(match[1]);
+            }
+        } catch (e) { }
+    }
+
+    if (!deviceId) {
+        const rand = Math.random().toString(36).slice(2, 10);
+        const time = Date.now().toString(36);
+        const screenKey = (typeof screen !== 'undefined') ? `${screen.width}x${screen.height}` : '0';
+        deviceId = `dev_${time}_${rand}_${screenKey}`;
+        try {
+            localStorage.setItem('vocab_device_unique_id', deviceId);
+        } catch (e) { }
+        try {
+            if (typeof document !== 'undefined') {
+                const expires = new Date(Date.now() + 3650 * 864e5).toUTCString();
+                document.cookie = `vocab_device_unique_id=${encodeURIComponent(deviceId)}; expires=${expires}; path=/; SameSite=Lax`;
+            }
+        } catch (e) { }
+    }
+    return deviceId;
+}
+
+function isDeviceBannedLocally() {
+    try {
+        if (localStorage.getItem('vocab_is_banned') === 'true') return true;
+        const devId = getDeviceId();
+        const bannedDev = localStorage.getItem('vocab_banned_device_id');
+        if (bannedDev && bannedDev === devId) return true;
+    } catch (e) { }
+    return false;
+}
+
+function markDeviceBanned(username = '', deviceId = '') {
+    try {
+        localStorage.setItem('vocab_is_banned', 'true');
+        if (username) localStorage.setItem(`vocab_banned_user_${username}`, 'true');
+        const dev = deviceId || getDeviceId();
+        if (dev) localStorage.setItem('vocab_banned_device_id', dev);
+    } catch (e) { }
+}
+
+function unmarkDeviceBanned(username = '') {
+    try {
+        localStorage.removeItem('vocab_is_banned');
+        localStorage.removeItem('vocab_banned_device_id');
+        if (username) localStorage.removeItem(`vocab_banned_user_${username}`);
+    } catch (e) { }
+}
+
+if (typeof window !== 'undefined') {
+    window.getDeviceId = getDeviceId;
+    window.isDeviceBannedLocally = isDeviceBannedLocally;
+    window.markDeviceBanned = markDeviceBanned;
+    window.unmarkDeviceBanned = unmarkDeviceBanned;
+}
+
 

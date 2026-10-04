@@ -68,29 +68,90 @@ async function bootstrapApp() {
         renderSavedDeviceAccounts();
     }
 
-    // 4. 加载当前用户数据
-    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username) {
-        loadUserData(currentUserProfile.username, currentUserProfile);
-        if (currentUserProfile.type === 'cloud' && typeof supabaseFetchUserData === 'function') {
-            supabaseFetchUserData(currentUserProfile.username).then(user => {
-                if (user) {
-                    if (typeof restoreUserDataFromCloud === 'function') {
-                        restoreUserDataFromCloud(user);
-                    }
-                    if (user.user_data && user.user_data.stats) {
-                        try {
-                            SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
-                            userStats = user.user_data.stats;
-                        } catch (e) { }
-                    }
-                    if (user.avatar_url && user.avatar_url !== currentUserProfile.avatar) {
-                        currentUserProfile.avatar = user.avatar_url;
-                        SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
-                        SafeStorage.setItem(`vocab_user_avatar_${user.username}`, user.avatar_url);
-                        if (typeof updateHub === 'function') updateHub();
-                    }
+    // 4. 加载当前用户数据并验证云端账号是否存在与可用
+    if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username && !currentUserProfile.username.startsWith('游客')) {
+        const activeUser = currentUserProfile.username;
+        loadUserData(activeUser, currentUserProfile);
+
+        if (currentUserProfile.type === 'cloud' && typeof supabaseVerifyAccountStatus === 'function') {
+            supabaseVerifyAccountStatus(activeUser).then(status => {
+                if (status.networkError) {
+                    // 网络问题/离线，保持离线缓存正常学习
+                    return;
                 }
-            }).catch(() => { });
+
+                // 检查 A：账号不存在或已被删除 -> 自动登出并删除本地记录
+                if (!status.exists) {
+                    console.warn(`[Auth] 账号“${activeUser}”在云端不存在，执行自动登出并删除本地记录`);
+                    if (typeof removeSavedDeviceAccount === 'function') {
+                        removeSavedDeviceAccount(activeUser);
+                    }
+                    SafeStorage.removeItem('vocab_auth_session');
+                    SafeStorage.removeItem('vocab_pk_user');
+                    if (SafeStorage.getItem('vocab_registered_account') === activeUser) {
+                        SafeStorage.removeItem('vocab_registered_account');
+                        SafeStorage.removeItem('vocab_device_has_registered');
+                    }
+                    if (typeof handleAuthLogout === 'function') {
+                        handleAuthLogout(false);
+                    }
+                    if (typeof showToast === 'function') {
+                        showToast(`账号“${activeUser}”不存在或已被管理员删除，已退出登录`, 4000);
+                    }
+                    return;
+                }
+
+                // 检查 B：账号被封禁 -> 自动登出并禁止登录和注册
+                if (status.isBanned) {
+                    console.warn(`[Auth] 账号“${activeUser}”已被管理员封禁，执行自动退出并锁定！`);
+                    if (typeof markDeviceBanned === 'function') {
+                        markDeviceBanned(activeUser, status.deviceId);
+                    }
+                    if (typeof handleAuthLogout === 'function') {
+                        handleAuthLogout(false);
+                    }
+                    if (typeof showToast === 'function') {
+                        showToast(`账号“${activeUser}”已被管理员封禁，已强制退出登录，禁止登录与注册！`, 6000);
+                    }
+                    return;
+                }
+
+                // 账号正常可用：清除可能残留的本地封禁标记
+                if (typeof unmarkDeviceBanned === 'function') {
+                    unmarkDeviceBanned(activeUser);
+                }
+
+                // 如果未绑定 device_id，自动补全绑定当前设备
+                const myDeviceId = (typeof getDeviceId === 'function') ? getDeviceId() : null;
+                if (myDeviceId && !status.deviceId && typeof sbClient !== 'undefined') {
+                    sbClient.from('user_accounts').update({ device_id: myDeviceId }).eq('username', activeUser).then(() => { }).catch(() => { });
+                }
+
+                // 继续拉取并恢复用户云端数据
+                if (typeof supabaseFetchUserData === 'function') {
+                    supabaseFetchUserData(activeUser).then(user => {
+                        if (user) {
+                            if (typeof restoreUserDataFromCloud === 'function') {
+                                restoreUserDataFromCloud(user);
+                            }
+                            if (user.user_data && user.user_data.stats) {
+                                try {
+                                    SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
+                                    userStats = user.user_data.stats;
+                                } catch (e) { }
+                            }
+                            if (user.avatar_url && user.avatar_url !== currentUserProfile.avatar) {
+                                currentUserProfile.avatar = user.avatar_url;
+                                SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+                                SafeStorage.setItem(`vocab_user_avatar_${user.username}`, user.avatar_url);
+                                if (typeof updateHub === 'function') updateHub();
+                            }
+                        }
+                    }).catch(() => { });
+                }
+            }).catch(e => {
+                console.warn('[Auth] Check account validity failed:', e);
+            });
         }
     } else {
         loadUserData((currentUserProfile && currentUserProfile.username) || (typeof defaultGuestName !== 'undefined' ? defaultGuestName : '游客'));

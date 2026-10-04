@@ -167,6 +167,10 @@ function withAuthTimeout(promise, ms = 5000, timeoutMsg = '登录请求超时（
 }
 
 async function selectSavedAccountToLogin(username) {
+    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
+        showToast('当前设备已被管理员封禁，禁止登录');
+        return;
+    }
     const list = getSavedDeviceAccounts();
     const acc = list.find(a => a.username === username);
     if (!acc) return;
@@ -207,6 +211,20 @@ async function selectSavedAccountToLogin(username) {
         showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
     } catch (e) {
+        if (e.message && e.message.includes('封禁')) {
+            showToast(e.message);
+            return;
+        }
+        // 如果登录异常，异步校验该账号是否已在云端被彻底删除
+        if (typeof supabaseVerifyAccountStatus === 'function') {
+            supabaseVerifyAccountStatus(username).then(st => {
+                if (!st.exists && !st.networkError) {
+                    removeSavedDeviceAccount(username);
+                    renderSavedDeviceAccounts();
+                    showToast(`账号“${username}”在云端已被删除，已从本地列表移除`);
+                }
+            }).catch(() => { });
+        }
         showToast(e.message || '登录已过期，请重新输入密码');
         showManualLoginForm(username);
     }
@@ -258,6 +276,11 @@ function handleRegAvatarChange(event) {
 }
 
 async function handleCloudLogin() {
+    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
+        showToast('当前设备已被管理员封禁，禁止登录');
+        return;
+    }
+
     const usernameInput = document.getElementById('auth-login-username');
     const passwordInput = document.getElementById('auth-login-password');
     const loginBtn = document.getElementById('btn-auth-cloud-login');
@@ -322,6 +345,17 @@ async function handleCloudLogin() {
 }
 
 async function handleCloudRegister() {
+    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
+        showToast('当前设备已被管理员封禁，禁止注册新账号');
+        return;
+    }
+
+    const localReg = SafeStorage.getItem('vocab_registered_account');
+    if (localReg) {
+        showToast(`当前设备已绑定注册过账号“${localReg}”，一台设备仅限注册一个账号`);
+        return;
+    }
+
     const usernameInput = document.getElementById('auth-reg-username');
     const passwordInput = document.getElementById('auth-reg-password');
     const password2Input = document.getElementById('auth-reg-password2');
