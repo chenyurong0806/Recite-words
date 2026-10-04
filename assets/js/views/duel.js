@@ -38,6 +38,71 @@ function safeBroadcast(channel, event, payload) {
 }
 window.safeBroadcast = safeBroadcast;
 
+/* ==========================================================================
+   对决比分同步节流器 (限制发送频率为 200ms)
+   ========================================================================== */
+let lastScoreSyncTimestamp = 0;
+let pendingScoreSyncPayload = null;
+let scoreSyncThrottleTimer = null;
+
+function sendThrottledScoreSync(channel, scorePayload) {
+    if (!channel) return;
+    pendingScoreSyncPayload = scorePayload;
+    const now = Date.now();
+    const elapsed = now - lastScoreSyncTimestamp;
+
+    if (elapsed >= 200) {
+        lastScoreSyncTimestamp = now;
+        try {
+            if (typeof channel.send === 'function') {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'score_sync',
+                    payload: scorePayload
+                }).catch(() => {});
+            }
+        } catch (e) {}
+    } else {
+        if (!scoreSyncThrottleTimer) {
+            scoreSyncThrottleTimer = setTimeout(() => {
+                scoreSyncThrottleTimer = null;
+                lastScoreSyncTimestamp = Date.now();
+                if (channel && pendingScoreSyncPayload) {
+                    try {
+                        if (typeof channel.send === 'function') {
+                            channel.send({
+                                type: 'broadcast',
+                                event: 'score_sync',
+                                payload: pendingScoreSyncPayload
+                            }).catch(() => {});
+                        }
+                    } catch (e) {}
+                }
+            }, 200 - elapsed);
+        }
+    }
+}
+window.sendThrottledScoreSync = sendThrottledScoreSync;
+
+function flushPendingScoreSync(channel) {
+    if (scoreSyncThrottleTimer) {
+        clearTimeout(scoreSyncThrottleTimer);
+        scoreSyncThrottleTimer = null;
+    }
+    if (channel && pendingScoreSyncPayload) {
+        try {
+            if (typeof channel.send === 'function') {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'score_sync',
+                    payload: pendingScoreSyncPayload
+                }).catch(() => {});
+            }
+        } catch (e) {}
+    }
+}
+window.flushPendingScoreSync = flushPendingScoreSync;
+
 function toggleGuestReady(ready) {
     if (isHost) return;
     if (roomConfig && roomConfig.matchType === 'ranked') {
@@ -863,7 +928,7 @@ async function joinOnlineRoom() {
     btnJoin.disabled = true;
     btnJoin.innerText = '正在验证房间...';
 
-    const testChannel = sbClient.channel(`duel_${codeInput}`, {
+    const testChannel = sbClient.channel(`game-room:${codeInput}`, {
         config: { presence: { key: currentUser } }
     });
 
@@ -1165,6 +1230,13 @@ function appendRoomChatMessage(data, isMine) {
 }
 
 function connectSupabaseChannel(code) {
+    // 双方接受邀请后离开大厅 presence，加入独立的对战频道
+    if (globalLobbyChannel) {
+        try {
+            globalLobbyChannel.untrack().catch(() => {});
+        } catch (e) {}
+    }
+
     if (realtimeChannel) {
         try {
             realtimeChannel.unsubscribe();
@@ -1173,7 +1245,7 @@ function connectSupabaseChannel(code) {
         realtimeChannel = null;
     }
 
-    realtimeChannel = sbClient.channel(`duel_${code}`, {
+    realtimeChannel = sbClient.channel(`game-room:${code}`, {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
@@ -1294,7 +1366,18 @@ function connectSupabaseChannel(code) {
             handleReceiveRoomChatMessage(payload);
         })
         .on('broadcast', { event: 'game_start' }, ({ payload }) => {
+            // 接收方收到开局与词库广播，立即回传 ACK
+            if (payload && payload.msgId && realtimeChannel) {
+                safeBroadcast(realtimeChannel, `ack_${payload.msgId}`, {
+                    msgId: payload.msgId,
+                    from: currentUser,
+                    to: payload.hostName
+                });
+            }
             handleRemoteGameStart(payload);
+        })
+        .on('broadcast', { event: 'score_sync' }, ({ payload }) => {
+            handleRemoteScoreUpdate(payload);
         })
         .on('broadcast', { event: 'score_update' }, ({ payload }) => {
             handleRemoteScoreUpdate(payload);
@@ -1474,13 +1557,17 @@ async function startOnlineGame() {
             config: roomConfig
         };
 
-        // 1. 实时 WebSocket 广播开局
+        // 1. 关键信令 ACK 确认：使用 sendReliableBroadcast 广播词库与开局信号，解决跨境外网丢包
+        if (typeof sendReliableBroadcast === 'function') {
+            sendReliableBroadcast(realtimeChannel, 'game_start', startPayload, 3000, 3)
+                .then(() => {
+                    console.log('[Duel] 对手已确认接收词库与开局信号');
+                })
+                .catch(err => {
+                    console.warn('[Duel] game_start ACK 等待超时:', err);
+                });
+        }
         safeBroadcast(realtimeChannel, 'game_start', startPayload);
-        setTimeout(() => {
-            if (isPlayingMatch && realtimeChannel) {
-                safeBroadcast(realtimeChannel, 'game_start', startPayload);
-            }
-        }, 300);
 
         // 2. 双保险：在云端 rooms 表写入 playing 状态和出题题库，确保跨网或网络抖动时 P2 通过轻量轮询也能 100% 进入游戏
         if (sbClient && roomCode) {
@@ -2091,7 +2178,7 @@ function checkArenaPhraseAnswer() {
 
         if (gameMode === 'online') {
             renderSnakeRing();
-            safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
+            sendThrottledScoreSync(realtimeChannel, { score: p1State.score, user: currentUser });
             if (checkOnlineWinCondition()) return;
         } else if (gameMode === 'ai_duel') {
             renderSnakeRing();
@@ -2352,7 +2439,7 @@ function handleAnswer(idx, clickX, clickY) {
 
     if (gameMode === 'online') {
         renderSnakeRing();
-        safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
+        sendThrottledScoreSync(realtimeChannel, { score: p1State.score, user: currentUser });
         if (checkOnlineWinCondition()) return;
     } else if (gameMode === 'ai_duel') {
         renderSnakeRing();
@@ -2632,6 +2719,7 @@ function endGame(msg, broadcastToPeer) {
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
     isPlayingMatch = false;
+    flushPendingScoreSync(realtimeChannel);
     if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
     if (broadcastToPeer && realtimeChannel && gameMode === 'online') {
@@ -2687,6 +2775,9 @@ function endGame(msg, broadcastToPeer) {
         });
 
         LevelManager.applyMatchResult(currentUser, matchResult);
+        if (window.SyncManager) {
+            window.SyncManager.flush({ silent: true });
+        }
     }
 
     gameResult = {
@@ -3142,7 +3233,7 @@ function initGlobalPresence() {
     intentionalLobbyClose = false;
     lobbyCurrentChannelUser = currentUser;
 
-    globalLobbyChannel = sbClient.channel('global_lobby', {
+    globalLobbyChannel = sbClient.channel('lobby-room', {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
@@ -3174,8 +3265,14 @@ function initGlobalPresence() {
                 syncGlobalPresenceState();
             }
         })
+        .on('broadcast', { event: 'match_invite' }, ({ payload }) => {
+            handleReceivedMatchInvite(payload);
+        })
         .on('broadcast', { event: 'invite_match' }, ({ payload }) => {
             handleReceivedMatchInvite(payload);
+        })
+        .on('broadcast', { event: 'invite_accepted' }, ({ payload }) => {
+            handleMatchInviteResponse(payload);
         })
         .on('broadcast', { event: 'invite_response' }, ({ payload }) => {
             handleMatchInviteResponse(payload);
@@ -3185,6 +3282,9 @@ function initGlobalPresence() {
         })
         .subscribe(async (status) => {
             isConnectingLobby = false;
+            if (typeof updateGlobalNetworkBadge === 'function') {
+                updateGlobalNetworkBadge(status);
+            }
             if (status === 'SUBSCRIBED') {
                 if (lobbyReconnectTimer) {
                     clearTimeout(lobbyReconnectTimer);
@@ -3962,7 +4062,7 @@ async function confirmAndSendMatchInvite() {
         }, { onConflict: 'code' });
     } catch (e) { }
 
-    safeBroadcast(globalLobbyChannel, 'invite_match', {
+    const invitePayload = {
         from: currentUser,
         fromAvatar: getUserAvatar(currentUser),
         to: activeInviteTarget,
@@ -3970,7 +4070,19 @@ async function confirmAndSendMatchInvite() {
         roomName: finalRoomName,
         config: matchConfig,
         bookNames: getBookNamesSummary(matchConfig.selectedBooks)
-    });
+    };
+
+    // 关键信令 ACK 确认重传机制：发送 match_invite，带唯一 msgId 和重试
+    if (typeof sendReliableBroadcast === 'function') {
+        sendReliableBroadcast(globalLobbyChannel, 'match_invite', invitePayload, 3000, 3)
+            .then(() => {
+                console.log(`[Duel] 收到【${activeInviteTarget}】对邀请的 ACK 确认`);
+            })
+            .catch(err => {
+                console.warn(`[Duel] 对战邀请重试耗尽:`, err);
+            });
+    }
+    safeBroadcast(globalLobbyChannel, 'invite_match', invitePayload);
 
     const target = activeInviteTarget;
     closeCreateMatchInviteModal();
@@ -3979,6 +4091,16 @@ async function confirmAndSendMatchInvite() {
 
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 事件
+    if (payload.msgId && globalLobbyChannel) {
+        safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
+    }
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
     if (myPresenceStatus === 'invisible') {
         if (globalLobbyChannel) {
@@ -4058,16 +4180,28 @@ function acceptMatchInvite() {
     const invite = currentIncomingInvite;
     currentIncomingInvite = null;
 
+    const acceptPayload = {
+        from: currentUser,
+        fromAvatar: getUserAvatar(currentUser),
+        to: invite.from,
+        accepted: true,
+        roomCode: invite.roomCode,
+        roomName: invite.roomName,
+        config: invite.config
+    };
+
     if (globalLobbyChannel) {
-        safeBroadcast(globalLobbyChannel, 'invite_response', {
-            from: currentUser,
-            fromAvatar: getUserAvatar(currentUser),
-            to: invite.from,
-            accepted: true,
-            roomCode: invite.roomCode,
-            roomName: invite.roomName,
-            config: invite.config
-        });
+        // 关键信令 ACK 确认重传机制：发送 invite_accepted
+        if (typeof sendReliableBroadcast === 'function') {
+            sendReliableBroadcast(globalLobbyChannel, 'invite_accepted', acceptPayload, 3000, 3)
+                .then(() => {
+                    console.log(`[Duel] 房主已确认收到接受邀请 ACK`);
+                })
+                .catch(err => {
+                    console.warn(`[Duel] 接受邀请发送 ACK 超时:`, err);
+                });
+        }
+        safeBroadcast(globalLobbyChannel, 'invite_response', acceptPayload);
     }
 
     // 更新云端房间状态，支持跨网直达
@@ -4118,6 +4252,17 @@ function declineMatchInvite(isTimeout = false) {
 
 function handleMatchInviteResponse(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    // 关键信令 ACK 确认：房主收到接受邀请后立即向对方回传 ACK
+    if (payload.accepted && payload.msgId && globalLobbyChannel) {
+        safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
+    }
+
     if (payload.accepted) {
         showToast(`玩家【${payload.from}】接受了对战邀请！正在进入房间...`);
         isHost = true;

@@ -115,23 +115,33 @@ function checkNetworkStatus(explicitState) {
     } else {
         isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
     }
-    const badge = document.getElementById('hub-online-offline-badge');
-    const badgeText = document.getElementById('hub-online-offline-text');
-    const btnOnline = document.getElementById('btn-enter-online');
 
-    if (badge && badgeText) {
+    if (typeof updateGlobalNetworkBadge === 'function') {
         if (!isNetworkOnline) {
-            badge.className = 'network-status-badge offline';
-            badgeText.innerText = '离线';
-        } else if (currentPresenceStatus === 'invisible') {
-            badge.className = 'network-status-badge invisible';
-            badgeText.innerText = '隐身';
+            updateGlobalNetworkBadge('CLOSED');
+        } else if (typeof currentConnectionQuality !== 'undefined') {
+            updateGlobalNetworkBadge(currentConnectionQuality);
         } else {
-            badge.className = 'network-status-badge online';
-            badgeText.innerText = '在线';
+            updateGlobalNetworkBadge('online');
+        }
+    } else {
+        const badge = document.getElementById('hub-online-offline-badge');
+        const badgeText = document.getElementById('hub-online-offline-text');
+        if (badge && badgeText) {
+            if (!isNetworkOnline) {
+                badge.className = 'network-status-badge offline';
+                badgeText.innerText = '离线';
+            } else if (currentPresenceStatus === 'invisible') {
+                badge.className = 'network-status-badge invisible';
+                badgeText.innerText = '隐身';
+            } else {
+                badge.className = 'network-status-badge online';
+                badgeText.innerText = '在线';
+            }
         }
     }
 
+    const btnOnline = document.getElementById('btn-enter-online');
     if (btnOnline) {
         if (isNetworkOnline) {
             btnOnline.disabled = false;

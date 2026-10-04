@@ -294,7 +294,7 @@ function loadUserData(username, profile = null) {
     }
 }
 
-function saveCurrentUserData() {
+function saveCurrentUserData(options = { immediate: false }) {
     if (!currentUser) return;
     const statsStr = JSON.stringify(userStats);
     SafeStorage.setItem(`vocab_stats_${currentUser}`, statsStr);
@@ -302,11 +302,15 @@ function saveCurrentUserData() {
         setCookie(`vocab_stats_${currentUser}`, statsStr, 365);
     }
 
-    // 同步到 Supabase 云端 (B站用户与云端注册用户均统一同步至 Supabase)
+    // 本地优先：排队进入 SyncManager 进行批量异步同步，彻底废除逐题写库
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
         if (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili') {
-            if (typeof syncAllUserDataToCloud === 'function') {
-                syncAllUserDataToCloud(currentUser);
+            if (window.SyncManager) {
+                window.SyncManager.enqueue('stats_update', {
+                    timestamp: Date.now()
+                }, !!options.immediate);
+            } else if (typeof syncAllUserDataToCloud === 'function') {
+                syncAllUserDataToCloud(currentUser, options);
             }
         }
     }

@@ -80,8 +80,221 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
         persistSession: false,
         autoRefreshToken: false
+    },
+    realtime: {
+        params: {
+            eventsPerSecond: 10
+        },
+        heartbeatIntervalMs: 15000,
+        reconnectAfterMs: (tries) => Math.min(1000 * Math.pow(2, tries), 10000),
+        timeout: 20000
     }
 });
+
+/* ==========================================================================
+   1.1 弱网连接质量监控与状态徽标 (红/黄/绿指示灯)
+   ========================================================================== */
+let currentConnectionQuality = 'disconnected'; // 'connected' | 'degraded' | 'disconnected'
+
+function updateGlobalNetworkBadge(status) {
+    const badge = document.getElementById('hub-online-offline-badge');
+    const badgeText = document.getElementById('hub-online-offline-text');
+    const btnOnline = document.getElementById('btn-enter-online');
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+
+    if (!badge || !badgeText) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        currentConnectionQuality = 'disconnected';
+        badge.className = 'network-status-badge offline';
+        badgeText.innerText = '离线';
+        if (btnOnline) {
+            btnOnline.disabled = true;
+            btnOnline.style.opacity = '0.45';
+        }
+        return;
+    }
+
+    if (myPresenceStatus === 'invisible') {
+        badge.className = 'network-status-badge invisible';
+        badgeText.innerText = '隐身';
+        if (btnOnline) {
+            btnOnline.disabled = false;
+            btnOnline.style.opacity = '1';
+        }
+        return;
+    }
+
+    switch (status) {
+        case 'SUBSCRIBED':
+        case 'connected':
+        case 'open':
+            currentConnectionQuality = 'connected';
+            badge.className = 'network-status-badge online';
+            badgeText.innerText = '在线';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '1';
+            }
+            break;
+
+        case 'CONNECTING':
+        case 'connecting':
+        case 'reconnecting':
+        case 'TIMED_OUT':
+        case 'degraded':
+            currentConnectionQuality = 'degraded';
+            badge.className = 'network-status-badge connecting';
+            badgeText.innerText = '连接中...';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '0.85';
+            }
+            break;
+
+        case 'CLOSED':
+        case 'CHANNEL_ERROR':
+        case 'disconnected':
+        case 'closed':
+        default:
+            currentConnectionQuality = 'disconnected';
+            badge.className = 'network-status-badge offline';
+            badgeText.innerText = status === 'CHANNEL_ERROR' ? '异常' : '未连接';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '0.7';
+            }
+            break;
+    }
+}
+window.updateGlobalNetworkBadge = updateGlobalNetworkBadge;
+
+// 监听 Supabase Realtime 底层 WebSocket 连接状态
+if (sbClient && sbClient.realtime) {
+    try {
+        if (typeof sbClient.realtime.onOpen === 'function') {
+            sbClient.realtime.onOpen(() => {
+                console.log('[Supabase Realtime] WebSocket 连接开启');
+                updateGlobalNetworkBadge('connecting');
+            });
+        }
+        if (typeof sbClient.realtime.onClose === 'function') {
+            sbClient.realtime.onClose((e) => {
+                console.warn('[Supabase Realtime] WebSocket 连接关闭', e);
+                updateGlobalNetworkBadge('CLOSED');
+            });
+        }
+        if (typeof sbClient.realtime.onError === 'function') {
+            sbClient.realtime.onError((err) => {
+                console.warn('[Supabase Realtime] WebSocket 连接错误', err);
+                updateGlobalNetworkBadge('CHANNEL_ERROR');
+            });
+        }
+    } catch (e) {
+        console.warn('[Supabase Realtime] 初始化底层连接事件监听失败:', e);
+    }
+}
+
+/* ==========================================================================
+   1.2 关键信令 ACK 确认重传机制 (解决跨境外网邀请丢失问题)
+   ========================================================================== */
+function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, maxRetries = 3) {
+    if (!channel) {
+        return Promise.reject(new Error('Channel is not initialized'));
+    }
+
+    return new Promise((resolve, reject) => {
+        // 生成全局唯一消息 ID
+        const msgId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9));
+        const timestamp = Date.now();
+        const ackEvent = `ack_${msgId}`;
+        const packet = {
+            ...payload,
+            msgId,
+            timestamp
+        };
+
+        let attempts = 0;
+        let ackReceived = false;
+        let retryTimer = null;
+
+        const cleanup = () => {
+            if (retryTimer) {
+                clearTimeout(retryTimer);
+                retryTimer = null;
+            }
+            if (channel._reliableAckMap && channel._reliableAckMap[ackEvent]) {
+                delete channel._reliableAckMap[ackEvent];
+            }
+        };
+
+        const onAck = (ackPayload) => {
+            if (ackReceived) return;
+            ackReceived = true;
+            cleanup();
+            console.log(`[sendReliableBroadcast] 收到 ACK 确认 (${event}, msgId: ${msgId})`);
+            resolve(ackPayload);
+        };
+
+        if (!channel._reliableAckMap) {
+            channel._reliableAckMap = {};
+            try {
+                channel.on('broadcast', { event: '*' }, ({ event: ev, payload: p }) => {
+                    if (ev && ev.startsWith('ack_') && channel._reliableAckMap[ev]) {
+                        channel._reliableAckMap[ev](p);
+                    }
+                });
+            } catch (e) {}
+        }
+        channel._reliableAckMap[ackEvent] = onAck;
+
+        try {
+            channel.on('broadcast', { event: ackEvent }, ({ payload: p }) => {
+                onAck(p);
+            });
+        } catch (e) {}
+
+        const executeSend = () => {
+            if (ackReceived) return;
+            attempts++;
+
+            try {
+                if (typeof channel.send === 'function') {
+                    channel.send({
+                        type: 'broadcast',
+                        event: event,
+                        payload: packet
+                    }).catch(err => {
+                        console.warn(`[sendReliableBroadcast] 发送失败 (${event}, 第${attempts}次):`, err);
+                    });
+                }
+            } catch (e) {
+                console.warn(`[sendReliableBroadcast] 发送异常 (${event}):`, e);
+            }
+
+            retryTimer = setTimeout(() => {
+                if (ackReceived) return;
+                if (attempts <= maxRetries) {
+                    console.warn(`[sendReliableBroadcast] 未收到 ACK (${event}, msgId: ${msgId}), 正在触发重传 (${attempts}/${maxRetries})...`);
+                    executeSend();
+                } else {
+                    cleanup();
+                    const errMsg = '对方网络不佳，邀请超时';
+                    console.error(`[sendReliableBroadcast] 重传超过最大次数 (${event}): ${errMsg}`);
+                    if (typeof showToast === 'function') {
+                        showToast(errMsg);
+                    }
+                    reject(new Error(errMsg));
+                }
+            }, timeout);
+        };
+
+        executeSend();
+    });
+}
+window.sendReliableBroadcast = sendReliableBroadcast;
 
 const DEFAULT_WORDS = [
     { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
@@ -482,12 +695,9 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return;
     if (u.startsWith('游客_') || u.startsWith('游客')) return;
 
-    // 检查是否为云端用户或已注册账号
-    const isCloudUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && currentUserProfile.type === 'cloud')
     // 检查是否为已登录用户 (支持云端账号与 B 站账号)
     const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'))
         || (!u.startsWith('游客'));
-    if (!isCloudUser) return;
     if (!isRegisteredUser) return;
 
     let stats = null;
@@ -595,16 +805,25 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof sbClient !== 'undefined' && sbClient) {
         try {
             let updateError = null;
+            const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
+
+            // 采用 upsert 进行单次批量写入，替代单条反复写入
             const { error } = await sbClient
                 .from('user_accounts')
-                .update(updateObj)
-                .eq('username', u);
+                .upsert({
+                    username: u,
+                    ...updateObj
+                }, { onConflict: 'username' });
+
             if (error) {
                 if (error.message && error.message.includes('level')) {
                     const { error: err2 } = await sbClient
                         .from('user_accounts')
-                        .update({ user_data: payload, updated_at: payload.updated_at })
-                        .eq('username', u);
+                        .upsert({
+                            username: u,
+                            user_data: payload,
+                            updated_at: payload.updated_at
+                        }, { onConflict: 'username' });
                     if (err2) updateError = err2;
                 } else {
                     updateError = error;
@@ -613,7 +832,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
             if (updateError) {
                 console.warn('[Supabase] syncAllUserDataToCloud error:', updateError);
-                if (typeof showToast === 'function') {
+                if (shouldToast && typeof showToast === 'function') {
                     showToast('数据同步失败，请检查网络');
                 }
                 return { success: false, error: updateError };
@@ -643,7 +862,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
             return { success: true };
         } catch (e) {
             console.warn('[Supabase] syncAllUserDataToCloud exception:', e);
-            if (typeof showToast === 'function') {
+            const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
+            if (shouldToast && typeof showToast === 'function') {
                 showToast('数据同步失败，请检查网络');
             }
             return { success: false, error: e };
@@ -1944,7 +2164,7 @@ function loadUserData(username, profile = null) {
     }
 }
 
-function saveCurrentUserData() {
+function saveCurrentUserData(options = { immediate: false }) {
     if (!currentUser) return;
     const statsStr = JSON.stringify(userStats);
     SafeStorage.setItem(`vocab_stats_${currentUser}`, statsStr);
@@ -1952,11 +2172,15 @@ function saveCurrentUserData() {
         setCookie(`vocab_stats_${currentUser}`, statsStr, 365);
     }
 
-    // 同步到 Supabase 云端 (B站用户与云端注册用户均统一同步至 Supabase)
+    // 本地优先：排队进入 SyncManager 进行批量异步同步，彻底废除逐题写库
     if (currentUserProfile && currentUserProfile.isLoggedIn) {
         if (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili') {
-            if (typeof syncAllUserDataToCloud === 'function') {
-                syncAllUserDataToCloud(currentUser);
+            if (window.SyncManager) {
+                window.SyncManager.enqueue('stats_update', {
+                    timestamp: Date.now()
+                }, !!options.immediate);
+            } else if (typeof syncAllUserDataToCloud === 'function') {
+                syncAllUserDataToCloud(currentUser, options);
             }
         }
     }
@@ -2115,6 +2339,186 @@ function resolveAppConfirm(result) {
     }
 }
 /* --- End: core/state.js --- */
+
+/* --- Begin: managers/sync-manager.js --- */
+/**
+ * SyncManager: 本地优先与批量数据同步器
+ * Module: assets/js/managers/sync-manager.js
+ * 
+ * 核心优化：
+ * 1. 本地优先 (Local-First)：做题与答题记录优先存入内存与 LocalStorage，零延迟响应用户操作。
+ * 2. 批量同步 (Batch Sync)：废除逐题向 Supabase DB 发起写请求，聚合答题数据后定时或定容批量提交。
+ * 3. 离线缓存与弱网退避重试：断网或网络波动时，数据安全保存在本地队列中，网络恢复或空闲时自动重试。
+ */
+
+const SyncManager = {
+    // 内存队列
+    pendingQueue: [],
+    // 同步中锁
+    isSyncing: false,
+    debounceTimer: null,
+    intervalTimer: null,
+    retryDelay: 5000,
+    maxRetryDelay: 60000,
+
+    init() {
+        this.loadQueue();
+        if (typeof window !== 'undefined') {
+            // 页面隐藏或关闭时利用 keepalive 发送最终批量
+            window.addEventListener('beforeunload', () => {
+                this.flush({ keepalive: true, silent: true });
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    this.flush({ keepalive: true, silent: true });
+                }
+            });
+            // 弱网恢复在线时自动重试
+            window.addEventListener('online', () => {
+                console.log('[SyncManager] 网络已恢复，自动触发批量数据同步...');
+                this.flush({ silent: true });
+            });
+        }
+        // 定期检查与同步 (每 25 秒检查一次)
+        if (this.intervalTimer) clearInterval(this.intervalTimer);
+        this.intervalTimer = setInterval(() => {
+            if (this.pendingQueue.length > 0 && !this.isSyncing) {
+                this.flush({ silent: true });
+            }
+        }, 25000);
+    },
+
+    getStorageKey(user) {
+        const u = user || (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'default';
+        return `vocab_sync_queue_${u}`;
+    },
+
+    loadQueue() {
+        try {
+            const raw = localStorage.getItem(this.getStorageKey());
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    this.pendingQueue = parsed;
+                }
+            }
+        } catch (e) {
+            this.pendingQueue = [];
+        }
+    },
+
+    saveQueue() {
+        try {
+            localStorage.setItem(this.getStorageKey(), JSON.stringify(this.pendingQueue));
+        } catch (e) {}
+    },
+
+    /**
+     * 将答题或数据变更入队 (本地优先，无任何阻塞与网络开销)
+     * @param {string} type - 变更类型 (如 'stats_update', 'answer', 'level_up')
+     * @param {object} payload - 附加载荷
+     * @param {boolean} immediate - 是否立刻刷新队列 (如对决完成/退出)
+     */
+    enqueue(type, payload = {}, immediate = false) {
+        const u = (typeof currentUser !== 'undefined') ? currentUser : null;
+        if (!u || u.startsWith('游客')) return;
+
+        const record = {
+            id: 'sync_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+            type,
+            user: u,
+            timestamp: Date.now(),
+            payload
+        };
+
+        this.pendingQueue.push(record);
+        this.saveQueue();
+
+        if (immediate) {
+            this.flush({ silent: false, force: true });
+        } else {
+            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条则立刻批量推送
+            if (this.debounceTimer) clearTimeout(this.debounceTimer);
+            if (this.pendingQueue.length >= 10) {
+                this.flush({ silent: true });
+            } else {
+                this.debounceTimer = setTimeout(() => {
+                    this.flush({ silent: true });
+                }, 4000);
+            }
+        }
+    },
+
+    /**
+     * 批量推送到云端 (使用单次批量 upsert，失败自动保留重试)
+     */
+    async flush(options = {}) {
+        if (this.isSyncing) return;
+        const u = (typeof currentUser !== 'undefined') ? currentUser : null;
+        if (!u || u.startsWith('游客')) {
+            this.pendingQueue = [];
+            return;
+        }
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            console.log('[SyncManager] 当前网络离线，数据安全保存在本地队列中');
+            return;
+        }
+
+        // 如果队列为空且非强制即时全量同步，则无需发送请求
+        if (this.pendingQueue.length === 0 && !options.force) {
+            return;
+        }
+
+        this.isSyncing = true;
+        const snapshot = [...this.pendingQueue];
+
+        try {
+            if (typeof syncAllUserDataToCloud === 'function') {
+                const res = await syncAllUserDataToCloud(u, {
+                    keepalive: !!options.keepalive,
+                    silent: options.silent !== false,
+                    batchCount: snapshot.length
+                });
+
+                if (res && res.success) {
+                    const syncedIds = new Set(snapshot.map(i => i.id));
+                    this.pendingQueue = this.pendingQueue.filter(i => !syncedIds.has(i.id));
+                    this.saveQueue();
+                    this.retryDelay = 5000;
+                    console.log(`[SyncManager] 成功批量同步 ${snapshot.length} 条记录至 Supabase 云端`);
+                } else {
+                    console.warn('[SyncManager] 批量同步未完成，数据留在本地队列将在下次重试:', res ? res.error : '未知错误');
+                    setTimeout(() => {
+                        this.isSyncing = false;
+                    }, this.retryDelay);
+                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
+                    this.isSyncing = false;
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('[SyncManager] 批量同步异常，数据保留在本地队列:', e);
+            this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
+        } finally {
+            this.isSyncing = false;
+        }
+    }
+};
+
+window.SyncManager = SyncManager;
+
+// 自动初始化
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => SyncManager.init());
+    } else {
+        SyncManager.init();
+    }
+}
+
+
+/* --- End: managers/sync-manager.js --- */
 
 /* --- Begin: managers/book-manager.js --- */
 /**
@@ -5201,23 +5605,33 @@ function checkNetworkStatus(explicitState) {
     } else {
         isNetworkOnline = (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
     }
-    const badge = document.getElementById('hub-online-offline-badge');
-    const badgeText = document.getElementById('hub-online-offline-text');
-    const btnOnline = document.getElementById('btn-enter-online');
 
-    if (badge && badgeText) {
+    if (typeof updateGlobalNetworkBadge === 'function') {
         if (!isNetworkOnline) {
-            badge.className = 'network-status-badge offline';
-            badgeText.innerText = '离线';
-        } else if (currentPresenceStatus === 'invisible') {
-            badge.className = 'network-status-badge invisible';
-            badgeText.innerText = '隐身';
+            updateGlobalNetworkBadge('CLOSED');
+        } else if (typeof currentConnectionQuality !== 'undefined') {
+            updateGlobalNetworkBadge(currentConnectionQuality);
         } else {
-            badge.className = 'network-status-badge online';
-            badgeText.innerText = '在线';
+            updateGlobalNetworkBadge('online');
+        }
+    } else {
+        const badge = document.getElementById('hub-online-offline-badge');
+        const badgeText = document.getElementById('hub-online-offline-text');
+        if (badge && badgeText) {
+            if (!isNetworkOnline) {
+                badge.className = 'network-status-badge offline';
+                badgeText.innerText = '离线';
+            } else if (currentPresenceStatus === 'invisible') {
+                badge.className = 'network-status-badge invisible';
+                badgeText.innerText = '隐身';
+            } else {
+                badge.className = 'network-status-badge online';
+                badgeText.innerText = '在线';
+            }
         }
     }
 
+    const btnOnline = document.getElementById('btn-enter-online');
     if (btnOnline) {
         if (isNetworkOnline) {
             btnOnline.disabled = false;
@@ -12436,6 +12850,71 @@ function safeBroadcast(channel, event, payload) {
 }
 window.safeBroadcast = safeBroadcast;
 
+/* ==========================================================================
+   对决比分同步节流器 (限制发送频率为 200ms)
+   ========================================================================== */
+let lastScoreSyncTimestamp = 0;
+let pendingScoreSyncPayload = null;
+let scoreSyncThrottleTimer = null;
+
+function sendThrottledScoreSync(channel, scorePayload) {
+    if (!channel) return;
+    pendingScoreSyncPayload = scorePayload;
+    const now = Date.now();
+    const elapsed = now - lastScoreSyncTimestamp;
+
+    if (elapsed >= 200) {
+        lastScoreSyncTimestamp = now;
+        try {
+            if (typeof channel.send === 'function') {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'score_sync',
+                    payload: scorePayload
+                }).catch(() => {});
+            }
+        } catch (e) {}
+    } else {
+        if (!scoreSyncThrottleTimer) {
+            scoreSyncThrottleTimer = setTimeout(() => {
+                scoreSyncThrottleTimer = null;
+                lastScoreSyncTimestamp = Date.now();
+                if (channel && pendingScoreSyncPayload) {
+                    try {
+                        if (typeof channel.send === 'function') {
+                            channel.send({
+                                type: 'broadcast',
+                                event: 'score_sync',
+                                payload: pendingScoreSyncPayload
+                            }).catch(() => {});
+                        }
+                    } catch (e) {}
+                }
+            }, 200 - elapsed);
+        }
+    }
+}
+window.sendThrottledScoreSync = sendThrottledScoreSync;
+
+function flushPendingScoreSync(channel) {
+    if (scoreSyncThrottleTimer) {
+        clearTimeout(scoreSyncThrottleTimer);
+        scoreSyncThrottleTimer = null;
+    }
+    if (channel && pendingScoreSyncPayload) {
+        try {
+            if (typeof channel.send === 'function') {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'score_sync',
+                    payload: pendingScoreSyncPayload
+                }).catch(() => {});
+            }
+        } catch (e) {}
+    }
+}
+window.flushPendingScoreSync = flushPendingScoreSync;
+
 function toggleGuestReady(ready) {
     if (isHost) return;
     if (roomConfig && roomConfig.matchType === 'ranked') {
@@ -13261,7 +13740,7 @@ async function joinOnlineRoom() {
     btnJoin.disabled = true;
     btnJoin.innerText = '正在验证房间...';
 
-    const testChannel = sbClient.channel(`duel_${codeInput}`, {
+    const testChannel = sbClient.channel(`game-room:${codeInput}`, {
         config: { presence: { key: currentUser } }
     });
 
@@ -13563,6 +14042,13 @@ function appendRoomChatMessage(data, isMine) {
 }
 
 function connectSupabaseChannel(code) {
+    // 双方接受邀请后离开大厅 presence，加入独立的对战频道
+    if (globalLobbyChannel) {
+        try {
+            globalLobbyChannel.untrack().catch(() => {});
+        } catch (e) {}
+    }
+
     if (realtimeChannel) {
         try {
             realtimeChannel.unsubscribe();
@@ -13571,7 +14057,7 @@ function connectSupabaseChannel(code) {
         realtimeChannel = null;
     }
 
-    realtimeChannel = sbClient.channel(`duel_${code}`, {
+    realtimeChannel = sbClient.channel(`game-room:${code}`, {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
@@ -13692,7 +14178,18 @@ function connectSupabaseChannel(code) {
             handleReceiveRoomChatMessage(payload);
         })
         .on('broadcast', { event: 'game_start' }, ({ payload }) => {
+            // 接收方收到开局与词库广播，立即回传 ACK
+            if (payload && payload.msgId && realtimeChannel) {
+                safeBroadcast(realtimeChannel, `ack_${payload.msgId}`, {
+                    msgId: payload.msgId,
+                    from: currentUser,
+                    to: payload.hostName
+                });
+            }
             handleRemoteGameStart(payload);
+        })
+        .on('broadcast', { event: 'score_sync' }, ({ payload }) => {
+            handleRemoteScoreUpdate(payload);
         })
         .on('broadcast', { event: 'score_update' }, ({ payload }) => {
             handleRemoteScoreUpdate(payload);
@@ -13872,13 +14369,17 @@ async function startOnlineGame() {
             config: roomConfig
         };
 
-        // 1. 实时 WebSocket 广播开局
+        // 1. 关键信令 ACK 确认：使用 sendReliableBroadcast 广播词库与开局信号，解决跨境外网丢包
+        if (typeof sendReliableBroadcast === 'function') {
+            sendReliableBroadcast(realtimeChannel, 'game_start', startPayload, 3000, 3)
+                .then(() => {
+                    console.log('[Duel] 对手已确认接收词库与开局信号');
+                })
+                .catch(err => {
+                    console.warn('[Duel] game_start ACK 等待超时:', err);
+                });
+        }
         safeBroadcast(realtimeChannel, 'game_start', startPayload);
-        setTimeout(() => {
-            if (isPlayingMatch && realtimeChannel) {
-                safeBroadcast(realtimeChannel, 'game_start', startPayload);
-            }
-        }, 300);
 
         // 2. 双保险：在云端 rooms 表写入 playing 状态和出题题库，确保跨网或网络抖动时 P2 通过轻量轮询也能 100% 进入游戏
         if (sbClient && roomCode) {
@@ -14489,7 +14990,7 @@ function checkArenaPhraseAnswer() {
 
         if (gameMode === 'online') {
             renderSnakeRing();
-            safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
+            sendThrottledScoreSync(realtimeChannel, { score: p1State.score, user: currentUser });
             if (checkOnlineWinCondition()) return;
         } else if (gameMode === 'ai_duel') {
             renderSnakeRing();
@@ -14750,7 +15251,7 @@ function handleAnswer(idx, clickX, clickY) {
 
     if (gameMode === 'online') {
         renderSnakeRing();
-        safeBroadcast(realtimeChannel, 'score_update', { score: p1State.score, user: currentUser });
+        sendThrottledScoreSync(realtimeChannel, { score: p1State.score, user: currentUser });
         if (checkOnlineWinCondition()) return;
     } else if (gameMode === 'ai_duel') {
         renderSnakeRing();
@@ -15030,6 +15531,7 @@ function endGame(msg, broadcastToPeer) {
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
     isPlayingMatch = false;
+    flushPendingScoreSync(realtimeChannel);
     if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
     if (broadcastToPeer && realtimeChannel && gameMode === 'online') {
@@ -15085,6 +15587,9 @@ function endGame(msg, broadcastToPeer) {
         });
 
         LevelManager.applyMatchResult(currentUser, matchResult);
+        if (window.SyncManager) {
+            window.SyncManager.flush({ silent: true });
+        }
     }
 
     gameResult = {
@@ -15540,7 +16045,7 @@ function initGlobalPresence() {
     intentionalLobbyClose = false;
     lobbyCurrentChannelUser = currentUser;
 
-    globalLobbyChannel = sbClient.channel('global_lobby', {
+    globalLobbyChannel = sbClient.channel('lobby-room', {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
@@ -15572,8 +16077,14 @@ function initGlobalPresence() {
                 syncGlobalPresenceState();
             }
         })
+        .on('broadcast', { event: 'match_invite' }, ({ payload }) => {
+            handleReceivedMatchInvite(payload);
+        })
         .on('broadcast', { event: 'invite_match' }, ({ payload }) => {
             handleReceivedMatchInvite(payload);
+        })
+        .on('broadcast', { event: 'invite_accepted' }, ({ payload }) => {
+            handleMatchInviteResponse(payload);
         })
         .on('broadcast', { event: 'invite_response' }, ({ payload }) => {
             handleMatchInviteResponse(payload);
@@ -15583,6 +16094,9 @@ function initGlobalPresence() {
         })
         .subscribe(async (status) => {
             isConnectingLobby = false;
+            if (typeof updateGlobalNetworkBadge === 'function') {
+                updateGlobalNetworkBadge(status);
+            }
             if (status === 'SUBSCRIBED') {
                 if (lobbyReconnectTimer) {
                     clearTimeout(lobbyReconnectTimer);
@@ -16360,7 +16874,7 @@ async function confirmAndSendMatchInvite() {
         }, { onConflict: 'code' });
     } catch (e) { }
 
-    safeBroadcast(globalLobbyChannel, 'invite_match', {
+    const invitePayload = {
         from: currentUser,
         fromAvatar: getUserAvatar(currentUser),
         to: activeInviteTarget,
@@ -16368,7 +16882,19 @@ async function confirmAndSendMatchInvite() {
         roomName: finalRoomName,
         config: matchConfig,
         bookNames: getBookNamesSummary(matchConfig.selectedBooks)
-    });
+    };
+
+    // 关键信令 ACK 确认重传机制：发送 match_invite，带唯一 msgId 和重试
+    if (typeof sendReliableBroadcast === 'function') {
+        sendReliableBroadcast(globalLobbyChannel, 'match_invite', invitePayload, 3000, 3)
+            .then(() => {
+                console.log(`[Duel] 收到【${activeInviteTarget}】对邀请的 ACK 确认`);
+            })
+            .catch(err => {
+                console.warn(`[Duel] 对战邀请重试耗尽:`, err);
+            });
+    }
+    safeBroadcast(globalLobbyChannel, 'invite_match', invitePayload);
 
     const target = activeInviteTarget;
     closeCreateMatchInviteModal();
@@ -16377,6 +16903,16 @@ async function confirmAndSendMatchInvite() {
 
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 事件
+    if (payload.msgId && globalLobbyChannel) {
+        safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
+    }
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
     if (myPresenceStatus === 'invisible') {
         if (globalLobbyChannel) {
@@ -16456,16 +16992,28 @@ function acceptMatchInvite() {
     const invite = currentIncomingInvite;
     currentIncomingInvite = null;
 
+    const acceptPayload = {
+        from: currentUser,
+        fromAvatar: getUserAvatar(currentUser),
+        to: invite.from,
+        accepted: true,
+        roomCode: invite.roomCode,
+        roomName: invite.roomName,
+        config: invite.config
+    };
+
     if (globalLobbyChannel) {
-        safeBroadcast(globalLobbyChannel, 'invite_response', {
-            from: currentUser,
-            fromAvatar: getUserAvatar(currentUser),
-            to: invite.from,
-            accepted: true,
-            roomCode: invite.roomCode,
-            roomName: invite.roomName,
-            config: invite.config
-        });
+        // 关键信令 ACK 确认重传机制：发送 invite_accepted
+        if (typeof sendReliableBroadcast === 'function') {
+            sendReliableBroadcast(globalLobbyChannel, 'invite_accepted', acceptPayload, 3000, 3)
+                .then(() => {
+                    console.log(`[Duel] 房主已确认收到接受邀请 ACK`);
+                })
+                .catch(err => {
+                    console.warn(`[Duel] 接受邀请发送 ACK 超时:`, err);
+                });
+        }
+        safeBroadcast(globalLobbyChannel, 'invite_response', acceptPayload);
     }
 
     // 更新云端房间状态，支持跨网直达
@@ -16516,6 +17064,17 @@ function declineMatchInvite(isTimeout = false) {
 
 function handleMatchInviteResponse(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    // 关键信令 ACK 确认：房主收到接受邀请后立即向对方回传 ACK
+    if (payload.accepted && payload.msgId && globalLobbyChannel) {
+        safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
+    }
+
     if (payload.accepted) {
         showToast(`玩家【${payload.from}】接受了对战邀请！正在进入房间...`);
         isHost = true;

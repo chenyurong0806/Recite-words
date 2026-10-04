@@ -4588,6 +4588,12 @@ input.riddle-draft-tile {
     color: #2e7d32;
 }
 
+.network-status-badge.connecting,
+.network-status-badge.degraded {
+    background: rgba(234, 179, 8, 0.15);
+    color: #b45309;
+}
+
 .network-status-badge.invisible {
     background: rgba(100, 116, 139, 0.14);
     color: #64748b;
@@ -4608,6 +4614,18 @@ input.riddle-draft-tile {
 .network-status-badge.online .network-dot {
     background: #2e7d32;
     box-shadow: 0 0 4px rgba(46, 125, 50, 0.5);
+}
+
+.network-status-badge.connecting .network-dot,
+.network-status-badge.degraded .network-dot {
+    background: #eab308;
+    box-shadow: 0 0 5px rgba(234, 179, 8, 0.7);
+    animation: network-dot-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes network-dot-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.8); }
 }
 
 .network-status-badge.invisible .network-dot {

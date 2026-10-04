@@ -20,6 +20,7 @@ const loadOrder = [
   'core/state.js',
 
   // 2. Managers
+  'managers/sync-manager.js',
   'managers/book-manager.js',
   'managers/tracker.js',
   'managers/ebbinghaus.js',

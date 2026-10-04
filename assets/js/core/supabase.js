@@ -13,8 +13,221 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
         persistSession: false,
         autoRefreshToken: false
+    },
+    realtime: {
+        params: {
+            eventsPerSecond: 10
+        },
+        heartbeatIntervalMs: 15000,
+        reconnectAfterMs: (tries) => Math.min(1000 * Math.pow(2, tries), 10000),
+        timeout: 20000
     }
 });
+
+/* ==========================================================================
+   1.1 弱网连接质量监控与状态徽标 (红/黄/绿指示灯)
+   ========================================================================== */
+let currentConnectionQuality = 'disconnected'; // 'connected' | 'degraded' | 'disconnected'
+
+function updateGlobalNetworkBadge(status) {
+    const badge = document.getElementById('hub-online-offline-badge');
+    const badgeText = document.getElementById('hub-online-offline-text');
+    const btnOnline = document.getElementById('btn-enter-online');
+    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
+
+    if (!badge || !badgeText) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        currentConnectionQuality = 'disconnected';
+        badge.className = 'network-status-badge offline';
+        badgeText.innerText = '离线';
+        if (btnOnline) {
+            btnOnline.disabled = true;
+            btnOnline.style.opacity = '0.45';
+        }
+        return;
+    }
+
+    if (myPresenceStatus === 'invisible') {
+        badge.className = 'network-status-badge invisible';
+        badgeText.innerText = '隐身';
+        if (btnOnline) {
+            btnOnline.disabled = false;
+            btnOnline.style.opacity = '1';
+        }
+        return;
+    }
+
+    switch (status) {
+        case 'SUBSCRIBED':
+        case 'connected':
+        case 'open':
+            currentConnectionQuality = 'connected';
+            badge.className = 'network-status-badge online';
+            badgeText.innerText = '在线';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '1';
+            }
+            break;
+
+        case 'CONNECTING':
+        case 'connecting':
+        case 'reconnecting':
+        case 'TIMED_OUT':
+        case 'degraded':
+            currentConnectionQuality = 'degraded';
+            badge.className = 'network-status-badge connecting';
+            badgeText.innerText = '连接中...';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '0.85';
+            }
+            break;
+
+        case 'CLOSED':
+        case 'CHANNEL_ERROR':
+        case 'disconnected':
+        case 'closed':
+        default:
+            currentConnectionQuality = 'disconnected';
+            badge.className = 'network-status-badge offline';
+            badgeText.innerText = status === 'CHANNEL_ERROR' ? '异常' : '未连接';
+            if (btnOnline) {
+                btnOnline.disabled = false;
+                btnOnline.style.opacity = '0.7';
+            }
+            break;
+    }
+}
+window.updateGlobalNetworkBadge = updateGlobalNetworkBadge;
+
+// 监听 Supabase Realtime 底层 WebSocket 连接状态
+if (sbClient && sbClient.realtime) {
+    try {
+        if (typeof sbClient.realtime.onOpen === 'function') {
+            sbClient.realtime.onOpen(() => {
+                console.log('[Supabase Realtime] WebSocket 连接开启');
+                updateGlobalNetworkBadge('connecting');
+            });
+        }
+        if (typeof sbClient.realtime.onClose === 'function') {
+            sbClient.realtime.onClose((e) => {
+                console.warn('[Supabase Realtime] WebSocket 连接关闭', e);
+                updateGlobalNetworkBadge('CLOSED');
+            });
+        }
+        if (typeof sbClient.realtime.onError === 'function') {
+            sbClient.realtime.onError((err) => {
+                console.warn('[Supabase Realtime] WebSocket 连接错误', err);
+                updateGlobalNetworkBadge('CHANNEL_ERROR');
+            });
+        }
+    } catch (e) {
+        console.warn('[Supabase Realtime] 初始化底层连接事件监听失败:', e);
+    }
+}
+
+/* ==========================================================================
+   1.2 关键信令 ACK 确认重传机制 (解决跨境外网邀请丢失问题)
+   ========================================================================== */
+function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, maxRetries = 3) {
+    if (!channel) {
+        return Promise.reject(new Error('Channel is not initialized'));
+    }
+
+    return new Promise((resolve, reject) => {
+        // 生成全局唯一消息 ID
+        const msgId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : ('msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9));
+        const timestamp = Date.now();
+        const ackEvent = `ack_${msgId}`;
+        const packet = {
+            ...payload,
+            msgId,
+            timestamp
+        };
+
+        let attempts = 0;
+        let ackReceived = false;
+        let retryTimer = null;
+
+        const cleanup = () => {
+            if (retryTimer) {
+                clearTimeout(retryTimer);
+                retryTimer = null;
+            }
+            if (channel._reliableAckMap && channel._reliableAckMap[ackEvent]) {
+                delete channel._reliableAckMap[ackEvent];
+            }
+        };
+
+        const onAck = (ackPayload) => {
+            if (ackReceived) return;
+            ackReceived = true;
+            cleanup();
+            console.log(`[sendReliableBroadcast] 收到 ACK 确认 (${event}, msgId: ${msgId})`);
+            resolve(ackPayload);
+        };
+
+        if (!channel._reliableAckMap) {
+            channel._reliableAckMap = {};
+            try {
+                channel.on('broadcast', { event: '*' }, ({ event: ev, payload: p }) => {
+                    if (ev && ev.startsWith('ack_') && channel._reliableAckMap[ev]) {
+                        channel._reliableAckMap[ev](p);
+                    }
+                });
+            } catch (e) {}
+        }
+        channel._reliableAckMap[ackEvent] = onAck;
+
+        try {
+            channel.on('broadcast', { event: ackEvent }, ({ payload: p }) => {
+                onAck(p);
+            });
+        } catch (e) {}
+
+        const executeSend = () => {
+            if (ackReceived) return;
+            attempts++;
+
+            try {
+                if (typeof channel.send === 'function') {
+                    channel.send({
+                        type: 'broadcast',
+                        event: event,
+                        payload: packet
+                    }).catch(err => {
+                        console.warn(`[sendReliableBroadcast] 发送失败 (${event}, 第${attempts}次):`, err);
+                    });
+                }
+            } catch (e) {
+                console.warn(`[sendReliableBroadcast] 发送异常 (${event}):`, e);
+            }
+
+            retryTimer = setTimeout(() => {
+                if (ackReceived) return;
+                if (attempts <= maxRetries) {
+                    console.warn(`[sendReliableBroadcast] 未收到 ACK (${event}, msgId: ${msgId}), 正在触发重传 (${attempts}/${maxRetries})...`);
+                    executeSend();
+                } else {
+                    cleanup();
+                    const errMsg = '对方网络不佳，邀请超时';
+                    console.error(`[sendReliableBroadcast] 重传超过最大次数 (${event}): ${errMsg}`);
+                    if (typeof showToast === 'function') {
+                        showToast(errMsg);
+                    }
+                    reject(new Error(errMsg));
+                }
+            }, timeout);
+        };
+
+        executeSend();
+    });
+}
+window.sendReliableBroadcast = sendReliableBroadcast;
 
 const DEFAULT_WORDS = [
     { word: "abandon", phone: "/əˈbændən/", meanings: [{ pos: "v.", meaning: "放弃，抛弃" }] },
@@ -415,12 +628,9 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return;
     if (u.startsWith('游客_') || u.startsWith('游客')) return;
 
-    // 检查是否为云端用户或已注册账号
-    const isCloudUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && currentUserProfile.type === 'cloud')
     // 检查是否为已登录用户 (支持云端账号与 B 站账号)
     const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'))
         || (!u.startsWith('游客'));
-    if (!isCloudUser) return;
     if (!isRegisteredUser) return;
 
     let stats = null;
@@ -528,16 +738,25 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof sbClient !== 'undefined' && sbClient) {
         try {
             let updateError = null;
+            const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
+
+            // 采用 upsert 进行单次批量写入，替代单条反复写入
             const { error } = await sbClient
                 .from('user_accounts')
-                .update(updateObj)
-                .eq('username', u);
+                .upsert({
+                    username: u,
+                    ...updateObj
+                }, { onConflict: 'username' });
+
             if (error) {
                 if (error.message && error.message.includes('level')) {
                     const { error: err2 } = await sbClient
                         .from('user_accounts')
-                        .update({ user_data: payload, updated_at: payload.updated_at })
-                        .eq('username', u);
+                        .upsert({
+                            username: u,
+                            user_data: payload,
+                            updated_at: payload.updated_at
+                        }, { onConflict: 'username' });
                     if (err2) updateError = err2;
                 } else {
                     updateError = error;
@@ -546,7 +765,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
             if (updateError) {
                 console.warn('[Supabase] syncAllUserDataToCloud error:', updateError);
-                if (typeof showToast === 'function') {
+                if (shouldToast && typeof showToast === 'function') {
                     showToast('数据同步失败，请检查网络');
                 }
                 return { success: false, error: updateError };
@@ -576,7 +795,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
             return { success: true };
         } catch (e) {
             console.warn('[Supabase] syncAllUserDataToCloud exception:', e);
-            if (typeof showToast === 'function') {
+            const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
+            if (shouldToast && typeof showToast === 'function') {
                 showToast('数据同步失败，请检查网络');
             }
             return { success: false, error: e };
