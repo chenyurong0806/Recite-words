@@ -357,18 +357,13 @@ const LevelManager = {
         if (!u || this.isGuestUser(u)) return;
 
         const data = this.getUserRankData(u);
-        if (typeof sbClient !== 'undefined' && sbClient) {
-            try {
-                await sbClient.from('user_accounts').update({
-                    level: data.rank,
-                    updated_at: new Date().toISOString()
-                }).eq('username', u);
-            } catch (e) {
-                console.warn('[LevelManager] Failed to sync rank column to Supabase:', e);
-            }
-        }
-
-        if (typeof syncAllUserDataToCloud === 'function') {
+        if (window.SyncManager) {
+            window.SyncManager.enqueue('level_update', {
+                rank: data.rank,
+                rating: data.rating,
+                timestamp: Date.now()
+            }, true);
+        } else if (typeof syncAllUserDataToCloud === 'function') {
             syncAllUserDataToCloud(u);
         }
     },

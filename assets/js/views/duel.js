@@ -575,7 +575,15 @@ function getBookNamesSummary(bookIds) {
     (window.customBooks || []).forEach(b => {
         bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
     });
-    const names = bookIds.map(id => bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id));
+    const cleanId = (id) => {
+        if (!id) return '';
+        if (bookMap[id]) return bookMap[id];
+        if (String(id).startsWith('custom_')) return '自定义词书';
+        const stripped = String(id).replace(/^books\//, '').replace(/\.json$/i, '');
+        const segs = stripped.split('/');
+        return (typeof cleanBookName === 'function') ? cleanBookName(segs[segs.length - 1]) : segs[segs.length - 1];
+    };
+    const names = bookIds.map(cleanId);
     if (names.length === 1) return names[0];
     return `${names[0]} 等 ${names.length} 本`;
 }
@@ -2824,8 +2832,25 @@ function renderResult() {
                 if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
             });
         }
-        const totalCount = pool.length || singleState.total || 0;
-        const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : (singleState.score || 0);
+        // 背词小结的本次作答严格显示每组的学习数，只要答错就在小结中归为错题
+        const sessionMistakeSet = new Set(Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes : ((singleState && singleState.sessionMistakes) ? Array.from(singleState.sessionMistakes) : []));
+        const uniqueWordsMap = new Map();
+        (pool || []).forEach(p => {
+            if (p && p.word) {
+                const k = p.word.trim().toLowerCase();
+                if (!uniqueWordsMap.has(k)) {
+                    uniqueWordsMap.set(k, p);
+                }
+            }
+        });
+        const totalCount = uniqueWordsMap.size || (singleState ? singleState.targetTotal : 0) || (pool ? pool.length : 0);
+        let mistakeCount = 0;
+        uniqueWordsMap.forEach((p, k) => {
+            if (sessionMistakeSet.has(k) || !p.isCorrect) {
+                mistakeCount++;
+            }
+        });
+        const correctCount = Math.max(0, totalCount - mistakeCount);
         const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
         details.innerHTML = `
@@ -2839,7 +2864,7 @@ function renderResult() {
                         <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
                     </div>
                 </div>
-                ${renderSingleSummaryHtml(pool)}
+                ${renderSingleSummaryHtml(pool, sessionMistakeSet)}
             `;
     } else if (gameResult.mode === 'shici') {
         btnBackRoom.style.display = 'inline-flex';
@@ -3280,6 +3305,16 @@ function initGlobalPresence() {
         .on('broadcast', { event: 'room_state_change' }, ({ payload }) => {
             handleRoomStateBroadcast(payload);
         })
+        .on('broadcast', { event: 'signal_ack' }, ({ payload }) => {
+            if (payload && payload.msgId && typeof window.handleSignalAck === 'function') {
+                window.handleSignalAck(payload);
+            }
+        })
+        .on('broadcast', { event: '*' }, ({ event: ev, payload }) => {
+            if (ev && ev.startsWith('ack_') && payload && payload.msgId && typeof window.handleSignalAck === 'function') {
+                window.handleSignalAck(payload);
+            }
+        })
         .subscribe(async (status) => {
             isConnectingLobby = false;
             if (typeof updateGlobalNetworkBadge === 'function') {
@@ -3378,72 +3413,82 @@ function startPresenceHeartbeat() {
             initGlobalPresence();
         }
 
-        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（隐身状态彻底移除信标）
-        try {
-            if (sbClient && currentUser) {
-                if (myPresenceStatus === 'invisible') {
-                    sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
-                } else {
-                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                    const statusVal = isPlayingMatch ? 'playing' : 'idle';
-                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（节流控制：每 45 秒最多 1 次，对决中严格跳过）
+        const nowMs = Date.now();
+        if (!isPlayingMatch && (nowMs - lastRestOnlineFetchTime >= 45000)) {
+            try {
+                if (sbClient && currentUser) {
+                    if (myPresenceStatus === 'invisible') {
+                        sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+                    } else {
+                        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                        const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                        const statusVal = 'idle';
+                        const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
 
-                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                    sbClient.from('rooms').upsert({
-                        code: `ONL_${getUserRoomCode(currentUser)}`,
-                        name: currentUser,
-                        host: currentUser,
-                        capacity: 2,
-                        player_count: 1,
-                        status: statusVal,
-                        is_temporary: true,
-                        config: {
-                            avatar: myAvatar,
-                            rank: myRankData.rank,
-                            rating: myRankData.rating,
-                            isBili: isBili,
+                        // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                        sbClient.from('rooms').upsert({
+                            code: `ONL_${getUserRoomCode(currentUser)}`,
+                            name: currentUser,
+                            host: currentUser,
+                            capacity: 2,
+                            player_count: 1,
                             status: statusVal,
-                            clientSession: CLIENT_SESSION_ID
-                        },
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳
-                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                        sbClient.from('user_accounts').update({
+                            is_temporary: true,
+                            config: {
+                                avatar: myAvatar,
+                                rank: myRankData.rank,
+                                rating: myRankData.rating,
+                                isBili: isBili,
+                                status: statusVal,
+                                clientSession: CLIENT_SESSION_ID
+                            },
                             updated_at: new Date().toISOString()
-                        }).eq('username', currentUser).then(() => { }).catch(() => { });
+                        }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+                        // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
+                        if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                            sbClient.from('user_accounts').update({
+                                updated_at: new Date().toISOString()
+                            }).eq('username', currentUser).then(() => { }).catch(() => { });
+                        }
                     }
                 }
-            }
-        } catch (e) { }
+            } catch (e) { }
+        }
 
         // 3. 跨网络对战邀请监听兜底：若 WebSocket 广播被运营商防火墙丢弃，通过云端 rooms 表接收邀请
         try {
             if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && (currentView === 'view-hub' || currentView === 'view-online')) {
-                const recentInviteThreshold = new Date(Date.now() - 40 * 1000).toISOString();
-                const { data: invRooms } = await sbClient
-                    .from('rooms')
-                    .select('code, name, host, config, updated_at, created_at')
-                    .eq('status', 'waiting')
-                    .gt('updated_at', recentInviteThreshold)
-                    .order('updated_at', { ascending: false })
-                    .limit(10);
+                const inRoomEl = document.getElementById('online-in-room');
+                const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+                if (!isInRoom) {
+                    const recentInviteThreshold = new Date(Date.now() - 40 * 1000).toISOString();
+                    const { data: invRooms } = await sbClient
+                        .from('rooms')
+                        .select('code, name, host, config, updated_at, created_at')
+                        .eq('status', 'waiting')
+                        .gt('updated_at', recentInviteThreshold)
+                        .order('updated_at', { ascending: false })
+                        .limit(10);
 
-                if (Array.isArray(invRooms)) {
-                    const myInvite = invRooms.find(r => r.config && r.config.targetUser === currentUser && r.host !== currentUser);
-                    if (myInvite) {
-                        console.log('[Duel] Detected match invite via cloud DB fallback:', myInvite);
-                        handleReceivedMatchInvite({
-                            from: myInvite.host,
-                            fromAvatar: myInvite.config.fromAvatar || (typeof getUserAvatar === 'function' ? getUserAvatar(myInvite.host) : ''),
-                            to: currentUser,
-                            roomCode: myInvite.code,
-                            roomName: myInvite.name,
-                            config: myInvite.config,
-                            bookNames: getBookNamesSummary(myInvite.config.selectedBooks)
-                        });
+                    if (Array.isArray(invRooms)) {
+                        const myInvite = invRooms.find(r => r.config && r.config.targetUser === currentUser && r.host !== currentUser);
+                        if (myInvite) {
+                            const invKey = myInvite.code || `${myInvite.code}_${myInvite.host}`;
+                            if (!handledInviteMsgKeys.has(invKey) && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInvite.code)) {
+                                console.log('[Duel] Detected match invite via cloud DB fallback:', myInvite);
+                                handleReceivedMatchInvite({
+                                    from: myInvite.host,
+                                    fromAvatar: myInvite.config.fromAvatar || (typeof getUserAvatar === 'function' ? getUserAvatar(myInvite.host) : ''),
+                                    to: currentUser,
+                                    roomCode: myInvite.code,
+                                    roomName: myInvite.name,
+                                    config: myInvite.config,
+                                    bookNames: getBookNamesSummary(myInvite.config.selectedBooks)
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -3702,8 +3747,23 @@ function syncGlobalPresence() {
     }
 }
 
+let pendingOutgoingInvite = null;
+
+function clearPendingOutgoingInvite() {
+    if (pendingOutgoingInvite && pendingOutgoingInvite.timer) {
+        clearTimeout(pendingOutgoingInvite.timer);
+    }
+    pendingOutgoingInvite = null;
+}
+window.clearPendingOutgoingInvite = clearPendingOutgoingInvite;
+
 function openCreateMatchInviteModal(targetUser) {
     if (!targetUser || targetUser === currentUser) return;
+    if (pendingOutgoingInvite) {
+        const remaining = Math.max(1, Math.ceil((20000 - (Date.now() - pendingOutgoingInvite.sentAt)) / 1000));
+        showToast(`已向【${pendingOutgoingInvite.targetUser}】发起邀请，请等待对方响应或请求超时（约剩${remaining}秒）后再试`);
+        return;
+    }
     if (!globalLobbyChannel || globalLobbyChannel.state !== 'joined') {
         initGlobalPresence();
     }
@@ -4003,13 +4063,13 @@ function updateInviteBookSummaryUI() {
 async function confirmAndSendMatchInvite() {
     if (!activeInviteTarget || !globalLobbyChannel) return;
 
-    const now = Date.now();
-    const lastSent = lastInviteSentTimes[activeInviteTarget] || 0;
-    const diff = Math.ceil((5000 - (now - lastSent)) / 1000);
-    if (now - lastSent < 5000) {
-        showToast(`发送邀请过于频繁，请等待 ${diff} 秒后再试`);
+    if (pendingOutgoingInvite) {
+        const remaining = Math.max(1, Math.ceil((20000 - (Date.now() - pendingOutgoingInvite.sentAt)) / 1000));
+        showToast(`已向【${pendingOutgoingInvite.targetUser}】发起邀请，请等待对方响应或超时（约剩${remaining}秒）后再试`);
         return;
     }
+
+    const now = Date.now();
     lastInviteSentTimes[activeInviteTarget] = now;
 
     const roomNameInput = document.getElementById('create-invite-room-name');
@@ -4085,14 +4145,31 @@ async function confirmAndSendMatchInvite() {
     safeBroadcast(globalLobbyChannel, 'invite_match', invitePayload);
 
     const target = activeInviteTarget;
+    clearPendingOutgoingInvite();
+    const inviteTimer = setTimeout(() => {
+        if (pendingOutgoingInvite && pendingOutgoingInvite.targetUser === target) {
+            showToast(`向【${target}】发起的对战邀请已超时未响应`);
+            clearPendingOutgoingInvite();
+        }
+    }, 20000);
+
+    pendingOutgoingInvite = {
+        targetUser: target,
+        roomCode: finalRoomCode,
+        sentAt: Date.now(),
+        timer: inviteTimer
+    };
+
     closeCreateMatchInviteModal();
     showToast(`已向【${target}】发起对战邀请，等待对方接受...`);
 }
 
+const handledInviteMsgKeys = new Set();
+
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
 
-    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 事件
+    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 与 signal_ack
     if (payload.msgId && globalLobbyChannel) {
         safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
             msgId: payload.msgId,
@@ -4100,9 +4177,31 @@ function handleReceivedMatchInvite(payload) {
             to: payload.from,
             receivedAt: Date.now()
         });
+        safeBroadcast(globalLobbyChannel, 'signal_ack', {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
     }
+
+    // 防抖与幂等去重：防止重传或云端兜底轮询导致接收方持续收到一堆重复邀请弹窗
+    const inviteKey = payload.msgId || (payload.roomCode ? `${payload.roomCode}_${payload.from}` : null);
+    if (inviteKey && handledInviteMsgKeys.has(inviteKey)) {
+        return;
+    }
+    if (currentIncomingInvite) {
+        if (currentIncomingInvite.msgId && payload.msgId && currentIncomingInvite.msgId === payload.msgId) {
+            return;
+        }
+        if (currentIncomingInvite.roomCode && payload.roomCode && currentIncomingInvite.roomCode === payload.roomCode) {
+            return;
+        }
+    }
+
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
     if (myPresenceStatus === 'invisible') {
+        if (inviteKey) handledInviteMsgKeys.add(inviteKey);
         if (globalLobbyChannel) {
             safeBroadcast(globalLobbyChannel, 'invite_response', {
                 from: currentUser,
@@ -4178,6 +4277,8 @@ function acceptMatchInvite() {
     if (modal) modal.classList.remove('active');
 
     const invite = currentIncomingInvite;
+    const invKey = invite.msgId || (invite.roomCode ? `${invite.roomCode}_${invite.from}` : null);
+    if (invKey) handledInviteMsgKeys.add(invKey);
     currentIncomingInvite = null;
 
     const acceptPayload = {
@@ -4237,13 +4338,17 @@ function declineMatchInvite(isTimeout = false) {
     const modal = document.getElementById('modal-match-invite');
     if (modal) modal.classList.remove('active');
 
-    if (currentIncomingInvite && globalLobbyChannel) {
-        safeBroadcast(globalLobbyChannel, 'invite_response', {
-            from: currentUser,
-            to: currentIncomingInvite.from,
-            accepted: false,
-            isTimeout: isTimeout
-        });
+    if (currentIncomingInvite) {
+        const invKey = currentIncomingInvite.msgId || (currentIncomingInvite.roomCode ? `${currentIncomingInvite.roomCode}_${currentIncomingInvite.from}` : null);
+        if (invKey) handledInviteMsgKeys.add(invKey);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: currentIncomingInvite.from,
+                accepted: false,
+                isTimeout: isTimeout
+            });
+        }
     }
     currentIncomingInvite = null;
     if (isTimeout) showToast('对战邀请已超时关闭');
@@ -4252,6 +4357,10 @@ function declineMatchInvite(isTimeout = false) {
 
 function handleMatchInviteResponse(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    if (pendingOutgoingInvite && (pendingOutgoingInvite.targetUser === payload.from || pendingOutgoingInvite.roomCode === payload.roomCode)) {
+        clearPendingOutgoingInvite();
+    }
 
     // 关键信令 ACK 确认：房主收到接受邀请后立即向对方回传 ACK
     if (payload.accepted && payload.msgId && globalLobbyChannel) {
@@ -4452,16 +4561,19 @@ async function fetchOnlineRoomsList(manual = false) {
         const age = now - new Date(r.updated_at || r.created_at || now).getTime();
         return age < 25000;
     });
-    if (myInviteRoom && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInviteRoom.code)) {
-        handleReceivedMatchInvite({
-            from: myInviteRoom.host,
-            fromAvatar: getUserAvatar(myInviteRoom.host),
-            to: currentUser,
-            roomCode: myInviteRoom.code,
-            roomName: myInviteRoom.name,
-            config: myInviteRoom.config,
-            bookNames: getBookNamesSummary(myInviteRoom.config?.selectedBooks || [])
-        });
+    if (myInviteRoom) {
+        const invKey = myInviteRoom.code || `${myInviteRoom.code}_${myInviteRoom.host}`;
+        if (!handledInviteMsgKeys.has(invKey) && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInviteRoom.code)) {
+            handleReceivedMatchInvite({
+                from: myInviteRoom.host,
+                fromAvatar: getUserAvatar(myInviteRoom.host),
+                to: currentUser,
+                roomCode: myInviteRoom.code,
+                roomName: myInviteRoom.name,
+                config: myInviteRoom.config,
+                bookNames: getBookNamesSummary(myInviteRoom.config?.selectedBooks || [])
+            });
+        }
     }
 
     if (resultRooms.length === 0) {

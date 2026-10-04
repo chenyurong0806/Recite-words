@@ -198,6 +198,15 @@ if (sbClient && sbClient.realtime) {
 /* ==========================================================================
    1.2 关键信令 ACK 确认重传机制 (解决跨境外网邀请丢失问题)
    ========================================================================== */
+if (!window.pendingReliableAcks) window.pendingReliableAcks = new Map();
+window.handleSignalAck = function (payload) {
+    if (!payload || !payload.msgId) return;
+    const handler = window.pendingReliableAcks.get(payload.msgId);
+    if (typeof handler === 'function') {
+        handler(payload);
+    }
+};
+
 function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, maxRetries = 3) {
     if (!channel) {
         return Promise.reject(new Error('Channel is not initialized'));
@@ -225,6 +234,9 @@ function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, max
                 clearTimeout(retryTimer);
                 retryTimer = null;
             }
+            if (window.pendingReliableAcks) {
+                window.pendingReliableAcks.delete(msgId);
+            }
             if (channel._reliableAckMap && channel._reliableAckMap[ackEvent]) {
                 delete channel._reliableAckMap[ackEvent];
             }
@@ -238,12 +250,16 @@ function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, max
             resolve(ackPayload);
         };
 
+        window.pendingReliableAcks.set(msgId, onAck);
+
         if (!channel._reliableAckMap) {
             channel._reliableAckMap = {};
             try {
                 channel.on('broadcast', { event: '*' }, ({ event: ev, payload: p }) => {
                     if (ev && ev.startsWith('ack_') && channel._reliableAckMap[ev]) {
                         channel._reliableAckMap[ev](p);
+                    } else if (ev === 'signal_ack' && p && p.msgId) {
+                        window.handleSignalAck(p);
                     }
                 });
             } catch (e) {}
@@ -798,7 +814,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 body: JSON.stringify(updateObj),
                 keepalive: true
             }).catch(() => { });
-            return;
+            return { success: true };
         } catch (e) { }
     }
 
@@ -807,23 +823,21 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
             let updateError = null;
             const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
 
-            // 采用 upsert 进行单次批量写入，替代单条反复写入
+            // 更新已存在用户的全量数据 (使用 update 避免触发 password NOT NULL 检查)
             const { error } = await sbClient
                 .from('user_accounts')
-                .upsert({
-                    username: u,
-                    ...updateObj
-                }, { onConflict: 'username' });
+                .update(updateObj)
+                .eq('username', u);
 
             if (error) {
                 if (error.message && error.message.includes('level')) {
                     const { error: err2 } = await sbClient
                         .from('user_accounts')
-                        .upsert({
-                            username: u,
+                        .update({
                             user_data: payload,
                             updated_at: payload.updated_at
-                        }, { onConflict: 'username' });
+                        })
+                        .eq('username', u);
                     if (err2) updateError = err2;
                 } else {
                     updateError = error;
@@ -1956,6 +1970,23 @@ let currentUserProfile = {
 };
 
 function refreshCurrentUserProfileFromStorage() {
+    const isExplicitLoggedOut = SafeStorage.getItem('vocab_user_logged_out') === 'true';
+    if (isExplicitLoggedOut) {
+        // 用户明确点击了退出登录，不自动从 session、device_accounts 或历史缓存中还原已登录账号
+        const guestId = SafeStorage.getItem('vocab_guest_name') || SafeStorage.getItem('vocab_pk_user') || getUniqueGuestName();
+        currentUser = guestId;
+        currentUserProfile = {
+            isLoggedIn: false,
+            type: 'guest',
+            username: guestId,
+            avatar: '',
+            openId: ''
+        };
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+        return false;
+    }
+
     try {
         const savedSession = SafeStorage.getItem('vocab_auth_session');
         if (savedSession) {
@@ -2405,6 +2436,9 @@ const SyncManager = {
         } catch (e) {
             this.pendingQueue = [];
         }
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
     },
 
     saveQueue() {
@@ -2434,12 +2468,25 @@ const SyncManager = {
         this.pendingQueue.push(record);
         this.saveQueue();
 
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
+
+        const autoSync = (typeof isAutoSyncEnabled === 'function')
+            ? isAutoSyncEnabled()
+            : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+
+        if (!autoSync && !immediate) {
+            // 用户在设置中关闭了自动同步：数据安全保留在本地队列中，等待手动同步
+            return;
+        }
+
         if (immediate) {
             this.flush({ silent: false, force: true });
         } else {
-            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条则立刻批量推送
+            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条且未在同步中则推送
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
-            if (this.pendingQueue.length >= 10) {
+            if (this.pendingQueue.length >= 10 && !this.isSyncing) {
                 this.flush({ silent: true });
             } else {
                 this.debounceTimer = setTimeout(() => {
@@ -2450,7 +2497,7 @@ const SyncManager = {
     },
 
     /**
-     * 批量推送到云端 (使用单次批量 upsert，失败自动保留重试)
+     * 批量推送到云端 (使用单次批量写入，失败自动保留重试)
      */
     async flush(options = {}) {
         if (this.isSyncing) return;
@@ -2471,6 +2518,9 @@ const SyncManager = {
         }
 
         this.isSyncing = true;
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
         const snapshot = [...this.pendingQueue];
 
         try {
@@ -2486,27 +2536,56 @@ const SyncManager = {
                     this.pendingQueue = this.pendingQueue.filter(i => !syncedIds.has(i.id));
                     this.saveQueue();
                     this.retryDelay = 5000;
+                    this.isSyncing = false;
+                    if (typeof updateSyncButtonStatus === 'function') {
+                        updateSyncButtonStatus(true);
+                    }
                     console.log(`[SyncManager] 成功批量同步 ${snapshot.length} 条记录至 Supabase 云端`);
                 } else {
                     console.warn('[SyncManager] 批量同步未完成，数据留在本地队列将在下次重试:', res ? res.error : '未知错误');
+                    const curDelay = this.retryDelay;
+                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
                     setTimeout(() => {
                         this.isSyncing = false;
-                    }, this.retryDelay);
-                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-                    this.isSyncing = false;
+                        if (typeof updateSyncButtonStatus === 'function') {
+                            updateSyncButtonStatus(false);
+                        }
+                    }, curDelay);
                     return;
+                }
+            } else {
+                this.isSyncing = false;
+                if (typeof updateSyncButtonStatus === 'function') {
+                    updateSyncButtonStatus();
                 }
             }
         } catch (e) {
             console.warn('[SyncManager] 批量同步异常，数据保留在本地队列:', e);
+            const curDelay = this.retryDelay;
             this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-        } finally {
-            this.isSyncing = false;
+            setTimeout(() => {
+                this.isSyncing = false;
+                if (typeof updateSyncButtonStatus === 'function') {
+                    updateSyncButtonStatus(false);
+                }
+            }, curDelay);
         }
     }
 };
 
 window.SyncManager = SyncManager;
+
+if (typeof window.isAutoSyncEnabled !== 'function') {
+    window.isAutoSyncEnabled = function() {
+        try {
+            const val = localStorage.getItem('vocab_auto_sync_enabled');
+            if (val === null) return true;
+            return val === 'true' || val === true || val === '1';
+        } catch (e) {
+            return true;
+        }
+    };
+}
 
 // 自动初始化
 if (typeof document !== 'undefined') {
@@ -2567,12 +2646,36 @@ const BookManager = {
         { id: 'books/实词/高中300实词.json', name: '高中300实词', category: '实词', count: 300, path: 'books/实词/高中300实词.json', isCloud: true }
     ],
 
+    isMeteredConnection() {
+        try {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                if (conn.saveData) return true;
+                if (conn.type === 'cellular') return true;
+                if (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g' || conn.effectiveType === '3g') return true;
+            }
+        } catch (e) { }
+        return false;
+    },
+
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
         const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高中考纲词汇', 'books/经典/高中考纲词汇.json');
         this.bookCache['books/经典/高中考纲词汇.json'] = normGaoKao;
         this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
         this.bookCache['GaoKao3500'] = normGaoKao;
+
+        // 尝试从本地 localStorage 还原缓存的云端词书列表
+        try {
+            const cachedCloudList = localStorage.getItem('vocab_cached_cloud_books');
+            if (cachedCloudList) {
+                const parsed = JSON.parse(cachedCloudList);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.availableBooks = parsed;
+                }
+            }
+        } catch (e) { }
+
         try {
             await VocabOfflineDB.init();
             const offlineBooks = await VocabOfflineDB.getAllBooks();
@@ -2599,6 +2702,22 @@ const BookManager = {
         } catch (e) {
             console.warn('[BookManager] Offline books load error:', e);
         }
+
+        this.mergeCustomBooks();
+
+        // 流量环境下降低同步词书列表频率，节省流量消耗（流量下每 7 天同步一次，WiFi 下每 24 小时检查一次）
+        const isMetered = this.isMeteredConnection();
+        const lastFetchTime = parseInt(localStorage.getItem('vocab_last_books_fetch_time') || '0', 10);
+        const cacheAge = Date.now() - lastFetchTime;
+        const syncInterval = isMetered ? (7 * 24 * 3600 * 1000) : (24 * 3600 * 1000);
+        const hasBooks = (this.availableBooks && this.availableBooks.length > 0);
+
+        if (hasBooks && cacheAge < syncInterval) {
+            console.log(`[BookManager] 词书列表缓存有效 (上次更新: ${Math.round(cacheAge / 60000)}分钟前, 流量环境: ${isMetered})，跳过自动网络同步`);
+            this.preloadAllWorkerBooks().catch(() => {});
+            return;
+        }
+
         // 异步后台获取最新词书列表并预加载，避免阻塞初始化及卡顿
         this.fetchBookList().then(() => {
             this.preloadAllWorkerBooks();
@@ -2616,6 +2735,20 @@ const BookManager = {
             this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
             this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
         }
+
+        // 流量环境下不进行全量云端词书预下载，改为按需加载以节省流量消耗
+        if (this.isMeteredConnection()) {
+            console.log('[BookManager] 检测到移动流量/节流网络，跳过后台全量词书预下载，改为按需加载');
+            const selectedIds = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds))
+                ? singleSelectedBookIds : ['books/经典/高中考纲词汇.json'];
+            for (const bId of selectedIds) {
+                if (bId && !this.bookCache[bId]) {
+                    await this.loadBookData(bId).catch(() => {});
+                }
+            }
+            return;
+        }
+
         const targetList = (Array.isArray(this.availableBooks) && this.availableBooks.length > 0)
             ? this.availableBooks
             : this.fallbackBooks;
@@ -2682,6 +2815,10 @@ const BookManager = {
                 isCloud: true
             }));
             this.mergeCustomBooks();
+            try {
+                localStorage.setItem('vocab_cached_cloud_books', JSON.stringify(this.availableBooks.filter(b => b.isCloud)));
+                localStorage.setItem('vocab_last_books_fetch_time', Date.now().toString());
+            } catch (e) { }
             if (banner) banner.style.display = 'none';
             return { success: true, books: this.availableBooks };
         } else {
@@ -3862,18 +3999,13 @@ const LevelManager = {
         if (!u || this.isGuestUser(u)) return;
 
         const data = this.getUserRankData(u);
-        if (typeof sbClient !== 'undefined' && sbClient) {
-            try {
-                await sbClient.from('user_accounts').update({
-                    level: data.rank,
-                    updated_at: new Date().toISOString()
-                }).eq('username', u);
-            } catch (e) {
-                console.warn('[LevelManager] Failed to sync rank column to Supabase:', e);
-            }
-        }
-
-        if (typeof syncAllUserDataToCloud === 'function') {
+        if (window.SyncManager) {
+            window.SyncManager.enqueue('level_update', {
+                rank: data.rank,
+                rating: data.rating,
+                timestamp: Date.now()
+            }, true);
+        } else if (typeof syncAllUserDataToCloud === 'function') {
             syncAllUserDataToCloud(u);
         }
     },
@@ -5167,6 +5299,7 @@ async function selectSavedAccountToLogin(username) {
     try {
         const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 5000, '登录请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(user.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
         acc.lastLoginTime = Date.now();
         SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 
@@ -5267,6 +5400,7 @@ async function handleCloudLogin() {
         const hashedPassword = await hashPassword(password);
         const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 5000, '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试');
         await prepareUserSwitch(user.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
         const profile = {
@@ -5347,6 +5481,7 @@ async function handleCloudRegister() {
             avatar: regAvatarDataUrl
         }), 5000, '注册请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(newUser.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
 
         const hashedPassword = await hashPassword(password);
         const profile = {
@@ -5467,8 +5602,10 @@ function handleAuthLogout(notify = true) {
         avatar: '',
         openId: ''
     };
+    SafeStorage.setItem('vocab_user_logged_out', 'true');
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
+    SafeStorage.setItem('vocab_guest_name', guestName);
     loadUserData(guestName, currentUserProfile);
     if (notify) {
         showToast('已退出登录');
@@ -5569,6 +5706,12 @@ function switchView(viewId) {
 
     if (viewId === 'view-hub') {
         updateHub();
+        const hubInp = document.getElementById('hub-search-input');
+        if (hubInp) hubInp.value = '';
+        const hubClear = document.getElementById('hub-search-clear-btn');
+        if (hubClear) hubClear.style.display = 'none';
+        const hubSuggs = document.getElementById('hub-search-suggestions');
+        if (hubSuggs) hubSuggs.style.display = 'none';
         if (currentUser && typeof initGlobalPresence === 'function') {
             initGlobalPresence();
         }
@@ -5583,9 +5726,13 @@ function switchView(viewId) {
             switchSettingsSubview('main');
         }
     } else if (viewId === 'view-online') {
-        if (typeof fetchOnlineRoomsList === 'function') {
-            fetchOnlineRoomsList();
-            initGlobalPresence();
+        const inRoomEl = document.getElementById('online-in-room');
+        const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+        if (!isInRoom) {
+            if (typeof fetchOnlineRoomsList === 'function') {
+                fetchOnlineRoomsList();
+                initGlobalPresence();
+            }
         }
     } else if (viewId === 'view-search') {
         const searchInp = document.getElementById('search-page-input');
@@ -5946,12 +6093,14 @@ async function loadCustomBook(e) {
     BookManager.mergeCustomBooks();
 
     // 立即刷新所有相关词书列表
-    renderSingleBookList();
-    renderRoomBookChips();
-    renderLocalDuelBookChips();
-    renderAiDuelBookChips();
-    renderManageLocalBooksInSettings();
-    renderSettingsBooksSummary();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
+    if (typeof renderLocalDuelBookChips === 'function') renderLocalDuelBookChips();
+    else if (typeof updateLocalDuelBookSummaryUI === 'function') updateLocalDuelBookSummaryUI();
+    if (typeof renderAiDuelBookChips === 'function') renderAiDuelBookChips();
+    else if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
+    if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
+    if (typeof renderSettingsBooksSummary === 'function') renderSettingsBooksSummary();
 
     if (successCount > 0) {
         if (successCount === 1) {
@@ -10053,6 +10202,7 @@ function saveSingleProgress() {
         total: singleState.total,
         targetTotal: singleState.targetTotal,
         completedWords: Array.from(singleState.completedWords || []),
+        sessionMistakes: Array.from(singleState.sessionMistakes || []),
         sessionName: singleState.sessionName,
         isReview: isRev,
         time: Date.now()
@@ -10081,6 +10231,7 @@ async function startSingleLearning() {
                         total: parsed.total || 0,
                         targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
+                        sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '新词学习',
                         isReview: false,
                         answered: false,
@@ -10284,6 +10435,7 @@ async function startSingleReview(specificBookId = null) {
                         total: parsed.total || 0,
                         targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
+                        sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '智能复习',
                         isReview: true,
                         answered: false,
@@ -10489,6 +10641,7 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
         total: 0,
         targetTotal: targetTot,
         completedWords: new Set(),
+        sessionMistakes: new Set(),
         sessionName: defaultBookName,
         isReview: isRev
     };
@@ -11059,6 +11212,22 @@ function toggleCurrentWordMastered() {
     if (nowMastered) {
         // 标注熟词后播放加星动画，不立刻跳到下一题
         renderCardMasteryDiamonds(q.word, 'gain');
+
+        // 标为熟词后，在本组学习中也不要再抽取：过滤后续待学 pool 中该词的所有项（含错题即时复测题）
+        const targetClean = (q.word || '').trim().toLowerCase();
+        const currentIdx = singleState.currentIdx;
+        const prevItems = singleState.pool.slice(0, currentIdx + 1);
+        const remainingItems = singleState.pool.slice(currentIdx + 1).filter(item => (item.word || '').trim().toLowerCase() !== targetClean);
+        singleState.pool = prevItems.concat(remainingItems);
+
+        if (!singleState.completedWords) singleState.completedWords = new Set();
+        singleState.completedWords.add(targetClean);
+
+        updateSingleProgressDisplay();
+        saveSingleProgress();
+        if (typeof showToast === 'function') {
+            showToast(`已标为熟词，本组学习将不再抽取“${q.word}”`);
+        }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
         renderCardMasteryDiamonds(q.word, 'loss');
@@ -11700,6 +11869,8 @@ function checkSinglePhraseAnswer() {
         }).filter(idx => idx !== -1);
         const wKey = (q.word || '').trim().toLowerCase();
         if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+        singleState.sessionMistakes.add(wKey);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         updateSingleProgressDisplay();
@@ -11752,6 +11923,8 @@ function revealSingleAnswer() {
 
     const wKey = (q.word || '').trim().toLowerCase();
     if (singleState.completedWords) singleState.completedWords.delete(wKey);
+    if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+    singleState.sessionMistakes.add(wKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
@@ -11881,6 +12054,8 @@ function handleSingleAnswer(idx) {
     } else {
         const wKey = (q.word || '').trim().toLowerCase();
         if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+        singleState.sessionMistakes.add(wKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
@@ -11947,7 +12122,8 @@ function endSingleGame() {
         p1Score: singleState.score,
         p2Score: 0,
         pool: singleState.pool,
-        total: singleState.total || (singleState.pool ? singleState.pool.length : 0)
+        sessionMistakes: Array.from(singleState.sessionMistakes || []),
+        total: singleState.targetTotal || singleState.total || (singleState.pool ? singleState.pool.length : 0)
     };
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
@@ -12314,7 +12490,7 @@ function renderMeView() {
             }
 
             if (typeof updateSyncButtonStatus === 'function') {
-                updateSyncButtonStatus(Boolean(window.lastCloudSyncTimestamp));
+                updateSyncButtonStatus();
             }
 
             // 渲染用户等级卡片 (实际等级分与上限，9段不用显示上限)
@@ -12405,32 +12581,69 @@ function updateSyncButtonStatus(isSynced) {
     const label = btn.querySelector('.btn-label-text');
     const icon = btn.querySelector('.material-symbols-rounded');
 
-    if (isSynced) {
+    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮
+    const autoSync = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+
+    if (autoSync) {
+        btn.style.display = 'none';
+        return;
+    } else {
+        btn.style.display = 'inline-flex';
+    }
+
+    // 2. 检查是否正在同步中
+    if (window.SyncManager && window.SyncManager.isSyncing) {
+        if (icon) {
+            icon.innerText = 'sync';
+            icon.style.animation = 'spin 1s linear infinite';
+        }
+        if (label) label.innerText = '同步中...';
+        btn.disabled = true;
+        btn.style.borderColor = 'var(--md-sys-color-outline)';
+        btn.style.color = 'var(--md-sys-color-outline)';
+        return;
+    }
+
+    if (icon) icon.style.animation = '';
+
+    // 3. 统计本地待同步队列数据
+    const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
+        ? window.SyncManager.pendingQueue.length
+        : 0;
+
+    if (isSynced === true || (isSynced !== false && pendingCount === 0)) {
         isUserDataSynced = true;
         if (icon) icon.innerText = 'check';
-        if (label) label.innerText = '已同步';
+        if (label) label.innerText = '已是最新';
         btn.disabled = false;
         btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
         btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
     } else {
         isUserDataSynced = false;
         if (icon) icon.innerText = 'sync';
-        if (label) label.innerText = '同步数据';
+        if (label) label.innerText = pendingCount > 0 ? `同步数据 (${pendingCount})` : '同步数据';
         btn.disabled = false;
-        btn.style.borderColor = '';
-        btn.style.color = '';
+        btn.style.borderColor = 'var(--md-sys-color-primary)';
+        btn.style.color = 'var(--md-sys-color-primary)';
     }
 }
 window.updateSyncButtonStatus = updateSyncButtonStatus;
 
 async function handleManualSyncUserData() {
     const btn = document.getElementById('btn-sync-cloud-data');
-    if (isUserDataSynced) {
+    const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
+        ? window.SyncManager.pendingQueue.length
+        : 0;
+
+    if (pendingCount === 0 && isUserDataSynced) {
         if (typeof showToast === 'function') {
-            showToast('当前已是最新数据，已同步到云端');
+            showToast('当前已是最新数据，已全部同步到云端');
         }
         return;
     }
+
     if (btn) {
         const icon = btn.querySelector('.material-symbols-rounded');
         const label = btn.querySelector('.btn-label-text');
@@ -12438,9 +12651,13 @@ async function handleManualSyncUserData() {
         if (label) label.innerText = '同步中...';
         btn.disabled = true;
     }
+
     try {
-        if (typeof syncAllUserDataToCloud === 'function') {
-            const res = await syncAllUserDataToCloud();
+        if (window.SyncManager && typeof window.SyncManager.flush === 'function') {
+            await window.SyncManager.flush({ force: true, silent: false });
+            updateSyncButtonStatus(true);
+        } else if (typeof syncAllUserDataToCloud === 'function') {
+            const res = await syncAllUserDataToCloud(currentUser, { silent: false });
             if (res && res.success) {
                 updateSyncButtonStatus(true);
                 if (typeof showToast === 'function') {
@@ -12451,15 +12668,13 @@ async function handleManualSyncUserData() {
             }
         }
     } catch (e) {
+        console.error('[Sync] Manual sync failed:', e);
         updateSyncButtonStatus(false);
         if (typeof showToast === 'function') {
             showToast('数据同步失败，请检查网络');
         }
     } finally {
-        if (btn) {
-            const icon = btn.querySelector('.material-symbols-rounded');
-            if (icon) icon.style.animation = '';
-        }
+        updateSyncButtonStatus();
     }
 }
 window.handleManualSyncUserData = handleManualSyncUserData;
@@ -13387,7 +13602,15 @@ function getBookNamesSummary(bookIds) {
     (window.customBooks || []).forEach(b => {
         bookMap[b.id] = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
     });
-    const names = bookIds.map(id => bookMap[id] || (String(id).startsWith('custom_') ? '自定义词书' : id));
+    const cleanId = (id) => {
+        if (!id) return '';
+        if (bookMap[id]) return bookMap[id];
+        if (String(id).startsWith('custom_')) return '自定义词书';
+        const stripped = String(id).replace(/^books\//, '').replace(/\.json$/i, '');
+        const segs = stripped.split('/');
+        return (typeof cleanBookName === 'function') ? cleanBookName(segs[segs.length - 1]) : segs[segs.length - 1];
+    };
+    const names = bookIds.map(cleanId);
     if (names.length === 1) return names[0];
     return `${names[0]} 等 ${names.length} 本`;
 }
@@ -15636,8 +15859,25 @@ function renderResult() {
                 if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
             });
         }
-        const totalCount = pool.length || singleState.total || 0;
-        const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : (singleState.score || 0);
+        // 背词小结的本次作答严格显示每组的学习数，只要答错就在小结中归为错题
+        const sessionMistakeSet = new Set(Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes : ((singleState && singleState.sessionMistakes) ? Array.from(singleState.sessionMistakes) : []));
+        const uniqueWordsMap = new Map();
+        (pool || []).forEach(p => {
+            if (p && p.word) {
+                const k = p.word.trim().toLowerCase();
+                if (!uniqueWordsMap.has(k)) {
+                    uniqueWordsMap.set(k, p);
+                }
+            }
+        });
+        const totalCount = uniqueWordsMap.size || (singleState ? singleState.targetTotal : 0) || (pool ? pool.length : 0);
+        let mistakeCount = 0;
+        uniqueWordsMap.forEach((p, k) => {
+            if (sessionMistakeSet.has(k) || !p.isCorrect) {
+                mistakeCount++;
+            }
+        });
+        const correctCount = Math.max(0, totalCount - mistakeCount);
         const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
         details.innerHTML = `
@@ -15651,7 +15891,7 @@ function renderResult() {
                         <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
                     </div>
                 </div>
-                ${renderSingleSummaryHtml(pool)}
+                ${renderSingleSummaryHtml(pool, sessionMistakeSet)}
             `;
     } else if (gameResult.mode === 'shici') {
         btnBackRoom.style.display = 'inline-flex';
@@ -16092,6 +16332,16 @@ function initGlobalPresence() {
         .on('broadcast', { event: 'room_state_change' }, ({ payload }) => {
             handleRoomStateBroadcast(payload);
         })
+        .on('broadcast', { event: 'signal_ack' }, ({ payload }) => {
+            if (payload && payload.msgId && typeof window.handleSignalAck === 'function') {
+                window.handleSignalAck(payload);
+            }
+        })
+        .on('broadcast', { event: '*' }, ({ event: ev, payload }) => {
+            if (ev && ev.startsWith('ack_') && payload && payload.msgId && typeof window.handleSignalAck === 'function') {
+                window.handleSignalAck(payload);
+            }
+        })
         .subscribe(async (status) => {
             isConnectingLobby = false;
             if (typeof updateGlobalNetworkBadge === 'function') {
@@ -16190,72 +16440,82 @@ function startPresenceHeartbeat() {
             initGlobalPresence();
         }
 
-        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（隐身状态彻底移除信标）
-        try {
-            if (sbClient && currentUser) {
-                if (myPresenceStatus === 'invisible') {
-                    sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
-                } else {
-                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                    const statusVal = isPlayingMatch ? 'playing' : 'idle';
-                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+        // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（节流控制：每 45 秒最多 1 次，对决中严格跳过）
+        const nowMs = Date.now();
+        if (!isPlayingMatch && (nowMs - lastRestOnlineFetchTime >= 45000)) {
+            try {
+                if (sbClient && currentUser) {
+                    if (myPresenceStatus === 'invisible') {
+                        sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
+                    } else {
+                        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                        const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                        const statusVal = 'idle';
+                        const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
 
-                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                    sbClient.from('rooms').upsert({
-                        code: `ONL_${getUserRoomCode(currentUser)}`,
-                        name: currentUser,
-                        host: currentUser,
-                        capacity: 2,
-                        player_count: 1,
-                        status: statusVal,
-                        is_temporary: true,
-                        config: {
-                            avatar: myAvatar,
-                            rank: myRankData.rank,
-                            rating: myRankData.rating,
-                            isBili: isBili,
+                        // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                        sbClient.from('rooms').upsert({
+                            code: `ONL_${getUserRoomCode(currentUser)}`,
+                            name: currentUser,
+                            host: currentUser,
+                            capacity: 2,
+                            player_count: 1,
                             status: statusVal,
-                            clientSession: CLIENT_SESSION_ID
-                        },
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳
-                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                        sbClient.from('user_accounts').update({
+                            is_temporary: true,
+                            config: {
+                                avatar: myAvatar,
+                                rank: myRankData.rank,
+                                rating: myRankData.rating,
+                                isBili: isBili,
+                                status: statusVal,
+                                clientSession: CLIENT_SESSION_ID
+                            },
                             updated_at: new Date().toISOString()
-                        }).eq('username', currentUser).then(() => { }).catch(() => { });
+                        }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+                        // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
+                        if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                            sbClient.from('user_accounts').update({
+                                updated_at: new Date().toISOString()
+                            }).eq('username', currentUser).then(() => { }).catch(() => { });
+                        }
                     }
                 }
-            }
-        } catch (e) { }
+            } catch (e) { }
+        }
 
         // 3. 跨网络对战邀请监听兜底：若 WebSocket 广播被运营商防火墙丢弃，通过云端 rooms 表接收邀请
         try {
             if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && (currentView === 'view-hub' || currentView === 'view-online')) {
-                const recentInviteThreshold = new Date(Date.now() - 40 * 1000).toISOString();
-                const { data: invRooms } = await sbClient
-                    .from('rooms')
-                    .select('code, name, host, config, updated_at, created_at')
-                    .eq('status', 'waiting')
-                    .gt('updated_at', recentInviteThreshold)
-                    .order('updated_at', { ascending: false })
-                    .limit(10);
+                const inRoomEl = document.getElementById('online-in-room');
+                const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+                if (!isInRoom) {
+                    const recentInviteThreshold = new Date(Date.now() - 40 * 1000).toISOString();
+                    const { data: invRooms } = await sbClient
+                        .from('rooms')
+                        .select('code, name, host, config, updated_at, created_at')
+                        .eq('status', 'waiting')
+                        .gt('updated_at', recentInviteThreshold)
+                        .order('updated_at', { ascending: false })
+                        .limit(10);
 
-                if (Array.isArray(invRooms)) {
-                    const myInvite = invRooms.find(r => r.config && r.config.targetUser === currentUser && r.host !== currentUser);
-                    if (myInvite) {
-                        console.log('[Duel] Detected match invite via cloud DB fallback:', myInvite);
-                        handleReceivedMatchInvite({
-                            from: myInvite.host,
-                            fromAvatar: myInvite.config.fromAvatar || (typeof getUserAvatar === 'function' ? getUserAvatar(myInvite.host) : ''),
-                            to: currentUser,
-                            roomCode: myInvite.code,
-                            roomName: myInvite.name,
-                            config: myInvite.config,
-                            bookNames: getBookNamesSummary(myInvite.config.selectedBooks)
-                        });
+                    if (Array.isArray(invRooms)) {
+                        const myInvite = invRooms.find(r => r.config && r.config.targetUser === currentUser && r.host !== currentUser);
+                        if (myInvite) {
+                            const invKey = myInvite.code || `${myInvite.code}_${myInvite.host}`;
+                            if (!handledInviteMsgKeys.has(invKey) && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInvite.code)) {
+                                console.log('[Duel] Detected match invite via cloud DB fallback:', myInvite);
+                                handleReceivedMatchInvite({
+                                    from: myInvite.host,
+                                    fromAvatar: myInvite.config.fromAvatar || (typeof getUserAvatar === 'function' ? getUserAvatar(myInvite.host) : ''),
+                                    to: currentUser,
+                                    roomCode: myInvite.code,
+                                    roomName: myInvite.name,
+                                    config: myInvite.config,
+                                    bookNames: getBookNamesSummary(myInvite.config.selectedBooks)
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -16514,8 +16774,23 @@ function syncGlobalPresence() {
     }
 }
 
+let pendingOutgoingInvite = null;
+
+function clearPendingOutgoingInvite() {
+    if (pendingOutgoingInvite && pendingOutgoingInvite.timer) {
+        clearTimeout(pendingOutgoingInvite.timer);
+    }
+    pendingOutgoingInvite = null;
+}
+window.clearPendingOutgoingInvite = clearPendingOutgoingInvite;
+
 function openCreateMatchInviteModal(targetUser) {
     if (!targetUser || targetUser === currentUser) return;
+    if (pendingOutgoingInvite) {
+        const remaining = Math.max(1, Math.ceil((20000 - (Date.now() - pendingOutgoingInvite.sentAt)) / 1000));
+        showToast(`已向【${pendingOutgoingInvite.targetUser}】发起邀请，请等待对方响应或请求超时（约剩${remaining}秒）后再试`);
+        return;
+    }
     if (!globalLobbyChannel || globalLobbyChannel.state !== 'joined') {
         initGlobalPresence();
     }
@@ -16815,13 +17090,13 @@ function updateInviteBookSummaryUI() {
 async function confirmAndSendMatchInvite() {
     if (!activeInviteTarget || !globalLobbyChannel) return;
 
-    const now = Date.now();
-    const lastSent = lastInviteSentTimes[activeInviteTarget] || 0;
-    const diff = Math.ceil((5000 - (now - lastSent)) / 1000);
-    if (now - lastSent < 5000) {
-        showToast(`发送邀请过于频繁，请等待 ${diff} 秒后再试`);
+    if (pendingOutgoingInvite) {
+        const remaining = Math.max(1, Math.ceil((20000 - (Date.now() - pendingOutgoingInvite.sentAt)) / 1000));
+        showToast(`已向【${pendingOutgoingInvite.targetUser}】发起邀请，请等待对方响应或超时（约剩${remaining}秒）后再试`);
         return;
     }
+
+    const now = Date.now();
     lastInviteSentTimes[activeInviteTarget] = now;
 
     const roomNameInput = document.getElementById('create-invite-room-name');
@@ -16897,14 +17172,31 @@ async function confirmAndSendMatchInvite() {
     safeBroadcast(globalLobbyChannel, 'invite_match', invitePayload);
 
     const target = activeInviteTarget;
+    clearPendingOutgoingInvite();
+    const inviteTimer = setTimeout(() => {
+        if (pendingOutgoingInvite && pendingOutgoingInvite.targetUser === target) {
+            showToast(`向【${target}】发起的对战邀请已超时未响应`);
+            clearPendingOutgoingInvite();
+        }
+    }, 20000);
+
+    pendingOutgoingInvite = {
+        targetUser: target,
+        roomCode: finalRoomCode,
+        sentAt: Date.now(),
+        timer: inviteTimer
+    };
+
     closeCreateMatchInviteModal();
     showToast(`已向【${target}】发起对战邀请，等待对方接受...`);
 }
 
+const handledInviteMsgKeys = new Set();
+
 function handleReceivedMatchInvite(payload) {
     if (!payload || payload.to !== currentUser) return;
 
-    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 事件
+    // 关键信令 ACK：接收方收到 match_invite 或 invite_match，必须立即向对方回传 ack_${msgId} 与 signal_ack
     if (payload.msgId && globalLobbyChannel) {
         safeBroadcast(globalLobbyChannel, `ack_${payload.msgId}`, {
             msgId: payload.msgId,
@@ -16912,9 +17204,31 @@ function handleReceivedMatchInvite(payload) {
             to: payload.from,
             receivedAt: Date.now()
         });
+        safeBroadcast(globalLobbyChannel, 'signal_ack', {
+            msgId: payload.msgId,
+            from: currentUser,
+            to: payload.from,
+            receivedAt: Date.now()
+        });
     }
+
+    // 防抖与幂等去重：防止重传或云端兜底轮询导致接收方持续收到一堆重复邀请弹窗
+    const inviteKey = payload.msgId || (payload.roomCode ? `${payload.roomCode}_${payload.from}` : null);
+    if (inviteKey && handledInviteMsgKeys.has(inviteKey)) {
+        return;
+    }
+    if (currentIncomingInvite) {
+        if (currentIncomingInvite.msgId && payload.msgId && currentIncomingInvite.msgId === payload.msgId) {
+            return;
+        }
+        if (currentIncomingInvite.roomCode && payload.roomCode && currentIncomingInvite.roomCode === payload.roomCode) {
+            return;
+        }
+    }
+
     const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
     if (myPresenceStatus === 'invisible') {
+        if (inviteKey) handledInviteMsgKeys.add(inviteKey);
         if (globalLobbyChannel) {
             safeBroadcast(globalLobbyChannel, 'invite_response', {
                 from: currentUser,
@@ -16990,6 +17304,8 @@ function acceptMatchInvite() {
     if (modal) modal.classList.remove('active');
 
     const invite = currentIncomingInvite;
+    const invKey = invite.msgId || (invite.roomCode ? `${invite.roomCode}_${invite.from}` : null);
+    if (invKey) handledInviteMsgKeys.add(invKey);
     currentIncomingInvite = null;
 
     const acceptPayload = {
@@ -17049,13 +17365,17 @@ function declineMatchInvite(isTimeout = false) {
     const modal = document.getElementById('modal-match-invite');
     if (modal) modal.classList.remove('active');
 
-    if (currentIncomingInvite && globalLobbyChannel) {
-        safeBroadcast(globalLobbyChannel, 'invite_response', {
-            from: currentUser,
-            to: currentIncomingInvite.from,
-            accepted: false,
-            isTimeout: isTimeout
-        });
+    if (currentIncomingInvite) {
+        const invKey = currentIncomingInvite.msgId || (currentIncomingInvite.roomCode ? `${currentIncomingInvite.roomCode}_${currentIncomingInvite.from}` : null);
+        if (invKey) handledInviteMsgKeys.add(invKey);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: currentIncomingInvite.from,
+                accepted: false,
+                isTimeout: isTimeout
+            });
+        }
     }
     currentIncomingInvite = null;
     if (isTimeout) showToast('对战邀请已超时关闭');
@@ -17064,6 +17384,10 @@ function declineMatchInvite(isTimeout = false) {
 
 function handleMatchInviteResponse(payload) {
     if (!payload || payload.to !== currentUser) return;
+
+    if (pendingOutgoingInvite && (pendingOutgoingInvite.targetUser === payload.from || pendingOutgoingInvite.roomCode === payload.roomCode)) {
+        clearPendingOutgoingInvite();
+    }
 
     // 关键信令 ACK 确认：房主收到接受邀请后立即向对方回传 ACK
     if (payload.accepted && payload.msgId && globalLobbyChannel) {
@@ -17264,16 +17588,19 @@ async function fetchOnlineRoomsList(manual = false) {
         const age = now - new Date(r.updated_at || r.created_at || now).getTime();
         return age < 25000;
     });
-    if (myInviteRoom && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInviteRoom.code)) {
-        handleReceivedMatchInvite({
-            from: myInviteRoom.host,
-            fromAvatar: getUserAvatar(myInviteRoom.host),
-            to: currentUser,
-            roomCode: myInviteRoom.code,
-            roomName: myInviteRoom.name,
-            config: myInviteRoom.config,
-            bookNames: getBookNamesSummary(myInviteRoom.config?.selectedBooks || [])
-        });
+    if (myInviteRoom) {
+        const invKey = myInviteRoom.code || `${myInviteRoom.code}_${myInviteRoom.host}`;
+        if (!handledInviteMsgKeys.has(invKey) && (!currentIncomingInvite || currentIncomingInvite.roomCode !== myInviteRoom.code)) {
+            handleReceivedMatchInvite({
+                from: myInviteRoom.host,
+                fromAvatar: getUserAvatar(myInviteRoom.host),
+                to: currentUser,
+                roomCode: myInviteRoom.code,
+                roomName: myInviteRoom.name,
+                config: myInviteRoom.config,
+                bookNames: getBookNamesSummary(myInviteRoom.config?.selectedBooks || [])
+            });
+        }
     }
 
     if (resultRooms.length === 0) {
@@ -17620,6 +17947,7 @@ function updateAiDuelBookSummaryUI() {
     updateAiDuelStartButtonState();
 }
 window.updateAiDuelBookSummaryUI = updateAiDuelBookSummaryUI;
+window.renderAiDuelBookChips = updateAiDuelBookSummaryUI;
 
 function updateAiDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-ai-duel');
@@ -18463,6 +18791,7 @@ function updateLocalDuelBookSummaryUI() {
     updateLocalDuelStartButtonState();
 }
 window.updateLocalDuelBookSummaryUI = updateLocalDuelBookSummaryUI;
+window.renderLocalDuelBookChips = updateLocalDuelBookSummaryUI;
 
 function updateLocalDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-local-duel');
@@ -20275,22 +20604,31 @@ function filterSettlementList(filter, btn) {
     });
 }
 
-function renderSingleSummaryHtml(pool) {
+function renderSingleSummaryHtml(pool, sessionMistakes) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
 
-    // 去重：同一道题（单词/词组）答错多次不重复展示
+    const mistakeSet = new Set(
+        Array.isArray(sessionMistakes) ? sessionMistakes.map(s => String(s).trim().toLowerCase()) :
+        (sessionMistakes instanceof Set ? Array.from(sessionMistakes).map(s => String(s).trim().toLowerCase()) : [])
+    );
+
+    // 去重：同一道题（单词/词组）答错多次不重复展示；只要答错一次即在小结中归为错题
     const uniquePool = [];
     const seenWords = new Map();
     pool.forEach(q => {
         if (!q || !q.word) return;
         const key = q.word.trim().toLowerCase();
+        const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
         if (!seenWords.has(key)) {
             const itemCopy = { ...q };
+            if (wasEverMistake) {
+                itemCopy.isCorrect = false;
+            }
             seenWords.set(key, itemCopy);
             uniquePool.push(itemCopy);
         } else {
             const existing = seenWords.get(key);
-            if (!q.isCorrect) {
+            if (wasEverMistake) {
                 existing.isCorrect = false;
                 if (q.wrongSlotIndices && q.wrongSlotIndices.length > 0) {
                     existing.wrongSlotIndices = q.wrongSlotIndices;
@@ -21682,7 +22020,13 @@ function toggleCurrentShiCiMastered() {
         shiciProgress.masteredWords[w] = true;
         ShiCiEbbinghausEngine.recordWord(w, meaningStr, currentQ.pinyin, true, true);
         renderShiCiMasteryDiamonds(w, 'gain');
-        showToast(`已将【${w}】标记为熟词`);
+        showToast(`已将【${w}】标记为熟词，本组不再抽取`);
+
+        // 从当前题之后的 pool 中移除该词
+        const curIdx = shiciState.currentIdx;
+        const prev = shiciState.pool.slice(0, curIdx + 1);
+        const rem = shiciState.pool.slice(curIdx + 1).filter(item => item && item.word !== w);
+        shiciState.pool = prev.concat(rem);
     } else {
         delete shiciProgress.masteredWords[w];
         ShiCiEbbinghausEngine.unmarkMastered(w);
@@ -22046,6 +22390,11 @@ function renderSettingsMain() {
     document.querySelectorAll('#chips-settings-dictation-kb .md3-chip').forEach(chip => {
         chip.classList.toggle('selected', chip.getAttribute('data-kb') === String(kbEnabled));
     });
+
+    const autoSyncSwitch = document.getElementById('switch-auto-sync');
+    if (autoSyncSwitch) {
+        autoSyncSwitch.checked = typeof isAutoSyncEnabled === 'function' ? isAutoSyncEnabled() : true;
+    }
 
     const summaryEl = document.getElementById('settings-books-summary-text');
     if (summaryEl) {
@@ -22583,10 +22932,18 @@ async function confirmDeleteCustomBook(bookId, bookName) {
     localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
     await VocabOfflineDB.deleteBook(bookId);
     renderManageLocalBooksInSettings();
-    renderSingleBookList();
-    renderRoomBookChips();
-    renderLocalDuelBookChips();
-    renderAiDuelBookChips();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
+    if (typeof renderLocalDuelBookChips === 'function') {
+        renderLocalDuelBookChips();
+    } else if (typeof updateLocalDuelBookSummaryUI === 'function') {
+        updateLocalDuelBookSummaryUI();
+    }
+    if (typeof renderAiDuelBookChips === 'function') {
+        renderAiDuelBookChips();
+    } else if (typeof updateAiDuelBookSummaryUI === 'function') {
+        updateAiDuelBookSummaryUI();
+    }
     showToast(`已删除本地词书【${bookName}】`);
 }
 
@@ -23810,6 +24167,30 @@ function filterSettingsRows(query) {
     });
 }
 
+function isAutoSyncEnabled() {
+    try {
+        const val = localStorage.getItem('vocab_auto_sync_enabled');
+        if (val === null) return true; // 默认开启
+        return val === 'true' || val === true || val === '1';
+    } catch (e) {
+        return true;
+    }
+}
+window.isAutoSyncEnabled = isAutoSyncEnabled;
+
+function toggleAutoSyncSetting(enabled) {
+    try {
+        localStorage.setItem('vocab_auto_sync_enabled', enabled ? 'true' : 'false');
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
+    } catch (e) {
+        console.error('Failed to save auto sync setting', e);
+    }
+}
+window.toggleAutoSyncSetting = toggleAutoSyncSetting;
+
+
 /* --- End: views/settings.js --- */
 
 /* --- Begin: views/search.js --- */
@@ -24726,6 +25107,124 @@ function saveSearchConfig(cfg) {
     } catch (e) { }
 }
 
+function isSearchSourceEnabled(src) {
+    if (!src) return false;
+    const cfg = getSearchConfig();
+    const visibility = cfg.sourceVisibility || {};
+
+    if (src.type === 'youdao' || src.id === 'youdao') {
+        if (visibility['youdao'] !== undefined) return !!visibility['youdao'];
+        return true; // 默认展示有道词典
+    }
+
+    const isCustom = src.isCustom || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(src.bookId)) || String(src.bookId || '').startsWith('custom_') || (window.customBooks && window.customBooks.some(cb => cb.id === src.bookId));
+    if (isCustom) {
+        if (visibility[src.bookId] !== undefined) return !!visibility[src.bookId];
+        if (visibility['__custom__'] !== undefined) return !!visibility['__custom__'];
+        return true; // 默认展示自定义词书
+    }
+
+    // 经典/官方词书
+    const bookId = src.bookId || src.id || '';
+    const rawName = (src.bookName || src.name || '').replace(/^[《📂📁\s]+|[》\s]+$/g, '');
+
+    // 排除实词
+    if (rawName.includes('实词') || bookId.includes('实词')) return false;
+
+    // 检查用户是否有针对该词书的手动勾选设置
+    if (visibility[bookId] !== undefined) return !!visibility[bookId];
+    if (visibility[rawName] !== undefined) return !!visibility[rawName];
+
+    // 默认展示的词书：高考考纲词汇、考研红宝书
+    if (rawName.includes('考研红宝书') || bookId.includes('考研红宝书')) {
+        return true;
+    }
+    if (rawName.includes('高中考纲词汇') || rawName.includes('高考考纲词汇') || rawName.includes('高考3500') || rawName.includes('默认词书') || bookId.includes('高中考纲词汇') || bookId === 'builtin_default' || bookId === 'GaoKao3500') {
+        return true;
+    }
+
+    // 其余官方词书默认不勾选展示
+    return false;
+}
+window.isSearchSourceEnabled = isSearchSourceEnabled;
+
+function updateSearchSourceSetting(key, val) {
+    const cfg = getSearchConfig();
+    if (!cfg.sourceVisibility) cfg.sourceVisibility = {};
+    cfg.sourceVisibility[key] = !!val;
+    saveSearchConfig(cfg);
+    if (typeof renderSearchExplainsList === 'function') {
+        renderSearchExplainsList();
+    }
+}
+window.updateSearchSourceSetting = updateSearchSourceSetting;
+
+function renderSearchSettingsSourcesList() {
+    const container = document.getElementById('search-settings-sources-list');
+    if (!container) return;
+
+    // 1. 获取所有词书，并排除实词与自定义词书（自定义词书由独立项统一控制）
+    const allBooks = (typeof getAllUniqueBooks === 'function') ? getAllUniqueBooks() : [];
+    const nonShiCiBooks = allBooks.filter(b => {
+        if (!b) return false;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return false;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return false;
+        if (String(b.id || '').startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(b.id))) return false;
+        return true;
+    });
+
+    // 词书去重 (依据干净名称)
+    const presetItems = [];
+    const seenNames = new Set();
+    nonShiCiBooks.forEach(b => {
+        const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+        if (!name || seenNames.has(name)) return;
+        seenNames.add(name);
+        presetItems.push({
+            id: b.id,
+            name: name,
+            checked: isSearchSourceEnabled({ type: 'book', bookId: b.id, bookName: name })
+        });
+    });
+
+    const isYoudaoChecked = isSearchSourceEnabled({ type: 'youdao', id: 'youdao' });
+    const isCustomChecked = isSearchSourceEnabled({ type: 'book', bookId: '__custom__', isCustom: true });
+
+    let html = `
+        <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="unified-source-badge youdao" style="margin:0; font-size:0.75rem;">有道</span>
+                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">有道词典</span>
+            </div>
+            <input type="checkbox" ${isYoudaoChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('youdao', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+        </label>
+
+        <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-tertiary-container); color:var(--md-sys-color-on-tertiary-container);">自建</span>
+                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">自定义词书 (生词本/导入词书)</span>
+            </div>
+            <input type="checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+        </label>
+    `;
+
+    presetItems.forEach(item => {
+        const isHighlight = item.name.includes('考研红宝书') || item.name.includes('高中考纲词汇') || item.name.includes('高考3500');
+        html += `
+            <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
+                    <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}${isHighlight ? ' <span style="font-size:0.75rem; color:var(--md-sys-color-primary); font-weight:600;">(默认展示)</span>' : ''}</span>
+                </div>
+                <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer; flex-shrink:0;">
+            </label>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+window.renderSearchSettingsSourcesList = renderSearchSettingsSourcesList;
+
 function openSearchSettingsModal() {
     const cfg = getSearchConfig();
     const swTabs = document.getElementById('switch-search-enable-tabs');
@@ -24736,6 +25235,7 @@ function openSearchSettingsModal() {
     if (swPhrases) swPhrases.checked = cfg.enablePhrases !== false;
     if (swRelated) swRelated.checked = cfg.enableRelatedLinks !== false;
     if (swKeyboard) swKeyboard.checked = !!cfg.enableVirtualKeyboard;
+    renderSearchSettingsSourcesList();
     const modal = document.getElementById('modal-search-settings');
     if (modal) modal.classList.add('active');
 }
@@ -24870,6 +25370,31 @@ function focusSearchFromHub() {
     }, 50);
 }
 
+function openSearchPageFromHub(showKeyboard = false) {
+    searchPreviousView = 'view-hub';
+    searchPreviousSettingsBookId = null;
+    const hubInp = document.getElementById('hub-search-input');
+    if (hubInp) hubInp.value = ''; // 首页搜索框始终保持清空
+    const clearBtnHub = document.getElementById('hub-search-clear-btn');
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
+    const suggsHub = document.getElementById('hub-search-suggestions');
+    if (suggsHub) suggsHub.style.display = 'none';
+
+    switchView('view-search');
+    const searchInp = document.getElementById('search-page-input');
+    if (searchInp) {
+        showSearchHistoryView();
+        setTimeout(() => {
+            searchInp.focus();
+            if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+                toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+            }
+        }, 60);
+    }
+}
+window.openSearchPageFromHub = openSearchPageFromHub;
+
+
 let searchPreviousView = null;
 let searchPreviousSettingsBookId = null;
 
@@ -24898,6 +25423,13 @@ function jumpToSearchFromSingle() {
 function exitSearchPage() {
     const suggs = document.getElementById('search-page-suggestions');
     if (suggs) suggs.style.display = 'none';
+    const hubInp = document.getElementById('hub-search-input');
+    if (hubInp) hubInp.value = '';
+    const clearBtnHub = document.getElementById('hub-search-clear-btn');
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
+    const suggsHub = document.getElementById('hub-search-suggestions');
+    if (suggsHub) suggsHub.style.display = 'none';
+
     const targetView = searchPreviousView || 'view-hub';
     const targetBookId = searchPreviousSettingsBookId;
     searchPreviousView = null;
@@ -25138,6 +25670,9 @@ function searchLocalBooks(query) {
     const seenBookWord = new Set();
 
     allTargetBooks.forEach(b => {
+        if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
         const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
         let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
@@ -25204,6 +25739,9 @@ function findPhrasesContainingWord(searchWord) {
     } catch (e) { }
 
     allTargetBooks.forEach(b => {
+        if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
         const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
         let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
@@ -25290,6 +25828,8 @@ function findRelatedWords(searchWord, ydEntries = []) {
     const booksToScan = getAllUniqueBooks();
     booksToScan.forEach(b => {
         if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
         words.forEach(w => scanWord(w, b.id));
     });
@@ -25481,8 +26021,8 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     const inpHub = document.getElementById('hub-search-input');
     const clearBtnHub = document.getElementById('hub-search-clear-btn');
     const suggsHub = document.getElementById('hub-search-suggestions');
-    if (inpHub) inpHub.value = clean;
-    if (clearBtnHub) clearBtnHub.style.display = 'flex';
+    if (inpHub) inpHub.value = ''; // 首页搜索框保持清空，不展示搜索内容
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
     if (suggsHub) suggsHub.style.display = 'none';
 
     const searchConfig = getSearchConfig();
@@ -25761,6 +26301,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                 type: 'book',
                 bookId: r.bookId,
                 bookName: r.bookName,
+                isCustom: r.isCustom,
                 segments: segs
             });
         }
@@ -26046,6 +26587,18 @@ function renderSearchExplainsList() {
         return;
     }
 
+    const visibleSources = currentSearchExplainsData.sources.filter(src => {
+        if (src.type === 'book') {
+            if (String(src.bookId || '').includes('实词') || String(src.bookName || '').includes('实词')) return false;
+        }
+        return isSearchSourceEnabled(src);
+    });
+
+    if (visibleSources.length === 0) {
+        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:16px; background:var(--md-sys-color-surface-container-low); border-radius:12px; text-align:center;">当前勾选的词书来源暂未收录该词具体释义<br><span style="font-size:0.82rem; color:var(--md-sys-color-primary); cursor:pointer; margin-top:8px; display:inline-block; font-weight:600;" onclick="openSearchSettingsModal()">点击打开“搜索设置”勾选更多词书</span></div>`;
+        return;
+    }
+
     const posSelectOptions = [
         { value: 'adj.', label: 'adj. 形容词' },
         { value: 'adv.', label: 'adv. 副词' },
@@ -26062,7 +26615,7 @@ function renderSearchExplainsList() {
         { value: '', label: '通用 / 无词性' }
     ];
 
-    container.innerHTML = currentSearchExplainsData.sources.map(src => {
+    container.innerHTML = visibleSources.map(src => {
         const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
 
         return `
@@ -26320,6 +26873,10 @@ async function confirmInlineAddToBook() {
             posGroups[p].push(c.text);
         }
     });
+
+    let customText = '';
+    const customInput = document.getElementById('search-inline-custom-meaning-input');
+    if (customInput) customText = customInput.value.trim();
 
     if (customText) {
         const customSegs = parseMeaningPosSegments(customText);

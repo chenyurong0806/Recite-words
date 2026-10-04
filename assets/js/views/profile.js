@@ -94,6 +94,22 @@ function toggleCurrentWordMastered() {
     if (nowMastered) {
         // 标注熟词后播放加星动画，不立刻跳到下一题
         renderCardMasteryDiamonds(q.word, 'gain');
+
+        // 标为熟词后，在本组学习中也不要再抽取：过滤后续待学 pool 中该词的所有项（含错题即时复测题）
+        const targetClean = (q.word || '').trim().toLowerCase();
+        const currentIdx = singleState.currentIdx;
+        const prevItems = singleState.pool.slice(0, currentIdx + 1);
+        const remainingItems = singleState.pool.slice(currentIdx + 1).filter(item => (item.word || '').trim().toLowerCase() !== targetClean);
+        singleState.pool = prevItems.concat(remainingItems);
+
+        if (!singleState.completedWords) singleState.completedWords = new Set();
+        singleState.completedWords.add(targetClean);
+
+        updateSingleProgressDisplay();
+        saveSingleProgress();
+        if (typeof showToast === 'function') {
+            showToast(`已标为熟词，本组学习将不再抽取“${q.word}”`);
+        }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
         renderCardMasteryDiamonds(q.word, 'loss');
@@ -735,6 +751,8 @@ function checkSinglePhraseAnswer() {
         }).filter(idx => idx !== -1);
         const wKey = (q.word || '').trim().toLowerCase();
         if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+        singleState.sessionMistakes.add(wKey);
         recordUserMistake(currentUser, q.word, q.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         updateSingleProgressDisplay();
@@ -787,6 +805,8 @@ function revealSingleAnswer() {
 
     const wKey = (q.word || '').trim().toLowerCase();
     if (singleState.completedWords) singleState.completedWords.delete(wKey);
+    if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+    singleState.sessionMistakes.add(wKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
@@ -916,6 +936,8 @@ function handleSingleAnswer(idx) {
     } else {
         const wKey = (q.word || '').trim().toLowerCase();
         if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
+        singleState.sessionMistakes.add(wKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
@@ -982,7 +1004,8 @@ function endSingleGame() {
         p1Score: singleState.score,
         p2Score: 0,
         pool: singleState.pool,
-        total: singleState.total || (singleState.pool ? singleState.pool.length : 0)
+        sessionMistakes: Array.from(singleState.sessionMistakes || []),
+        total: singleState.targetTotal || singleState.total || (singleState.pool ? singleState.pool.length : 0)
     };
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
@@ -1349,7 +1372,7 @@ function renderMeView() {
             }
 
             if (typeof updateSyncButtonStatus === 'function') {
-                updateSyncButtonStatus(Boolean(window.lastCloudSyncTimestamp));
+                updateSyncButtonStatus();
             }
 
             // 渲染用户等级卡片 (实际等级分与上限，9段不用显示上限)
@@ -1440,32 +1463,69 @@ function updateSyncButtonStatus(isSynced) {
     const label = btn.querySelector('.btn-label-text');
     const icon = btn.querySelector('.material-symbols-rounded');
 
-    if (isSynced) {
+    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮
+    const autoSync = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+
+    if (autoSync) {
+        btn.style.display = 'none';
+        return;
+    } else {
+        btn.style.display = 'inline-flex';
+    }
+
+    // 2. 检查是否正在同步中
+    if (window.SyncManager && window.SyncManager.isSyncing) {
+        if (icon) {
+            icon.innerText = 'sync';
+            icon.style.animation = 'spin 1s linear infinite';
+        }
+        if (label) label.innerText = '同步中...';
+        btn.disabled = true;
+        btn.style.borderColor = 'var(--md-sys-color-outline)';
+        btn.style.color = 'var(--md-sys-color-outline)';
+        return;
+    }
+
+    if (icon) icon.style.animation = '';
+
+    // 3. 统计本地待同步队列数据
+    const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
+        ? window.SyncManager.pendingQueue.length
+        : 0;
+
+    if (isSynced === true || (isSynced !== false && pendingCount === 0)) {
         isUserDataSynced = true;
         if (icon) icon.innerText = 'check';
-        if (label) label.innerText = '已同步';
+        if (label) label.innerText = '已是最新';
         btn.disabled = false;
         btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
         btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
     } else {
         isUserDataSynced = false;
         if (icon) icon.innerText = 'sync';
-        if (label) label.innerText = '同步数据';
+        if (label) label.innerText = pendingCount > 0 ? `同步数据 (${pendingCount})` : '同步数据';
         btn.disabled = false;
-        btn.style.borderColor = '';
-        btn.style.color = '';
+        btn.style.borderColor = 'var(--md-sys-color-primary)';
+        btn.style.color = 'var(--md-sys-color-primary)';
     }
 }
 window.updateSyncButtonStatus = updateSyncButtonStatus;
 
 async function handleManualSyncUserData() {
     const btn = document.getElementById('btn-sync-cloud-data');
-    if (isUserDataSynced) {
+    const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
+        ? window.SyncManager.pendingQueue.length
+        : 0;
+
+    if (pendingCount === 0 && isUserDataSynced) {
         if (typeof showToast === 'function') {
-            showToast('当前已是最新数据，已同步到云端');
+            showToast('当前已是最新数据，已全部同步到云端');
         }
         return;
     }
+
     if (btn) {
         const icon = btn.querySelector('.material-symbols-rounded');
         const label = btn.querySelector('.btn-label-text');
@@ -1473,9 +1533,13 @@ async function handleManualSyncUserData() {
         if (label) label.innerText = '同步中...';
         btn.disabled = true;
     }
+
     try {
-        if (typeof syncAllUserDataToCloud === 'function') {
-            const res = await syncAllUserDataToCloud();
+        if (window.SyncManager && typeof window.SyncManager.flush === 'function') {
+            await window.SyncManager.flush({ force: true, silent: false });
+            updateSyncButtonStatus(true);
+        } else if (typeof syncAllUserDataToCloud === 'function') {
+            const res = await syncAllUserDataToCloud(currentUser, { silent: false });
             if (res && res.success) {
                 updateSyncButtonStatus(true);
                 if (typeof showToast === 'function') {
@@ -1486,15 +1550,13 @@ async function handleManualSyncUserData() {
             }
         }
     } catch (e) {
+        console.error('[Sync] Manual sync failed:', e);
         updateSyncButtonStatus(false);
         if (typeof showToast === 'function') {
             showToast('数据同步失败，请检查网络');
         }
     } finally {
-        if (btn) {
-            const icon = btn.querySelector('.material-symbols-rounded');
-            if (icon) icon.style.animation = '';
-        }
+        updateSyncButtonStatus();
     }
 }
 window.handleManualSyncUserData = handleManualSyncUserData;

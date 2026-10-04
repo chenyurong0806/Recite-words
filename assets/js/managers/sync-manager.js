@@ -62,6 +62,9 @@ const SyncManager = {
         } catch (e) {
             this.pendingQueue = [];
         }
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
     },
 
     saveQueue() {
@@ -91,12 +94,25 @@ const SyncManager = {
         this.pendingQueue.push(record);
         this.saveQueue();
 
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
+
+        const autoSync = (typeof isAutoSyncEnabled === 'function')
+            ? isAutoSyncEnabled()
+            : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+
+        if (!autoSync && !immediate) {
+            // 用户在设置中关闭了自动同步：数据安全保留在本地队列中，等待手动同步
+            return;
+        }
+
         if (immediate) {
             this.flush({ silent: false, force: true });
         } else {
-            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条则立刻批量推送
+            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条且未在同步中则推送
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
-            if (this.pendingQueue.length >= 10) {
+            if (this.pendingQueue.length >= 10 && !this.isSyncing) {
                 this.flush({ silent: true });
             } else {
                 this.debounceTimer = setTimeout(() => {
@@ -107,7 +123,7 @@ const SyncManager = {
     },
 
     /**
-     * 批量推送到云端 (使用单次批量 upsert，失败自动保留重试)
+     * 批量推送到云端 (使用单次批量写入，失败自动保留重试)
      */
     async flush(options = {}) {
         if (this.isSyncing) return;
@@ -128,6 +144,9 @@ const SyncManager = {
         }
 
         this.isSyncing = true;
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
         const snapshot = [...this.pendingQueue];
 
         try {
@@ -143,27 +162,56 @@ const SyncManager = {
                     this.pendingQueue = this.pendingQueue.filter(i => !syncedIds.has(i.id));
                     this.saveQueue();
                     this.retryDelay = 5000;
+                    this.isSyncing = false;
+                    if (typeof updateSyncButtonStatus === 'function') {
+                        updateSyncButtonStatus(true);
+                    }
                     console.log(`[SyncManager] 成功批量同步 ${snapshot.length} 条记录至 Supabase 云端`);
                 } else {
                     console.warn('[SyncManager] 批量同步未完成，数据留在本地队列将在下次重试:', res ? res.error : '未知错误');
+                    const curDelay = this.retryDelay;
+                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
                     setTimeout(() => {
                         this.isSyncing = false;
-                    }, this.retryDelay);
-                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-                    this.isSyncing = false;
+                        if (typeof updateSyncButtonStatus === 'function') {
+                            updateSyncButtonStatus(false);
+                        }
+                    }, curDelay);
                     return;
+                }
+            } else {
+                this.isSyncing = false;
+                if (typeof updateSyncButtonStatus === 'function') {
+                    updateSyncButtonStatus();
                 }
             }
         } catch (e) {
             console.warn('[SyncManager] 批量同步异常，数据保留在本地队列:', e);
+            const curDelay = this.retryDelay;
             this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-        } finally {
-            this.isSyncing = false;
+            setTimeout(() => {
+                this.isSyncing = false;
+                if (typeof updateSyncButtonStatus === 'function') {
+                    updateSyncButtonStatus(false);
+                }
+            }, curDelay);
         }
     }
 };
 
 window.SyncManager = SyncManager;
+
+if (typeof window.isAutoSyncEnabled !== 'function') {
+    window.isAutoSyncEnabled = function() {
+        try {
+            const val = localStorage.getItem('vocab_auto_sync_enabled');
+            if (val === null) return true;
+            return val === 'true' || val === true || val === '1';
+        } catch (e) {
+            return true;
+        }
+    };
+}
 
 // 自动初始化
 if (typeof document !== 'undefined') {

@@ -86,6 +86,23 @@ let currentUserProfile = {
 };
 
 function refreshCurrentUserProfileFromStorage() {
+    const isExplicitLoggedOut = SafeStorage.getItem('vocab_user_logged_out') === 'true';
+    if (isExplicitLoggedOut) {
+        // 用户明确点击了退出登录，不自动从 session、device_accounts 或历史缓存中还原已登录账号
+        const guestId = SafeStorage.getItem('vocab_guest_name') || SafeStorage.getItem('vocab_pk_user') || getUniqueGuestName();
+        currentUser = guestId;
+        currentUserProfile = {
+            isLoggedIn: false,
+            type: 'guest',
+            username: guestId,
+            avatar: '',
+            openId: ''
+        };
+        window.currentUser = currentUser;
+        window.currentUserProfile = currentUserProfile;
+        return false;
+    }
+
     try {
         const savedSession = SafeStorage.getItem('vocab_auth_session');
         if (savedSession) {

@@ -36,22 +36,31 @@ function filterSettlementList(filter, btn) {
     });
 }
 
-function renderSingleSummaryHtml(pool) {
+function renderSingleSummaryHtml(pool, sessionMistakes) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
 
-    // 去重：同一道题（单词/词组）答错多次不重复展示
+    const mistakeSet = new Set(
+        Array.isArray(sessionMistakes) ? sessionMistakes.map(s => String(s).trim().toLowerCase()) :
+        (sessionMistakes instanceof Set ? Array.from(sessionMistakes).map(s => String(s).trim().toLowerCase()) : [])
+    );
+
+    // 去重：同一道题（单词/词组）答错多次不重复展示；只要答错一次即在小结中归为错题
     const uniquePool = [];
     const seenWords = new Map();
     pool.forEach(q => {
         if (!q || !q.word) return;
         const key = q.word.trim().toLowerCase();
+        const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
         if (!seenWords.has(key)) {
             const itemCopy = { ...q };
+            if (wasEverMistake) {
+                itemCopy.isCorrect = false;
+            }
             seenWords.set(key, itemCopy);
             uniquePool.push(itemCopy);
         } else {
             const existing = seenWords.get(key);
-            if (!q.isCorrect) {
+            if (wasEverMistake) {
                 existing.isCorrect = false;
                 if (q.wrongSlotIndices && q.wrongSlotIndices.length > 0) {
                     existing.wrongSlotIndices = q.wrongSlotIndices;
@@ -1443,7 +1452,13 @@ function toggleCurrentShiCiMastered() {
         shiciProgress.masteredWords[w] = true;
         ShiCiEbbinghausEngine.recordWord(w, meaningStr, currentQ.pinyin, true, true);
         renderShiCiMasteryDiamonds(w, 'gain');
-        showToast(`已将【${w}】标记为熟词`);
+        showToast(`已将【${w}】标记为熟词，本组不再抽取`);
+
+        // 从当前题之后的 pool 中移除该词
+        const curIdx = shiciState.currentIdx;
+        const prev = shiciState.pool.slice(0, curIdx + 1);
+        const rem = shiciState.pool.slice(curIdx + 1).filter(item => item && item.word !== w);
+        shiciState.pool = prev.concat(rem);
     } else {
         delete shiciProgress.masteredWords[w];
         ShiCiEbbinghausEngine.unmarkMastered(w);

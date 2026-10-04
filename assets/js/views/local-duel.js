@@ -168,6 +168,7 @@ function updateLocalDuelBookSummaryUI() {
     updateLocalDuelStartButtonState();
 }
 window.updateLocalDuelBookSummaryUI = updateLocalDuelBookSummaryUI;
+window.renderLocalDuelBookChips = updateLocalDuelBookSummaryUI;
 
 function updateLocalDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-local-duel');

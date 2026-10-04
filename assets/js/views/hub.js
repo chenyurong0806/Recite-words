@@ -79,6 +79,12 @@ function switchView(viewId) {
 
     if (viewId === 'view-hub') {
         updateHub();
+        const hubInp = document.getElementById('hub-search-input');
+        if (hubInp) hubInp.value = '';
+        const hubClear = document.getElementById('hub-search-clear-btn');
+        if (hubClear) hubClear.style.display = 'none';
+        const hubSuggs = document.getElementById('hub-search-suggestions');
+        if (hubSuggs) hubSuggs.style.display = 'none';
         if (currentUser && typeof initGlobalPresence === 'function') {
             initGlobalPresence();
         }
@@ -93,9 +99,13 @@ function switchView(viewId) {
             switchSettingsSubview('main');
         }
     } else if (viewId === 'view-online') {
-        if (typeof fetchOnlineRoomsList === 'function') {
-            fetchOnlineRoomsList();
-            initGlobalPresence();
+        const inRoomEl = document.getElementById('online-in-room');
+        const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+        if (!isInRoom) {
+            if (typeof fetchOnlineRoomsList === 'function') {
+                fetchOnlineRoomsList();
+                initGlobalPresence();
+            }
         }
     } else if (viewId === 'view-search') {
         const searchInp = document.getElementById('search-page-input');
@@ -456,12 +466,14 @@ async function loadCustomBook(e) {
     BookManager.mergeCustomBooks();
 
     // 立即刷新所有相关词书列表
-    renderSingleBookList();
-    renderRoomBookChips();
-    renderLocalDuelBookChips();
-    renderAiDuelBookChips();
-    renderManageLocalBooksInSettings();
-    renderSettingsBooksSummary();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
+    if (typeof renderLocalDuelBookChips === 'function') renderLocalDuelBookChips();
+    else if (typeof updateLocalDuelBookSummaryUI === 'function') updateLocalDuelBookSummaryUI();
+    if (typeof renderAiDuelBookChips === 'function') renderAiDuelBookChips();
+    else if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
+    if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
+    if (typeof renderSettingsBooksSummary === 'function') renderSettingsBooksSummary();
 
     if (successCount > 0) {
         if (successCount === 1) {

@@ -341,38 +341,38 @@
 
                 <!-- 已登录用户：专属房间预设概览卡片 -->
                 <div id="create-invite-preset-view" style="display:none;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <div style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface);" id="create-invite-preset-name">使用专属房间预设</div>
-                        <button type="button" class="btn btn-tonal btn-sm" id="btn-toggle-edit-invite-rules" onclick="toggleEditInviteRules()" style="height:30px; font-size:0.78rem; padding:0 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="create-invite-preset-name">使用专属房间预设</div>
+                        <button type="button" class="btn btn-tonal btn-sm" id="btn-toggle-edit-invite-rules" onclick="toggleEditInviteRules()" style="height:30px; font-size:0.78rem; padding:0 10px; flex-shrink:0;">
                             <span class="material-symbols-rounded" style="font-size:15px;" id="icon-toggle-invite-rules">edit</span>
                             <span id="text-toggle-invite-rules">修改规则</span>
                         </button>
                     </div>
-                    <div id="create-invite-preset-summary" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:var(--md-sys-color-surface-container-low); padding:12px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">sports_esports</span>
-                            <div style="min-width:0;">
+                    <div id="create-invite-preset-summary" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:10px 14px; background:var(--md-sys-color-surface-container-low); padding:12px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); flex-shrink:0;">sports_esports</span>
+                            <div style="min-width:0; flex:1;">
                                 <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">对战模式</div>
-                                <div id="create-invite-summary-mode" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">排位赛</div>
+                                <div id="create-invite-summary-mode" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">排位赛</div>
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">emoji_events</span>
-                            <div style="min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); flex-shrink:0;">emoji_events</span>
+                            <div style="min-width:0; flex:1;">
                                 <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">胜出规则</div>
-                                <div id="create-invite-summary-rule" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">领先 6 题</div>
+                                <div id="create-invite-summary-rule" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">领先 6 题</div>
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">speed</span>
-                            <div style="min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); flex-shrink:0;">speed</span>
+                            <div style="min-width:0; flex:1;">
                                 <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">仪表盘样式</div>
-                                <div id="create-invite-summary-gauge" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface);">拔河</div>
+                                <div id="create-invite-summary-gauge" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">拔河</div>
                             </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">menu_book</span>
-                            <div style="min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:0; grid-column: 1 / -1; padding-top:6px; border-top:1px dashed var(--md-sys-color-outline-variant);">
+                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); flex-shrink:0;">menu_book</span>
+                            <div style="min-width:0; flex:1;">
                                 <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">对决词书</div>
                                 <div id="create-invite-summary-book" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">高中考纲词汇</div>
                             </div>
@@ -702,15 +702,15 @@
                 </div>
             </div>
 
-            <!-- 首页上方搜索栏 (支持即时联想与直接回车进入独立搜索结果页) -->
+            <!-- 首页上方搜索栏 (点击直接进入独立查词/搜索页面) -->
             <div class="hub-search-wrapper" id="hub-search-wrapper">
-                <div class="hub-search-bar">
+                <div class="hub-search-bar" onclick="openSearchPageFromHub()" style="cursor:pointer;">
                     <span class="material-symbols-rounded hub-search-icon">search</span>
-                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleHubSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleHubSearchEnter(this);}">
-                    <button type="button" class="hub-search-clear-btn" id="hub-search-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearHubSearch(event)">
+                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" onfocus="openSearchPageFromHub()" onclick="openSearchPageFromHub()" readonly>
+                    <button type="button" class="hub-search-clear-btn" id="hub-search-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="event.stopPropagation(); clearHubSearch(event)">
                         <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
                     </button>
-                    <button type="button" class="hub-search-keyboard-btn" id="hub-search-keyboard-btn" title="弹出虚拟键盘" onclick="toggleVirtualKeyboardFromSearch(event, 'hub-search-input')">
+                    <button type="button" class="hub-search-keyboard-btn" id="hub-search-keyboard-btn" title="弹出虚拟键盘" onclick="event.stopPropagation(); openSearchPageFromHub(true)">
                         <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">keyboard</span>
                     </button>
                 </div>
@@ -1056,7 +1056,7 @@
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <button id="btn-sync-cloud-data" type="button" class="btn btn-outlined btn-sm" onclick="handleManualSyncUserData()" style="padding: 3px 12px; font-size: 0.82rem; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px;">
+                                <button id="btn-sync-cloud-data" type="button" class="btn btn-outlined btn-sm" onclick="handleManualSyncUserData()" style="padding: 3px 12px; font-size: 0.82rem; height: 32px; border-radius: 999px; display: none; align-items: center; gap: 4px;">
                                     <span class="material-symbols-rounded" style="font-size: 16px;">sync</span>
                                     <span class="btn-label-text">同步数据</span>
                                 </button>
@@ -2515,6 +2515,23 @@
                     <span>数据备份与管理</span>
                 </div>
                 <div class="settings-card">
+                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">cloud_sync</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>自动同步</h4>
+                                <p>数据将自动同步至云端，关闭后请在“我”页面手动同步</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" id="switch-auto-sync-label">
+                            <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
                     <div class="settings-row" style="flex-wrap:wrap; gap:12px;">
                         <div class="settings-row-left" style="flex:1; min-width:200px;">
                             <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
@@ -3174,6 +3191,14 @@
                             <span class="md3-switch-thumb"></span>
                         </span>
                     </label>
+                </div>
+
+                <div class="search-settings-sources-section" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
+                    <div style="margin-bottom:8px;">
+                        <span class="rule-label" style="margin:0; font-size:0.92rem; font-weight:700;">释义来源词书</span>
+                        <p style="font-size:0.78rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">默认只展示有道词典、高考考纲词汇、考研红宝书及自定义词书</p>
+                    </div>
+                    <div id="search-settings-sources-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
                 </div>
             </div>
 

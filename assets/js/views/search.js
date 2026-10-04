@@ -911,6 +911,124 @@ function saveSearchConfig(cfg) {
     } catch (e) { }
 }
 
+function isSearchSourceEnabled(src) {
+    if (!src) return false;
+    const cfg = getSearchConfig();
+    const visibility = cfg.sourceVisibility || {};
+
+    if (src.type === 'youdao' || src.id === 'youdao') {
+        if (visibility['youdao'] !== undefined) return !!visibility['youdao'];
+        return true; // 默认展示有道词典
+    }
+
+    const isCustom = src.isCustom || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(src.bookId)) || String(src.bookId || '').startsWith('custom_') || (window.customBooks && window.customBooks.some(cb => cb.id === src.bookId));
+    if (isCustom) {
+        if (visibility[src.bookId] !== undefined) return !!visibility[src.bookId];
+        if (visibility['__custom__'] !== undefined) return !!visibility['__custom__'];
+        return true; // 默认展示自定义词书
+    }
+
+    // 经典/官方词书
+    const bookId = src.bookId || src.id || '';
+    const rawName = (src.bookName || src.name || '').replace(/^[《📂📁\s]+|[》\s]+$/g, '');
+
+    // 排除实词
+    if (rawName.includes('实词') || bookId.includes('实词')) return false;
+
+    // 检查用户是否有针对该词书的手动勾选设置
+    if (visibility[bookId] !== undefined) return !!visibility[bookId];
+    if (visibility[rawName] !== undefined) return !!visibility[rawName];
+
+    // 默认展示的词书：高考考纲词汇、考研红宝书
+    if (rawName.includes('考研红宝书') || bookId.includes('考研红宝书')) {
+        return true;
+    }
+    if (rawName.includes('高中考纲词汇') || rawName.includes('高考考纲词汇') || rawName.includes('高考3500') || rawName.includes('默认词书') || bookId.includes('高中考纲词汇') || bookId === 'builtin_default' || bookId === 'GaoKao3500') {
+        return true;
+    }
+
+    // 其余官方词书默认不勾选展示
+    return false;
+}
+window.isSearchSourceEnabled = isSearchSourceEnabled;
+
+function updateSearchSourceSetting(key, val) {
+    const cfg = getSearchConfig();
+    if (!cfg.sourceVisibility) cfg.sourceVisibility = {};
+    cfg.sourceVisibility[key] = !!val;
+    saveSearchConfig(cfg);
+    if (typeof renderSearchExplainsList === 'function') {
+        renderSearchExplainsList();
+    }
+}
+window.updateSearchSourceSetting = updateSearchSourceSetting;
+
+function renderSearchSettingsSourcesList() {
+    const container = document.getElementById('search-settings-sources-list');
+    if (!container) return;
+
+    // 1. 获取所有词书，并排除实词与自定义词书（自定义词书由独立项统一控制）
+    const allBooks = (typeof getAllUniqueBooks === 'function') ? getAllUniqueBooks() : [];
+    const nonShiCiBooks = allBooks.filter(b => {
+        if (!b) return false;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return false;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return false;
+        if (String(b.id || '').startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(b.id))) return false;
+        return true;
+    });
+
+    // 词书去重 (依据干净名称)
+    const presetItems = [];
+    const seenNames = new Set();
+    nonShiCiBooks.forEach(b => {
+        const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+        if (!name || seenNames.has(name)) return;
+        seenNames.add(name);
+        presetItems.push({
+            id: b.id,
+            name: name,
+            checked: isSearchSourceEnabled({ type: 'book', bookId: b.id, bookName: name })
+        });
+    });
+
+    const isYoudaoChecked = isSearchSourceEnabled({ type: 'youdao', id: 'youdao' });
+    const isCustomChecked = isSearchSourceEnabled({ type: 'book', bookId: '__custom__', isCustom: true });
+
+    let html = `
+        <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="unified-source-badge youdao" style="margin:0; font-size:0.75rem;">有道</span>
+                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">有道词典</span>
+            </div>
+            <input type="checkbox" ${isYoudaoChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('youdao', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+        </label>
+
+        <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-tertiary-container); color:var(--md-sys-color-on-tertiary-container);">自建</span>
+                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">自定义词书 (生词本/导入词书)</span>
+            </div>
+            <input type="checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+        </label>
+    `;
+
+    presetItems.forEach(item => {
+        const isHighlight = item.name.includes('考研红宝书') || item.name.includes('高中考纲词汇') || item.name.includes('高考3500');
+        html += `
+            <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
+                    <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}${isHighlight ? ' <span style="font-size:0.75rem; color:var(--md-sys-color-primary); font-weight:600;">(默认展示)</span>' : ''}</span>
+                </div>
+                <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer; flex-shrink:0;">
+            </label>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+window.renderSearchSettingsSourcesList = renderSearchSettingsSourcesList;
+
 function openSearchSettingsModal() {
     const cfg = getSearchConfig();
     const swTabs = document.getElementById('switch-search-enable-tabs');
@@ -921,6 +1039,7 @@ function openSearchSettingsModal() {
     if (swPhrases) swPhrases.checked = cfg.enablePhrases !== false;
     if (swRelated) swRelated.checked = cfg.enableRelatedLinks !== false;
     if (swKeyboard) swKeyboard.checked = !!cfg.enableVirtualKeyboard;
+    renderSearchSettingsSourcesList();
     const modal = document.getElementById('modal-search-settings');
     if (modal) modal.classList.add('active');
 }
@@ -1055,6 +1174,31 @@ function focusSearchFromHub() {
     }, 50);
 }
 
+function openSearchPageFromHub(showKeyboard = false) {
+    searchPreviousView = 'view-hub';
+    searchPreviousSettingsBookId = null;
+    const hubInp = document.getElementById('hub-search-input');
+    if (hubInp) hubInp.value = ''; // 首页搜索框始终保持清空
+    const clearBtnHub = document.getElementById('hub-search-clear-btn');
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
+    const suggsHub = document.getElementById('hub-search-suggestions');
+    if (suggsHub) suggsHub.style.display = 'none';
+
+    switchView('view-search');
+    const searchInp = document.getElementById('search-page-input');
+    if (searchInp) {
+        showSearchHistoryView();
+        setTimeout(() => {
+            searchInp.focus();
+            if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+                toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+            }
+        }, 60);
+    }
+}
+window.openSearchPageFromHub = openSearchPageFromHub;
+
+
 let searchPreviousView = null;
 let searchPreviousSettingsBookId = null;
 
@@ -1083,6 +1227,13 @@ function jumpToSearchFromSingle() {
 function exitSearchPage() {
     const suggs = document.getElementById('search-page-suggestions');
     if (suggs) suggs.style.display = 'none';
+    const hubInp = document.getElementById('hub-search-input');
+    if (hubInp) hubInp.value = '';
+    const clearBtnHub = document.getElementById('hub-search-clear-btn');
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
+    const suggsHub = document.getElementById('hub-search-suggestions');
+    if (suggsHub) suggsHub.style.display = 'none';
+
     const targetView = searchPreviousView || 'view-hub';
     const targetBookId = searchPreviousSettingsBookId;
     searchPreviousView = null;
@@ -1323,6 +1474,9 @@ function searchLocalBooks(query) {
     const seenBookWord = new Set();
 
     allTargetBooks.forEach(b => {
+        if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
         const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
         let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
@@ -1389,6 +1543,9 @@ function findPhrasesContainingWord(searchWord) {
     } catch (e) { }
 
     allTargetBooks.forEach(b => {
+        if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
         const normId = String(b.id || '').replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
         let words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null);
@@ -1475,6 +1632,8 @@ function findRelatedWords(searchWord, ydEntries = []) {
     const booksToScan = getAllUniqueBooks();
     booksToScan.forEach(b => {
         if (!b) return;
+        if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return;
+        if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return;
         const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
         words.forEach(w => scanWord(w, b.id));
     });
@@ -1666,8 +1825,8 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     const inpHub = document.getElementById('hub-search-input');
     const clearBtnHub = document.getElementById('hub-search-clear-btn');
     const suggsHub = document.getElementById('hub-search-suggestions');
-    if (inpHub) inpHub.value = clean;
-    if (clearBtnHub) clearBtnHub.style.display = 'flex';
+    if (inpHub) inpHub.value = ''; // 首页搜索框保持清空，不展示搜索内容
+    if (clearBtnHub) clearBtnHub.style.display = 'none';
     if (suggsHub) suggsHub.style.display = 'none';
 
     const searchConfig = getSearchConfig();
@@ -1946,6 +2105,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                 type: 'book',
                 bookId: r.bookId,
                 bookName: r.bookName,
+                isCustom: r.isCustom,
                 segments: segs
             });
         }
@@ -2231,6 +2391,18 @@ function renderSearchExplainsList() {
         return;
     }
 
+    const visibleSources = currentSearchExplainsData.sources.filter(src => {
+        if (src.type === 'book') {
+            if (String(src.bookId || '').includes('实词') || String(src.bookName || '').includes('实词')) return false;
+        }
+        return isSearchSourceEnabled(src);
+    });
+
+    if (visibleSources.length === 0) {
+        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:16px; background:var(--md-sys-color-surface-container-low); border-radius:12px; text-align:center;">当前勾选的词书来源暂未收录该词具体释义<br><span style="font-size:0.82rem; color:var(--md-sys-color-primary); cursor:pointer; margin-top:8px; display:inline-block; font-weight:600;" onclick="openSearchSettingsModal()">点击打开“搜索设置”勾选更多词书</span></div>`;
+        return;
+    }
+
     const posSelectOptions = [
         { value: 'adj.', label: 'adj. 形容词' },
         { value: 'adv.', label: 'adv. 副词' },
@@ -2247,7 +2419,7 @@ function renderSearchExplainsList() {
         { value: '', label: '通用 / 无词性' }
     ];
 
-    container.innerHTML = currentSearchExplainsData.sources.map(src => {
+    container.innerHTML = visibleSources.map(src => {
         const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
 
         return `
@@ -2505,6 +2677,10 @@ async function confirmInlineAddToBook() {
             posGroups[p].push(c.text);
         }
     });
+
+    let customText = '';
+    const customInput = document.getElementById('search-inline-custom-meaning-input');
+    if (customInput) customText = customInput.value.trim();
 
     if (customText) {
         const customSegs = parseMeaningPosSegments(customText);

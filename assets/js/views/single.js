@@ -492,6 +492,7 @@ function saveSingleProgress() {
         total: singleState.total,
         targetTotal: singleState.targetTotal,
         completedWords: Array.from(singleState.completedWords || []),
+        sessionMistakes: Array.from(singleState.sessionMistakes || []),
         sessionName: singleState.sessionName,
         isReview: isRev,
         time: Date.now()
@@ -520,6 +521,7 @@ async function startSingleLearning() {
                         total: parsed.total || 0,
                         targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
+                        sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '新词学习',
                         isReview: false,
                         answered: false,
@@ -723,6 +725,7 @@ async function startSingleReview(specificBookId = null) {
                         total: parsed.total || 0,
                         targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
+                        sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '智能复习',
                         isReview: true,
                         answered: false,
@@ -928,6 +931,7 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
         total: 0,
         targetTotal: targetTot,
         completedWords: new Set(),
+        sessionMistakes: new Set(),
         sessionName: defaultBookName,
         isReview: isRev
     };

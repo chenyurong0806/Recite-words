@@ -183,6 +183,7 @@ async function selectSavedAccountToLogin(username) {
     try {
         const user = await withAuthTimeout(supabaseLoginWithHash(acc.username, acc.hashedPassword), 5000, '登录请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(user.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
         acc.lastLoginTime = Date.now();
         SafeStorage.setItem('vocab_device_accounts', JSON.stringify(list));
 
@@ -283,6 +284,7 @@ async function handleCloudLogin() {
         const hashedPassword = await hashPassword(password);
         const user = await withAuthTimeout(supabaseLoginUser({ username, password }), 5000, '登录请求超时（5秒），网络较慢或服务器暂未响应，请稍后重试');
         await prepareUserSwitch(user.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
         recordDeviceAccount(user.username, user.avatar_url || '', 'cloud', hashedPassword);
 
         const profile = {
@@ -363,6 +365,7 @@ async function handleCloudRegister() {
             avatar: regAvatarDataUrl
         }), 5000, '注册请求超时（5秒），请检查网络后重试');
         await prepareUserSwitch(newUser.username);
+        SafeStorage.removeItem('vocab_user_logged_out');
 
         const hashedPassword = await hashPassword(password);
         const profile = {
@@ -483,8 +486,10 @@ function handleAuthLogout(notify = true) {
         avatar: '',
         openId: ''
     };
+    SafeStorage.setItem('vocab_user_logged_out', 'true');
     SafeStorage.removeItem('vocab_auth_session');
     SafeStorage.setItem('vocab_pk_user', guestName);
+    SafeStorage.setItem('vocab_guest_name', guestName);
     loadUserData(guestName, currentUserProfile);
     if (notify) {
         showToast('已退出登录');

@@ -131,6 +131,15 @@ if (sbClient && sbClient.realtime) {
 /* ==========================================================================
    1.2 关键信令 ACK 确认重传机制 (解决跨境外网邀请丢失问题)
    ========================================================================== */
+if (!window.pendingReliableAcks) window.pendingReliableAcks = new Map();
+window.handleSignalAck = function (payload) {
+    if (!payload || !payload.msgId) return;
+    const handler = window.pendingReliableAcks.get(payload.msgId);
+    if (typeof handler === 'function') {
+        handler(payload);
+    }
+};
+
 function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, maxRetries = 3) {
     if (!channel) {
         return Promise.reject(new Error('Channel is not initialized'));
@@ -158,6 +167,9 @@ function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, max
                 clearTimeout(retryTimer);
                 retryTimer = null;
             }
+            if (window.pendingReliableAcks) {
+                window.pendingReliableAcks.delete(msgId);
+            }
             if (channel._reliableAckMap && channel._reliableAckMap[ackEvent]) {
                 delete channel._reliableAckMap[ackEvent];
             }
@@ -171,12 +183,16 @@ function sendReliableBroadcast(channel, event, payload = {}, timeout = 3000, max
             resolve(ackPayload);
         };
 
+        window.pendingReliableAcks.set(msgId, onAck);
+
         if (!channel._reliableAckMap) {
             channel._reliableAckMap = {};
             try {
                 channel.on('broadcast', { event: '*' }, ({ event: ev, payload: p }) => {
                     if (ev && ev.startsWith('ack_') && channel._reliableAckMap[ev]) {
                         channel._reliableAckMap[ev](p);
+                    } else if (ev === 'signal_ack' && p && p.msgId) {
+                        window.handleSignalAck(p);
                     }
                 });
             } catch (e) {}
@@ -731,7 +747,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 body: JSON.stringify(updateObj),
                 keepalive: true
             }).catch(() => { });
-            return;
+            return { success: true };
         } catch (e) { }
     }
 
@@ -740,23 +756,21 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
             let updateError = null;
             const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
 
-            // 采用 upsert 进行单次批量写入，替代单条反复写入
+            // 更新已存在用户的全量数据 (使用 update 避免触发 password NOT NULL 检查)
             const { error } = await sbClient
                 .from('user_accounts')
-                .upsert({
-                    username: u,
-                    ...updateObj
-                }, { onConflict: 'username' });
+                .update(updateObj)
+                .eq('username', u);
 
             if (error) {
                 if (error.message && error.message.includes('level')) {
                     const { error: err2 } = await sbClient
                         .from('user_accounts')
-                        .upsert({
-                            username: u,
+                        .update({
                             user_data: payload,
                             updated_at: payload.updated_at
-                        }, { onConflict: 'username' });
+                        })
+                        .eq('username', u);
                     if (err2) updateError = err2;
                 } else {
                     updateError = error;

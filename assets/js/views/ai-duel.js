@@ -194,6 +194,7 @@ function updateAiDuelBookSummaryUI() {
     updateAiDuelStartButtonState();
 }
 window.updateAiDuelBookSummaryUI = updateAiDuelBookSummaryUI;
+window.renderAiDuelBookChips = updateAiDuelBookSummaryUI;
 
 function updateAiDuelStartButtonState() {
     const startBtn = document.getElementById('btn-start-ai-duel');

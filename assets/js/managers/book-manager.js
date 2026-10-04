@@ -44,12 +44,36 @@ const BookManager = {
         { id: 'books/实词/高中300实词.json', name: '高中300实词', category: '实词', count: 300, path: 'books/实词/高中300实词.json', isCloud: true }
     ],
 
+    isMeteredConnection() {
+        try {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                if (conn.saveData) return true;
+                if (conn.type === 'cellular') return true;
+                if (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g' || conn.effectiveType === '3g') return true;
+            }
+        } catch (e) { }
+        return false;
+    },
+
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
         const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高中考纲词汇', 'books/经典/高中考纲词汇.json');
         this.bookCache['books/经典/高中考纲词汇.json'] = normGaoKao;
         this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
         this.bookCache['GaoKao3500'] = normGaoKao;
+
+        // 尝试从本地 localStorage 还原缓存的云端词书列表
+        try {
+            const cachedCloudList = localStorage.getItem('vocab_cached_cloud_books');
+            if (cachedCloudList) {
+                const parsed = JSON.parse(cachedCloudList);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.availableBooks = parsed;
+                }
+            }
+        } catch (e) { }
+
         try {
             await VocabOfflineDB.init();
             const offlineBooks = await VocabOfflineDB.getAllBooks();
@@ -76,6 +100,22 @@ const BookManager = {
         } catch (e) {
             console.warn('[BookManager] Offline books load error:', e);
         }
+
+        this.mergeCustomBooks();
+
+        // 流量环境下降低同步词书列表频率，节省流量消耗（流量下每 7 天同步一次，WiFi 下每 24 小时检查一次）
+        const isMetered = this.isMeteredConnection();
+        const lastFetchTime = parseInt(localStorage.getItem('vocab_last_books_fetch_time') || '0', 10);
+        const cacheAge = Date.now() - lastFetchTime;
+        const syncInterval = isMetered ? (7 * 24 * 3600 * 1000) : (24 * 3600 * 1000);
+        const hasBooks = (this.availableBooks && this.availableBooks.length > 0);
+
+        if (hasBooks && cacheAge < syncInterval) {
+            console.log(`[BookManager] 词书列表缓存有效 (上次更新: ${Math.round(cacheAge / 60000)}分钟前, 流量环境: ${isMetered})，跳过自动网络同步`);
+            this.preloadAllWorkerBooks().catch(() => {});
+            return;
+        }
+
         // 异步后台获取最新词书列表并预加载，避免阻塞初始化及卡顿
         this.fetchBookList().then(() => {
             this.preloadAllWorkerBooks();
@@ -93,6 +133,20 @@ const BookManager = {
             this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
             this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
         }
+
+        // 流量环境下不进行全量云端词书预下载，改为按需加载以节省流量消耗
+        if (this.isMeteredConnection()) {
+            console.log('[BookManager] 检测到移动流量/节流网络，跳过后台全量词书预下载，改为按需加载');
+            const selectedIds = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds))
+                ? singleSelectedBookIds : ['books/经典/高中考纲词汇.json'];
+            for (const bId of selectedIds) {
+                if (bId && !this.bookCache[bId]) {
+                    await this.loadBookData(bId).catch(() => {});
+                }
+            }
+            return;
+        }
+
         const targetList = (Array.isArray(this.availableBooks) && this.availableBooks.length > 0)
             ? this.availableBooks
             : this.fallbackBooks;
@@ -159,6 +213,10 @@ const BookManager = {
                 isCloud: true
             }));
             this.mergeCustomBooks();
+            try {
+                localStorage.setItem('vocab_cached_cloud_books', JSON.stringify(this.availableBooks.filter(b => b.isCloud)));
+                localStorage.setItem('vocab_last_books_fetch_time', Date.now().toString());
+            } catch (e) { }
             if (banner) banner.style.display = 'none';
             return { success: true, books: this.availableBooks };
         } else {

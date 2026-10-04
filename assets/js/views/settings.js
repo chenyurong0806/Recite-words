@@ -224,6 +224,11 @@ function renderSettingsMain() {
         chip.classList.toggle('selected', chip.getAttribute('data-kb') === String(kbEnabled));
     });
 
+    const autoSyncSwitch = document.getElementById('switch-auto-sync');
+    if (autoSyncSwitch) {
+        autoSyncSwitch.checked = typeof isAutoSyncEnabled === 'function' ? isAutoSyncEnabled() : true;
+    }
+
     const summaryEl = document.getElementById('settings-books-summary-text');
     if (summaryEl) {
         const customCount = (window.customBooks || []).length;
@@ -760,10 +765,18 @@ async function confirmDeleteCustomBook(bookId, bookName) {
     localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
     await VocabOfflineDB.deleteBook(bookId);
     renderManageLocalBooksInSettings();
-    renderSingleBookList();
-    renderRoomBookChips();
-    renderLocalDuelBookChips();
-    renderAiDuelBookChips();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
+    if (typeof renderLocalDuelBookChips === 'function') {
+        renderLocalDuelBookChips();
+    } else if (typeof updateLocalDuelBookSummaryUI === 'function') {
+        updateLocalDuelBookSummaryUI();
+    }
+    if (typeof renderAiDuelBookChips === 'function') {
+        renderAiDuelBookChips();
+    } else if (typeof updateAiDuelBookSummaryUI === 'function') {
+        updateAiDuelBookSummaryUI();
+    }
     showToast(`已删除本地词书【${bookName}】`);
 }
 
@@ -1986,3 +1999,27 @@ function filterSettingsRows(query) {
         }
     });
 }
+
+function isAutoSyncEnabled() {
+    try {
+        const val = localStorage.getItem('vocab_auto_sync_enabled');
+        if (val === null) return true; // 默认开启
+        return val === 'true' || val === true || val === '1';
+    } catch (e) {
+        return true;
+    }
+}
+window.isAutoSyncEnabled = isAutoSyncEnabled;
+
+function toggleAutoSyncSetting(enabled) {
+    try {
+        localStorage.setItem('vocab_auto_sync_enabled', enabled ? 'true' : 'false');
+        if (typeof updateSyncButtonStatus === 'function') {
+            updateSyncButtonStatus();
+        }
+    } catch (e) {
+        console.error('Failed to save auto sync setting', e);
+    }
+}
+window.toggleAutoSyncSetting = toggleAutoSyncSetting;
+
