@@ -2805,6 +2805,23 @@ function renderResult() {
     const details = document.getElementById('result-details');
     const btnBackRoom = document.getElementById('btn-back-room');
     const btnResultHub = document.getElementById('btn-result-hub');
+    const btnSharePoster = document.getElementById('btn-result-share-poster');
+    const btnSharePosterText = document.getElementById('btn-result-share-poster-text');
+
+    const canShare = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
+    if (btnSharePoster) {
+        if (!canShare) {
+            btnSharePoster.style.display = 'none';
+        } else if (gameResult.mode === 'ai_duel' || gameResult.mode === 'online') {
+            btnSharePoster.style.display = 'inline-flex';
+            if (btnSharePosterText) btnSharePosterText.innerText = '分享战果';
+        } else if (gameResult.mode === 'single' || gameResult.mode === 'shici') {
+            btnSharePoster.style.display = 'inline-flex';
+            if (btnSharePosterText) btnSharePosterText.innerText = '分享成绩';
+        } else {
+            btnSharePoster.style.display = 'none';
+        }
+    }
 
     const resultCard = document.querySelector('#view-result .card');
     if (resultCard) {
@@ -2950,6 +2967,20 @@ function renderResult() {
             `;
     }
 }
+
+function handleShareResultPosterClick() {
+    if (!gameResult) return;
+    if (gameResult.mode === 'ai_duel' || gameResult.mode === 'online') {
+        if (typeof handleShareDuelResultPoster === 'function') {
+            handleShareDuelResultPoster();
+        }
+    } else if (gameResult.mode === 'single' || gameResult.mode === 'shici') {
+        if (typeof handleShareStudyScorePoster === 'function') {
+            handleShareStudyScorePoster();
+        }
+    }
+}
+window.handleShareResultPosterClick = handleShareResultPosterClick;
 
 function handleBackToRoom() {
     resetAllGameAlertsAndFeedback();

@@ -510,9 +510,13 @@ function scheduleNextAiAnswer() {
             delay = 4800 + (Math.random() * 1200);
         } else if (isPhrase) {
             const tokens = extractPhraseTargetWords(q.word);
-            // 长词组额外小幅度降低速度
+            // 短词组（<=2词）适当提速；3词适中；长词组(>=4词)额外减速
+            const isShort = tokens.length <= 2;
+            const isMedium = tokens.length === 3;
+            const phraseBase = isShort ? 2600 : (isMedium ? 3600 : 4400);
+            const perToken = isShort ? 1100 : (isMedium ? 1500 : 1900);
             const longPhraseExtra = tokens.length >= 4 ? (tokens.length - 3) * 600 : 0;
-            delay = 4500 + (tokens.length * 2000) + longPhraseExtra + (Math.random() * 1000 - 500);
+            delay = phraseBase + (tokens.length * perToken) + longPhraseExtra + (Math.random() * 800 - 400);
         } else {
             const len = (q.word || '').length;
             delay = 1800 + (len * 240) + (Math.random() * 600 - 300);
@@ -522,8 +526,12 @@ function scheduleNextAiAnswer() {
             delay = 5200 + (Math.random() * 1000);
         } else if (isPhrase) {
             const tokens = extractPhraseTargetWords(q.word);
+            const isShort = tokens.length <= 2;
+            const isMedium = tokens.length === 3;
+            const phraseBase = isShort ? 2800 : (isMedium ? 3800 : 4600);
+            const perToken = isShort ? 1000 : (isMedium ? 1400 : 1700);
             const longPhraseExtra = tokens.length >= 4 ? (tokens.length - 3) * 500 : 0;
-            delay = 4800 + (tokens.length * 1700) + longPhraseExtra + (Math.random() * 800 - 400);
+            delay = phraseBase + (tokens.length * perToken) + longPhraseExtra + (Math.random() * 600 - 300);
         } else {
             delay = 3200 + (Math.random() * 600 - 300);
         }
@@ -544,7 +552,13 @@ function scheduleNextAiAnswer() {
         delay *= slowFactor;
     }
 
-    delay = Math.max(isShiCi ? 3200 : (isPhrase ? 3200 : 1300), delay);
+    let minPhraseDelay = 3000;
+    if (isPhrase) {
+        const tokens = extractPhraseTargetWords(q.word);
+        if (tokens.length <= 2) minPhraseDelay = 2000;
+        else if (tokens.length === 3) minPhraseDelay = 2500;
+    }
+    delay = Math.max(isShiCi ? 3200 : (isPhrase ? minPhraseDelay : 1300), delay);
 
     aiDuelTimer = setTimeout(() => {
         handleAiAnswerStep();

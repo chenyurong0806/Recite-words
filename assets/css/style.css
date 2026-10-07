@@ -2864,6 +2864,97 @@ body.hide-all-icons .material-symbols-rounded {
     outline-offset: 2px;
 }
 
+/* ==========================================================================
+   Google Material Design 3 (MD3) Checkbox
+   ========================================================================== */
+.md3-checkbox,
+input[type="checkbox"].md3-checkbox,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"],
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 0;
+    cursor: pointer;
+    border: 2px solid var(--md-sys-color-outline, #79747E);
+    border-radius: 2px;
+    background-color: transparent;
+    display: inline-grid;
+    place-content: center;
+    position: relative;
+    outline: none;
+    box-sizing: border-box;
+    transition: background-color 0.18s cubic-bezier(0.2, 0, 0, 1),
+                border-color 0.18s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.18s cubic-bezier(0.2, 0, 0, 1),
+                transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+.md3-checkbox:hover,
+input[type="checkbox"].md3-checkbox:hover,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:hover,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:hover {
+    border-color: var(--md-sys-color-on-surface, #1D1B20);
+    box-shadow: 0 0 0 7px rgba(var(--md-sys-color-on-surface-rgb, 29, 27, 32), 0.06);
+}
+
+.md3-checkbox:active,
+input[type="checkbox"].md3-checkbox:active,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:active,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:active {
+    transform: scale(0.92);
+}
+
+.md3-checkbox:checked,
+input[type="checkbox"].md3-checkbox:checked,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:checked,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:checked {
+    background-color: var(--md-sys-color-primary, #0061A4);
+    border-color: var(--md-sys-color-primary, #0061A4);
+}
+
+.md3-checkbox:checked:hover,
+input[type="checkbox"].md3-checkbox:checked:hover,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:checked:hover,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:checked:hover {
+    box-shadow: 0 0 0 7px rgba(var(--md-sys-color-primary-rgb, 0, 97, 164), 0.12);
+}
+
+.md3-checkbox::after,
+input[type="checkbox"].md3-checkbox::after,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]::after,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]::after {
+    content: "";
+    width: 9px;
+    height: 5px;
+    border-left: 2px solid var(--md-sys-color-on-primary, #ffffff);
+    border-bottom: 2px solid var(--md-sys-color-on-primary, #ffffff);
+    transform: rotate(-45deg) scale(0);
+    transform-origin: center;
+    transition: transform 0.16s cubic-bezier(0.05, 0.7, 0.1, 1.0);
+    margin-top: -2px;
+    box-sizing: border-box;
+}
+
+.md3-checkbox:checked::after,
+input[type="checkbox"].md3-checkbox:checked::after,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:checked::after,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:checked::after {
+    transform: rotate(-45deg) scale(1);
+}
+
+.md3-checkbox:focus-visible,
+input[type="checkbox"].md3-checkbox:focus-visible,
+input[type="checkbox"][style*="accent-color:var(--md-sys-color-primary)"]:focus-visible,
+input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:focus-visible {
+    box-shadow: 0 0 0 8px rgba(var(--md-sys-color-primary-rgb, 0, 97, 164), 0.18);
+}
+
 /* 联机竞技场 UI */
 .arena-container {
     display: flex;

@@ -1000,7 +1000,7 @@ function renderSearchSettingsSourcesList() {
                 <span class="unified-source-badge youdao" style="margin:0; font-size:0.75rem;">有道</span>
                 <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">有道词典</span>
             </div>
-            <input type="checkbox" ${isYoudaoChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('youdao', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+            <input type="checkbox" class="md3-checkbox" ${isYoudaoChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('youdao', this.checked)">
         </label>
 
         <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
@@ -1008,7 +1008,7 @@ function renderSearchSettingsSourcesList() {
                 <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-tertiary-container); color:var(--md-sys-color-on-tertiary-container);">自建</span>
                 <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">自定义词书 (生词本/导入词书)</span>
             </div>
-            <input type="checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer;">
+            <input type="checkbox" class="md3-checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)">
         </label>
     `;
 
@@ -1020,7 +1020,7 @@ function renderSearchSettingsSourcesList() {
                     <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
                     <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}${isHighlight ? ' <span style="font-size:0.75rem; color:var(--md-sys-color-primary); font-weight:600;">(默认展示)</span>' : ''}</span>
                 </div>
-                <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)" style="width:18px; height:18px; accent-color:var(--md-sys-color-primary); cursor:pointer; flex-shrink:0;">
+                <input type="checkbox" class="md3-checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)">
             </label>
         `;
     });

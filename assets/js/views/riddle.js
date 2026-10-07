@@ -2124,6 +2124,26 @@ function renderRiddleResult(title, titleColor) {
         lbActionBox.style.display = 'none';
     }
 
+    let shareActionBox = document.getElementById('riddle-result-share-action');
+    const canSharePoster = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
+    if (riddleState.isWon && canSharePoster) {
+        if (!shareActionBox) {
+            shareActionBox = document.createElement('div');
+            shareActionBox.id = 'riddle-result-share-action';
+            shareActionBox.style.cssText = 'margin-top:10px; display:flex; justify-content:center; gap:8px;';
+            resbox.appendChild(shareActionBox);
+        }
+        shareActionBox.innerHTML = `
+            <button type="button" class="btn btn-tonal btn-sm" onclick="handleShareWordlePoster()" style="border-radius:9999px; height:34px; padding:0 16px;">
+                <span class="material-symbols-rounded" style="font-size:18px;">share</span>
+                <span style="font-weight:600;">炫耀一下</span>
+            </button>
+        `;
+        shareActionBox.style.display = 'flex';
+    } else if (shareActionBox) {
+        shareActionBox.style.display = 'none';
+    }
+
     try {
         resbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (e) { }

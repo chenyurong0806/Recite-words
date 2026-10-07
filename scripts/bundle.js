@@ -32,6 +32,7 @@ const loadOrder = [
   'components/md3-select.js',
   'components/version-card.js',
   'components/avatar-cropper.js',
+  'components/poster-generator.js',
 
   // 4. Views
   'views/auth.js',

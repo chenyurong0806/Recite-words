@@ -76,6 +76,7 @@
     <script src="./assets/js/components/md3-select.js"></script>
     <script src="./assets/js/components/version-card.js"></script>
     <script src="./assets/js/components/avatar-cropper.js"></script>
+    <script src="./assets/js/components/poster-generator.js"></script>
 
     <!-- 业务视图与游戏模式控制器 (Feature Views) -->
     <script src="./assets/js/views/auth.js"></script>
@@ -1114,9 +1115,15 @@
                 </div>
 
                 <!-- 数据中心 -->
-                <div class="settings-section-title">
-                    <span class="material-symbols-rounded" style="font-size:20px;">analytics</span>
-                    <span>数据中心</span>
+                <div class="settings-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="font-size:20px;">analytics</span>
+                        <span>数据中心</span>
+                    </div>
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-me-share-poster" onclick="handleShareMeStudyPoster()" style="display:none; height:28px; padding:0 12px; font-size:0.78rem; border-radius:9999px;">
+                        <span class="material-symbols-rounded" style="font-size:16px;">share</span>
+                        <span class="btn-label-text">分享成绩</span>
+                    </button>
                 </div>
                 <div class="card" style="margin-top: 6px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -1199,6 +1206,53 @@
                         </div>
                         <span class="material-symbols-rounded"
                             style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                </div>
+
+                <!-- 数据备份与管理 -->
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">backup</span>
+                    <span>数据备份与管理</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">cloud_sync</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>自动同步</h4>
+                                <p>数据将自动同步至云端，关闭后请手动同步</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" id="switch-auto-sync-label">
+                            <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="settings-row" style="flex-wrap:wrap; gap:12px;">
+                        <div class="settings-row-left" style="flex:1; min-width:200px;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">cloud_download</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>备份与恢复</h4>
+                                <p>导入或导出所有配置与学习记录</p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button type="button" class="btn btn-tonal btn-sm" onclick="exportUserConfigAndProgress()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">download</span>
+                                <span class="btn-label-text">导出备份</span>
+                            </button>
+                            <button type="button" class="btn btn-outlined btn-sm" onclick="document.getElementById('settings-backup-input').click()">
+                                <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
+                                <span class="btn-label-text">导入备份</span>
+                            </button>
+                            <input type="file" id="settings-backup-input" accept=".json" style="display:none;" onchange="importUserConfigAndProgress(event)">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1827,6 +1881,10 @@
                 <div id="result-details" style="margin: 16px 0;"></div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-tonal btn-touch-large" id="btn-result-share-poster" style="display:none;" onclick="handleShareResultPosterClick()">
+                        <span class="material-symbols-rounded" style="font-size:20px;">share</span>
+                        <span class="btn-label-text" id="btn-result-share-poster-text">分享战果</span>
+                    </button>
                     <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">
                         <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
                         <span class="btn-label-text">再来一局</span>
@@ -2507,52 +2565,6 @@
                         <button type="button" class="btn btn-filled btn-sm" id="btn-toy-follow" style="pointer-events:none; background:#fb7299; color:#fff;">
                             <span class="btn-label-text" id="btn-toy-follow-text">关注作者</span>
                         </button>
-                    </div>
-                </div>
-
-                <div class="settings-section-title">
-                    <span class="material-symbols-rounded" style="font-size:20px;">backup</span>
-                    <span>数据备份与管理</span>
-                </div>
-                <div class="settings-card">
-                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">cloud_sync</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>自动同步</h4>
-                                <p>数据将自动同步至云端，关闭后请在“我”页面手动同步</p>
-                            </div>
-                        </div>
-                        <label class="md3-switch" id="switch-auto-sync-label">
-                            <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
-                            <span class="md3-switch-track">
-                                <span class="md3-switch-thumb"></span>
-                            </span>
-                        </label>
-                    </div>
-                    <div class="settings-row" style="flex-wrap:wrap; gap:12px;">
-                        <div class="settings-row-left" style="flex:1; min-width:200px;">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">cloud_download</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>备份与恢复</h4>
-                                <p>导入或导出所有配置与学习记录</p>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <button type="button" class="btn btn-tonal btn-sm" onclick="exportUserConfigAndProgress()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">download</span>
-                                <span class="btn-label-text">导出备份</span>
-                            </button>
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="document.getElementById('settings-backup-input').click()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
-                                <span class="btn-label-text">导入备份</span>
-                            </button>
-                            <input type="file" id="settings-backup-input" accept=".json" style="display:none;" onchange="importUserConfigAndProgress(event)">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3860,6 +3872,39 @@
                 <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" id="btn-cropper-confirm" onclick="confirmCropperImage()">
                     <span class="material-symbols-rounded">crop</span>
                     <span class="btn-label-text">完成裁切</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 海报生成与分享弹窗 (MD3 规范设计，Toy平台专属) -->
+    <div id="modal-poster-preview" class="modal-overlay" style="display:none; z-index:99999;">
+        <div class="modal-card" style="max-width: 480px; width: 92%; max-height: 90vh; display: flex; flex-direction: column; padding: 20px; border-radius: var(--md-shape-xl, 28px); background: var(--md-sys-color-surface-container-high, #ECE6F0); box-shadow: var(--md-sys-elevation-3);">
+            <div class="modal-header" style="padding: 0 0 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:22px;">photo_library</span>
+                    <h3 id="poster-modal-title" style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--md-sys-color-on-surface);">分享海报</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closePosterPreviewModal()" style="background:transparent; border:none; cursor:pointer; color:var(--md-sys-color-outline);">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 0; overflow-y: auto; text-align: center; flex: 1; display:flex; justify-content:center; align-items:center;">
+                <div id="poster-preview-img-wrap" style="position:relative; max-width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid var(--md-sys-color-outline-variant, #e0e0e0); line-height: 0;">
+                    <img id="poster-preview-image" src="" alt="海报预览" style="max-width: 100%; max-height: 56vh; object-fit: contain; display: block; border-radius: 16px;">
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 12px 0 0; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
+                <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
+                    <span>取消</span>
+                </button>
+                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px;">
+                    <span class="material-symbols-rounded" style="font-size:18px;">share</span>
+                    <span>直接分享</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-save-album" onclick="handlePosterSaveAlbumAction()" style="border-radius: 9999px;">
+                    <span class="material-symbols-rounded" style="font-size:18px;">download</span>
+                    <span>保存到相册</span>
                 </button>
             </div>
         </div>

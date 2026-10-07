@@ -1452,6 +1452,17 @@ function renderMeView() {
         const tCount = getTrashWords().length;
         trashSummaryEl.innerText = `共 ${tCount} 个已删词汇`;
     }
+
+    const autoSyncSwitch = document.getElementById('switch-auto-sync');
+    if (autoSyncSwitch) {
+        autoSyncSwitch.checked = typeof isAutoSyncEnabled === 'function' ? isAutoSyncEnabled() : true;
+    }
+
+    const meShareBtn = document.getElementById('btn-me-share-poster');
+    if (meShareBtn) {
+        const canShare = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
+        meShareBtn.style.display = canShare ? 'inline-flex' : 'none';
+    }
 }
 
 // ----------------- 数据同步状态与手动同步 -----------------
