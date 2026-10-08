@@ -2125,8 +2125,7 @@ function renderRiddleResult(title, titleColor) {
     }
 
     let shareActionBox = document.getElementById('riddle-result-share-action');
-    const canSharePoster = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
-    if (riddleState.isWon && canSharePoster) {
+    if (riddleState.isWon) {
         if (!shareActionBox) {
             shareActionBox = document.createElement('div');
             shareActionBox.id = 'riddle-result-share-action';

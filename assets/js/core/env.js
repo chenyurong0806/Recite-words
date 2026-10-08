@@ -4,9 +4,9 @@
  */
 
 if (typeof window !== 'undefined') {
-    window.APP_VERSION = '2.4.11';
+    window.APP_VERSION = '2.6.1';
 }
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.11';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.6.1';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内

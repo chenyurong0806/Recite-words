@@ -1006,7 +1006,7 @@ function renderSearchSettingsSourcesList() {
         <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
             <div style="display:flex; align-items:center; gap:8px;">
                 <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-tertiary-container); color:var(--md-sys-color-on-tertiary-container);">自建</span>
-                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">自定义词书 (生词本/导入词书)</span>
+                <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">本地/自建词书</span>
             </div>
             <input type="checkbox" class="md3-checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)">
         </label>

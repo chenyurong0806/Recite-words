@@ -1122,7 +1122,7 @@
                     </div>
                     <button type="button" class="btn btn-tonal btn-sm" id="btn-me-share-poster" onclick="handleShareMeStudyPoster()" style="display:none; height:28px; padding:0 12px; font-size:0.78rem; border-radius:9999px;">
                         <span class="material-symbols-rounded" style="font-size:16px;">share</span>
-                        <span class="btn-label-text">分享成绩</span>
+                        <span class="btn-label-text">晒成绩</span>
                     </button>
                 </div>
                 <div class="card" style="margin-top: 6px;">
@@ -1883,7 +1883,7 @@
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
                     <button class="btn btn-tonal btn-touch-large" id="btn-result-share-poster" style="display:none;" onclick="handleShareResultPosterClick()">
                         <span class="material-symbols-rounded" style="font-size:20px;">share</span>
-                        <span class="btn-label-text" id="btn-result-share-poster-text">分享战果</span>
+                        <span class="btn-label-text" id="btn-result-share-poster-text">晒成绩</span>
                     </button>
                     <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">
                         <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
@@ -2970,7 +2970,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.4.11</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.6.1</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -3207,8 +3207,8 @@
 
                 <div class="search-settings-sources-section" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
                     <div style="margin-bottom:8px;">
-                        <span class="rule-label" style="margin:0; font-size:0.92rem; font-weight:700;">释义来源词书</span>
-                        <p style="font-size:0.78rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">默认只展示有道词典、高考考纲词汇、考研红宝书及自定义词书</p>
+                        <span class="rule-label" style="margin:0; font-size:0.92rem; font-weight:700;">释义来源</span>
+                        <p style="font-size:0.78rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">勾选后，将在释义栏中显示该单词在这些词书中的释义</p>
                     </div>
                     <div id="search-settings-sources-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
                 </div>
@@ -3898,13 +3898,17 @@
                 <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
                     <span>取消</span>
                 </button>
-                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px;">
+                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none;">
                     <span class="material-symbols-rounded" style="font-size:18px;">share</span>
-                    <span>直接分享</span>
+                    <span>分享</span>
                 </button>
-                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-save-album" onclick="handlePosterSaveAlbumAction()" style="border-radius: 9999px;">
+                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-save-album" onclick="handlePosterSaveAlbumAction()" style="border-radius: 9999px; display: none;">
                     <span class="material-symbols-rounded" style="font-size:18px;">download</span>
                     <span>保存到相册</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-download-web" onclick="handlePosterDownloadWebAction()" style="border-radius: 9999px; display: none;">
+                    <span class="material-symbols-rounded" style="font-size:18px;">download</span>
+                    <span>下载海报</span>
                 </button>
             </div>
         </div>

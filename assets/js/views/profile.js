@@ -1460,8 +1460,7 @@ function renderMeView() {
 
     const meShareBtn = document.getElementById('btn-me-share-poster');
     if (meShareBtn) {
-        const canShare = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
-        meShareBtn.style.display = canShare ? 'inline-flex' : 'none';
+        meShareBtn.style.display = 'inline-flex';
     }
 }
 

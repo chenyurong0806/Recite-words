@@ -58,10 +58,6 @@ const BookManager = {
 
     async init() {
         this.bookCache['builtin_default'] = this.normalizeWords(DEFAULT_WORDS, '默认词书', 'builtin_default');
-        const normGaoKao = this.normalizeWords(DEFAULT_WORDS, '高中考纲词汇', 'books/经典/高中考纲词汇.json');
-        this.bookCache['books/经典/高中考纲词汇.json'] = normGaoKao;
-        this.bookCache['books/考纲/高考3500.json'] = normGaoKao;
-        this.bookCache['GaoKao3500'] = normGaoKao;
 
         // 尝试从本地 localStorage 还原缓存的云端词书列表
         try {
@@ -83,7 +79,7 @@ const BookManager = {
                 ob.name = cleanBookName(ob.name);
                 ob.rawName = cleanBookName(ob.rawName || ob.name);
                 if (ob.isCloud) {
-                    if (ob.words && !this.bookCache[ob.id]) {
+                    if (ob.words && ob.words.length > 50 && !this.bookCache[ob.id]) {
                         this.bookCache[ob.id] = ob.words;
                     }
                 } else {
@@ -102,6 +98,9 @@ const BookManager = {
         }
 
         this.mergeCustomBooks();
+
+        // 异步预加载核心基础词书《高中考纲词汇》
+        this.loadBookData('books/经典/高中考纲词汇.json').catch(() => {});
 
         // 流量环境下降低同步词书列表频率，节省流量消耗（流量下每 7 天同步一次，WiFi 下每 24 小时检查一次）
         const isMetered = this.isMeteredConnection();
@@ -128,10 +127,9 @@ const BookManager = {
     },
 
     async preloadAllWorkerBooks() {
-        if (!this.bookCache['books/经典/高中考纲词汇.json'] && this.bookCache['builtin_default']) {
-            this.bookCache['books/经典/高中考纲词汇.json'] = this.bookCache['builtin_default'];
-            this.bookCache['books/考纲/高考3500.json'] = this.bookCache['builtin_default'];
-            this.bookCache['GaoKao3500'] = this.bookCache['builtin_default'];
+        // 核心默认词书优先确保加载完整 3892 词
+        if (!this.bookCache['books/经典/高中考纲词汇.json'] || this.bookCache['books/经典/高中考纲词汇.json'].length <= 50) {
+            await this.loadBookData('books/经典/高中考纲词汇.json').catch(() => {});
         }
 
         // 流量环境下不进行全量云端词书预下载，改为按需加载以节省流量消耗
@@ -269,13 +267,13 @@ const BookManager = {
             bookId = legacyBookMap[bookId];
         }
 
-        if (this.bookCache[bookId]) return this.bookCache[bookId];
+        if (this.bookCache[bookId] && this.bookCache[bookId].length > 50) return this.bookCache[bookId];
 
         const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
         if (isGaoKao) {
-            if (this.bookCache['books/经典/高中考纲词汇.json']) return this.bookCache['books/经典/高中考纲词汇.json'];
-            if (this.bookCache['books/考纲/高考3500.json']) return this.bookCache['books/考纲/高考3500.json'];
-            if (this.bookCache['GaoKao3500']) return this.bookCache['GaoKao3500'];
+            if (this.bookCache['books/经典/高中考纲词汇.json'] && this.bookCache['books/经典/高中考纲词汇.json'].length > 50) return this.bookCache['books/经典/高中考纲词汇.json'];
+            if (this.bookCache['books/考纲/高考3500.json'] && this.bookCache['books/考纲/高考3500.json'].length > 50) return this.bookCache['books/考纲/高考3500.json'];
+            if (this.bookCache['GaoKao3500'] && this.bookCache['GaoKao3500'].length > 50) return this.bookCache['GaoKao3500'];
         }
 
         if (window.customBooks) {
@@ -288,8 +286,13 @@ const BookManager = {
 
         try {
             const offlineBook = await VocabOfflineDB.getBook(bookId);
-            if (offlineBook && offlineBook.words && offlineBook.words.length > 0) {
+            if (offlineBook && offlineBook.words && offlineBook.words.length > 50) {
                 this.bookCache[bookId] = offlineBook.words;
+                if (isGaoKao) {
+                    this.bookCache['books/经典/高中考纲词汇.json'] = offlineBook.words;
+                    this.bookCache['books/考纲/高考3500.json'] = offlineBook.words;
+                    this.bookCache['GaoKao3500'] = offlineBook.words;
+                }
                 return offlineBook.words;
             }
         } catch (e) { }

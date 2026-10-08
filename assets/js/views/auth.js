@@ -443,7 +443,7 @@ async function handleBiliToyLogin() {
     }
 
     try {
-        const biliProfile = await withAuthTimeout(biliLogin(), 5000, 'B 站授权登录超时（5秒），请重试');
+        const biliProfile = await withAuthTimeout(biliLogin(), 5000, 'B 站授权登录超时，请重试');
         await prepareUserSwitch(biliProfile.username);
 
         const profile = {

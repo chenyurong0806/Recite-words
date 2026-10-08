@@ -704,7 +704,7 @@ function endDictationSession() {
         syncAllUserDataToCloud();
     }
     const accuracy = dictationState.total > 0 ? Math.round((dictationState.score / dictationState.total) * 100) : 0;
-    alert(`🎉 默写练习完成！\n\n总题数：${dictationState.total} 题\n正确数：${dictationState.score} 题\n正确率：${accuracy}%\n\n错题已自动录入个人错题本。`);
+    alert(`默写练习完成！`);
     switchView('view-hub');
 }
 

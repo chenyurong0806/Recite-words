@@ -1407,12 +1407,32 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.4.11';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.6.1';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.6.1',
+        date: '2026-10-08',
+        badge: '当前版本',
+        items: [
+            '更新生成海报和分享功能。',
+            '添加更多词书。',
+            '只有排位赛限制云端词书，友谊赛可以选择本地词书。',
+            '优化UI。',
+            '重构supabase realtime架构。',
+            '在首页点击搜索栏时，直接进入搜索页面。',
+            '搜索列表不再显示实词结果。',
+            '可以在搜索设置中勾选需要展示释义的词书。',
+            '在设置中支持开启/关闭自动同步。',
+            '流量环境下降低同步数据频率，节省流量消耗。',
+            '标为熟词后，在本组学习中不再抽取。',
+            '只有当对方响应后或请求超时后才能再次发送邀请。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.4.11',
         date: '2026-10-01',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '支持使用第三方账号注册和登录。',
             '加入段位+等级分制度。',
@@ -1705,7 +1725,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.4.11'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.6.1'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;
