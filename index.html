@@ -37,6 +37,9 @@
             font-display: swap;
             src: local('Material Symbols Rounded'), url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
         }
+        /* 海报换背景按钮冷却态 */
+        #btn-poster-change-bg.poster-bg-cd { opacity: 0.5; cursor: not-allowed; }
+        #btn-poster-change-bg:disabled { pointer-events: none; }
     </style>
     <!-- 捕获本地/独立标签页测试时 ToySDK 找不到宿主父窗口导致的握手超时异常 -->
     <script>
@@ -3894,22 +3897,29 @@
                     <img id="poster-preview-image" src="" alt="海报预览" style="max-width: 100%; max-height: 56vh; object-fit: contain; display: block; border-radius: 16px;">
                 </div>
             </div>
-            <div class="modal-footer" style="padding: 12px 0 0; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
-                <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
-                    <span>取消</span>
+            <div class="modal-footer" style="padding: 12px 0 0; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
+                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-change-bg" onclick="changePosterBackground()" style="border-radius: 9999px; display: none; gap: 4px; align-items: center; transition: opacity 0.2s;">
+                    <span class="material-symbols-rounded" style="font-size:18px;">wallpaper</span>
+                    <span>换背景</span>
+                    <span class="poster-bg-cd-label" style="font-size: 0.72rem; color: var(--md-sys-color-outline); min-width: 0;"></span>
                 </button>
-                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none;">
-                    <span class="material-symbols-rounded" style="font-size:18px;">share</span>
-                    <span>分享</span>
-                </button>
-                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-save-album" onclick="handlePosterSaveAlbumAction()" style="border-radius: 9999px; display: none;">
-                    <span class="material-symbols-rounded" style="font-size:18px;">download</span>
-                    <span>保存到相册</span>
-                </button>
-                <button type="button" class="btn btn-filled btn-sm" id="btn-poster-download-web" onclick="handlePosterDownloadWebAction()" style="border-radius: 9999px; display: none;">
-                    <span class="material-symbols-rounded" style="font-size:18px;">download</span>
-                    <span>下载海报</span>
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
+                        <span>取消</span>
+                    </button>
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">share</span>
+                        <span>分享</span>
+                    </button>
+                    <button type="button" class="btn btn-filled btn-sm" id="btn-poster-save-album" onclick="handlePosterSaveAlbumAction()" style="border-radius: 9999px; display: none;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">download</span>
+                        <span>保存到相册</span>
+                    </button>
+                    <button type="button" class="btn btn-filled btn-sm" id="btn-poster-download-web" onclick="handlePosterDownloadWebAction()" style="border-radius: 9999px; display: none;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">download</span>
+                        <span>下载海报</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

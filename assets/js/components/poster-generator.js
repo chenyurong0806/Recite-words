@@ -1492,6 +1492,36 @@
         if (btnSaveAlbum) btnSaveAlbum.style.display = isBiliApp ? 'inline-flex' : 'none';
         if (btnDownload) btnDownload.style.display = isBiliApp ? 'none' : 'inline-flex';
 
+        // 换背景按钮：始终显示，检查冷却状态
+        const btnChangeBg = document.getElementById('btn-poster-change-bg');
+        if (btnChangeBg) {
+            btnChangeBg.style.display = 'inline-flex';
+            const elapsed = Date.now() - _lastBgChangeTime;
+            if (elapsed < _BG_CHANGE_CD_MS) {
+                btnChangeBg.disabled = true;
+                btnChangeBg.classList.add('poster-bg-cd');
+                let cdLeft = Math.ceil((_BG_CHANGE_CD_MS - elapsed) / 1000);
+                const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
+                if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
+                const cdTimer = setInterval(() => {
+                    cdLeft--;
+                    if (cdLeft <= 0) {
+                        clearInterval(cdTimer);
+                        btnChangeBg.disabled = false;
+                        btnChangeBg.classList.remove('poster-bg-cd');
+                        if (cdLabel) cdLabel.textContent = '';
+                    } else {
+                        if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
+                    }
+                }, 1000);
+            } else {
+                btnChangeBg.disabled = false;
+                btnChangeBg.classList.remove('poster-bg-cd');
+                const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
+                if (cdLabel) cdLabel.textContent = '';
+            }
+        }
+
         if (modal) {
             modal.style.display = 'flex';
             modal.classList.add('active');
@@ -1561,6 +1591,9 @@
                 ruleSummary
             });
 
+            _currentPosterGenerator = generateDuelPoster;
+            _currentPosterOptions = { isAi, playerWin, isDraw, p1Score, p2Score, oppoName, oppoRank, matchResult: gRes.matchResult || null, ruleSummary };
+            _currentPosterTitle = '对决战果海报';
             await showPosterPreviewModal(posterDataUrl, '对决战果海报');
         } catch (e) {
             console.error('[GenerateDuelPoster error]', e);
@@ -1625,6 +1658,9 @@
                 sessionMistakesList: Array.from(mistakeSet)
             });
 
+            _currentPosterGenerator = generateStudyPoster;
+            _currentPosterOptions = { isSession: true, sessionType: isShiCi ? 'shici' : 'words', sessionTotal, sessionCorrect, sessionMistakes, sessionAccuracy, bookTitle, pool, sessionMistakesList: Array.from(mistakeSet) };
+            _currentPosterTitle = '晒成绩';
             await showPosterPreviewModal(posterDataUrl, '晒成绩');
         } catch (e) {
             console.error('[GenerateStudyPoster error]', e);
@@ -1640,6 +1676,9 @@
             const posterDataUrl = await generateStudyPoster({
                 isSession: false
             });
+            _currentPosterGenerator = generateStudyPoster;
+            _currentPosterOptions = { isSession: false };
+            _currentPosterTitle = '晒成绩';
             await showPosterPreviewModal(posterDataUrl, '晒成绩');
         } catch (e) {
             console.error('[GenerateMeStudyPoster error]', e);
@@ -1673,6 +1712,9 @@
                 timeStr
             });
 
+            _currentPosterGenerator = generateWordlePoster;
+            _currentPosterOptions = { targetWord: rState.targetWord || '', cluePhone: rState.cluePhone || '', clueMeaning: rState.clueMeaning || '', attempts: rState.attempts || [], maxAttempts: rState.maxAttempts || 6, isDaily, isTimerEnabled, timeSpent: (typeof elapsed === 'number' && elapsed > 0) ? elapsed : (rState.timeSpent || 0), timeStr };
+            _currentPosterTitle = '晒成绩';
             await showPosterPreviewModal(posterDataUrl, '晒成绩');
         } catch (e) {
             console.error('[GenerateWordlePoster error]', e);
@@ -1721,5 +1763,6 @@
         window.generateStudyPoster = generateStudyPoster;
         window.generateWordlePoster = generateWordlePoster;
         window.preloadPosterAssets = preloadPosterAssets;
+        window.changePosterBackground = changePosterBackground;
     }
 })();
