@@ -66,7 +66,15 @@ function getUniqueGuestName() {
             setCookie('vocab_pk_user', guestId, 365);
         }
     }
-    if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (window.self !== window.top || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
+    let isEmbedded = false;
+    try {
+        if (typeof window !== 'undefined' && window.location.protocol !== 'file:') {
+            isEmbedded = (window.self !== window.top);
+        }
+    } catch (e) {
+        isEmbedded = true;
+    }
+    if (typeof window !== 'undefined' && window.toy && typeof window.toy.setCloudStorage === 'function' && (isEmbedded || (typeof isBilibiliToy !== 'undefined' && isBilibiliToy))) {
         try {
             const p = window.toy.setCloudStorage({ 'guest_id': guestId });
             if (p && typeof p.catch === 'function') p.catch(() => { });

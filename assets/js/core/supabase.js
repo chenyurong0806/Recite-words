@@ -9,20 +9,53 @@
 const SUPABASE_URL = 'https://mamubvgmcetepllznifl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_HEeNPSqD75cWlnmZjcVHKA_Pw-OdL_A';
 
-const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: {
-        persistSession: false,
-        autoRefreshToken: false
-    },
-    realtime: {
-        params: {
-            eventsPerSecond: 10
-        },
-        heartbeatIntervalMs: 15000,
-        reconnectAfterMs: (tries) => Math.min(1000 * Math.pow(2, tries), 10000),
-        timeout: 20000
+let sbClient = null;
+try {
+    if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
+        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false
+            },
+            realtime: {
+                params: {
+                    eventsPerSecond: 10
+                },
+                heartbeatIntervalMs: 15000,
+                reconnectAfterMs: (tries) => Math.min(1000 * Math.pow(2, tries), 10000),
+                timeout: 20000
+            }
+        });
     }
-});
+} catch (e) {
+    console.warn('[Supabase] Client init failed, using offline fallback:', e);
+}
+
+if (!sbClient) {
+    const dummyQuery = {
+        select: function() { return this; },
+        insert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+        update: function() { return this; },
+        delete: function() { return this; },
+        upsert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+        eq: function() { return this; },
+        neq: function() { return this; },
+        in: function() { return this; },
+        order: function() { return this; },
+        limit: function() { return this; },
+        range: function() { return this; },
+        single: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+        then: function(resolve) { return Promise.resolve({ data: null, error: { message: 'offline' } }).then(resolve); }
+    };
+    sbClient = {
+        from: () => dummyQuery,
+        channel: () => ({
+            on: function() { return this; },
+            subscribe: function(cb) { if (cb) cb('CLOSED'); return this; },
+            unsubscribe: () => {}
+        })
+    };
+}
 
 /* ==========================================================================
    1.1 弱网连接质量监控与状态徽标 (红/黄/绿指示灯)
@@ -1171,5 +1204,92 @@ function compressImageFile(file, maxWidth = 120, maxHeight = 120, quality = 0.82
         reader.readAsDataURL(file);
     });
 }
+
+/* ==========================================================================
+   1.8 Doris 内部资源安全访问与 Supabase 数据库集成
+   ========================================================================== */
+const DORIS_ACCESS_PASSWORD = 'Shier#123';
+
+function isDorisUnlocked() {
+    try {
+        if (localStorage.getItem('vocab_doris_unlocked') === 'true') return true;
+        if (sessionStorage.getItem('vocab_doris_unlocked') === 'true') return true;
+        const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : localStorage.getItem('vocab_current_user');
+        if (user && localStorage.getItem(`vocab_doris_unlocked_${user}`) === 'true') return true;
+    } catch (e) { }
+    return false;
+}
+
+function verifyDorisPassword(inputPassword) {
+    if (!inputPassword) return false;
+    const ok = (String(inputPassword).trim() === DORIS_ACCESS_PASSWORD);
+    if (ok) {
+        try {
+            localStorage.setItem('vocab_doris_unlocked', 'true');
+            sessionStorage.setItem('vocab_doris_unlocked', 'true');
+            const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : localStorage.getItem('vocab_current_user');
+            if (user) {
+                localStorage.setItem(`vocab_doris_unlocked_${user}`, 'true');
+            }
+        } catch (e) { }
+    }
+    return ok;
+}
+
+async function fetchDorisBooksFromSupabase() {
+    if (!isDorisUnlocked()) {
+        throw new Error('未授权访问内部资源');
+    }
+    try {
+        const { data, error } = await sbClient
+            .from('doris_books')
+            .select('id, name, category, count, words, updated_at')
+            .order('name');
+        if (error) {
+            console.warn('[Doris] Supabase fetch error:', error);
+            const cached = getCachedDorisBooks();
+            if (cached && cached.length > 0) return cached;
+            throw error;
+        }
+        if (Array.isArray(data) && data.length > 0) {
+            const formatted = data.map(item => ({
+                id: item.id.startsWith('doris_') ? item.id : `doris_${item.id}`,
+                name: item.name,
+                rawName: item.name,
+                category: 'Doris',
+                count: item.count || (Array.isArray(item.words) ? item.words.length : 0),
+                words: item.words || [],
+                updatedAt: item.updated_at ? new Date(item.updated_at).getTime() : Date.now(),
+                isDoris: true,
+                isCloud: true
+            }));
+            try {
+                localStorage.setItem('vocab_cached_doris_books', JSON.stringify(formatted));
+            } catch (e) { }
+            return formatted;
+        }
+        return getCachedDorisBooks();
+    } catch (err) {
+        console.warn('[Doris] Failed to fetch from Supabase, checking local cache:', err);
+        return getCachedDorisBooks();
+    }
+}
+
+function getCachedDorisBooks() {
+    try {
+        const raw = localStorage.getItem('vocab_cached_doris_books');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch (e) { }
+    return [];
+}
+
+window.isDorisUnlocked = isDorisUnlocked;
+window.verifyDorisPassword = verifyDorisPassword;
+window.fetchDorisBooksFromSupabase = fetchDorisBooksFromSupabase;
+window.getCachedDorisBooks = getCachedDorisBooks;
+
 
 

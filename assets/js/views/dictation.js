@@ -192,7 +192,8 @@ async function startDictationPractice() {
         total: 0,
         currentQ: null,
         answered: false,
-        hasError: false
+        hasError: false,
+        sessionMistakes: new Set()
     };
 
     renderDictationQuestion();
@@ -402,6 +403,10 @@ function handleDictationSlotInput(event, idx) {
 function handleDictationHint() {
     if (!dictationState.currentQ || dictationState.answered) return;
     const q = dictationState.currentQ;
+    dictationState.hasError = true;
+    if (dictationState.sessionMistakes && q.word) {
+        dictationState.sessionMistakes.add(q.word.trim().toLowerCase());
+    }
 
     if (!q.isPhrase) {
         const input = document.getElementById('dictation-word-input');
@@ -493,8 +498,14 @@ function submitDictationAnswer() {
         dictationState.total++;
         if (!dictationState.hasError) {
             dictationState.score++;
+            q.isCorrect = true;
             if (window.DailyStudyTracker) {
                 DailyStudyTracker.record('dictation', 1);
+            }
+        } else {
+            q.isCorrect = false;
+            if (dictationState.sessionMistakes && q.word) {
+                dictationState.sessionMistakes.add(q.word.trim().toLowerCase());
             }
         }
         showToast('回答正确！');
@@ -538,6 +549,10 @@ function submitDictationAnswer() {
         // 答错后：不要展示答案，让玩家再次改正
         if (!dictationState.hasError) {
             dictationState.hasError = true;
+            q.isCorrect = false;
+            if (dictationState.sessionMistakes && q.word) {
+                dictationState.sessionMistakes.add(q.word.trim().toLowerCase());
+            }
             recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
         }
 
@@ -570,6 +585,10 @@ function skipDictationQuestion() {
     dictationState.total++;
     dictationState.answered = true;
     dictationState.hasError = true;
+    q.isCorrect = false;
+    if (dictationState.sessionMistakes && q.word) {
+        dictationState.sessionMistakes.add(q.word.trim().toLowerCase());
+    }
 
     recordUserMistake(currentUser, q.word, q.meaning, q.phone || '');
 
@@ -703,9 +722,34 @@ function endDictationSession() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    const accuracy = dictationState.total > 0 ? Math.round((dictationState.score / dictationState.total) * 100) : 0;
-    alert(`默写练习完成！`);
-    switchView('view-hub');
+    const pool = dictationState.pool || [];
+    const sessionMistakes = Array.from(dictationState.sessionMistakes || []);
+    const totalCount = pool.length;
+    let mistakeCount = 0;
+    pool.forEach(q => {
+        if (sessionMistakes.includes(q.word.trim().toLowerCase()) || !q.isCorrect) {
+            mistakeCount++;
+            q.isCorrect = false;
+        } else {
+            q.isCorrect = true;
+        }
+    });
+    const correctCount = Math.max(0, totalCount - mistakeCount);
+    const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+    gameResult = {
+        mode: 'dictation',
+        msg: accuracy >= 80 ? '默写表现优异！' : (accuracy >= 60 ? '默写练习完成！' : '仍需加油，多加练习！'),
+        pool: pool,
+        sessionMistakes: sessionMistakes,
+        accuracy: accuracy,
+        score: correctCount,
+        total: totalCount
+    };
+    if (typeof renderResult === 'function') {
+        renderResult();
+    }
+    switchView('view-result');
 }
 
 

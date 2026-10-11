@@ -1,68 +1,66 @@
 /**
- * 独立选词书大屏视图 (封面与分类)
+ * 选词书与管理词书视图 (Google MD3 风格、单行水平滑动分类、我的分类与操作菜单)
  * Module: assets/js/views/book-selector.js
  */
 
-/* ==========================================================================
-   全新独立“选择词书”页面控制器 (支持封面与文件夹分类)
-   ========================================================================== */
 let bookSelectorMode = 'single';
-let bookSelectorActiveCategory = 'english';
+let bookSelectorActiveCategory = '我的';
 let bookSelectorPreviousView = 'view-hub';
 
+let manageBooksActiveCategory = '我的';
+let manageBooksPreviousView = 'view-book-selector';
+let activeActionBookId = null;
+
+const BOOK_CATEGORIES = ['我的', '全部', '初中', '高中', '大学', '实词', '翻译', '其他', 'Doris'];
+
+/**
+ * 根据页面模式获取允许展示的词书分类
+ * 规则：
+ * 1. 仅在人机对战(ai_duel)、远程联机(room/preset/invite)、同屏对决(local_duel)中显示“全部”选项卡
+ * 2. Wordle(riddle)不用显示“实词”和“翻译”选项卡
+ * 3. 英语默写(dictation)不用显示“实词”选项卡
+ * 4. 实词(shici)模式仅展示“实词”与“我的”
+ */
+function getCategoriesForMode(mode) {
+    if (mode === 'shici') {
+        return ['实词', '我的'];
+    }
+    const showAllModes = ['ai_duel', 'room', 'preset', 'invite', 'local_duel'];
+    let cats = [...BOOK_CATEGORIES];
+    if (!showAllModes.includes(mode)) {
+        cats = cats.filter(c => c !== '全部');
+    }
+    if (mode === 'riddle') {
+        cats = cats.filter(c => c !== '实词' && c !== '翻译');
+    }
+    if (mode === 'dictation') {
+        cats = cats.filter(c => c !== '实词');
+    }
+    return cats;
+}
+window.getCategoriesForMode = getCategoriesForMode;
+
+/* ==========================================================================
+   1. “选择词书”页面控制器
+   ========================================================================== */
 function openBookSelectorPage(mode = 'single') {
     if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
     bookSelectorMode = mode;
     bookSelectorPreviousView = currentView || 'view-hub';
-    const enTab = document.getElementById('tab-bs-en');
-    const shiciTab = document.getElementById('tab-bs-shici');
-    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(mode);
 
+    const displayCategories = getCategoriesForMode(mode);
     if (mode === 'shici') {
-        bookSelectorActiveCategory = 'shici';
-        if (enTab) enTab.style.display = 'none';
-        if (shiciTab) {
-            shiciTab.style.display = 'inline-flex';
-            shiciTab.classList.add('active');
-            if (enTab) enTab.classList.remove('active');
-        }
-    } else if (isDuelMode) {
-        // 对战模式（远程联机/房间预设/对战规则/人机对战/同屏对决）支持英语和实词词书
-        if (enTab) enTab.style.display = 'inline-flex';
-        if (shiciTab) shiciTab.style.display = 'inline-flex';
-
-        const allBooks = getAllUniqueBooks();
-        let selectedList = [];
-        if (mode === 'room') selectedList = (typeof roomConfig !== 'undefined' && Array.isArray(roomConfig.selectedBooks)) ? roomConfig.selectedBooks : [];
-        else if (mode === 'preset') selectedList = (typeof activeEditingPreset !== 'undefined' && Array.isArray(activeEditingPreset.selectedBooks)) ? activeEditingPreset.selectedBooks : [];
-        else if (mode === 'invite') selectedList = (typeof activeInviteRules !== 'undefined' && Array.isArray(activeInviteRules.selectedBooks)) ? activeInviteRules.selectedBooks : [];
-        else if (mode === 'ai_duel') selectedList = (typeof aiDuelConfig !== 'undefined' && Array.isArray(aiDuelConfig.selectedBooks)) ? aiDuelConfig.selectedBooks : [];
-        else if (mode === 'local_duel') selectedList = (typeof localDuelConfig !== 'undefined' && Array.isArray(localDuelConfig.selectedBooks)) ? localDuelConfig.selectedBooks : [];
-
-        const hasEnglish = selectedList.some(id => {
-            const b = allBooks.find(x => x.id === id);
-            return b && !isBookShiCi(b);
-        });
-        const hasShiCi = selectedList.some(id => {
-            const b = allBooks.find(x => x.id === id);
-            return b && isBookShiCi(b);
-        });
-
-        if (hasShiCi && !hasEnglish) {
-            bookSelectorActiveCategory = 'shici';
-        } else {
-            bookSelectorActiveCategory = 'english';
-        }
-
-        if (enTab) enTab.classList.toggle('active', bookSelectorActiveCategory === 'english');
-        if (shiciTab) shiciTab.classList.toggle('active', bookSelectorActiveCategory === 'shici');
+        bookSelectorActiveCategory = '实词';
     } else {
-        bookSelectorActiveCategory = 'english';
-        if (shiciTab) shiciTab.style.display = 'none';
-        if (enTab) {
-            enTab.style.display = 'inline-flex';
-            enTab.classList.add('active');
-            if (shiciTab) shiciTab.classList.remove('active');
+        const myBooks = getMyDownloadedAndLocalBooks();
+        if (myBooks && myBooks.length > 0) {
+            bookSelectorActiveCategory = '我的';
+        } else if (displayCategories.includes('全部')) {
+            bookSelectorActiveCategory = '全部';
+        } else if (displayCategories.includes('初中')) {
+            bookSelectorActiveCategory = '初中';
+        } else {
+            bookSelectorActiveCategory = displayCategories[0] || '我的';
         }
     }
 
@@ -81,22 +79,8 @@ function openBookSelectorPage(mode = 'single') {
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
 
     switchView('view-book-selector');
+    renderBookSelectorCategoryTabs();
     renderBookSelectorPage();
-
-    // 异步预加载前排重点词书并实时刷新 DOM 掌握度
-    setTimeout(async () => {
-        if (typeof BookManager !== 'undefined' && BookManager.availableBooks) {
-            const candidates = (BookManager.availableBooks || []).slice(0, 10);
-            for (const b of candidates) {
-                if (!BookManager.bookCache[b.id]) {
-                    try { await BookManager.loadBookData(b.id); } catch (e) { }
-                }
-            }
-            if (typeof refreshBookSelectorMasteryDOM === 'function') {
-                refreshBookSelectorMasteryDOM();
-            }
-        }
-    }, 100);
 }
 
 function exitBookSelectorPage() {
@@ -127,18 +111,81 @@ function exitBookSelectorPage() {
     }
 }
 
+/**
+ * 切换选择词书页面的分类
+ */
 function switchBookSelectorCategory(cat) {
-    const isDuelMode = ['room', 'preset', 'invite', 'ai_duel', 'local_duel'].includes(bookSelectorMode);
-    if (!isDuelMode) {
-        if (bookSelectorMode === 'shici' && cat !== 'shici') return;
-        if (bookSelectorMode !== 'shici' && cat === 'shici') return;
+    if (cat === 'Doris') {
+        if (typeof isDorisUnlocked === 'function' && !isDorisUnlocked()) {
+            openDorisPasswordModal(async () => {
+                bookSelectorActiveCategory = 'Doris';
+                renderBookSelectorCategoryTabs();
+                renderBookSelectorPage();
+            });
+            return;
+        } else {
+            if (typeof BookManager !== 'undefined' && typeof BookManager.loadDorisBooks === 'function') {
+                BookManager.loadDorisBooks(false).then(() => {
+                    renderBookSelectorPage();
+                });
+            }
+        }
+    }
+    bookSelectorActiveCategory = cat;
+    renderBookSelectorCategoryTabs();
+    renderBookSelectorPage();
+}
+
+/**
+ * 渲染选择词书顶部的单行分类 Chip 标签栏
+ */
+function renderBookSelectorCategoryTabs() {
+    const container = document.getElementById('book-selector-category-tabs');
+    if (!container) return;
+
+    const displayCategories = getCategoriesForMode(bookSelectorMode);
+    if (!displayCategories.includes(bookSelectorActiveCategory)) {
+        bookSelectorActiveCategory = displayCategories[0] || '我的';
     }
 
-    bookSelectorActiveCategory = cat;
-    document.querySelectorAll('.book-selector-tab').forEach(t => t.classList.remove('active'));
-    const activeTab = document.getElementById(cat === 'shici' ? 'tab-bs-shici' : 'tab-bs-en');
-    if (activeTab) activeTab.classList.add('active');
-    renderBookSelectorPage();
+    const isDorisOpen = (typeof isDorisUnlocked === 'function' && isDorisUnlocked());
+
+    container.innerHTML = displayCategories.map(cat => {
+        const isActive = (bookSelectorActiveCategory === cat);
+        let icon = '';
+        if (cat === '我的') icon = 'bookmark';
+        else if (cat === '全部') icon = 'apps';
+        else if (cat === '初中') icon = 'menu_book';
+        else if (cat === '高中') icon = 'school';
+        else if (cat === '大学') icon = 'account_balance';
+        else if (cat === '实词') icon = 'history_edu';
+        else if (cat === '翻译') icon = 'translate';
+        else if (cat === '其他') icon = 'category';
+        else if (cat === 'Doris') icon = isDorisOpen ? 'lock_open' : 'lock';
+
+        return `
+            <button type="button" class="md3-cat-chip ${isActive ? 'active' : ''}" onclick="switchBookSelectorCategory('${cat}')">
+                <span class="material-symbols-rounded" style="font-size:18px;">${icon}</span>
+                <span>${cat}${cat === 'Doris' && !isDorisOpen ? ' (密钥)' : ''}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+/**
+ * 获取“我的”分类包含的词书：已下载到本地的云端词书 + 用户本地导入的自定义词书
+ */
+function getMyDownloadedAndLocalBooks() {
+    const allBooks = getAllUniqueBooks();
+    return allBooks.filter(b => {
+        if (!b) return false;
+        // 本地自定义导入的词书
+        if (String(b.id).startsWith('custom_') || !b.isCloud) return true;
+        // 已下载或缓存了词条的云端词书
+        if (b.syncStatus === 'downloaded' || (b.words && b.words.length > 0)) return true;
+        if (BookManager.bookCache[b.id] && BookManager.bookCache[b.id].length > 0) return true;
+        return false;
+    });
 }
 
 function getProceduralBookGradient(title, category = '') {
@@ -164,6 +211,9 @@ function getProceduralBookGradient(title, category = '') {
 }
 
 function isBookIdSelectedInCurrentMode(bookId) {
+    if (BookManager.legacyBookMap && BookManager.legacyBookMap[bookId]) {
+        bookId = BookManager.legacyBookMap[bookId];
+    }
     if (bookSelectorMode === 'single') {
         return typeof isBookIdSelected === 'function'
             ? isBookIdSelected(singleSelectedBookIds, bookId)
@@ -195,57 +245,15 @@ function isBookIdSelectedInCurrentMode(bookId) {
 
 function isWordleUnsupportedBook(b) {
     if (!b) return false;
-    let nameStr = '';
-    let idStr = '';
-    if (typeof b === 'string') {
-        nameStr = b;
-        idStr = b;
-    } else {
-        nameStr = (b.name || b.title || b.rawName || '').toString();
-        idStr = (b.id || b.path || '').toString();
-    }
-    const cleanName = nameStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
-    const cleanId = idStr.toLowerCase().replace(/[\s\-_《》📁📂]/g, '');
-    const target = `${cleanName} ${cleanId}`;
-
-    // 文言实词不支持 Wordle
-    if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return true;
-    if (typeof isShiCiBook === 'function' && isShiCiBook(b)) return true;
+    let nameStr = (b.name || b.title || b.rawName || '').toString();
+    let idStr = (b.id || b.path || '').toString();
+    const target = `${nameStr} ${idStr}`.toLowerCase();
+    if (isBookShiCi(b)) return true;
     if (target.includes('实词')) return true;
-
-    // 只有初中考纲词组、高中考纲词组、高中518词组、翻译词书不支持Wordle
     if (target.includes('初中考纲词组')) return true;
     if (target.includes('高中考纲词组') || target.includes('考纲词组')) return true;
-    if (target.includes('高中518词组') || target.includes('518词组') || cleanName === '518' || cleanName.includes('518')) return true;
-    if (target.includes('翻译') || cleanName === '翻译') return true;
-
-    return false;
-}
-window.isWordleUnsupportedBook = isWordleUnsupportedBook;
-
-function isWordleSupportedBook(b) {
-    return !isWordleUnsupportedBook(b);
-}
-window.isWordleSupportedBook = isWordleSupportedBook;
-
-function isPhraseBook(b) {
-    return isWordleUnsupportedBook(b);
-}
-window.isPhraseBook = isPhraseBook;
-
-function isCurrentModeRankedRestricted() {
-    if (bookSelectorMode === 'ai_duel') {
-        return (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked');
-    }
-    if (bookSelectorMode === 'room') {
-        return (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked');
-    }
-    if (bookSelectorMode === 'preset') {
-        return (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked');
-    }
-    if (bookSelectorMode === 'invite') {
-        return (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked');
-    }
+    if (target.includes('518词组') || target.includes('518')) return true;
+    if (target.includes('翻译')) return true;
     return false;
 }
 
@@ -254,181 +262,665 @@ function renderBookSelectorPage() {
     const summaryChip = document.getElementById('book-selector-summary-chip');
     if (!container) return;
 
-    const isRankedOnly = isCurrentModeRankedRestricted();
-    const allBooks = getAllUniqueBooks();
-    const isShiCi = (bookSelectorMode === 'shici') || (bookSelectorActiveCategory === 'shici');
-    let filteredBooks = allBooks.filter(b => isShiCi ? isBookShiCi(b) : !isBookShiCi(b));
+    renderBookSelectorCategoryTabs();
 
-    // 仅排位赛限制云端词书，友谊赛及其他模式允许选择本地词书
-    if (isRankedOnly) {
-        filteredBooks = filteredBooks.filter(b => !String(b.id).startsWith('custom_') && b.id !== 'builtin_default');
+    const allBooks = getAllUniqueBooks();
+    const isShiCi = (bookSelectorMode === 'shici');
+
+    let booksToDisplay = [];
+    if (bookSelectorActiveCategory === '我的') {
+        booksToDisplay = getMyDownloadedAndLocalBooks();
+        if (isShiCi) booksToDisplay = booksToDisplay.filter(b => isBookShiCi(b));
+    } else if (bookSelectorActiveCategory === '全部') {
+        booksToDisplay = isShiCi ? allBooks.filter(b => isBookShiCi(b)) : allBooks;
+    } else if (bookSelectorActiveCategory === 'Doris') {
+        booksToDisplay = allBooks.filter(b => b.category === 'Doris' || b.isDoris);
+    } else {
+        booksToDisplay = allBooks.filter(b => b.category === bookSelectorActiveCategory);
     }
 
     const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-    if (summaryChip) summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
+    if (summaryChip) {
+        if (bookSelectorActiveCategory === '我的') {
+            summaryChip.textContent = `我的词书 (${booksToDisplay.length} 本) · 已选 ${totalSelectedCount} 本`;
+        } else {
+            summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
+        }
+    }
 
-    if (filteredBooks.length === 0) {
-        container.innerHTML = `
-                    <div style="text-align:center; padding:48px 16px; color:var(--md-sys-color-outline);">
-                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.4;">auto_stories</span>
-                        <p style="margin-top:10px; font-size:0.95rem;">该分类下暂无词书</p>
+    if (booksToDisplay.length === 0) {
+        if (bookSelectorActiveCategory === '我的') {
+            container.innerHTML = `
+                <div class="empty-books-state">
+                    <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">cloud_off</span>
+                    <h4 style="margin:12px 0 6px; font-weight:700;">暂无已下载或本地词书</h4>
+                    <p style="font-size:0.9rem; color:var(--md-sys-color-outline); max-width:360px; margin:0 auto 16px;">
+                        你可以在其他分类中点击下载云端词书，或点击右上角“管理词书”导入你的本地词库。
+                    </p>
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="switchBookSelectorCategory('高中')">
+                        <span class="material-symbols-rounded">download</span>
+                        <span>浏览高中词书</span>
+                    </button>
+                </div>
+            `;
+        } else if (bookSelectorActiveCategory === 'Doris') {
+            const isUnlocked = (typeof isDorisUnlocked === 'function' && isDorisUnlocked());
+            if (!isUnlocked) {
+                container.innerHTML = `
+                    <div class="empty-books-state">
+                        <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">lock</span>
+                        <h4 style="margin:12px 0 6px; font-weight:700;">Doris 内部词库</h4>
+                        <p style="font-size:0.9rem; color:var(--md-sys-color-outline); margin-bottom:16px;">
+                            该词库为内部专属资源，请输入密钥永久解锁访问。
+                        </p>
+                        <button type="button" class="btn btn-filled btn-sm" onclick="openDorisPasswordModal(async () => { if (typeof BookManager !== 'undefined') await BookManager.loadDorisBooks(true); renderBookSelectorPage(); })">
+                            <span class="material-symbols-rounded">key</span>
+                            <span>输入密钥永久解锁</span>
+                        </button>
                     </div>
                 `;
+            } else {
+                container.innerHTML = `
+                    <div class="empty-books-state">
+                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.4;">auto_stories</span>
+                        <p style="margin-top:10px; font-size:0.95rem; color:var(--md-sys-color-outline);">Doris 词库加载中或暂无词书</p>
+                        <button type="button" class="btn btn-tonal btn-sm" style="margin-top:10px;" onclick="BookManager.loadDorisBooks(true)">
+                            <span class="material-symbols-rounded">refresh</span>
+                            <span>重新加载</span>
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            container.innerHTML = `
+                <div class="empty-books-state">
+                    <span class="material-symbols-rounded" style="font-size:42px; opacity:0.4;">auto_stories</span>
+                    <p style="margin-top:10px; font-size:0.95rem; color:var(--md-sys-color-outline);">该分类下暂无词书</p>
+                </div>
+            `;
+        }
         return;
     }
 
-    const folderGroups = {};
-    filteredBooks.forEach(b => {
-        let folder = b.category || '经典';
-        if (b.id === 'builtin_default') folder = '内置';
-        else if (String(b.id).startsWith('custom_')) folder = '自定义词书';
-        if (!folderGroups[folder]) folderGroups[folder] = [];
-        folderGroups[folder].push(b);
-    });
+    container.innerHTML = `
+        <div class="book-card-grid">
+            ${booksToDisplay.map(b => renderBookCardItem(b, false)).join('')}
+        </div>
+    `;
+}
 
-    const folderOrder = isRankedOnly
-        ? ['经典', '高中精选', '实词']
-        : ['内置', '经典', '高中精选', '实词', '自定义词书'];
-    const sortedFolderKeys = Object.keys(folderGroups).sort((a, b) => {
-        let idxA = folderOrder.indexOf(a);
-        let idxB = folderOrder.indexOf(b);
-        if (idxA === -1) idxA = 99;
-        if (idxB === -1) idxB = 99;
-        return idxA - idxB;
-    });
+/**
+ * 渲染单张词书卡片 (供选择词书与管理词书通用)
+ * @param {object} b - 词书元数据对象
+ * @param {boolean} isManageMode - 是否为管理词书页面模式 (我的分类显示···菜单)
+ */
+function renderBookCardItem(b, isManageMode = false) {
+    const isSelected = isBookIdSelectedInCurrentMode(b.id);
+    const gradient = getProceduralBookGradient(b.name, b.category);
+    const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
+    const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
 
-    container.innerHTML = sortedFolderKeys.map(folderName => {
-        const books = folderGroups[folderName];
-        return `
-                    <div class="book-folder-section" style="margin-bottom: 24px;">
-                        <div class="book-folder-header" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary, #0061a4); font-size:22px;">folder</span>
-                            <span class="book-folder-title" style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface);">${escapeHtml(folderName)}</span>
-                            <span class="book-folder-count" style="font-size:0.8rem; color:var(--md-sys-color-outline);">(${books.length} 本)</span>
-                        </div>
-                        <div class="book-cover-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px;">
-                            ${books.map(b => {
-            const isSelected = isBookIdSelectedInCurrentMode(b.id);
-            const gradient = getProceduralBookGradient(b.name, b.category);
-            const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
-            const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
+    // 计算词书掌握度
+    let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
+    if (isBookShiCi(b) && typeof ShiCiEbbinghausEngine !== 'undefined') {
+        const shiciRecs = ShiCiEbbinghausEngine.getRecords();
+        const words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null) || [];
+        let learned = 0, mastered = 0;
+        words.forEach(w => {
+            if (!w || !w.word) return;
+            const k = w.word.trim();
+            if (ShiCiEbbinghausEngine.isWordMastered(k)) { learned++; mastered++; }
+            else if (shiciRecs[k] && shiciRecs[k].stage >= 1) learned++;
+        });
+        const total = words.length || b.count || 1;
+        const progressPercent = Math.min(100, Math.round((learned / total) * 100));
+        prog = { progressPercent, learned, mastered, total };
+    } else if (typeof EbbinghausEngine !== 'undefined') {
+        prog = EbbinghausEngine.getBookProgress(b.id, b.words);
+    }
 
-            // 计算词书掌握度 (Task: 在选择词书页面显示词书掌握度)
-            let prog = { progressPercent: 0, learned: 0, due: 0, mastered: 0 };
-            if (isBookShiCi(b) && typeof ShiCiEbbinghausEngine !== 'undefined') {
-                const shiciRecs = ShiCiEbbinghausEngine.getRecords();
-                const words = b.words || [];
-                let learned = 0, mastered = 0;
-                words.forEach(w => {
-                    if (!w || !w.word) return;
-                    const k = w.word.trim();
-                    if (ShiCiEbbinghausEngine.isWordMastered(k)) { learned++; mastered++; }
-                    else if (shiciRecs[k] && shiciRecs[k].stage >= 1) learned++;
-                });
-                const total = words.length || b.count || 1;
-                const progressPercent = Math.min(100, Math.round((learned / total) * 100));
-                prog = { progressPercent, learned, mastered, total };
-            } else if (typeof EbbinghausEngine !== 'undefined') {
-                prog = EbbinghausEngine.getBookProgress(b.id, b.words);
-            }
+    const isDownloaded = (b.syncStatus === 'downloaded' || (b.words && b.words.length > 0) || (BookManager.bookCache[b.id] && BookManager.bookCache[b.id].length > 0));
+    const isUpdateAvailable = (b.syncStatus === 'update_available');
 
-            return `
-                                    <div class="book-cover-card ${isSelected ? 'selected' : ''} ${isBlockedForWordle ? 'disabled-for-wordle' : ''}" data-book-id="${escapeHtml(b.id)}" onclick="handleBookSelectorToggle('${escapeHtml(b.id)}')" style="${isBlockedForWordle ? 'opacity: 0.55; cursor: not-allowed;' : ''}">
-                                        <div class="book-cover-wrap">
-                                             ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
-                                            <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
-                                                <span class="book-cover-art-cat">${escapeHtml(b.category || '精选')}</span>
-                                                <span class="book-cover-art-title">${escapeHtml(b.name)}</span>
-                                                <span class="book-cover-art-count">${b.count ? `${b.count}词` : ''}</span>
-                                            </div>
-                                        </div>
-                                        <div class="book-card-info">
-                                             <div class="book-card-header">
-                                                 <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
-                                                 <div class="book-card-check-badge">
-                                                     ${isSelected ? '<span class="material-symbols-rounded" style="font-size:14px;">check</span>' : ''}
-                                                 </div>
-                                             </div>
-                                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-                                                 ${isBlockedForWordle 
-                                                     ? '<span class="badge" style="font-size:0.72rem; background:rgba(239, 68, 68, 0.12); color:#dc2626; font-weight:700;">不支持Wordle</span>' 
-                                                     : `<span class="badge" style="font-size:0.74rem;">${escapeHtml(b.category || '词书')}</span>`}
-                                                 <span style="font-size:0.74rem; color:var(--md-sys-color-outline);">${b.count ? `${b.count} 词` : ''}</span>
-                                             </div>
-                                             <div class="book-card-mastery" style="margin-top:6px;">
-                                                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; margin-bottom:3px;">
-                                                     <span style="color:var(--md-sys-color-outline);">掌握度</span>
-                                                     <span class="book-card-mastery-text" style="font-weight:700; color:var(--md-sys-color-primary);">${prog.progressPercent || 0}%</span>
-                                                 </div>
-                                                 <div class="book-progress-mini" style="height:4px; margin:0;">
-                                                     <div class="book-progress-mini-fill" style="width:${Math.max((prog.progressPercent > 0 ? 3 : 0), Math.min(100, prog.progressPercent || 0))}%;"></div>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                    </div>
-                                `;
-        }).join('')}
-                        </div>
+    // 更多操作按钮 (在管理词书模式下的“我的”分类中展现)
+    const showMoreAction = isManageMode;
+
+    return `
+        <div class="book-cover-card ${isSelected ? 'selected' : ''} ${isBlockedForWordle ? 'disabled-for-wordle' : ''}" 
+             data-book-id="${escapeHtml(b.id)}" 
+             onclick="${isManageMode ? `openBookActionMenu(event, '${escapeHtml(b.id)}')` : `handleBookCardClick('${escapeHtml(b.id)}')`}">
+            
+            <div class="book-cover-wrap">
+                ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+                <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
+                    <span class="book-cover-art-cat">${escapeHtml(b.category || '词书')}</span>
+                    <span class="book-cover-art-title">${escapeHtml(b.name)}</span>
+                    <span class="book-cover-art-count">${b.count ? `${b.count}词` : ''}</span>
+                </div>
+            </div>
+
+            <div class="book-card-info">
+                <div class="book-card-header">
+                    <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        ${showMoreAction ? `
+                            <button type="button" class="book-card-more-btn" onclick="event.stopPropagation(); openBookActionMenu(event, '${escapeHtml(b.id)}')" title="更多操作">
+                                <span class="material-symbols-rounded">more_horiz</span>
+                            </button>
+                        ` : `
+                            <div class="book-card-check-badge">
+                                ${isSelected ? '<span class="material-symbols-rounded" style="font-size:14px;">check</span>' : ''}
+                            </div>
+                        `}
                     </div>
-                `;
-    }).join('');
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                    ${isBlockedForWordle 
+                        ? '<span class="badge" style="font-size:0.72rem; background:rgba(239, 68, 68, 0.12); color:#dc2626; font-weight:700;">不支持Wordle</span>' 
+                        : `<span class="badge" style="font-size:0.74rem;">${escapeHtml(b.category || '词书')}</span>`}
+                    
+                    ${isUpdateAvailable ? `
+                        <button type="button" class="btn-card-action update" onclick="event.stopPropagation(); handleDownloadBookClick('${escapeHtml(b.id)}')">
+                            <span class="material-symbols-rounded" style="font-size:13px;">update</span>
+                            <span>更新</span>
+                        </button>
+                    ` : (!isDownloaded && b.isCloud ? `
+                        <button type="button" class="btn-card-action download" onclick="event.stopPropagation(); handleDownloadBookClick('${escapeHtml(b.id)}')">
+                            <span class="material-symbols-rounded" style="font-size:13px;">cloud_download</span>
+                            <span>下载</span>
+                        </button>
+                    ` : `
+                        <span style="font-size:0.74rem; color:var(--md-sys-color-outline);">${b.count ? `${b.count} 词` : ''}</span>
+                    `)}
+                </div>
+
+                <div class="book-card-mastery" style="margin-top:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; margin-bottom:3px;">
+                        <span style="color:var(--md-sys-color-outline);">${isDownloaded ? '掌握度' : '状态'}</span>
+                        <span class="book-card-mastery-text" style="font-weight:700; color:var(--md-sys-color-primary);">
+                            ${isDownloaded ? `${prog.progressPercent || 0}%` : '未下载'}
+                        </span>
+                    </div>
+                    <div class="book-progress-mini" style="height:4px; margin:0;">
+                        <div class="book-progress-mini-fill" style="width:${isDownloaded ? Math.max((prog.progressPercent > 0 ? 3 : 0), Math.min(100, prog.progressPercent || 0)) : 0}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
-function refreshBookSelectorMasteryDOM() {
-    const cards = document.querySelectorAll('.book-cover-card[data-book-id]');
-    cards.forEach(card => {
-        const bId = card.getAttribute('data-book-id');
-        const b = (BookManager.availableBooks || []).find(x => x.id === bId) || (BookManager.fallbackBooks || []).find(x => x.id === bId) || (window.customBooks || []).find(x => x.id === bId);
-        if (!b) return;
-        let prog = { progressPercent: 0 };
-        if (isBookShiCi(b) && typeof ShiCiEbbinghausEngine !== 'undefined') {
-            const shiciRecs = ShiCiEbbinghausEngine.getRecords();
-            const words = b.words || (BookManager.bookCache ? BookManager.bookCache[b.id] : null) || [];
-            let learned = 0, mastered = 0;
-            words.forEach(w => {
-                if (!w || !w.word) return;
-                const k = w.word.trim();
-                if (ShiCiEbbinghausEngine.isWordMastered(k)) { learned++; mastered++; }
-                else if (shiciRecs[k] && shiciRecs[k].stage >= 1) learned++;
-            });
-            const total = words.length || b.count || 1;
-            let progressPercent = 0;
-            if (total > 0 && learned > 0) {
-                const raw = (learned / total) * 100;
-                progressPercent = raw < 1 ? Number(raw.toFixed(1)) || 0.1 : Math.min(100, Math.round(raw));
-            }
-            prog = { progressPercent, learned, mastered, total };
-        } else if (typeof EbbinghausEngine !== 'undefined') {
-            prog = EbbinghausEngine.getBookProgress(b.id, b.words);
-        }
-        const textEl = card.querySelector('.book-card-mastery-text');
-        const fillEl = card.querySelector('.book-progress-mini-fill');
-        if (textEl) textEl.innerText = `${prog.progressPercent || 0}%`;
-        if (fillEl) fillEl.style.width = `${Math.max((prog.progressPercent > 0 ? 3 : 0), Math.min(100, prog.progressPercent || 0))}%`;
-    });
+/**
+ * 点击选择词书卡片
+ */
+async function handleBookCardClick(bookId) {
+    const bookMeta = BookManager.getBookMeta(bookId);
+    const isDownloaded = (bookMeta.syncStatus === 'downloaded' || (bookMeta.words && bookMeta.words.length > 0) || (BookManager.bookCache[bookId] && BookManager.bookCache[bookId].length > 0));
+
+    // 若词书尚未下载，点击卡片自动先触发下载，成功后自动选中
+    if (!isDownloaded && bookMeta.isCloud) {
+        const ok = await BookManager.downloadBook(bookId);
+        if (!ok) return;
+    }
+
+    handleBookSelectorToggle(bookId);
 }
 
-function updateBookSelectorDOM() {
-    const cards = document.querySelectorAll('.book-cover-card[data-book-id]');
-    cards.forEach(card => {
-        const bId = card.getAttribute('data-book-id');
-        const isSelected = isBookIdSelectedInCurrentMode(bId);
-        card.classList.toggle('selected', isSelected);
-        const checkBadge = card.querySelector('.book-card-check-badge');
-        if (checkBadge) {
-            checkBadge.innerHTML = isSelected ? '<span class="material-symbols-rounded" style="font-size:14px;">check</span>' : '';
-        }
-    });
+/**
+ * 手动点击词书卡片上的下载/更新按钮
+ */
+async function handleDownloadBookClick(bookId) {
+    await BookManager.downloadBook(bookId);
+}
 
-    const summaryChip = document.getElementById('book-selector-summary-chip');
-    if (summaryChip) {
-        const allBooks = getAllUniqueBooks();
-        const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
-        summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
+/* ==========================================================================
+   2. “管理词书”页面控制器 (与选择词书相同结构，但我的分类支持···菜单)
+   ========================================================================== */
+function openManageBooksPage(prevView = null) {
+    manageBooksPreviousView = prevView || currentView || 'view-book-selector';
+    manageBooksActiveCategory = '我的';
+
+    switchView('view-manage-books');
+    renderManageBooksCategoryTabs();
+    renderManageBooksPage();
+}
+
+function exitManageBooksPage() {
+    switchView(manageBooksPreviousView || 'view-book-selector');
+    if (manageBooksPreviousView === 'view-book-selector') {
+        renderBookSelectorPage();
     }
 }
 
+function switchManageBooksCategory(cat) {
+    if (cat === 'Doris') {
+        if (typeof isDorisUnlocked === 'function' && !isDorisUnlocked()) {
+            openDorisPasswordModal(async () => {
+                manageBooksActiveCategory = 'Doris';
+                renderManageBooksCategoryTabs();
+                renderManageBooksPage();
+            });
+            return;
+        } else {
+            if (typeof BookManager !== 'undefined' && typeof BookManager.loadDorisBooks === 'function') {
+                BookManager.loadDorisBooks(false).then(() => {
+                    renderManageBooksPage();
+                });
+            }
+        }
+    }
+    manageBooksActiveCategory = cat;
+    renderManageBooksCategoryTabs();
+    renderManageBooksPage();
+}
+
+function renderManageBooksCategoryTabs() {
+    const container = document.getElementById('manage-books-category-tabs');
+    if (!container) return;
+
+    const displayCategories = getCategoriesForMode('manage');
+    if (!displayCategories.includes(manageBooksActiveCategory)) {
+        manageBooksActiveCategory = displayCategories[0] || '我的';
+    }
+
+    const isDorisOpen = (typeof isDorisUnlocked === 'function' && isDorisUnlocked());
+
+    container.innerHTML = displayCategories.map(cat => {
+        const isActive = (manageBooksActiveCategory === cat);
+        let icon = '';
+        if (cat === '我的') icon = 'bookmark';
+        else if (cat === '全部') icon = 'apps';
+        else if (cat === '初中') icon = 'menu_book';
+        else if (cat === '高中') icon = 'school';
+        else if (cat === '大学') icon = 'account_balance';
+        else if (cat === '实词') icon = 'history_edu';
+        else if (cat === '翻译') icon = 'translate';
+        else if (cat === '其他') icon = 'category';
+        else if (cat === 'Doris') icon = isDorisOpen ? 'lock_open' : 'lock';
+
+        return `
+            <button type="button" class="md3-cat-chip ${isActive ? 'active' : ''}" onclick="switchManageBooksCategory('${cat}')">
+                <span class="material-symbols-rounded" style="font-size:18px;">${icon}</span>
+                <span>${cat}${cat === 'Doris' && !isDorisOpen ? ' (密钥)' : ''}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+function renderManageBooksPage() {
+    const container = document.getElementById('manage-books-content-list');
+    const summaryChip = document.getElementById('manage-books-summary-chip');
+    if (!container) return;
+
+    renderManageBooksCategoryTabs();
+
+    const allBooks = getAllUniqueBooks();
+    let booksToDisplay = [];
+
+    if (manageBooksActiveCategory === '我的') {
+        booksToDisplay = getMyDownloadedAndLocalBooks();
+    } else if (manageBooksActiveCategory === '全部') {
+        booksToDisplay = allBooks;
+    } else if (manageBooksActiveCategory === 'Doris') {
+        booksToDisplay = allBooks.filter(b => b.category === 'Doris' || b.isDoris);
+    } else {
+        booksToDisplay = allBooks.filter(b => b.category === manageBooksActiveCategory);
+    }
+
+    const actionsBar = document.getElementById('manage-books-actions-bar');
+    if (actionsBar) {
+        actionsBar.style.display = (manageBooksActiveCategory === '我的') ? 'flex' : 'none';
+    }
+
+    if (summaryChip) {
+        summaryChip.textContent = `共 ${booksToDisplay.length} 本词书`;
+    }
+
+    if (booksToDisplay.length === 0) {
+        if (manageBooksActiveCategory === '我的') {
+            container.innerHTML = `
+                <div class="empty-books-state">
+                    <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">folder_open</span>
+                    <h4 style="margin:12px 0 6px; font-weight:700;">暂无已下载或本地词书</h4>
+                    <p style="font-size:0.9rem; color:var(--md-sys-color-outline); margin-bottom:16px;">
+                        你可以点击右上角“导入词书”导入 JSON 词库，或在其他分类中下载云端词书。
+                    </p>
+                    <button type="button" class="btn btn-filled btn-sm" onclick="document.getElementById('manage-books-import-file').click()">
+                        <span class="material-symbols-rounded">upload_file</span>
+                        <span>导入本地词书</span>
+                    </button>
+                </div>
+            `;
+        } else if (manageBooksActiveCategory === 'Doris') {
+            const isUnlocked = (typeof isDorisUnlocked === 'function' && isDorisUnlocked());
+            if (!isUnlocked) {
+                container.innerHTML = `
+                    <div class="empty-books-state">
+                        <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">lock</span>
+                        <h4 style="margin:12px 0 6px; font-weight:700;">Doris 内部词库</h4>
+                        <p style="font-size:0.9rem; color:var(--md-sys-color-outline); margin-bottom:16px;">
+                            该词库为内部专属资源，请输入密钥永久解锁访问。
+                        </p>
+                        <button type="button" class="btn btn-filled btn-sm" onclick="openDorisPasswordModal(async () => { if (typeof BookManager !== 'undefined') await BookManager.loadDorisBooks(true); renderManageBooksPage(); })">
+                            <span class="material-symbols-rounded">key</span>
+                            <span>输入密钥永久解锁</span>
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="empty-books-state">
+                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.4;">auto_stories</span>
+                        <p style="margin-top:10px; font-size:0.95rem; color:var(--md-sys-color-outline);">Doris 词库加载中或暂无词书</p>
+                        <button type="button" class="btn btn-tonal btn-sm" style="margin-top:10px;" onclick="BookManager.loadDorisBooks(true)">
+                            <span class="material-symbols-rounded">refresh</span>
+                            <span>重新加载</span>
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            container.innerHTML = `
+                <div class="empty-books-state">
+                    <span class="material-symbols-rounded" style="font-size:42px; opacity:0.4;">auto_stories</span>
+                    <p style="margin-top:10px; font-size:0.95rem; color:var(--md-sys-color-outline);">该分类下暂无词书</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    const isMyCategory = (manageBooksActiveCategory === '我的');
+    container.innerHTML = `
+        <div class="book-card-grid">
+            ${booksToDisplay.map(b => renderBookCardItem(b, isMyCategory)).join('')}
+        </div>
+    `;
+}
+
+/* ==========================================================================
+   3. 词书操作菜单 (查看内容、重学词书、删除词书)
+   ========================================================================== */
+function openBookActionMenu(event, bookId) {
+    if (event) event.stopPropagation();
+    activeActionBookId = bookId;
+    const bookMeta = BookManager.getBookMeta(bookId);
+
+    const menu = document.getElementById('modal-book-actions-menu');
+    const titleEl = document.getElementById('book-action-menu-title');
+    if (titleEl) titleEl.textContent = bookMeta ? `《${bookMeta.name}》` : '词书操作';
+
+    if (menu) menu.classList.add('active');
+}
+
+function closeBookActionMenu() {
+    const menu = document.getElementById('modal-book-actions-menu');
+    if (menu) menu.classList.remove('active');
+}
+
+/**
+ * 查看词书全部单词内容
+ */
+async function actionViewBookContent() {
+    closeBookActionMenu();
+    if (!activeActionBookId) return;
+
+    const bookId = activeActionBookId;
+    const bookMeta = BookManager.getBookMeta(bookId);
+
+    showToast('正在加载词书内容...');
+    const words = await BookManager.loadBookData(bookId);
+
+    if (!words || words.length === 0) {
+        alert('无法加载该词书的单词条目，请确认已下载完成。');
+        return;
+    }
+
+    openBookWordsViewerModal(bookMeta.name || bookId, words);
+}
+
+/**
+ * 打开词书内容查看弹窗
+ */
+function openBookWordsViewerModal(title, words) {
+    const modal = document.getElementById('modal-book-words-viewer');
+    const titleEl = document.getElementById('book-viewer-modal-title');
+    const countEl = document.getElementById('book-viewer-modal-count');
+    const searchInput = document.getElementById('book-viewer-search-input');
+    const listEl = document.getElementById('book-viewer-words-list');
+
+    if (!modal || !listEl) return;
+
+    if (titleEl) titleEl.textContent = `《${title}》`;
+    if (countEl) countEl.textContent = `(共 ${words.length} 词)`;
+    if (searchInput) searchInput.value = '';
+
+    window.__currentViewingWords = words;
+    renderBookViewerList(words);
+
+    modal.classList.add('active');
+}
+
+function closeBookWordsViewerModal() {
+    const modal = document.getElementById('modal-book-words-viewer');
+    if (modal) modal.classList.remove('active');
+    window.__currentViewingWords = null;
+}
+
+function filterBookViewerWords(query) {
+    if (!window.__currentViewingWords) return;
+    const q = (query || '').trim().toLowerCase();
+    if (!q) {
+        renderBookViewerList(window.__currentViewingWords);
+        return;
+    }
+    const filtered = window.__currentViewingWords.filter(item => {
+        if (!item) return false;
+        const w = (item.word || '').toLowerCase();
+        const m = (item.meanings || []).map(x => x.meaning).join(' ').toLowerCase();
+        return w.includes(q) || m.includes(q);
+    });
+    renderBookViewerList(filtered);
+}
+
+function renderBookViewerList(wordsList) {
+    const listEl = document.getElementById('book-viewer-words-list');
+    if (!listEl) return;
+
+    if (!wordsList || wordsList.length === 0) {
+        listEl.innerHTML = `
+            <div style="text-align:center; padding:32px 16px; color:var(--md-sys-color-outline);">
+                未找到匹配词条
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = wordsList.slice(0, 300).map((item, idx) => {
+        const word = item.word || '';
+        const phone = item.phone || item.pinyin || '';
+        const meaningsStr = (item.meanings || []).map(m => {
+            const p = m.pos ? `<span style="color:var(--md-sys-color-primary); font-weight:700; margin-right:4px;">${escapeHtml(m.pos)}</span>` : '';
+            return `<div>${p}${escapeHtml(m.meaning || '')}</div>`;
+        }).join('');
+
+        return `
+            <div class="book-viewer-word-item">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+                    <span style="font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
+                    <span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:var(--font-mono, monospace);">${escapeHtml(phone)}</span>
+                </div>
+                <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px; line-height:1.45;">
+                    ${meaningsStr || '释义暂缺'}
+                </div>
+            </div>
+        `;
+    }).join('') + (wordsList.length > 300 ? `<div style="text-align:center; padding:12px; font-size:0.8rem; color:var(--md-sys-color-outline);">已显示前 300 词条</div>` : '');
+}
+
+/**
+ * 重学词书：清空记忆算法记录与已背进度
+ */
+async function actionResetBookProgress() {
+    closeBookActionMenu();
+    if (!activeActionBookId) return;
+
+    const bookId = activeActionBookId;
+    const bookMeta = BookManager.getBookMeta(bookId);
+    const bookName = bookMeta.name || bookId;
+
+    if (!confirm(`确定要重置词书《${bookName}》的学习进度吗？\n这将清空该词书所有记忆阶段与掌握记录，从头开始背诵。`)) {
+        return;
+    }
+
+    try {
+        if (typeof EbbinghausEngine !== 'undefined' && typeof EbbinghausEngine.resetBookProgress === 'function') {
+            await EbbinghausEngine.resetBookProgress(bookId);
+        }
+        if (isBookShiCi(bookMeta) && typeof ShiCiEbbinghausEngine !== 'undefined') {
+            const shiciRecs = ShiCiEbbinghausEngine.getRecords();
+            const words = bookMeta.words || (BookManager.bookCache ? BookManager.bookCache[bookId] : null) || [];
+            words.forEach(w => {
+                if (w && w.word) {
+                    delete shiciRecs[w.word.trim()];
+                }
+            });
+            ShiCiEbbinghausEngine.saveRecords(shiciRecs);
+        }
+
+        if (currentUser) {
+            localStorage.removeItem(`single_learn_progress_${currentUser}`);
+            localStorage.removeItem(`single_progress_${currentUser}`);
+            localStorage.removeItem(`single_review_progress_${currentUser}`);
+            localStorage.removeItem(`shici_learn_progress_${currentUser}`);
+            localStorage.removeItem(`shici_review_progress_${currentUser}`);
+        }
+
+        showToast(`已成功重置《${bookName}》的学习进度！`);
+        renderManageBooksPage();
+        if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+    } catch (e) {
+        console.error('Reset book progress error:', e);
+        showToast('重置学习进度失败');
+    }
+}
+
+/**
+ * 删除本地词书
+ */
+async function actionDeleteBook() {
+    closeBookActionMenu();
+    if (!activeActionBookId) return;
+
+    const bookId = activeActionBookId;
+    const bookMeta = BookManager.getBookMeta(bookId);
+    const bookName = bookMeta.name || bookId;
+
+    if (!confirm(`确定要从本地删除《${bookName}》吗？\n如果是云端词书，你随时可以在云端分类中重新下载。`)) {
+        return;
+    }
+
+    try {
+        // 如果是自定义本地词书
+        if (String(bookId).startsWith('custom_') || !bookMeta.isCloud) {
+            await VocabOfflineDB.deleteBook(bookId);
+            if (window.customBooks) {
+                window.customBooks = window.customBooks.filter(b => b.id !== bookId);
+            }
+            delete BookManager.bookCache[bookId];
+            showToast(`已成功删除本地词书《${bookName}》！`);
+        } else {
+            // 云端已下载词书
+            await BookManager.deleteDownloadedBook(bookId);
+            showToast(`已移除《${bookName}》的本地下载缓存！`);
+        }
+
+        renderManageBooksPage();
+        if (typeof renderBookSelectorPage === 'function' && window.currentView === 'view-book-selector') {
+            renderBookSelectorPage();
+        }
+    } catch (e) {
+        console.error('Delete book error:', e);
+        showToast('删除词书失败');
+    }
+}
+
+/* ==========================================================================
+   4. Doris 内部资源访问密码验证弹窗
+   ========================================================================== */
+let dorisUnlockCallback = null;
+
+function openDorisPasswordModal(onSuccessCallback = null) {
+    dorisUnlockCallback = onSuccessCallback;
+    const modal = document.getElementById('modal-doris-unlock');
+    const input = document.getElementById('doris-password-input');
+    const errText = document.getElementById('doris-password-error');
+    if (input) input.value = '';
+    if (errText) errText.style.display = 'none';
+    if (modal) modal.classList.add('active');
+    setTimeout(() => { if (input) input.focus(); }, 150);
+}
+
+function closeDorisPasswordModal() {
+    const modal = document.getElementById('modal-doris-unlock');
+    if (modal) modal.classList.remove('active');
+    dorisUnlockCallback = null;
+}
+
+async function submitDorisPassword() {
+    const input = document.getElementById('doris-password-input');
+    const errText = document.getElementById('doris-password-error');
+    const pwd = input ? input.value.trim() : '';
+
+    if (!verifyDorisPassword(pwd)) {
+        if (errText) {
+            errText.textContent = '密钥错误，无法访问 Doris 内部资源';
+            errText.style.display = 'block';
+        }
+        if (input) {
+            input.classList.add('input-shake');
+            setTimeout(() => input.classList.remove('input-shake'), 400);
+        }
+        return;
+    }
+
+    closeDorisPasswordModal();
+    showToast('密钥验证成功，已永久解锁 Doris 内部词书！');
+
+    // 永久解锁成功后，自动将活跃分类切换至 Doris
+    bookSelectorActiveCategory = 'Doris';
+    manageBooksActiveCategory = 'Doris';
+
+    renderBookSelectorCategoryTabs();
+    if (typeof renderManageBooksCategoryTabs === 'function') {
+        renderManageBooksCategoryTabs();
+    }
+
+    if (typeof BookManager !== 'undefined' && typeof BookManager.loadDorisBooks === 'function') {
+        await BookManager.loadDorisBooks(true);
+    }
+
+    if (typeof dorisUnlockCallback === 'function') {
+        const cb = dorisUnlockCallback;
+        dorisUnlockCallback = null;
+        await cb();
+    } else {
+        if (typeof window.currentView !== 'undefined' && window.currentView === 'view-manage-books') {
+            renderManageBooksPage();
+        } else {
+            renderBookSelectorPage();
+        }
+    }
+}
+
+/* ==========================================================================
+   5. 词书选择切换事件处理器
+   ========================================================================== */
 async function handleBookSelectorToggle(bookId) {
+    if (BookManager.legacyBookMap && BookManager.legacyBookMap[bookId]) {
+        bookId = BookManager.legacyBookMap[bookId];
+    }
     const allBooks = getAllUniqueBooks();
     const bookMeta = allBooks.find(b => b.id === bookId) || { id: bookId, name: bookId };
 
@@ -453,7 +945,6 @@ async function handleBookSelectorToggle(bookId) {
                 : [...singleSelectedBookIds, bookId];
         }
 
-        // 如果已经选择了其他词书，确保不带上默认内置词书
         if (singleSelectedBookIds.length > 1 && singleSelectedBookIds.includes('builtin_default')) {
             singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== 'builtin_default');
         }
@@ -462,7 +953,6 @@ async function handleBookSelectorToggle(bookId) {
         const badge = document.getElementById('single-book-badge');
         if (badge) badge.innerText = bookMeta.name;
 
-        // 切换成其他词书后，清除当前学习进度
         if (currentUser) {
             localStorage.removeItem(`single_learn_progress_${currentUser}`);
             localStorage.removeItem(`single_progress_${currentUser}`);
@@ -474,9 +964,6 @@ async function handleBookSelectorToggle(bookId) {
             singleState.pool = [];
             singleState.currentIdx = 0;
             singleState.answered = false;
-        }
-        if (typeof initSinglePlayerGame === 'function' && currentView === 'view-single') {
-            initSinglePlayerGame();
         }
     } else if (bookSelectorMode === 'shici') {
         if (!Array.isArray(shiciConfig.selectedBooks)) shiciConfig.selectedBooks = [];
@@ -534,12 +1021,6 @@ async function handleBookSelectorToggle(bookId) {
         const badge = document.getElementById('dictation-book-badge');
         if (badge) badge.innerText = bookMeta.name;
     } else if (bookSelectorMode === 'room') {
-        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            if (typeof roomConfig !== 'undefined' && roomConfig.matchType === 'ranked') {
-                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
-                return;
-            }
-        }
         if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(roomConfig.selectedBooks, bookId) : roomConfig.selectedBooks.includes(bookId);
         if (isSel) {
@@ -555,12 +1036,6 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updateRoomBookSummaryUI === 'function') updateRoomBookSummaryUI();
         if (typeof broadcastRuleChange === 'function' && isHost) broadcastRuleChange();
     } else if (bookSelectorMode === 'preset') {
-        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            if (typeof activeEditingPreset !== 'undefined' && activeEditingPreset.matchType === 'ranked') {
-                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
-                return;
-            }
-        }
         if (!window.activeEditingPreset) window.activeEditingPreset = { selectedBooks: [] };
         if (!activeEditingPreset.selectedBooks) activeEditingPreset.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeEditingPreset.selectedBooks, bookId) : activeEditingPreset.selectedBooks.includes(bookId);
@@ -576,12 +1051,6 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updatePresetBookSummaryUI === 'function') updatePresetBookSummaryUI();
     } else if (bookSelectorMode === 'invite') {
-        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            if (typeof activeInviteRules !== 'undefined' && activeInviteRules.matchType === 'ranked') {
-                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
-                return;
-            }
-        }
         if (!window.activeInviteRules) window.activeInviteRules = { selectedBooks: [] };
         if (!activeInviteRules.selectedBooks) activeInviteRules.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(activeInviteRules.selectedBooks, bookId) : activeInviteRules.selectedBooks.includes(bookId);
@@ -597,12 +1066,6 @@ async function handleBookSelectorToggle(bookId) {
         }
         if (typeof updateInviteBookSummaryUI === 'function') updateInviteBookSummaryUI();
     } else if (bookSelectorMode === 'ai_duel') {
-        if (String(bookId).startsWith('custom_') || bookId === 'builtin_default') {
-            if (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.matchType === 'ranked') {
-                showToast('排位赛仅支持云端词书，友谊赛可使用本地词书');
-                return;
-            }
-        }
         if (typeof aiDuelConfig === 'undefined') window.aiDuelConfig = { selectedBooks: [] };
         if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.includes(bookId);
@@ -636,7 +1099,7 @@ async function handleBookSelectorToggle(bookId) {
         if (typeof updateLocalDuelBookSummaryUI === 'function') updateLocalDuelBookSummaryUI();
     }
 
-    updateBookSelectorDOM();
+    renderBookSelectorPage();
 }
 
 function openRoomBookSelector(target = 'room') {
@@ -674,4 +1137,29 @@ function openLocalDuelBookSelector() {
 }
 window.openLocalDuelBookSelector = openLocalDuelBookSelector;
 
+// 支持鼠标滚轮在分类 Chips 栏上水平滑动
+document.addEventListener('wheel', (e) => {
+    const row = e.target.closest('.md3-cat-chips-row, .md3-cat-scroll-container');
+    if (row && e.deltaY) {
+        const targetScroll = row.classList.contains('md3-cat-chips-row') ? row : (row.querySelector('.md3-cat-chips-row') || row);
+        targetScroll.scrollLeft += e.deltaY;
+        e.preventDefault();
+    }
+}, { passive: false });
 
+// 全局暴露管理词书入口
+window.openManageBooksPage = openManageBooksPage;
+window.exitManageBooksPage = exitManageBooksPage;
+window.switchManageBooksCategory = switchManageBooksCategory;
+window.openBookActionMenu = openBookActionMenu;
+window.closeBookActionMenu = closeBookActionMenu;
+window.actionViewBookContent = actionViewBookContent;
+window.actionResetBookProgress = actionResetBookProgress;
+window.actionDeleteBook = actionDeleteBook;
+window.closeBookWordsViewerModal = closeBookWordsViewerModal;
+window.filterBookViewerWords = filterBookViewerWords;
+window.openDorisPasswordModal = openDorisPasswordModal;
+window.closeDorisPasswordModal = closeDorisPasswordModal;
+window.submitDorisPassword = submitDorisPassword;
+window.handleBookCardClick = handleBookCardClick;
+window.handleDownloadBookClick = handleDownloadBookClick;

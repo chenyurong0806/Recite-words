@@ -19,6 +19,12 @@ function handleNavClick(dest) {
 if (typeof window !== 'undefined') window.handleNavClick = handleNavClick;
 
 function openMeSubview(subviewKey) {
+    if (subviewKey === 'books') {
+        if (typeof openManageBooksPage === 'function') {
+            openManageBooksPage('view-me');
+            return;
+        }
+    }
     const viewMe = document.getElementById('view-me');
     if (viewMe && !viewMe.classList.contains('active')) {
         switchView('view-me');

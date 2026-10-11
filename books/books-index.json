@@ -1,0 +1,140 @@
+{
+  "version": "2.7.0",
+  "generatedAt": 1791640876464,
+  "categories": [
+    "高中",
+    "初中",
+    "大学",
+    "实词",
+    "翻译",
+    "其他"
+  ],
+  "books": [
+    {
+      "id": "books\\高中\\高中518词组.json",
+      "name": "高中518词组",
+      "category": "高中",
+      "path": "books\\高中\\高中518词组.json",
+      "count": 570,
+      "size": 43073,
+      "updatedAt": 1789277163781
+    },
+    {
+      "id": "books\\高中\\高中考纲词汇.json",
+      "name": "高中考纲词汇",
+      "category": "高中",
+      "path": "books\\高中\\高中考纲词汇.json",
+      "count": 3892,
+      "size": 709960,
+      "updatedAt": 1790866132725
+    },
+    {
+      "id": "books\\高中\\高中考纲词组.json",
+      "name": "高中考纲词组",
+      "category": "高中",
+      "path": "books\\高中\\高中考纲词组.json",
+      "count": 1200,
+      "size": 101004,
+      "updatedAt": 1789287225149
+    },
+    {
+      "id": "books\\高中\\高考真题高频.json",
+      "name": "高考真题高频",
+      "category": "高中",
+      "path": "books\\高中\\高考真题高频.json",
+      "count": 799,
+      "size": 188628,
+      "updatedAt": 1790993843899
+    },
+    {
+      "id": "books\\高中\\高考阅读高频.json",
+      "name": "高考阅读高频",
+      "category": "高中",
+      "path": "books\\高中\\高考阅读高频.json",
+      "count": 688,
+      "size": 56600,
+      "updatedAt": 1790994126898
+    },
+    {
+      "id": "books\\初中\\初中考纲词汇.json",
+      "name": "初中考纲词汇",
+      "category": "初中",
+      "path": "books\\初中\\初中考纲词汇.json",
+      "count": 1741,
+      "size": 203237,
+      "updatedAt": 1790866132727
+    },
+    {
+      "id": "books\\初中\\初中考纲词组.json",
+      "name": "初中考纲词组",
+      "category": "初中",
+      "path": "books\\初中\\初中考纲词组.json",
+      "count": 347,
+      "size": 37098,
+      "updatedAt": 1790865358054
+    },
+    {
+      "id": "books\\大学\\六级词汇.json",
+      "name": "六级词汇",
+      "category": "大学",
+      "path": "books\\大学\\六级词汇.json",
+      "count": 2345,
+      "size": 481442,
+      "updatedAt": 1790993777567
+    },
+    {
+      "id": "books\\大学\\四级词汇.json",
+      "name": "四级词汇",
+      "category": "大学",
+      "path": "books\\大学\\四级词汇.json",
+      "count": 2607,
+      "size": 521112,
+      "updatedAt": 1788585207794
+    },
+    {
+      "id": "books\\大学\\考研\\考研红宝书.json",
+      "name": "考研红宝书",
+      "category": "大学",
+      "path": "books\\大学\\考研\\考研红宝书.json",
+      "count": 6705,
+      "size": 1309181,
+      "updatedAt": 1790994144781
+    },
+    {
+      "id": "books\\实词\\初中150实词.json",
+      "name": "初中150实词",
+      "category": "实词",
+      "path": "books\\实词\\初中150实词.json",
+      "count": 150,
+      "size": 117017,
+      "updatedAt": 1790865998755
+    },
+    {
+      "id": "books\\实词\\高中300实词.json",
+      "name": "高中300实词",
+      "category": "实词",
+      "path": "books\\实词\\高中300实词.json",
+      "count": 300,
+      "size": 494200,
+      "updatedAt": 1789290228192
+    },
+    {
+      "id": "books\\翻译\\高中翻译.json",
+      "name": "高中翻译",
+      "category": "翻译",
+      "path": "books\\翻译\\高中翻译.json",
+      "count": 107,
+      "size": 13350,
+      "updatedAt": 1790774698937
+    },
+    {
+      "id": "books\\其他\\基础词汇.json",
+      "name": "基础词汇",
+      "category": "其他",
+      "path": "books\\其他\\基础词汇.json",
+      "count": 2991,
+      "size": 286696,
+      "updatedAt": 1789277152518
+    }
+  ]
+}

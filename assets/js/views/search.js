@@ -320,23 +320,71 @@ function renderSearchTabsRow() {
         tabsRows.forEach(el => {
             el.style.display = 'none';
             el.innerHTML = '';
+            el.classList.remove('first-tab-active', 'has-results');
         });
+        updateSearchTabsCardBorderRadius();
         return;
     }
-    const tabsHtml = searchTabs.map(tab => {
+    const isFirstActive = (searchTabs[0] && searchTabs[0].id === activeSearchTabId);
+
+    const tabsHtml = searchTabs.map((tab, idx) => {
         const isActive = tab.id === activeSearchTabId;
         return `
-                    <div class="hub-search-tab ${isActive ? 'active' : ''}" onclick="switchSearchTab('${escapeHtml(tab.id)}')">
-                        <span>${escapeHtml(tab.word)}</span>
-                        <span class="hub-search-tab-close" onclick="closeSearchTab(event, '${escapeHtml(tab.id)}')" title="关闭标签页">&times;</span>
-                    </div>
-                `;
+            <div class="hub-search-tab ${isActive ? 'active' : ''}" onclick="switchSearchTab('${escapeHtml(tab.id)}')">
+                <span class="material-symbols-rounded hub-search-tab-icon">search</span>
+                <span class="hub-search-tab-title" title="${escapeHtml(tab.word)}">${escapeHtml(tab.word)}</span>
+                <span class="hub-search-tab-close" onclick="closeSearchTab(event, '${escapeHtml(tab.id)}')" title="关闭标签页">&times;</span>
+            </div>
+        `;
     }).join('');
+
+    const resultsPage = document.getElementById('search-page-results');
+    const resultsHub = document.getElementById('hub-search-inpage-results');
+    const hasResults = Boolean(
+        (resultsPage && resultsPage.style.display !== 'none' && !resultsPage.innerHTML.includes('输入单词或词组开始搜索')) ||
+        (resultsHub && resultsHub.style.display !== 'none')
+    );
+
     tabsRows.forEach(el => {
         el.style.display = 'flex';
-        el.innerHTML = tabsHtml;
+        el.classList.toggle('first-tab-active', isFirstActive);
+        el.classList.toggle('has-results', hasResults);
+        el.innerHTML = `<div class="hub-search-tabs-list">${tabsHtml}</div>`;
     });
+    updateSearchTabsCardBorderRadius();
 }
+
+function updateSearchTabsCardBorderRadius() {
+    const cfg = getSearchConfig();
+    const hasVisibleTabs = Boolean(
+        cfg.enableTabs &&
+        searchTabs &&
+        searchTabs.length > 0 &&
+        activeSearchTabId
+    );
+    const inpageResults = document.getElementById('search-page-results');
+    if (inpageResults) {
+        inpageResults.classList.toggle('has-active-tabs', hasVisibleTabs);
+    }
+    const hubResults = document.getElementById('hub-search-inpage-results');
+    if (hubResults) {
+        hubResults.classList.toggle('has-active-tabs', hasVisibleTabs);
+    }
+}
+window.updateSearchTabsCardBorderRadius = updateSearchTabsCardBorderRadius;
+
+function addNewSearchTab() {
+    const inp = document.getElementById('search-page-input');
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    closeInpageSearchResults();
+    activeSearchTabId = null;
+    saveSearchTabs();
+    renderSearchTabsRow();
+}
+window.addNewSearchTab = addNewSearchTab;
 
 function addOrActivateSearchTab(word) {
     if (!word) return;
@@ -450,442 +498,292 @@ function parseMeaningPosSegments(text) {
     return parts.length > 0 ? parts : [{ pos: '', meaning: cleanText }];
 }
 
-// ----------------- 释义词块拖拽与修改引擎 (按词性归类) -----------------
+// ----------------- 本地词书释义修改引擎 (针对当前本地词书) -----------------
 let isEditingMeanings = false;
-let editingMeaningsState = {
-    word: '',
-    lanes: [] // Array of { id, title, type: 'youdao'|'book', bookId, chips: [{ id, pos, text }] }
-};
-let activeInlineAddLaneId = null;
+let currentLocalEditState = null;
 
 function enterEditMeaningsMode() {
-    if (!lastYoudaoSearchResult) return;
+    if (!currentSearchExplainsData || !currentSearchExplainsData.word) return;
     if (typeof closeInlineAddToBookPanel === 'function') closeInlineAddToBookPanel();
-    isEditingMeanings = true;
-    activeInlineAddLaneId = null;
-    const currentWord = lastYoudaoSearchResult.word;
-    const cleanLower = currentWord.toLowerCase();
 
-    // 仅本地词书支持修改释义
-    const localCustomBooks = (window.customBooks || []).filter(b => isLocalCustomBook(b.id));
+    // 寻找当前选中的来源是否为本地词书
+    if (!currentSearchExplainsData.sources) return;
+    const curTab = (window.currentExplainsTabs || []).find(t => t.key === activeSearchExplainsTab);
+    const curSrc = curTab ? curTab.source : currentSearchExplainsData.sources.find(s => isSearchSourceEnabled(s));
 
-    const bookLanes = [];
-    localCustomBooks.forEach(b => {
-        const words = b.words || (BookManager.bookCache && BookManager.bookCache[b.id]) || [];
-        const matched = words.find(w => w && (w.word || w.name || '').trim().toLowerCase() === cleanLower);
-        if (matched) {
-            const rawMeaning = extractWordMeaning(matched, {}, b.id);
-            const segs = parseMeaningPosSegments(rawMeaning);
-            const bookChips = [];
-            segs.forEach(seg => {
-                const pieces = seg.meaning.split(/[；;]\s*/).map(s => s.trim()).filter(Boolean);
-                pieces.forEach((p, idx) => {
-                    bookChips.push({
-                        id: `chip_${b.id}_${idx}_${Date.now()}_${Math.random().toString(36).substr(2, 3)}`,
-                        pos: seg.pos || '',
-                        text: p
-                    });
-                });
-            });
-            const bookName = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '');
-            bookLanes.push({
-                id: 'lane_book_' + b.id,
-                title: `${bookName}`,
-                type: 'book',
-                bookId: b.id,
-                bookName: bookName,
-                chips: bookChips
-            });
-        }
-    });
-
-    if (bookLanes.length === 0) {
+    if (!curSrc || curSrc.type !== 'book' || !isLocalCustomBook(curSrc.bookId)) {
         showToast('仅本地词书支持修改释义');
-        isEditingMeanings = false;
         return;
     }
 
-    // 提取有道词典参考词块并保留词性归类
-    const youdaoChips = [];
-    if (lastYoudaoSearchResult.entries && lastYoudaoSearchResult.entries.length > 0) {
-        lastYoudaoSearchResult.entries.forEach(e => {
-            const cleanExp = (e.explain || '').trim();
-            if (cleanExp) {
-                const segs = parseMeaningPosSegments(cleanExp);
-                segs.forEach(seg => {
-                    const pieces = seg.meaning.split(/[；;]\s*/).map(s => s.trim()).filter(Boolean);
-                    pieces.forEach((p, idx) => {
-                        youdaoChips.push({
-                            id: `chip_yd_${idx}_${Math.random().toString(36).substr(2, 4)}`,
-                            pos: seg.pos || '',
-                            text: p
-                        });
-                    });
-                });
-            }
-        });
-    }
+    const bookId = curSrc.bookId;
+    const currentWord = currentSearchExplainsData.word;
+    const customBook = (window.customBooks || []).find(b => b.id === bookId);
+    const words = customBook ? (customBook.words || []) : ((BookManager.bookCache && BookManager.bookCache[bookId]) || []);
+    const matched = words.find(w => w && (w.word || w.name || '').trim().toLowerCase() === currentWord.toLowerCase());
+    const rawMeaning = matched ? extractWordMeaning(matched, {}, bookId) : '';
+    const segs = parseMeaningPosSegments(rawMeaning);
 
-    const lanes = [];
-    if (youdaoChips.length > 0) {
-        lanes.push({
-            id: 'lane_youdao',
-            title: '有道词典参考释义',
-            type: 'youdao',
-            bookId: null,
-            chips: youdaoChips
-        });
-    }
-    bookLanes.forEach(bl => lanes.push(bl));
-
-    editingMeaningsState = {
+    currentLocalEditState = {
+        bookId: bookId,
+        bookName: (customBook ? (customBook.rawName || customBook.name) : curSrc.name || '').replace(/^[📂📁\s]+/, ''),
         word: currentWord,
-        lanes: lanes
+        segments: segs.map(s => ({
+            pos: s.pos || '',
+            pieces: s.meaning.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean)
+        }))
     };
 
-    renderEditMeaningsContainer();
-}
-
-function cancelEditMeanings() {
-    isEditingMeanings = false;
-    activeInlineAddLaneId = null;
-    if (editingMeaningsState && editingMeaningsState.word) {
-        executeHubSearch(editingMeaningsState.word, false, false);
+    if (currentLocalEditState.segments.length === 0) {
+        currentLocalEditState.segments.push({ pos: 'adj.', pieces: [] });
     }
-}
 
-async function saveEditMeanings() {
-    if (!editingMeaningsState || !editingMeaningsState.lanes) return;
-    const word = editingMeaningsState.word;
+    isEditingMeanings = true;
+    renderSearchExplainsList();
+}
+window.enterEditMeaningsMode = enterEditMeaningsMode;
+
+function cancelCurrentBookMeanings() {
+    isEditingMeanings = false;
+    currentLocalEditState = null;
+    renderSearchExplainsList();
+}
+window.cancelCurrentBookMeanings = cancelCurrentBookMeanings;
+
+function handleLocalEditPosChange(segIdx, newPos) {
+    if (!currentLocalEditState || !currentLocalEditState.segments[segIdx]) return;
+    currentLocalEditState.segments[segIdx].pos = newPos;
+}
+window.handleLocalEditPosChange = handleLocalEditPosChange;
+
+function removeLocalEditPiece(segIdx, pieceIdx) {
+    if (!currentLocalEditState || !currentLocalEditState.segments[segIdx]) return;
+    currentLocalEditState.segments[segIdx].pieces.splice(pieceIdx, 1);
+    renderSearchExplainsList();
+}
+window.removeLocalEditPiece = removeLocalEditPiece;
+
+function removeLocalEditSegment(segIdx) {
+    if (!currentLocalEditState || currentLocalEditState.segments.length <= 1) return;
+    currentLocalEditState.segments.splice(segIdx, 1);
+    renderSearchExplainsList();
+}
+window.removeLocalEditSegment = removeLocalEditSegment;
+
+function addNewPosSegmentToLocalEdit() {
+    if (!currentLocalEditState) return;
+    currentLocalEditState.segments.push({ pos: 'v.', pieces: [] });
+    renderSearchExplainsList();
+}
+window.addNewPosSegmentToLocalEdit = addNewPosSegmentToLocalEdit;
+
+function addLocalEditPieceFromInput(segIdx) {
+    const input = document.getElementById(`local-edit-new-chip-input-${segIdx}`);
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) {
+        showToast('请输入释义内容');
+        return;
+    }
+    const pieces = text.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean);
+    if (!currentLocalEditState || !currentLocalEditState.segments[segIdx]) return;
+    currentLocalEditState.segments[segIdx].pieces.push(...pieces);
+    input.value = '';
+    renderSearchExplainsList();
+}
+window.addLocalEditPieceFromInput = addLocalEditPieceFromInput;
+
+function adoptYoudaoChipToLocalEdit(pos, text) {
+    if (!currentLocalEditState || !text) return;
+    const cleanPos = (pos || '').trim();
+    const cleanText = text.trim();
+
+    let targetSeg = currentLocalEditState.segments.find(s => (s.pos || '').trim().toLowerCase() === cleanPos.toLowerCase());
+    if (!targetSeg) {
+        if (currentLocalEditState.segments.length === 1 && currentLocalEditState.segments[0].pieces.length === 0) {
+            targetSeg = currentLocalEditState.segments[0];
+            targetSeg.pos = cleanPos;
+        } else {
+            targetSeg = { pos: cleanPos, pieces: [] };
+            currentLocalEditState.segments.push(targetSeg);
+        }
+    }
+
+    if (targetSeg.pieces.includes(cleanText)) {
+        showToast('该释义已存在');
+        return;
+    }
+
+    targetSeg.pieces.push(cleanText);
+    showToast(`已采纳：${cleanPos ? cleanPos + ' ' : ''}${cleanText}`);
+    renderSearchExplainsList();
+}
+window.adoptYoudaoChipToLocalEdit = adoptYoudaoChipToLocalEdit;
+
+async function saveCurrentBookMeanings() {
+    if (!currentLocalEditState || !currentLocalEditState.bookId) return;
+    const bookId = currentLocalEditState.bookId;
+    const word = currentLocalEditState.word;
+
+    const segStrings = [];
+    currentLocalEditState.segments.forEach(seg => {
+        const validPieces = seg.pieces.map(p => p.trim()).filter(Boolean);
+        if (validPieces.length > 0) {
+            if (seg.pos) {
+                segStrings.push(`${seg.pos} ${validPieces.join('；')}`);
+            } else {
+                segStrings.push(validPieces.join('；'));
+            }
+        }
+    });
+
+    const newMeaning = segStrings.join(' ');
+    const customBook = (window.customBooks || []).find(b => b.id === bookId);
+
+    if (customBook) {
+        if (!Array.isArray(customBook.words)) customBook.words = [];
+        const targetWord = customBook.words.find(w => (w.word || w.name || '').toLowerCase() === word.toLowerCase());
+        if (targetWord) {
+            targetWord.meaning = newMeaning;
+            targetWord.trans = [newMeaning];
+            delete targetWord.meanings;
+            delete targetWord.senses;
+        } else if (newMeaning) {
+            customBook.words.push({
+                word: word,
+                phone: '',
+                meaning: newMeaning,
+                trans: [newMeaning],
+                bookName: customBook.name,
+                bookId: customBook.id
+            });
+        }
+        customBook.count = customBook.words.length;
+        if (typeof VocabOfflineDB !== 'undefined') {
+            await VocabOfflineDB.saveBook(customBook);
+        }
+        if (BookManager.bookCache) {
+            BookManager.bookCache[customBook.id] = customBook.words;
+        }
+    } else {
+        if (BookManager.bookCache && BookManager.bookCache[bookId]) {
+            const w = BookManager.bookCache[bookId].find(item => (item.word || item.name || '').toLowerCase() === word.toLowerCase());
+            if (w) {
+                w.meaning = newMeaning;
+                w.trans = [newMeaning];
+                delete w.meanings;
+                delete w.senses;
+            }
+        }
+    }
+
     let overrides = {};
     try {
         overrides = JSON.parse(localStorage.getItem('vocab_word_meaning_overrides') || '{}');
     } catch (e) { }
-
-    for (const lane of editingMeaningsState.lanes) {
-        if (lane.type === 'book' && lane.bookId) {
-            // 按照词性分组整理保存为规范释义字符串
-            const posGroups = {};
-            lane.chips.forEach(c => {
-                const p = c.pos || '';
-                if (!posGroups[p]) posGroups[p] = [];
-                if (c.text && c.text.trim()) posGroups[p].push(c.text.trim());
-            });
-
-            const segStrings = [];
-            Object.keys(posGroups).forEach(p => {
-                const texts = posGroups[p];
-                if (texts.length > 0) {
-                    if (p) {
-                        segStrings.push(`${p} ${texts.join('；')}`);
-                    } else {
-                        segStrings.push(texts.join('；'));
-                    }
-                }
-            });
-
-            const newMeaning = segStrings.join(' ');
-            const customBook = (window.customBooks || []).find(b => b.id === lane.bookId);
-
-            if (customBook) {
-                if (!Array.isArray(customBook.words)) customBook.words = [];
-                const targetWord = customBook.words.find(w => (w.word || w.name || '').toLowerCase() === word.toLowerCase());
-                if (targetWord) {
-                    targetWord.meaning = newMeaning;
-                    targetWord.trans = [newMeaning];
-                    delete targetWord.meanings;
-                    delete targetWord.senses;
-                } else if (newMeaning) {
-                    customBook.words.push({
-                        word: word,
-                        phone: '',
-                        meaning: newMeaning,
-                        trans: [newMeaning],
-                        bookName: customBook.name,
-                        bookId: customBook.id
-                    });
-                }
-                customBook.count = customBook.words.length;
-                if (typeof VocabOfflineDB !== 'undefined') {
-                    await VocabOfflineDB.saveBook(customBook);
-                }
-                if (BookManager.bookCache) {
-                    BookManager.bookCache[customBook.id] = customBook.words;
-                }
-                const overrideKey = `${lane.bookId}::${word.toLowerCase()}`;
-                overrides[overrideKey] = newMeaning;
-            } else {
-                const overrideKey = `${lane.bookId}::${word.toLowerCase()}`;
-                overrides[overrideKey] = newMeaning;
-                if (BookManager.bookCache && BookManager.bookCache[lane.bookId]) {
-                    const w = BookManager.bookCache[lane.bookId].find(item => (item.word || item.name || '').toLowerCase() === word.toLowerCase());
-                    if (w) {
-                        w.meaning = newMeaning;
-                        w.trans = [newMeaning];
-                        delete w.meanings;
-                        delete w.senses;
-                    }
-                }
-            }
-        }
-    }
-
+    const overrideKey = `${bookId}::${word.toLowerCase()}`;
+    overrides[overrideKey] = newMeaning;
     localStorage.setItem('vocab_word_meaning_overrides', JSON.stringify(overrides));
+
     isEditingMeanings = false;
-    activeInlineAddLaneId = null;
-    showToast('已保存释义修改！');
+    currentLocalEditState = null;
+    showToast(`已保存《${(customBook ? customBook.name : '词书')}》释义！`);
     executeHubSearch(word, false, false);
 }
+window.saveCurrentBookMeanings = saveCurrentBookMeanings;
 
-// ----------------- 修改释义视图渲染 (去嵌套、虚线框) -----------------
-function renderEditMeaningsContainer() {
-    const container = document.getElementById('search-explains-dynamic-container');
-    const actionsContainer = document.getElementById('search-explains-actions-container');
-    if (!container) return;
+function renderYoudaoReferenceChipsForLocalEditHtml() {
+    if (!lastYoudaoSearchResult || !lastYoudaoSearchResult.entries || lastYoudaoSearchResult.entries.length === 0) return '';
+    const youdaoChips = [];
+    lastYoudaoSearchResult.entries.forEach(e => {
+        const cleanExp = (e.explain || '').trim();
+        if (cleanExp) {
+            const segs = parseMeaningPosSegments(cleanExp);
+            segs.forEach(seg => {
+                const pieces = seg.meaning.split(/[；;]\s*/).map(s => s.trim()).filter(Boolean);
+                pieces.forEach(p => {
+                    youdaoChips.push({ pos: seg.pos || '', text: p });
+                });
+            });
+        }
+    });
+    if (youdaoChips.length === 0) return '';
 
-    if (actionsContainer) {
-        actionsContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; width: 100%; flex-wrap: wrap;">
-                        <span style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-right: auto;">
-                            拖拽词块编辑释义
-                        </span>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <button type="button" class="btn btn-tonal btn-sm" onclick="cancelEditMeanings()">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">close</span>
-                                <span>取消</span>
-                            </button>
-                            <button type="button" class="btn btn-filled btn-sm" onclick="saveEditMeanings()">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">check</span>
-                                <span>保存</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-    }
+    return `
+        <div style="margin-top:14px; padding-top:10px; border-top:1px dashed var(--md-sys-color-outline-variant, #cbd5e1);">
+            <div style="font-size:0.82rem; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px; display:flex; align-items:center; gap:4px;">
+                <span class="material-symbols-rounded" style="font-size:16px; color:var(--md-sys-color-primary);">smart_toy</span>
+                <span>有道词典参考释义（点击词块一键添加）：</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${youdaoChips.map(c => `
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="adoptYoudaoChipToLocalEdit('${escapeHtml(c.pos)}', '${escapeHtml(c.text)}')" style="height:28px; padding:0 10px; font-size:0.8rem; border-radius:14px; display:inline-flex; align-items:center; gap:4px; background:var(--md-sys-color-surface-container-lowest, #ffffff);">
+                        ${c.pos ? `<span style="font-weight:700; color:var(--md-sys-color-primary);">${escapeHtml(c.pos)}</span>` : ''}
+                        <span>${escapeHtml(c.text)}</span>
+                        <span class="material-symbols-rounded" style="font-size:14px; color:var(--md-sys-color-primary);">add</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
 
-    const posSelectOptions = [
-        { value: 'adj.', label: 'adj. 形容词' },
-        { value: 'adv.', label: 'adv. 副词' },
-        { value: 'n.', label: 'n. 名词' },
-        { value: 'v.', label: 'v. 动词' },
-        { value: 'vt.', label: 'vt. 及物动词' },
-        { value: 'vi.', label: 'vi. 不及物动词' },
-        { value: 'prep.', label: 'prep. 介词' },
-        { value: 'conj.', label: 'conj. 连词' },
-        { value: 'pron.', label: 'pron. 代词' },
-        { value: 'num.', label: 'num. 数词' },
-        { value: 'art.', label: 'art. 冠词' },
-        { value: 'int.', label: 'int. 感叹词' },
-        { value: '', label: '通用 / 无词性' }
-    ];
+function renderLocalEditMeaningsContentHtml(posSelectOptions) {
+    if (!currentLocalEditState) return '';
 
-    container.innerHTML = editingMeaningsState.lanes.map(lane => {
-        const isYoudao = lane.type === 'youdao';
-        const posGroups = {};
-        lane.chips.forEach(c => {
-            const p = c.pos || '';
-            if (!posGroups[p]) posGroups[p] = [];
-            posGroups[p].push(c);
-        });
+    return `
+        <div class="local-edit-meanings-panel" style="padding: 14px 16px; background: var(--md-sys-color-surface-container-low, #f8fafc); border: 1.5px dashed var(--md-sys-color-primary, #0061a4); border-radius: 14px; animation: fadeIn 0.15s ease;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div style="font-weight:700; font-size:0.95rem; color:var(--md-sys-color-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-rounded" style="font-size:18px;">edit_note</span>
+                    <span>编辑《${escapeHtml(currentLocalEditState.bookName)}》释义</span>
+                </div>
+                <button type="button" class="btn btn-outlined btn-sm" onclick="addNewPosSegmentToLocalEdit()" style="font-size:0.78rem; height:28px; border-radius:14px; display:inline-flex; align-items:center; gap:3px;">
+                    <span class="material-symbols-rounded" style="font-size:15px;">add</span>
+                    <span>新增词性</span>
+                </button>
+            </div>
 
-        const groupKeys = Object.keys(posGroups);
-        if (groupKeys.length === 0) groupKeys.push('');
-
-        const isAddingHere = activeInlineAddLaneId === lane.id;
-
-        return `
-                    <div class="unified-explain-card" style="margin-bottom: 12px;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                            <span class="unified-source-badge ${isYoudao ? 'youdao' : 'book'}">${escapeHtml(lane.title)}</span>
-                            ${!isYoudao ? `
-                                <button type="button" class="add-chip-btn" onclick="toggleInlineAddChipForm('${escapeHtml(lane.id)}')">
-                                    <span class="material-symbols-rounded" style="font-size: 15px;">add</span>
-                                    <span>添加词块</span>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                ${currentLocalEditState.segments.map((seg, segIdx) => `
+                    <div style="display:flex; flex-direction:column; gap:8px; padding:10px 14px; background:var(--md-sys-color-surface-container-lowest, #ffffff); border-radius:12px; border:1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                ${renderMd3SelectHtml({
+                                    id: `local-edit-pos-select-${segIdx}`,
+                                    options: posSelectOptions,
+                                    defaultValue: seg.pos || 'adj.',
+                                    onchange: `handleLocalEditPosChange(${segIdx}, this.value)`
+                                })}
+                                <span style="font-size:0.8rem; color:var(--md-sys-color-outline);">点击“×”可删除词块</span>
+                            </div>
+                            ${currentLocalEditState.segments.length > 1 ? `
+                                <button type="button" class="search-action-icon-btn" onclick="removeLocalEditSegment(${segIdx})" title="删除该词性所有释义" style="width:28px; height:28px; color:var(--md-sys-color-error);">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">delete</span>
                                 </button>
                             ` : ''}
                         </div>
 
-                        ${isAddingHere ? `
-                            <div class="inline-add-chip-form" style="margin-bottom: 10px;">
-                                ${renderMd3SelectHtml({
-            id: 'inline-add-pos-' + lane.id,
-            options: posSelectOptions,
-            defaultValue: 'adj.'
-        })}
-                                <input type="text" id="inline-add-text-${escapeHtml(lane.id)}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:0;" onkeydown="if(event.key==='Enter') confirmInlineAddChip('${escapeHtml(lane.id)}')">
-                                <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmInlineAddChip('${escapeHtml(lane.id)}')">添加</button>
-                                <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelInlineAddChip()">取消</button>
-                            </div>
-                        ` : ''}
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:2px;">
+                            ${seg.pieces.map((p, pieceIdx) => `
+                                <div class="meaning-chip" style="cursor:default; background:var(--md-sys-color-surface-container-high, #f1f5f9);">
+                                    <span style="font-size:0.88rem; font-weight:500;">${escapeHtml(p)}</span>
+                                    <span class="meaning-chip-remove" onclick="removeLocalEditPiece(${segIdx}, ${pieceIdx})" title="删除此条释义">&times;</span>
+                                </div>
+                            `).join('')}
 
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${groupKeys.map(p => {
-            const chipsInGroup = posGroups[p] || [];
-            return `
-                                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                                        ${p ? `<span class="unified-source-badge pos" style="margin-top: 5px;">${escapeHtml(p)}</span>` : ''}
-                                        <div class="droppable-pos-dashed-box"
-                                            ${!isYoudao ? `
-                                                ondragover="handleGroupDragOver(event)"
-                                                ondragleave="handleGroupDragLeave(event)"
-                                                ondrop="handleGroupDrop(event, '${escapeHtml(lane.id)}', '${escapeHtml(p)}')"
-                                            ` : ''}>
-                                            ${chipsInGroup.length === 0 ? `
-                                                <span style="color:var(--md-sys-color-outline); font-size:0.8rem; padding:4px;">${isYoudao ? '无释义词块' : '可拖入词块至此'}</span>
-                                            ` : chipsInGroup.map(chip => `
-                                                <div class="meaning-chip" draggable="true"
-                                                    ondragstart="handleChipDragStart(event, '${escapeHtml(lane.id)}', '${escapeHtml(chip.id)}', '${escapeHtml(chip.text)}', '${escapeHtml(chip.pos || '')}')"
-                                                    ondragend="handleChipDragEnd(event)">
-                                                    <span>${escapeHtml(chip.text)}</span>
-                                                    ${!isYoudao ? `<span class="meaning-chip-remove" onclick="removeMeaningChip('${escapeHtml(lane.id)}', '${escapeHtml(chip.id)}')" title="删除词块">&times;</span>` : ''}
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                `;
-        }).join('')}
+                            <div style="display:inline-flex; align-items:center; gap:4px;">
+                                <input type="text" id="local-edit-new-chip-input-${segIdx}" placeholder="输入释义按回车添加..." style="height:32px; font-size:0.84rem; padding:0 8px; border-radius:6px; border:1px solid var(--md-sys-color-outline-variant, #cbd5e1); width:150px;" onkeydown="if(event.key==='Enter') addLocalEditPieceFromInput(${segIdx})">
+                                <button type="button" class="btn btn-tonal btn-sm" onclick="addLocalEditPieceFromInput(${segIdx})" style="height:32px; padding:0 10px; font-size:0.8rem;">添加</button>
+                            </div>
                         </div>
                     </div>
-                `;
-    }).join('');
-}
+                `).join('')}
+            </div>
 
-let draggedChipData = null;
-
-function handleChipDragStart(event, sourceLaneId, chipId, text, pos) {
-    draggedChipData = { sourceLaneId, chipId, text, pos };
-    if (event.dataTransfer) {
-        event.dataTransfer.setData('application/json', JSON.stringify(draggedChipData));
-        event.dataTransfer.effectAllowed = 'copyMove';
-    }
-    if (event.target && event.target.classList) {
-        event.target.classList.add('dragging');
-    }
-}
-
-function handleChipDragEnd(event) {
-    if (event.target && event.target.classList) {
-        event.target.classList.remove('dragging');
-    }
-    document.querySelectorAll('.droppable-pos-dashed-box').forEach(el => el.classList.remove('drag-over-group'));
-    draggedChipData = null;
-}
-
-function handleGroupDragOver(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-    event.currentTarget.classList.add('drag-over-group');
-}
-
-function handleGroupDragLeave(event) {
-    event.stopPropagation();
-    event.currentTarget.classList.remove('drag-over-group');
-}
-
-function handleGroupDrop(event, targetLaneId, targetPos) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.classList.remove('drag-over-group');
-    executeChipDrop(targetLaneId, targetPos);
-}
-
-function executeChipDrop(targetLaneId, targetPos) {
-    let data = draggedChipData;
-    if (!data || !data.sourceLaneId || !data.text) return;
-
-    const sourceLane = editingMeaningsState.lanes.find(l => l.id === data.sourceLaneId);
-    const targetLane = editingMeaningsState.lanes.find(l => l.id === targetLaneId);
-    if (!sourceLane || !targetLane) return;
-    if (targetLane.type === 'youdao') return; // 严禁将词块拖入/复制回有道参考栏！
-
-    const finalPos = targetPos !== null && targetPos !== undefined ? targetPos : (data.pos || '');
-
-    // 查重：防止目标词书同一词性下重复添加相同文字
-    const alreadyExists = targetLane.chips.some(c => (c.pos || '') === finalPos && c.text.trim().toLowerCase() === data.text.trim().toLowerCase());
-    if (alreadyExists && sourceLane.id !== targetLane.id) {
-        showToast('该释义已存在于目标词书中');
-        return;
-    }
-
-    // 如果源自普通本地词书，则移出源位置
-    if (sourceLane.type === 'book') {
-        const sIdx = sourceLane.chips.findIndex(c => c.id === data.chipId);
-        if (sIdx !== -1) {
-            sourceLane.chips.splice(sIdx, 1);
-        }
-    }
-
-    // 同词书内换词性时，如果已存在相同词性内容则不重复追加
-    if (sourceLane.id === targetLane.id && alreadyExists) {
-        renderEditMeaningsContainer();
-        return;
-    }
-
-    targetLane.chips.push({
-        id: 'chip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-        pos: finalPos,
-        text: data.text.trim()
-    });
-
-    renderEditMeaningsContainer();
-}
-
-function removeMeaningChip(laneId, chipId) {
-    const lane = editingMeaningsState.lanes.find(l => l.id === laneId);
-    if (!lane) return;
-    const cIdx = lane.chips.findIndex(c => c.id === chipId);
-    if (cIdx !== -1) {
-        lane.chips.splice(cIdx, 1);
-        renderEditMeaningsContainer();
-    }
-}
-
-function toggleInlineAddChipForm(laneId) {
-    if (activeInlineAddLaneId === laneId) {
-        activeInlineAddLaneId = null;
-    } else {
-        activeInlineAddLaneId = laneId;
-    }
-    renderEditMeaningsContainer();
-    if (activeInlineAddLaneId) {
-        const inputEl = document.getElementById('inline-add-text-' + laneId);
-        if (inputEl) setTimeout(() => inputEl.focus(), 80);
-    }
-}
-
-function cancelInlineAddChip() {
-    activeInlineAddLaneId = null;
-    renderEditMeaningsContainer();
-}
-
-function confirmInlineAddChip(laneId) {
-    const lane = editingMeaningsState.lanes.find(l => l.id === laneId);
-    if (!lane) return;
-    const posInput = document.getElementById('inline-add-pos-' + laneId + '-input') || document.getElementById('inline-add-pos-' + laneId);
-    const textInput = document.getElementById('inline-add-text-' + laneId);
-    const rawText = (textInput ? textInput.value : '').trim();
-    if (!rawText) {
-        showToast('请输入释义内容！');
-        return;
-    }
-
-    let pos = posInput ? posInput.value : '';
-    const parsedSegs = parseMeaningPosSegments(rawText);
-    if (parsedSegs.length > 0 && parsedSegs[0].pos) {
-        pos = parsedSegs[0].pos;
-    }
-
-    const cleanContent = parsedSegs.length > 0 ? parsedSegs[0].meaning : rawText;
-
-    lane.chips.push({
-        id: 'chip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-        pos: pos,
-        text: cleanContent
-    });
-
-    activeInlineAddLaneId = null;
-    renderEditMeaningsContainer();
+            ${renderYoudaoReferenceChipsForLocalEditHtml()}
+        </div>
+    `;
 }
 
 function getSearchConfig() {
@@ -911,6 +809,25 @@ function saveSearchConfig(cfg) {
     } catch (e) { }
 }
 
+function isSearchBookDownloaded(bookId, bookName) {
+    if (!bookId) return false;
+    if (bookId === 'builtin_default' || String(bookId).startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(bookId))) {
+        return true;
+    }
+    if (typeof BookManager !== 'undefined' && BookManager) {
+        if (BookManager.bookCache && BookManager.bookCache[bookId] && BookManager.bookCache[bookId].length > 0) return true;
+        const b = (BookManager.availableBooks || []).find(x => x.id === bookId || (bookName && (x.name === bookName || x.rawName === bookName))) ||
+                  (BookManager.dorisBooks || []).find(x => x.id === bookId || (bookName && (x.name === bookName || x.rawName === bookName)));
+        if (b) {
+            if (b.syncStatus === 'downloaded' || (b.words && b.words.length > 0)) return true;
+            if (BookManager.bookCache && BookManager.bookCache[b.id] && BookManager.bookCache[b.id].length > 0) return true;
+            if (b.path && BookManager.bookCache && BookManager.bookCache[b.path] && BookManager.bookCache[b.path].length > 0) return true;
+        }
+    }
+    return false;
+}
+window.isSearchBookDownloaded = isSearchBookDownloaded;
+
 function isSearchSourceEnabled(src) {
     if (!src) return false;
     const cfg = getSearchConfig();
@@ -935,11 +852,16 @@ function isSearchSourceEnabled(src) {
     // 排除实词
     if (rawName.includes('实词') || bookId.includes('实词')) return false;
 
+    // 未下载词书严格不能作为释义来源
+    if (!isSearchBookDownloaded(bookId, rawName)) {
+        return false;
+    }
+
     // 检查用户是否有针对该词书的手动勾选设置
     if (visibility[bookId] !== undefined) return !!visibility[bookId];
     if (visibility[rawName] !== undefined) return !!visibility[rawName];
 
-    // 默认展示的词书：高考考纲词汇、考研红宝书
+    // 默认展示的词书：高考考纲词汇、考研红宝书（前提是已下载）
     if (rawName.includes('考研红宝书') || bookId.includes('考研红宝书')) {
         return true;
     }
@@ -953,6 +875,15 @@ function isSearchSourceEnabled(src) {
 window.isSearchSourceEnabled = isSearchSourceEnabled;
 
 function updateSearchSourceSetting(key, val) {
+    if (val && key !== 'youdao' && key !== '__custom__') {
+        if (!isSearchBookDownloaded(key)) {
+            if (typeof showToast === 'function') {
+                showToast('该词书尚未下载，请先在词库中下载后再开启释义', 'warning');
+            }
+            renderSearchSettingsSourcesList();
+            return;
+        }
+    }
     const cfg = getSearchConfig();
     if (!cfg.sourceVisibility) cfg.sourceVisibility = {};
     cfg.sourceVisibility[key] = !!val;
@@ -1013,16 +944,30 @@ function renderSearchSettingsSourcesList() {
     `;
 
     presetItems.forEach(item => {
-        const isHighlight = item.name.includes('考研红宝书') || item.name.includes('高中考纲词汇') || item.name.includes('高考3500');
-        html += `
-            <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; cursor:pointer;">
-                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                    <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
-                    <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}${isHighlight ? ' <span style="font-size:0.75rem; color:var(--md-sys-color-primary); font-weight:600;">(默认展示)</span>' : ''}</span>
+        const isDownloaded = isSearchBookDownloaded(item.id, item.name);
+        const isHighlight = isDownloaded && (item.name.includes('考研红宝书') || item.name.includes('高中考纲词汇') || item.name.includes('高考3500'));
+        if (isDownloaded) {
+            html += `
+                <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; cursor:pointer;">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
+                        <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}${isHighlight ? ' <span style="font-size:0.75rem; color:var(--md-sys-color-primary); font-weight:600;">(默认展示)</span>' : ''}</span>
+                    </div>
+                    <input type="checkbox" class="md3-checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)">
+                </label>
+            `;
+        } else {
+            html += `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; opacity:0.55; cursor:not-allowed;" title="未下载词书不可选为释义来源" onclick="showToast('该词书尚未下载，请先在词库中下载', 'warning')">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); flex-shrink:0;">menu_book</span>
+                        <span style="font-size:0.85rem; color:var(--md-sys-color-on-surface); text-overflow:ellipsis; white-space:nowrap; overflow:hidden;">${escapeHtml(item.name)}</span>
+                        <span class="badge" style="font-size:0.7rem; padding:1px 6px; border-radius:4px; background:var(--md-sys-color-surface-variant); color:var(--md-sys-color-outline); flex-shrink:0;">未下载</span>
+                    </div>
+                    <input type="checkbox" class="md3-checkbox" disabled onclick="event.stopPropagation(); showToast('该词书尚未下载，请先在词库中下载', 'warning')">
                 </div>
-                <input type="checkbox" class="md3-checkbox" ${item.checked ? 'checked' : ''} onchange="updateSearchSourceSetting('${escapeHtml(item.id)}', this.checked)">
-            </label>
-        `;
+            `;
+        }
     });
 
     container.innerHTML = html;
@@ -1058,9 +1003,14 @@ function updateSearchSetting(key, val) {
         updateSearchKeyboardButtonsVisibility();
     }
 
-    const tabsRow = document.getElementById('search-page-tabs-row');
-    if (tabsRow) {
-        tabsRow.style.display = cfg.enableTabs ? (searchTabs && searchTabs.length > 0 ? 'flex' : 'none') : 'none';
+    if (key === 'enableTabs') {
+        renderSearchTabsRow();
+        updateSearchTabsCardBorderRadius();
+    } else {
+        const tabsRow = document.getElementById('search-page-tabs-row');
+        if (tabsRow) {
+            tabsRow.style.display = cfg.enableTabs ? (searchTabs && searchTabs.length > 0 ? 'flex' : 'none') : 'none';
+        }
     }
     const phrasesBlock = document.getElementById('search-phrases-block');
     if (phrasesBlock) {
@@ -1163,6 +1113,15 @@ function showSearchHistoryView() {
     const resultsContainer = document.getElementById('search-page-results');
     if (historyContainer) historyContainer.style.display = 'block';
     if (resultsContainer) resultsContainer.style.display = 'none';
+
+    // 在搜索主页/历史记录页面取消选中任何标签页
+    activeSearchTabId = null;
+    saveSearchTabs();
+    renderSearchTabsRow();
+    updateSearchTabsCardBorderRadius();
+
+    const tabsRows = [document.getElementById('search-page-tabs-row'), document.getElementById('hub-search-tabs-row')].filter(Boolean);
+    tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
 function focusSearchFromHub() {
@@ -1842,6 +1801,8 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
 
     if (inpageResults) {
         inpageResults.style.display = 'block';
+        const tabsRows = [document.getElementById('search-page-tabs-row'), document.getElementById('hub-search-tabs-row')].filter(Boolean);
+        tabsRows.forEach(el => el.classList.add('has-results'));
         inpageResults.innerHTML = `
                     <div style="text-align:center; padding:48px 16px; color:var(--md-sys-color-outline);">
                         <span class="material-symbols-rounded" style="font-size:36px; animation:spin 1s linear infinite;">sync</span>
@@ -2070,7 +2031,9 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         });
         if (segs.length > 0) {
             sourcesList.push({
+                key: 'youdao',
                 name: '有道词典',
+                displayName: '有道词典',
                 type: 'youdao',
                 segments: segs
             });
@@ -2101,7 +2064,9 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         });
         if (segs.length > 0) {
             sourcesList.push({
+                key: r.bookId || ('book_' + r.bookName),
                 name: `《${r.bookName}》`,
+                displayName: r.bookName,
                 type: 'book',
                 bookId: r.bookId,
                 bookName: r.bookName,
@@ -2111,6 +2076,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         }
     });
 
+    activeSearchExplainsTab = null;
     currentSearchExplainsData = {
         word: searchWordDisplay,
         sources: sourcesList
@@ -2187,14 +2153,11 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                         </div>
                     </div>
 
-                    <!-- 2. 统一释义 (三个图标光学平衡) -->
+                    <!-- 2. 词典来源标签栏与释义操作 (删除“释义”标题，文字标签栏替代胶囊容器) -->
                     <div class="search-section-block">
-                        <div class="search-section-header">
-                            <div class="search-section-title">
-                                <span class="material-symbols-rounded" style="color:#0061a4; font-size:20px; width:20px; height:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">menu_book</span>
-                                <span>释义</span>
-                            </div>
-                            <div id="search-explains-actions-container" style="display: flex; align-items: center; gap: 8px;">
+                        <div class="search-section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px;">
+                            <div id="search-explains-tabs-container" class="search-explains-tabs-row" onwheel="if (event.deltaY) { this.scrollLeft += event.deltaY; event.preventDefault(); }"></div>
+                            <div id="search-explains-actions-container" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                                 <button type="button" class="search-action-icon-btn" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到本地词书">
                                     <span class="material-symbols-rounded">bookmark_add</span>
                                 </button>
@@ -2252,6 +2215,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     const historyContainer = document.getElementById('search-history-container');
     if (historyContainer) historyContainer.style.display = 'none';
     if (inpageResults) inpageResults.style.display = 'block';
+    renderSearchTabsRow();
 
     let firstMeaning = '';
     if (exactYoudaoEntries.length > 0) {
@@ -2382,6 +2346,78 @@ function confirmSearchInlineAddBlock(bookId, segIdx) {
     showToast(`已添加词块：${pos ? pos + ' ' : ''}${text}`);
 }
 
+let activeSearchExplainsTab = null;
+
+function switchSearchExplainsTab(tabKey) {
+    if (isEditingMeanings) {
+        isEditingMeanings = false;
+        currentLocalEditState = null;
+    }
+    activeSearchExplainsTab = tabKey;
+    renderSearchExplainsList();
+}
+window.switchSearchExplainsTab = switchSearchExplainsTab;
+
+function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOptions) {
+    const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
+
+    return src.segments.map((seg, segIdx) => {
+        const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
+
+        if (isInlineAddToBookOpen) {
+            return `
+                <div class="unified-explain-row" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
+                    <div style="display:flex; align-items:flex-start; gap:8px;">
+                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
+                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
+                            ${seg.pieces.map(chip => {
+                                const isSel = inlineSelectedChipIds.has(chip.id);
+                                return `
+                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
+                                        onclick="toggleInlineSelectChip('${chip.id}')"
+                                        title="点击勾选/取消勾选">
+                                        <span>${escapeHtml(chip.text)}</span>
+                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${isLocal ? `
+                                <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
+                                    onclick="toggleSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})"
+                                    title="添加词块"
+                                    style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
+                                    <span class="material-symbols-rounded" style="font-size:15px;">add</span>
+                                    <span>添加词块</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ${isAddingHere ? `
+                        <div class="inline-add-chip-form" style="display:flex; align-items:center; gap:8px; width:100%; margin-top:4px; flex-wrap:wrap;">
+                            ${renderMd3SelectHtml({
+                                id: `search-inline-add-pos-${src.bookId}-${segIdx}`,
+                                options: posSelectOptions,
+                                defaultValue: seg.pos || 'adj.'
+                            })}
+                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">
+                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">添加</button>
+                            <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelSearchInlineAddBlock()">取消</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
+            return `
+                <div class="unified-explain-row" style="display:flex; align-items:baseline; gap:8px; padding:4px 0;">
+                    ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
+                    <div class="unified-explain-text" style="font-size:0.95rem; line-height:1.6; color:var(--md-sys-color-on-surface); flex:1;">${fluidText}</div>
+                </div>
+            `;
+        }
+    }).join('');
+}
+
 function renderSearchExplainsList() {
     const container = document.getElementById('search-explains-dynamic-container');
     if (!container) return;
@@ -2391,16 +2427,74 @@ function renderSearchExplainsList() {
         return;
     }
 
-    const visibleSources = currentSearchExplainsData.sources.filter(src => {
+    const allSources = currentSearchExplainsData.sources.filter(src => {
         if (src.type === 'book') {
             if (String(src.bookId || '').includes('实词') || String(src.bookName || '').includes('实词')) return false;
         }
-        return isSearchSourceEnabled(src);
+        return true;
     });
 
-    if (visibleSources.length === 0) {
-        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:16px; background:var(--md-sys-color-surface-container-low); border-radius:12px; text-align:center;">当前勾选的词书来源暂未收录该词具体释义<br><span style="font-size:0.82rem; color:var(--md-sys-color-primary); cursor:pointer; margin-top:8px; display:inline-block; font-weight:600;" onclick="openSearchSettingsModal()">点击打开“搜索设置”勾选更多词书</span></div>`;
+    const enabledSources = allSources.filter(src => isSearchSourceEnabled(src));
+    const otherSources = allSources.filter(src => {
+        if (enabledSources.includes(src)) return false;
+        if (src.type === 'book') {
+            return isSearchBookDownloaded(src.bookId, src.bookName);
+        }
+        return false;
+    });
+
+    if (enabledSources.length === 0 && otherSources.length === 0) {
+        container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:16px; background:var(--md-sys-color-surface-container-low); border-radius:12px; text-align:center;">当前勾选的词书与本地已下载词书暂未收录该词具体释义<br><span style="font-size:0.82rem; color:var(--md-sys-color-primary); cursor:pointer; margin-top:8px; display:inline-block; font-weight:600;" onclick="openSearchSettingsModal()">点击打开“搜索设置”勾选更多词书</span></div>`;
         return;
+    }
+
+    const availableTabs = enabledSources.map(s => ({
+        key: s.key || s.bookId || ('book_' + s.name),
+        label: s.displayName || s.name || (s.type === 'youdao' ? '有道词典' : '词书'),
+        source: s
+    }));
+
+    if (otherSources.length > 0) {
+        availableTabs.push({
+            key: '__other__',
+            label: '其他',
+            isOther: true
+        });
+    }
+
+    if (!activeSearchExplainsTab || !availableTabs.some(t => t.key === activeSearchExplainsTab)) {
+        activeSearchExplainsTab = availableTabs[0].key;
+    }
+
+    window.currentExplainsTabs = availableTabs;
+    const curTab = availableTabs.find(t => t.key === activeSearchExplainsTab);
+    const curSrc = curTab ? curTab.source : enabledSources[0];
+    const isLocal = curSrc && curSrc.type === 'book' && isLocalCustomBook(curSrc.bookId);
+
+    // 仅在切换到本地词书时显示修改释义按钮；处于编辑状态时显示取消与保存
+    const actionsContainer = document.getElementById('search-explains-actions-container');
+    if (actionsContainer) {
+        if (isEditingMeanings && currentLocalEditState) {
+            actionsContainer.innerHTML = `
+                <button type="button" class="btn btn-tonal btn-sm" onclick="cancelCurrentBookMeanings()" title="取消修改">
+                    <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                    <span>取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-sm" onclick="saveCurrentBookMeanings()" title="保存修改">
+                    <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                    <span>保存</span>
+                </button>
+            `;
+        } else {
+            actionsContainer.innerHTML = `
+                <button type="button" class="search-action-icon-btn" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到生词本">
+                    <span class="material-symbols-rounded">bookmark_add</span>
+                </button>
+                <button type="button" class="search-action-icon-btn" id="btn-edit-meanings-mode" onclick="enterEditMeaningsMode()" title="修改释义" style="${isLocal ? 'display:inline-flex;' : 'display:none;'}">
+                    <span class="material-symbols-rounded">edit_note</span>
+                </button>
+            `;
+        }
     }
 
     const posSelectOptions = [
@@ -2419,74 +2513,45 @@ function renderSearchExplainsList() {
         { value: '', label: '通用 / 无词性' }
     ];
 
-    container.innerHTML = visibleSources.map(src => {
-        const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
+    // 词典文本标签栏（替代胶囊容器，采用下划线指示条，无胶囊外框）
+    const tabsContainer = document.getElementById('search-explains-tabs-container');
+    if (tabsContainer) {
+        tabsContainer.innerHTML = availableTabs.map(tab => {
+            const isActive = tab.key === activeSearchExplainsTab;
+            return `
+                <button type="button" class="search-explains-text-tab ${isActive ? 'active' : ''}" onclick="switchSearchExplainsTab('${escapeHtml(tab.key)}')">
+                    <span class="tab-label">${escapeHtml(tab.label)}</span>
+                    ${isActive ? '<span class="tab-indicator"></span>' : ''}
+                </button>
+            `;
+        }).join('');
+    }
 
-        return `
-            <div class="unified-explain-card" style="margin-bottom:10px;">
-                <div class="unified-card-source-row">
-                    <span class="unified-source-badge ${src.type === 'youdao' ? 'youdao' : 'book'}">${escapeHtml(src.name)}</span>
+    // 释义内容渲染
+    let contentHtml = '';
+    if (isEditingMeanings && currentLocalEditState) {
+        contentHtml = renderLocalEditMeaningsContentHtml(posSelectOptions);
+    } else if (activeSearchExplainsTab === '__other__') {
+        contentHtml = otherSources.map(src => `
+            <div class="search-explains-other-source-block" style="margin-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                    <span class="material-symbols-rounded" style="font-size:17px; color:var(--md-sys-color-primary);">menu_book</span>
+                    <span style="font-weight:700; font-size:0.88rem; color:var(--md-sys-color-on-surface);">${escapeHtml(src.name || src.displayName || src.bookName)}</span>
                 </div>
-                <div class="unified-card-content">
-                    ${src.segments.map((seg, segIdx) => {
-                        const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
-
-                        if (isInlineAddToBookOpen) {
-                            return `
-                                <div class="unified-explain-row" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">
-                                    <div style="display:flex; align-items:flex-start; gap:8px;">
-                                        ${seg.pos ? `<span class="unified-source-badge pos" style="margin-top:2px;">${escapeHtml(seg.pos)}</span>` : ''}
-                                        <div style="display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; flex:1;">
-                                            ${seg.pieces.map(chip => {
-                                                const isSel = inlineSelectedChipIds.has(chip.id);
-                                                return `
-                                                    <div class="selectable-meaning-chip ${isSel ? 'selected' : ''}"
-                                                        onclick="toggleInlineSelectChip('${chip.id}')"
-                                                        title="点击勾选/取消勾选">
-                                                        <span>${escapeHtml(chip.text)}</span>
-                                                        ${isSel ? '<span class="material-symbols-rounded" style="font-size:15px; margin-left:2px;">check</span>' : ''}
-                                                    </div>
-                                                `;
-                                            }).join('')}
-                                            ${isLocal ? `
-                                                <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
-                                                    onclick="toggleSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})"
-                                                    title="添加词块"
-                                                    style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
-                                                    <span class="material-symbols-rounded" style="font-size:15px;">add</span>
-                                                    <span>添加词块</span>
-                                                </button>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                    ${isAddingHere ? `
-                                        <div class="inline-add-chip-form" style="display:flex; align-items:center; gap:8px; width:100%; margin-top:4px; flex-wrap:wrap;">
-                                            ${renderMd3SelectHtml({
-                                                id: `search-inline-add-pos-${src.bookId}-${segIdx}`,
-                                                options: posSelectOptions,
-                                                defaultValue: seg.pos || 'adj.'
-                                            })}
-                                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">
-                                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">添加</button>
-                                            <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelSearchInlineAddBlock()">取消</button>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            `;
-                        } else {
-                            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
-                            return `
-                                <div class="unified-explain-row">
-                                    ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
-                                    <div class="unified-explain-text">${fluidText}</div>
-                                </div>
-                            `;
-                        }
-                    }).join('')}
-                </div>
+                ${renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOptions)}
             </div>
-        `;
-    }).join('');
+        `).join('');
+    } else {
+        if (curSrc) {
+            contentHtml = renderSearchSourceSegmentsHtml(curSrc, isInlineAddToBookOpen, posSelectOptions);
+        }
+    }
+
+    container.innerHTML = `
+        <div class="search-explains-content">
+            ${contentHtml}
+        </div>
+    `;
 }
 
 function toggleInlineSelectChip(chipId) {

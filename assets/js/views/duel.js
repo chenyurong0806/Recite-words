@@ -2812,7 +2812,7 @@ function renderResult() {
         if (gameResult.mode === 'ai_duel' || gameResult.mode === 'online') {
             btnSharePoster.style.display = 'inline-flex';
             if (btnSharePosterText) btnSharePosterText.innerText = '晒成绩';
-        } else if (gameResult.mode === 'single' || gameResult.mode === 'shici') {
+        } else if (gameResult.mode === 'single' || gameResult.mode === 'shici' || gameResult.mode === 'dictation') {
             btnSharePoster.style.display = 'inline-flex';
             if (btnSharePosterText) btnSharePosterText.innerText = '晒成绩';
         } else {
@@ -2822,7 +2822,7 @@ function renderResult() {
 
     const resultCard = document.querySelector('#view-result .card');
     if (resultCard) {
-        resultCard.style.maxWidth = (gameResult.mode === 'single' || gameResult.mode === 'shici') ? '720px' : '500px';
+        resultCard.style.maxWidth = (gameResult.mode === 'single' || gameResult.mode === 'shici' || gameResult.mode === 'dictation') ? '720px' : '500px';
     }
 
     if (gameResult.mode === 'single') {
@@ -2904,6 +2904,45 @@ function renderResult() {
                     </div>
                 </div>
                 ${renderShiCiSummaryHtml(pool)}
+            `;
+    } else if (gameResult.mode === 'dictation') {
+        btnBackRoom.style.display = 'inline-flex';
+        btnBackRoom.innerText = '再练一组';
+        btnBackRoom.disabled = false;
+        btnBackRoom.onclick = () => {
+            if (typeof startDictationPractice === 'function') {
+                startDictationPractice();
+            }
+        };
+        if (btnResultHub) btnResultHub.innerText = '返回主页';
+
+        const pool = gameResult.pool || [];
+        const sessionMistakeSet = new Set(
+            Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes :
+            (gameResult.sessionMistakes instanceof Set ? Array.from(gameResult.sessionMistakes) : [])
+        );
+        const totalCount = pool.length;
+        let mistakeCount = 0;
+        pool.forEach(q => {
+            if (sessionMistakeSet.has((q.word || '').trim().toLowerCase()) || !q.isCorrect) {
+                mistakeCount++;
+            }
+        });
+        const correctCount = Math.max(0, totalCount - mistakeCount);
+        const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+        details.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">本次默写</span>
+                        <span class="stat-value">${totalCount}</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">正确率</span>
+                        <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
+                    </div>
+                </div>
+                ${typeof renderDictationSummaryHtml === 'function' ? renderDictationSummaryHtml(pool, sessionMistakeSet) : ''}
             `;
     } else if (gameResult.mode === 'ai_duel') {
         btnBackRoom.style.display = 'inline-flex';
@@ -4949,18 +4988,30 @@ function quickJoinLobbyRoom(code) {
     joinOnlineRoom();
 }
 
+function showWelcomeUpdateModal(log) {
+    const modal = document.getElementById('modal-welcome-update');
+    if (!modal) return;
+    const verEl = document.getElementById('welcome-update-ver');
+    const bodyEl = document.getElementById('welcome-update-body');
+    const currentLog = log || (typeof APP_CHANGELOG !== 'undefined' ? (APP_CHANGELOG.find(c => c.version === `v${APP_VERSION}`) || APP_CHANGELOG[0]) : null);
+
+    if (verEl) verEl.innerText = currentLog ? currentLog.version : `v${APP_VERSION}`;
+    if (bodyEl && currentLog && Array.isArray(currentLog.items)) {
+        bodyEl.innerHTML = `
+            <div style="font-weight:600; font-size:0.92rem; margin-bottom:8px; color:var(--md-sys-color-on-surface);">主要更新与优化内容：</div>
+            <ul style="margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant); line-height:1.5;">
+                ${currentLog.items.map(item => `<li>${typeof escapeHtml === 'function' ? escapeHtml(item) : item}</li>`).join('')}
+            </ul>
+        `;
+    }
+    modal.classList.add('active');
+}
+window.showWelcomeUpdateModal = showWelcomeUpdateModal;
+
 function checkFirstOpenWelcome() {
     const lastSeen = localStorage.getItem('vocab_last_seen_version');
     if (lastSeen !== APP_VERSION) {
-        const currentLog = APP_CHANGELOG.find(c => c.version === `v${APP_VERSION}`) || APP_CHANGELOG[0];
-        if (currentLog && typeof showVersionUpdateCard === 'function') {
-            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            showVersionUpdateCard({
-                version: APP_VERSION,
-                releaseDate: currentLog.date || '近期',
-                changelog: currentLog.items || []
-            }, isLocal);
-        }
+        showWelcomeUpdateModal();
         localStorage.setItem('vocab_last_seen_version', APP_VERSION);
     }
 }
@@ -4970,6 +5021,7 @@ function closeWelcomeUpdateModal() {
     if (modal) modal.classList.remove('active');
     localStorage.setItem('vocab_last_seen_version', APP_VERSION);
 }
+window.closeWelcomeUpdateModal = closeWelcomeUpdateModal;
 
 window.addEventListener('beforeunload', () => {
     if (isPlayingMatch) {

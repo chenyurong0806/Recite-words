@@ -333,6 +333,89 @@ function renderShiCiSummaryHtml(pool) {
             `;
 }
 
+function renderDictationSummaryHtml(pool, sessionMistakes) {
+    if (!Array.isArray(pool) || pool.length === 0) return '';
+
+    const mistakeSet = new Set(
+        Array.isArray(sessionMistakes) ? sessionMistakes.map(s => String(s).trim().toLowerCase()) :
+        (sessionMistakes instanceof Set ? Array.from(sessionMistakes).map(s => String(s).trim().toLowerCase()) : [])
+    );
+
+    const uniquePool = [];
+    const seenWords = new Map();
+    pool.forEach(q => {
+        if (!q || !q.word) return;
+        const key = q.word.trim().toLowerCase();
+        const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
+        if (!seenWords.has(key)) {
+            const itemCopy = { ...q };
+            if (wasEverMistake) {
+                itemCopy.isCorrect = false;
+            }
+            seenWords.set(key, itemCopy);
+            uniquePool.push(itemCopy);
+        } else {
+            const existing = seenWords.get(key);
+            if (wasEverMistake) {
+                existing.isCorrect = false;
+            }
+        }
+    });
+
+    const mistakeCount = uniquePool.filter(q => !q.isCorrect).length;
+    const hasMistakes = mistakeCount > 0;
+
+    const itemsHtml = uniquePool.map((q, idx) => {
+        const isMistake = !q.isCorrect;
+        const targetMeaning = escapeHtml(q.meaning || '');
+        const phoneDisplay = q.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(q.phone)}/</span>` : '';
+        const titleDisplay = isMistake
+            ? `<strong class="settlement-word-text mistake-word-bold" style="color:var(--md-sys-color-error, #ba1a1a); font-weight:700;">${escapeHtml(q.word)}</strong>${phoneDisplay}`
+            : `<span class="settlement-word-text" style="font-weight:600;">${escapeHtml(q.word)}</span>${phoneDisplay}`;
+
+        const safeWord = escapeHtml((q.word || '').replace(/'/g, "\\'"));
+        const audioBtn = `<button type="button" class="btn btn-icon-only btn-sm" onclick="event.stopPropagation(); playWordAudio('${safeWord}')" title="发音" style="width:28px; height:28px; padding:0; margin-left:6px; vertical-align:middle; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:18px;">volume_up</span></button>`;
+
+        return `
+            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
+                <div class="settlement-item-header" style="cursor:default;">
+                    <div class="settlement-item-main" style="display:flex; align-items:center; gap:12px; width:100%;">
+                        <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
+                            ${isMistake ? 'cancel' : 'check_circle'}
+                        </span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+                                ${titleDisplay}
+                                ${audioBtn}
+                            </div>
+                            <div class="settlement-trans-text" style="margin-top:2px; font-size:0.85rem; color:var(--md-sys-color-on-surface-variant); line-height:1.4;">${targetMeaning}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="settlement-summary-card">
+            <div class="settlement-summary-header">
+                <div>
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">默写小结</h3>
+                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">单词发音与释义对比</p>
+                </div>
+                <div class="settlement-filter-group">
+                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
+                    <button type="button" class="settlement-filter-btn ${!hasMistakes ? 'active' : ''}" onclick="filterSettlementList('all', this)">全部 (${uniquePool.length})</button>
+                </div>
+            </div>
+            <div class="settlement-list md3-scroll-view" id="settlement-list-container">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+window.renderDictationSummaryHtml = renderDictationSummaryHtml;
+
 // ========================
 // 背实词数据与控制器 (ShiCiManager)
 // ========================

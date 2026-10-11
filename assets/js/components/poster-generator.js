@@ -188,19 +188,23 @@
     }
 
     /**
-     * 从远程 API 获取一张新的风景背景图 (双线 CORS 代理)
+     * 从远程 API 获取一张新的风景背景图 (多源竞速与防封锁保护)
      */
-    function fetchRemoteBgImage() {
+    async function fetchRemoteBgImage() {
         const seed = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
-        const url1 = `https://wsrv.nl/?url=imgapi.cn/api.php?zd=mobile%26fl=fengjing%26gs=images%26t=${seed}`;
-        const url2 = `https://images.weserv.nl/?url=imgapi.cn/api.php?zd=mobile%26fl=fengjing%26gs=images%26t=${seed}`;
-        return (async () => {
-            let img = await loadImageAsync(url1, 4000);
-            if (!img) {
-                img = await loadImageAsync(url2, 4000);
+        const candidateUrls = [
+            `https://picsum.photos/720/960?random=${seed}`,
+            `https://wsrv.nl/?url=https://picsum.photos/720/960?random=${seed}`,
+            `https://wsrv.nl/?url=imgapi.cn/api.php?zd=mobile%26fl=fengjing%26gs=images%26t=${seed}`,
+            `https://images.weserv.nl/?url=imgapi.cn/api.php?zd=mobile%26fl=fengjing%26gs=images%26t=${seed}`
+        ];
+        for (const url of candidateUrls) {
+            const img = await loadImageAsync(url, 3500);
+            if (img && img.naturalWidth > 50 && img.naturalHeight > 50) {
+                return img;
             }
-            return img;
-        })();
+        }
+        return null;
     }
 
     /**
@@ -290,23 +294,54 @@
 
         const newImg = await fetchRemoteBgImage();
         if (!newImg) {
-            if (typeof showToast === 'function') showToast('换背景失败，请稍后重试');
-            return;
+            _cachedBgImage = null;
+            try {
+                localStorage.removeItem(_POSTER_BG_STORAGE_KEY);
+            } catch (e) { }
+            if (typeof showToast === 'function') showToast('未能加载到新背景，已切换为极简纯白背景');
+        } else {
+            _cachedBgImage = newImg;
+            saveBgToLocalStorage(newImg);
+            if (typeof showToast === 'function') showToast('海报背景已更换');
         }
 
-        _cachedBgImage = newImg;
-        saveBgToLocalStorage(newImg);
-
-        // 重新生成当前海报
+        // 重新生成当前海报（保留当前单词）
         if (_currentPosterGenerator && typeof _currentPosterGenerator === 'function') {
             try {
-                const dataUrl = await _currentPosterGenerator(_currentPosterOptions || {});
+                const opts = { ...(_currentPosterOptions || {}) };
+                if (_lastPosterHighlightWord) {
+                    opts.fixedHighlightWord = _lastPosterHighlightWord;
+                }
+                const dataUrl = await _currentPosterGenerator(opts);
                 currentPosterBase64 = dataUrl;
                 const imgEl = document.getElementById('poster-preview-image');
                 if (imgEl) imgEl.src = dataUrl;
             } catch (e) {
                 console.error('[changePosterBackground] regenerate error:', e);
             }
+        }
+    }
+
+    let _lastPosterHighlightWord = null;
+
+    /**
+     * 换词：重新随机抽取展示单词并重新生成当前海报
+     */
+    async function changePosterWord() {
+        if (!_currentPosterGenerator || typeof _currentPosterGenerator !== 'function') return;
+        if (typeof showToast === 'function') showToast('正在更换展示单词...');
+        try {
+            if (_currentPosterOptions) {
+                delete _currentPosterOptions.fixedHighlightWord;
+            }
+            _lastPosterHighlightWord = null;
+            const dataUrl = await _currentPosterGenerator(_currentPosterOptions || {});
+            currentPosterBase64 = dataUrl;
+            const imgEl = document.getElementById('poster-preview-image');
+            if (imgEl) imgEl.src = dataUrl;
+            if (typeof showToast === 'function') showToast('已更换展示单词');
+        } catch (e) {
+            console.error('[changePosterWord] error:', e);
         }
     }
 
@@ -615,12 +650,8 @@
 
             ctx.drawImage(bgImg, sx, sy, sw, sh, 0, 0, width, topH);
         } else {
-            // 优雅艺术渐变兜底 (莫奈蓝雾/晨曦)
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, topH);
-            bgGrad.addColorStop(0, '#78A09A');
-            bgGrad.addColorStop(0.5, '#99BDB6');
-            bgGrad.addColorStop(1, '#8BAFA9');
-            ctx.fillStyle = bgGrad;
+            // 用户明确要求：如果无法加载背景则使用纯白背景
+            ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, topH);
         }
     }
@@ -1059,7 +1090,8 @@
         drawPosterTopScenery(ctx, width, topH, bgImg);
 
         // 2. 在背景图中抽取并展示一个词（优先级：今日错词 > 生涯高频错词 > 学过的单词 > 随机单词）
-        const highlightWord = pickPosterHighlightWord(options);
+        const highlightWord = options.fixedHighlightWord || pickPosterHighlightWord(options);
+        _lastPosterHighlightWord = highlightWord;
         drawPosterWordOverlay(ctx, width, highlightWord, topH);
 
         // 3. 下部白底信息区 (干净纯粹，无任何多余嵌套卡片)
@@ -1175,19 +1207,26 @@
         ctx.save();
         const isWin = options.playerWin;
         const isDraw = options.isDraw;
+        const duelLum = getBackgroundBrightness(ctx, 48, topH - 120, 260, 100);
+        const isDuelLight = duelLum > 140;
+
         let outcomeEn = isWin ? 'VICTORY' : (isDraw ? 'DRAW' : 'DEFEATED');
         let outcomeZh = isWin ? '恭喜获胜' : (isDraw ? '势均力敌' : '遗憾战败');
-        let outcomeColor = isWin ? '#FFFFFF' : (isDraw ? '#E2E8F0' : '#FFDAD6');
+        let outcomeColor = isDuelLight
+            ? (isWin ? '#0061A4' : (isDraw ? '#475569' : '#BA1A1A'))
+            : (isWin ? '#FFFFFF' : (isDraw ? '#E2E8F0' : '#FFDAD6'));
+        let outcomeZhColor = isDuelLight ? '#334155' : 'rgba(255, 255, 255, 0.95)';
+        let outcomeShadow = isDuelLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)';
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-        ctx.shadowBlur = 16;
+        ctx.shadowColor = outcomeShadow;
+        ctx.shadowBlur = isDuelLight ? 4 : 16;
         drawText(ctx, outcomeEn, 48, topH - 100, {
             font: `bold 44px ${FONT_FAMILY}`,
             color: outcomeColor
         });
         drawText(ctx, outcomeZh, 48, topH - 46, {
             font: `600 20px ${FONT_FAMILY}`,
-            color: 'rgba(255, 255, 255, 0.95)'
+            color: outcomeZhColor
         });
         ctx.restore();
 
@@ -1522,6 +1561,12 @@
             }
         }
 
+        // 换词按钮：学习/小结海报中展示
+        const btnChangeWord = document.getElementById('btn-poster-change-word');
+        if (btnChangeWord) {
+            btnChangeWord.style.display = (_currentPosterGenerator === generateStudyPoster) ? 'inline-flex' : 'none';
+        }
+
         if (modal) {
             modal.style.display = 'flex';
             modal.classList.add('active');
@@ -1764,5 +1809,6 @@
         window.generateWordlePoster = generateWordlePoster;
         window.preloadPosterAssets = preloadPosterAssets;
         window.changePosterBackground = changePosterBackground;
+        window.changePosterWord = changePosterWord;
     }
 })();

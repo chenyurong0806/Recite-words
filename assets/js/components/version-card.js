@@ -133,8 +133,6 @@ async function checkCloudVersion(manual = false) {
  * 更新卡片 UI
  * ============================================================ */
 function showVersionUpdateCard(data, isLocal) {
-    if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) return;
-
     cachedLatestVersionData = data;
     const card = document.getElementById('version-update-card');
     if (!card) return;

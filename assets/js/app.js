@@ -173,10 +173,35 @@ async function bootstrapApp() {
     checkLocalIconFontAvailability();
     initGlobalVirtualKeyboard();
 
+    // 清理 Toy 云储存中的所有词书残留数据
+    if (typeof cleanToyLegacyBookStorage === 'function') {
+        cleanToyLegacyBookStorage().catch(() => {});
+    }
+
     if (typeof BookManager !== 'undefined' && typeof BookManager.init === 'function') {
-        BookManager.init().catch(e => console.warn('[BookManager] init error:', e));
+        BookManager.init().then(() => {
+            checkOfflineBooksGuide();
+        }).catch(e => console.warn('[BookManager] init error:', e));
     }
 }
+
+function checkOfflineBooksGuide() {
+    const isLocalOffline = (typeof window !== 'undefined') && (window.location.protocol === 'file:' || !navigator.onLine);
+    if (!isLocalOffline) return;
+
+    const hasCustom = window.customBooks && window.customBooks.length > 0;
+    const hasDownloaded = BookManager && BookManager.availableBooks && BookManager.availableBooks.some(b => 
+        b.id !== 'builtin_default' && ((b.words && b.words.length > 0) || (BookManager.bookCache && BookManager.bookCache[b.id] && BookManager.bookCache[b.id].length > 0))
+    );
+
+    if (!hasCustom && !hasDownloaded) {
+        setTimeout(() => {
+            const modal = document.getElementById('modal-offline-guide');
+            if (modal) modal.classList.add('active');
+        }, 600);
+    }
+}
+window.checkOfflineBooksGuide = checkOfflineBooksGuide;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrapApp);

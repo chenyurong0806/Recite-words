@@ -16,18 +16,36 @@
     <meta name="apple-mobile-web-app-title" content="词迹">
     <meta name="theme-color" content="#0061A4">
 
-    <!-- Web Manifest 配置 -->
-    <link rel="manifest"
-        href='data:application/manifest+json,{"name":"词迹","short_name":"词迹","start_url":"./","display":"standalone","background_color":"%230061A4","theme_color":"%230061A4","icons":[{"src":"./assets/images/icon-web.png","sizes":"512x512","type":"image/png"}]}'>
+    <!-- Web Manifest 配置 (仅在 http/https 环境下注入，避免 file:// 协议引发 CORS 和 Unique Origin 报错) -->
+    <script>
+        if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+            var manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify({
+                name: "词迹",
+                short_name: "词迹",
+                start_url: "./",
+                display: "standalone",
+                background_color: "#0061A4",
+                theme_color: "#0061A4",
+                icons: [{ src: "./assets/images/icon-web.png", sizes: "512x512", type: "image/png" }]
+            }));
+            document.head.appendChild(manifestLink);
+        }
+    </script>
 
     <meta name="referrer" content="no-referrer">
 
-    <!-- Google Fonts & Material Symbols (在网站中优先向 Google 官方请求图标与字体) -->
+    <!-- Google Fonts & Material Symbols (异步非阻塞加载，兼具离线本地优先秒开) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
+    <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-        rel="stylesheet">
+        media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+    </noscript>
     <style>
         /* 离线/本地环境兜底加载 Google Material Symbols Rounded */
         @font-face {
@@ -53,8 +71,14 @@
             }
         });
     </script>
-    <!-- Bilibili Toy JS SDK -->
-    <script src="//s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js"></script>
+    <!-- Bilibili Toy JS SDK (非 file: 协议环境下动态加载，避免本地 file 找不到 ERR_FILE_NOT_FOUND) -->
+    <script>
+        if (window.location.protocol !== 'file:') {
+            var toyScript = document.createElement('script');
+            toyScript.src = 'https://s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js';
+            document.head.appendChild(toyScript);
+        }
+    </script>
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- 引入主样式表 -->
@@ -621,7 +645,7 @@
             </div>
 
             <!-- 搜索多标签栏 (受设置开关控制) -->
-            <div class="hub-search-tabs-row" id="search-page-tabs-row" style="display:none; max-width:880px; margin:4px auto 8px;"></div>
+            <div class="hub-search-tabs-row" id="search-page-tabs-row" style="display:none; max-width:880px; margin:4px auto 0;"></div>
 
             <!-- 搜索历史记录容器 (默认及无结果时展示) -->
             <div id="search-history-container" style="max-width:880px; margin:0 auto; width:100%;"></div>
@@ -1154,7 +1178,7 @@
                     <span>我的词书</span>
                 </div>
                 <div class="settings-card">
-                    <div class="settings-row clickable" onclick="openMeSubview('books');">
+                    <div class="settings-row clickable" onclick="openManageBooksPage('view-me');">
                         <div class="settings-row-left">
                             <div class="settings-icon-box"
                                 style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
@@ -1260,53 +1284,11 @@
                 </div>
             </div>
 
-            <!-- 子页面 2: 词书与分类管理子页面 (从属于个人中心，返回个人中心主页) -->
-            <div id="settings-subview-books" class="me-subview settings-subview">
-                <div class="subview-header">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
-                            <span class="material-symbols-rounded">arrow_back</span>
-                        </button>
-                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">管理词书</h3>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                        <button type="button" class="btn btn-filled btn-sm" onclick="promptCreateCustomBook()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                            <span class="btn-label-text">新建词书</span>
-                        </button>
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateFolder()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">create_new_folder</span>
-                            <span class="btn-label-text">新建文件夹</span>
-                        </button>
-                        <button type="button" class="btn btn-outlined btn-sm"
-                            onclick="document.getElementById('settings-custom-book-input').click()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                            <span class="btn-label-text">导入词书</span>
-                        </button>
-                        <input type="file" id="settings-custom-book-input" accept=".json" multiple style="display:none;"
-                            onchange="loadCustomBook(event)">
-                    </div>
-                    <button type="button" class="btn btn-tonal btn-sm" onclick="syncLocalBooksWithCloud(true)">
-                        <span class="material-symbols-rounded" style="font-size:18px;">cloud_sync</span>
-                        <span class="btn-label-text">云端同步</span>
-                    </button>
-                </div>
-                <div class="settings-category-tabs" id="manage-books-category-tabs" style="margin-top:14px;">
-                    <button type="button" class="settings-cat-tab active" id="tab-manage-books-en" onclick="switchManageBooksCategory('english')">英语词书</button>
-                    <button type="button" class="settings-cat-tab" id="tab-manage-books-shici" onclick="switchManageBooksCategory('shici')">实词词书</button>
-                </div>
-
-                <div id="settings-manage-books-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-            </div>
-
             <!-- 子页面 3: 词书内容查看子页面 -->
             <div id="settings-subview-words" class="me-subview settings-subview">
                 <div class="subview-header">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <button type="button" class="nav-back-btn" onclick="openMeSubview('books')" title="返回词书">
+                        <button type="button" class="nav-back-btn" onclick="openManageBooksPage('view-me')" title="返回词书">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
                         <div>
@@ -1932,6 +1914,9 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Wordle 新手教程引导横幅 -->
+                <div id="riddle-tutorial-banner" style="display:none; margin: 0 auto 12px; width: 100%; max-width: 520px; background: var(--md-sys-color-primary-container, #d3e3fd); color: var(--md-sys-color-on-primary-container, #041e49); border-radius: 16px; padding: 12px 16px; font-size: 0.88rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); animation: fadeIn 0.2s ease;"></div>
 
                 <div class="riddle-info-bar">
                     <div class="riddle-status-badges">
@@ -2608,7 +2593,7 @@
             </footer>
         </div>
 
-        <!-- VIEW 15: 全新独立选择词书页面 (支持封面与文件夹分类) -->
+        <!-- VIEW 15: 全新独立选择词书页面 (MD3 风格单行水平滑动分类与管理词书入口) -->
         <div id="view-book-selector" class="view">
             <div class="book-selector-page-container">
                 <!-- 顶部导航栏 -->
@@ -2619,26 +2604,66 @@
                     <div class="book-selector-title-group">
                         <h2 class="book-selector-title" id="book-selector-page-title">选择词书</h2>
                     </div>
-                    <div style="width:40px;"></div>
+                    <!-- 管理词书入口 -->
+                    <button type="button" class="btn btn-tonal btn-sm book-selector-manage-btn" onclick="openManageBooksPage('view-book-selector')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
+                        <span class="btn-label-text">管理词书</span>
+                    </button>
                 </div>
 
-                <!-- 英语词书 / 实词词书 分类标签页 与 已选词书提示（移动端置于第二行） -->
-                <div class="book-selector-tabs-row">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" class="book-selector-tab active" id="tab-bs-en" onclick="switchBookSelectorCategory('english')">
-                            <span class="material-symbols-rounded" style="font-size:20px;">language</span>
-                            <span>英语词书</span>
-                        </button>
-                        <button type="button" class="book-selector-tab" id="tab-bs-shici" onclick="switchBookSelectorCategory('shici')">
-                            <span class="material-symbols-rounded" style="font-size:20px;">history_edu</span>
-                            <span>实词词书</span>
-                        </button>
-                    </div>
+                <!-- 单行横向滚动分类标签栏 -->
+                <div class="md3-cat-scroll-container">
+                    <div class="md3-cat-chips-row" id="book-selector-category-tabs" onwheel="if(event.deltaY){this.scrollLeft+=event.deltaY;event.preventDefault();}"></div>
+                </div>
+
+                <!-- 汇总提示与状态 -->
+                <div class="book-selector-info-row">
                     <span class="book-selector-summary-chip" id="book-selector-summary-chip">已选 1 本词书</span>
                 </div>
 
-                <!-- 词书分类文件夹树形/卡片容器 -->
+                <!-- 词书卡片容器 -->
                 <div id="book-selector-content-list" class="book-selector-content-list"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 16: 全新管理词书页面 (与选择词书相同结构，我的分类支持···菜单) -->
+        <div id="view-manage-books" class="view">
+            <div class="book-selector-page-container">
+                <!-- 顶部导航栏 -->
+                <div class="book-selector-top-bar">
+                    <button type="button" class="nav-back-btn" onclick="exitManageBooksPage()" title="返回">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+                    <div class="book-selector-title-group">
+                        <h2 class="book-selector-title">管理词书</h2>
+                    </div>
+                </div>
+
+                <!-- 单行横向滚动分类标签栏 -->
+                <div class="md3-cat-scroll-container">
+                    <div class="md3-cat-chips-row" id="manage-books-category-tabs" onwheel="if(event.deltaY){this.scrollLeft+=event.deltaY;event.preventDefault();}"></div>
+                </div>
+
+                <!-- 操作栏：导入词书与新建 (移到 md3-cat-scroll-container 下方，且仅在“我的”分类下显示) -->
+                <div id="manage-books-actions-bar" style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="document.getElementById('manage-books-import-file').click()" title="导入本地 JSON 词书">
+                        <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
+                        <span class="btn-label-text">导入词书</span>
+                    </button>
+                    <input type="file" id="manage-books-import-file" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateCustomBook()" title="新建词书">
+                        <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                        <span class="btn-label-text">新建</span>
+                    </button>
+                </div>
+
+                <!-- 汇总提示 -->
+                <div class="book-selector-info-row">
+                    <span class="book-selector-summary-chip" id="manage-books-summary-chip">共 0 本词书</span>
+                </div>
+
+                <!-- 词书卡片容器 -->
+                <div id="manage-books-content-list" class="book-selector-content-list"></div>
             </div>
         </div>
 
@@ -3226,6 +3251,90 @@
         </div>
     </div>
 
+    <!-- Wordle 新手规则说明与教程弹窗 -->
+    <div id="modal-riddle-rules" class="modal-overlay">
+        <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="color:#6750A4;">sports_esports</span>
+                        <span>Wordle 规则说明</span>
+                    </h3>
+                </div>
+                <button class="modal-close-btn" onclick="closeWordleRulesModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="font-size:0.92rem; line-height:1.6; color:var(--md-sys-color-on-surface);">
+                <p style="margin-top:0; margin-bottom:12px;">
+                    <strong>目标：</strong>在有限的尝试次数内，通过逐步试探和推理，猜出目标单词。
+                    <br><strong>线索：</strong>每次输入单词并提交后，可通过每个位置的颜色来获取信息：
+                </p>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:12px; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:12px;">
+                        <div style="width:36px; height:36px; border-radius:8px; background:#2e7d32; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem;">A</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; color:#2e7d32;">绿色 · 位置正确</div>
+                            <div style="font-size:0.82rem; color:var(--md-sys-color-outline);">该字母存在于目标单词中，且当前位置完全正确。</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:12px;">
+                        <div style="width:36px; height:36px; border-radius:8px; background:#f57f17; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem;">B</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; color:#e65100;">黄色 · 位置错误</div>
+                            <div style="font-size:0.82rem; color:var(--md-sys-color-outline);">目标单词包含该字母，但它应该放在其他位置上。</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:12px;">
+                        <div style="width:36px; height:36px; border-radius:8px; background:#757575; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem;">C</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; color:var(--md-sys-color-outline);">灰色 · 不包含</div>
+                            <div style="font-size:0.82rem; color:var(--md-sys-color-outline);">目标单词中完全不包含该字母。</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="background:var(--md-sys-color-surface-container-low); border:1px dashed var(--md-sys-color-outline-variant); border-radius:12px; padding:10px 14px; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant); display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded" style="color:#6750A4; font-size:20px;">lightbulb</span>
+                    <span>遇到困难时，可点击界面上的<strong>提示</strong>按钮获取字母线索哦！</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="flex:1;" onclick="skipWordleTutorial()">
+                    <span class="btn-label-text">跳过教程</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" style="flex:1.2; background:#6750A4;" onclick="startWordleTutorial()">
+                    <span class="material-symbols-rounded">school</span>
+                    <span class="btn-label-text">观看新手教程</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wordle 历史记录详情弹窗 -->
+    <div id="modal-wordle-history-detail" class="modal-overlay">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size:1.18rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="color:#6750A4;">grid_view</span>
+                        <span>猜词记录详情</span>
+                    </h3>
+                </div>
+                <button class="modal-close-btn" onclick="closeWordleHistoryDetailModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="wordle-history-detail-body">
+                <!-- 动态填充 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outlined btn-touch-large" style="width:100%;" onclick="closeWordleHistoryDetailModal()">
+                    <span class="btn-label-text">关闭</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Wordle 谜题参数设置弹窗 -->
     <div id="modal-riddle-settings" class="modal-overlay">
         <div class="modal-card" style="max-width: 500px;">
@@ -3262,11 +3371,18 @@
                     </div>
                 </div>
 
-                <div class="rule-group" id="riddle-settings-group-timer">
-                    <span class="rule-label">计时器</span>
-                    <div class="chip-group" id="chips-riddle-timer">
-                        <div class="md3-chip selected" data-timer="on" onclick="selectRiddleTimer(true)">开启</div>
-                        <div class="md3-chip" data-timer="off" onclick="selectRiddleTimer(false)">关闭</div>
+                <div class="rule-group" id="riddle-settings-group-challenge">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                        <div>
+                            <span class="rule-label" style="margin:0;">挑战模式</span>
+                            <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">开启后启用计时器，并删除提示按钮</div>
+                        </div>
+                        <label class="md3-switch" id="switch-riddle-challenge-label">
+                            <input type="checkbox" id="switch-riddle-challenge" onchange="selectRiddleChallengeMode(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -3898,11 +4014,17 @@
                 </div>
             </div>
             <div class="modal-footer" style="padding: 12px 0 0; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
-                <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-change-bg" onclick="changePosterBackground()" style="border-radius: 9999px; display: none; gap: 4px; align-items: center; transition: opacity 0.2s;">
-                    <span class="material-symbols-rounded" style="font-size:18px;">wallpaper</span>
-                    <span>换背景</span>
-                    <span class="poster-bg-cd-label" style="font-size: 0.72rem; color: var(--md-sys-color-outline); min-width: 0;"></span>
-                </button>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-change-bg" onclick="changePosterBackground()" style="border-radius: 9999px; display: none; gap: 4px; align-items: center; transition: opacity 0.2s;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">wallpaper</span>
+                        <span>换背景</span>
+                        <span class="poster-bg-cd-label" style="font-size: 0.72rem; color: var(--md-sys-color-outline); min-width: 0;"></span>
+                    </button>
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-change-word" onclick="changePosterWord()" style="border-radius: 9999px; display: none; gap: 4px; align-items: center; transition: opacity 0.2s;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">autorenew</span>
+                        <span>换词</span>
+                    </button>
+                </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
                         <span>取消</span>
@@ -3971,6 +4093,102 @@
             <button type="button" class="gvk-key key-wide key-action" data-key="Enter" title="确认/提交">
                 <span class="material-symbols-rounded" style="font-size: 1.25rem;">keyboard_return</span>
             </button>
+        </div>
+    </div>
+    <!-- 闭合 .container -->
+    </div>
+
+    <!-- 本地离线环境未导入词书引导弹窗 -->
+    <div id="modal-offline-guide" class="modal-overlay">
+        <div class="modal-card" style="max-width: 440px; text-align: center; border-radius: var(--md-shape-xl, 28px); padding: 28px 24px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--md-sys-color-primary-container, #dbeafe); color: var(--md-sys-color-primary, #0061a4); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <span class="material-symbols-rounded" style="font-size: 32px;">cloud_off</span>
+            </div>
+            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: var(--md-sys-color-on-surface);">检测到处于本地离线环境</h3>
+            <p style="font-size: 0.9rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.6; margin-bottom: 24px;">
+                当前处于本地离线环境。受浏览器安全策略限制，无法直接跨域自动读取本地磁盘文件，请点击下方按钮选择并导入词书（词书通常存放在本项目同级目录的 <strong>books</strong> 文件夹中）。
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" class="btn btn-filled btn-touch-large" onclick="document.getElementById('offline-guide-file-input').click()">
+                    <span class="material-symbols-rounded">upload_file</span>
+                    <span>选择并导入本地词书</span>
+                </button>
+                <input type="file" id="offline-guide-file-input" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
+                <button type="button" class="btn btn-text" onclick="document.getElementById('modal-offline-guide').classList.remove('active')">
+                    <span>稍后再说</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doris 内部词书访问密钥验证弹窗 -->
+    <div id="modal-doris-unlock" class="modal-overlay">
+        <div class="modal-card" style="max-width: 400px; border-radius: var(--md-shape-xl, 28px); padding: 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <span class="material-symbols-rounded" style="font-size: 24px;">vpn_key</span>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--md-sys-color-on-surface);">解锁 Doris 内部词书</h3>
+                    <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">输入授权密钥后将永久解锁内部资源</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <input type="password" id="doris-password-input" class="md3-text-field" placeholder="请输入授权密钥" style="width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-m); font-size: 0.95rem; background: var(--md-sys-color-surface-container-low); outline: none;" onkeydown="if(event.key==='Enter') submitDorisPassword()">
+                <div id="doris-password-error" style="display:none; color:var(--md-sys-color-error); font-size:0.8rem; margin-top:6px; font-weight:600;"></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-text" onclick="closeDorisPasswordModal()">取消</button>
+                <button type="button" class="btn btn-filled" onclick="submitDorisPassword()">
+                    <span class="material-symbols-rounded" style="font-size: 18px;">key</span>
+                    <span>验证并解锁</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 词书卡片更多操作菜单 (查看内容、重学词书、删除词书) -->
+    <div id="modal-book-actions-menu" class="modal-overlay" onclick="closeBookActionMenu()">
+        <div class="modal-card book-action-menu-sheet" onclick="event.stopPropagation()" style="max-width: 320px; border-radius: var(--md-shape-xl, 24px); padding: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <h4 id="book-action-menu-title" style="margin:0; font-size:1.02rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">词书操作</h4>
+                <button type="button" class="modal-close-btn" onclick="closeBookActionMenu()">
+                    <span class="material-symbols-rounded" style="font-size:20px;">close</span>
+                </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button type="button" class="md3-menu-item" onclick="actionViewBookContent()">
+                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">menu_book</span>
+                    <span>查看内容</span>
+                </button>
+                <button type="button" class="md3-menu-item" onclick="actionResetBookProgress()">
+                    <span class="material-symbols-rounded" style="color:#d97706;">restart_alt</span>
+                    <span>重学词书</span>
+                </button>
+                <button type="button" class="md3-menu-item danger" onclick="actionDeleteBook()">
+                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
+                    <span>删除词书</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 词书单词列表查看弹窗 -->
+    <div id="modal-book-words-viewer" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; border-radius: var(--md-shape-xl, 24px); padding: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0;">
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <h3 id="book-viewer-modal-title" style="margin:0; font-size:1.15rem; font-weight:700; color:var(--md-sys-color-on-surface);">词书内容</h3>
+                    <span id="book-viewer-modal-count" style="font-size:0.82rem; color:var(--md-sys-color-outline);"></span>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeBookWordsViewerModal()">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div style="margin-bottom:12px; flex-shrink:0;">
+                <input type="text" id="book-viewer-search-input" placeholder="在当前词书中搜索单词或释义..." class="md3-text-field" style="width:100%; box-sizing:border-box; padding:8px 14px; border:1px solid var(--md-sys-color-outline-variant); border-radius:9999px; font-size:0.88rem; background:var(--md-sys-color-surface-container-low); outline:none;" oninput="filterBookViewerWords(this.value)">
+            </div>
+            <div id="book-viewer-words-list" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;"></div>
         </div>
     </div>
 

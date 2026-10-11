@@ -366,7 +366,8 @@ let riddleConfig = {
     wordLength: 5,
     maxAttempts: 6,
     letterCase: "lower",
-    enableTimer: false
+    enableTimer: false,
+    challengeMode: false
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
@@ -384,7 +385,9 @@ try {
         if (saved.wordLength !== undefined) riddleConfig.wordLength = saved.wordLength;
         if (saved.maxAttempts) riddleConfig.maxAttempts = saved.maxAttempts;
         if (saved.letterCase) riddleConfig.letterCase = saved.letterCase;
-        if (saved.enableTimer !== undefined) riddleConfig.enableTimer = !!saved.enableTimer;
+        const isChallenge = (saved.challengeMode !== undefined) ? !!saved.challengeMode : !!saved.enableTimer;
+        riddleConfig.enableTimer = isChallenge;
+        riddleConfig.challengeMode = isChallenge;
     }
 } catch (e) { }
 
@@ -450,6 +453,8 @@ function updateRiddleModeUI() {
     const giveupBtn = document.getElementById('btn-riddle-giveup');
     const lbBtn = document.getElementById('btn-riddle-leaderboard');
 
+    const isChallenge = !!(riddleConfig.challengeMode || riddleConfig.enableTimer);
+
     if (isDailyWordleMode) {
         if (lbBtn) lbBtn.style.display = 'inline-flex';
         if (timerBox) timerBox.style.display = 'inline-flex';
@@ -459,11 +464,16 @@ function updateRiddleModeUI() {
         if (giveupBtn) giveupBtn.style.display = 'none';
     } else {
         if (lbBtn) lbBtn.style.display = 'none';
-        if (timerBox) timerBox.style.display = riddleConfig.enableTimer ? 'inline-flex' : 'none';
+        // 挑战模式开启：启用计时器，并删除/隐藏提示按钮
+        if (timerBox) timerBox.style.display = isChallenge ? 'inline-flex' : 'none';
         if (selectBookBtn) selectBookBtn.style.display = 'inline-flex';
-        if (hintBtn) hintBtn.style.display = 'inline-flex';
+        if (hintBtn) hintBtn.style.display = isChallenge ? 'none' : 'inline-flex';
         if (shuffleBtn) shuffleBtn.style.display = 'inline-flex';
         if (giveupBtn) giveupBtn.style.display = 'inline-flex';
+    }
+    const hintBox = document.getElementById('riddle-hint-box');
+    if (hintBox && (isChallenge || isDailyWordleMode)) {
+        hintBox.style.display = 'none';
     }
 }
 
@@ -518,6 +528,11 @@ function saveRiddleProgress() {
 }
 
 function confirmExitRiddle() {
+    if (isRiddleTutorialMode) {
+        isRiddleTutorialMode = false;
+        const banner = document.getElementById('riddle-tutorial-banner');
+        if (banner) banner.style.display = 'none';
+    }
     if (isDailyWordleMode) {
         stopDailyTimer();
         saveDailyWordleProgress();
@@ -576,13 +591,14 @@ function openRiddleSettings() {
         maxAttempts: riddleConfig.maxAttempts,
         letterCase: riddleConfig.letterCase,
         enableTimer: !!riddleConfig.enableTimer,
+        challengeMode: !!(riddleConfig.challengeMode !== undefined ? riddleConfig.challengeMode : riddleConfig.enableTimer),
         selectedBooks: [...(riddleConfig.selectedBooks || [])],
         bookId: riddleConfig.bookId
     };
 
     const lenGroup = document.getElementById('riddle-settings-group-len');
     const attGroup = document.getElementById('riddle-settings-group-att');
-    const timerGroup = document.getElementById('riddle-settings-group-timer');
+    const timerGroup = document.getElementById('riddle-settings-group-challenge') || document.getElementById('riddle-settings-group-timer');
     const historyGroup = document.getElementById('riddle-settings-group-history');
     if (lenGroup) lenGroup.style.display = isDailyWordleMode ? 'none' : 'block';
     if (attGroup) attGroup.style.display = isDailyWordleMode ? 'none' : 'block';
@@ -599,7 +615,8 @@ function isRiddleCoreSettingsChanged() {
     return !isDailyWordleMode && riddleInitialSettings && (
         riddleConfig.wordLength !== riddleInitialSettings.wordLength ||
         riddleConfig.maxAttempts !== riddleInitialSettings.maxAttempts ||
-        riddleConfig.enableTimer !== riddleInitialSettings.enableTimer
+        riddleConfig.enableTimer !== riddleInitialSettings.enableTimer ||
+        riddleConfig.challengeMode !== riddleInitialSettings.challengeMode
     );
 }
 
@@ -702,6 +719,7 @@ function cancelRiddleSettings() {
         riddleConfig.maxAttempts = riddleInitialSettings.maxAttempts;
         riddleConfig.letterCase = riddleInitialSettings.letterCase;
         riddleConfig.enableTimer = riddleInitialSettings.enableTimer;
+        riddleConfig.challengeMode = riddleInitialSettings.challengeMode;
         riddleConfig.selectedBooks = [...riddleInitialSettings.selectedBooks];
         riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
         updateRiddleSettingsChips();
@@ -772,9 +790,14 @@ function updateRiddleSettingsChips() {
         const cCase = c.getAttribute('data-case');
         c.classList.toggle('selected', cCase === riddleConfig.letterCase);
     });
-    document.querySelectorAll('#chips-riddle-timer .md3-chip').forEach(c => {
-        const isTimerOn = c.getAttribute('data-timer') === 'on';
-        c.classList.toggle('selected', isTimerOn === !!riddleConfig.enableTimer);
+    const isChallengeOn = !!(riddleConfig.challengeMode !== undefined ? riddleConfig.challengeMode : riddleConfig.enableTimer);
+    const challengeSwitch = document.getElementById('switch-riddle-challenge');
+    if (challengeSwitch) {
+        challengeSwitch.checked = isChallengeOn;
+    }
+    document.querySelectorAll('#chips-riddle-challenge .md3-chip, #chips-riddle-timer .md3-chip').forEach(c => {
+        const isChipOn = (c.getAttribute('data-challenge') === 'on' || c.getAttribute('data-timer') === 'on');
+        c.classList.toggle('selected', isChipOn === isChallengeOn);
     });
 }
 
@@ -790,22 +813,56 @@ function selectRiddleAttempts(att) {
     updateRiddleSettingsFooterButtons();
 }
 
-function selectRiddleTimer(enabled) {
+function selectRiddleChallengeMode(enabled) {
+    riddleConfig.challengeMode = !!enabled;
     riddleConfig.enableTimer = !!enabled;
     updateRiddleSettingsChips();
     updateRiddleSettingsFooterButtons();
+    updateRiddleModeUI();
 }
+
+function selectRiddleTimer(enabled) {
+    selectRiddleChallengeMode(enabled);
+}
+
+function hasUnlockedDailyWordle() {
+    const userKey = currentUser || 'guest';
+    if (localStorage.getItem(`vocab_wordle_first_won_${userKey}`) === 'true') {
+        return true;
+    }
+    try {
+        const raw = localStorage.getItem(`vocab_normal_wordle_history_${userKey}`);
+        if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list) && list.some(item => item && item.isWon)) {
+                localStorage.setItem(`vocab_wordle_first_won_${userKey}`, 'true');
+                return true;
+            }
+        }
+    } catch (e) {}
+    return false;
+}
+window.hasUnlockedDailyWordle = hasUnlockedDailyWordle;
 
 function recordNormalWordleHistory(isWon) {
     try {
         const userKey = currentUser || 'guest';
+        if (isWon) {
+            localStorage.setItem(`vocab_wordle_first_won_${userKey}`, 'true');
+        }
+
         const raw = localStorage.getItem(`vocab_normal_wordle_history_${userKey}`);
         let history = [];
         if (raw) history = JSON.parse(raw);
         if (!Array.isArray(history)) history = [];
 
+        const attemptDetails = (riddleState.attempts || []).map(a => ({
+            guess: a.guess,
+            evaluation: Array.isArray(a.evaluation) ? [...a.evaluation] : []
+        }));
+
         history.unshift({
-            id: 'nh_' + Date.now(),
+            id: 'nh_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
             word: riddleState.targetWord,
             meaning: riddleState.clueMeaning || '---',
             isWon: !!isWon,
@@ -813,6 +870,7 @@ function recordNormalWordleHistory(isWon) {
             maxAttempts: riddleConfig.maxAttempts || 6,
             timeSpent: riddleConfig.enableTimer ? dailyWordleElapsedSeconds : null,
             timerEnabled: !!riddleConfig.enableTimer,
+            attemptDetails: attemptDetails,
             timestamp: Date.now()
         });
 
@@ -866,12 +924,13 @@ function renderNormalWordleHistoryList() {
         const timeDisplay = (item.timeSpent !== null && item.timeSpent !== undefined)
             ? `用时 ${formatDailyTimer(item.timeSpent)}`
             : '未开启计时';
+        const displayWord = formatRiddleCase(item.word || '');
 
         return `
             <div style="background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:12px; padding:12px 14px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-weight:700; font-size:1.05rem; letter-spacing:0.5px;">${escapeHtml(item.word || '')}</span>
+                        <span style="font-weight:700; font-size:1.05rem; letter-spacing:0.5px;">${escapeHtml(displayWord)}</span>
                         <span class="badge" style="font-size:0.75rem; padding:2px 8px; border-radius:999px; font-weight:600; ${isWon ? 'background:var(--md-sys-color-success-container, #d1e7dd); color:var(--md-sys-color-success, #0f5132);' : 'background:var(--md-sys-color-error-container, #f8d7da); color:var(--md-sys-color-error, #842029);'}">
                             ${isWon ? '挑战成功' : '挑战失败'}
                         </span>
@@ -881,20 +940,110 @@ function renderNormalWordleHistoryList() {
                 <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px; line-height:1.4;">
                     ${escapeHtml(item.meaning || '---')}
                 </div>
-                <div style="display:flex; align-items:center; gap:14px; font-size:0.8rem; color:var(--md-sys-color-outline);">
-                    <span style="display:inline-flex; align-items:center; gap:3px;">
-                        <span class="material-symbols-rounded" style="font-size:15px;">flaky</span>
-                        <span>尝试次数：<strong style="color:var(--md-sys-color-on-surface);">${item.attempts || 0}/${item.maxAttempts || 6}</strong></span>
-                    </span>
-                    <span style="display:inline-flex; align-items:center; gap:3px;">
-                        <span class="material-symbols-rounded" style="font-size:15px;">schedule</span>
-                        <span>${timeDisplay}</span>
-                    </span>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:14px; font-size:0.8rem; color:var(--md-sys-color-outline);">
+                        <span style="display:inline-flex; align-items:center; gap:3px;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">flaky</span>
+                            <span>尝试次数：<strong style="color:var(--md-sys-color-on-surface);">${item.attempts || 0}/${item.maxAttempts || 6}</strong></span>
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:3px;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">schedule</span>
+                            <span>${timeDisplay}</span>
+                        </span>
+                    </div>
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="viewNormalWordleHistoryDetail('${item.id || ''}')" style="height:28px; padding:0 10px; font-size:0.78rem; border-radius:999px; display:inline-flex; align-items:center; gap:4px;">
+                        <span class="material-symbols-rounded" style="font-size:15px;">grid_view</span>
+                        <span>查看棋盘</span>
+                    </button>
                 </div>
             </div>
         `;
     }).join('');
 }
+
+function viewNormalWordleHistoryDetail(id) {
+    const userKey = currentUser || 'guest';
+    let history = [];
+    try {
+        const raw = localStorage.getItem(`vocab_normal_wordle_history_${userKey}`);
+        if (raw) history = JSON.parse(raw);
+    } catch (e) {}
+
+    const item = history.find(h => h.id === id) || history[0];
+    if (!item) {
+        showToast('未找到该条历史记录详情');
+        return;
+    }
+
+    const modalBody = document.getElementById('wordle-history-detail-body');
+    if (!modalBody) return;
+
+    const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const isWon = !!item.isWon;
+    const timeDisplay = (item.timeSpent !== null && item.timeSpent !== undefined)
+        ? `用时 ${formatDailyTimer(item.timeSpent)}`
+        : '未开启计时';
+
+    let boardHtml = '';
+    if (Array.isArray(item.attemptDetails) && item.attemptDetails.length > 0) {
+        boardHtml = `
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:center; margin-top:14px; background:var(--md-sys-color-surface-container); padding:16px; border-radius:12px;">
+                ${item.attemptDetails.map(att => {
+                    const letters = (att.guess || '').split('');
+                    return `
+                        <div style="display:flex; gap:6px;">
+                            ${letters.map((char, cIdx) => {
+                                const ev = (att.evaluation && att.evaluation[cIdx]) || 'absent';
+                                let bg = '#757575';
+                                if (ev === 'correct') bg = '#2e7d32';
+                                else if (ev === 'present') bg = '#f57f17';
+                                return `<div style="width:38px; height:38px; border-radius:6px; background:${bg}; color:#ffffff; font-weight:800; font-size:1.1rem; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">${formatRiddleCase(char)}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } else {
+        boardHtml = `
+            <div style="text-align:center; padding:16px; margin-top:12px; color:var(--md-sys-color-outline); font-size:0.86rem; background:var(--md-sys-color-surface-container-low); border-radius:8px;">
+                该记录生成于历史版本，未保存具体棋盘步数。
+            </div>
+        `;
+    }
+
+    modalBody.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:1.25rem; font-weight:800; letter-spacing:0.5px;">${formatRiddleCase(item.word || '')}</span>
+                    <span class="badge" style="font-size:0.75rem; padding:2px 8px; border-radius:999px; font-weight:600; ${isWon ? 'background:var(--md-sys-color-success-container, #d1e7dd); color:var(--md-sys-color-success, #0f5132);' : 'background:var(--md-sys-color-error-container, #f8d7da); color:var(--md-sys-color-error, #842029);'}">
+                        ${isWon ? '挑战成功' : '挑战失败'}
+                    </span>
+                </div>
+                <div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">
+                    ${escapeHtml(item.meaning || '---')}
+                </div>
+            </div>
+            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">${dateStr}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; font-size:0.82rem; color:var(--md-sys-color-outline); margin-top:8px;">
+            <span>尝试步数：<strong style="color:var(--md-sys-color-on-surface);">${item.attempts || 0}/${item.maxAttempts || 6}</strong></span>
+            <span>${timeDisplay}</span>
+        </div>
+        ${boardHtml}
+    `;
+
+    const modal = document.getElementById('modal-wordle-history-detail');
+    if (modal) modal.classList.add('active');
+}
+window.viewNormalWordleHistoryDetail = viewNormalWordleHistoryDetail;
+
+function closeWordleHistoryDetailModal() {
+    const modal = document.getElementById('modal-wordle-history-detail');
+    if (modal) modal.classList.remove('active');
+}
+window.closeWordleHistoryDetailModal = closeWordleHistoryDetailModal;
 
 function clearNormalWordleHistory() {
     const userKey = currentUser || 'guest';
@@ -911,10 +1060,178 @@ async function saveAndStartRiddle() {
     await handleRiddleLeftBtnClick();
 }
 
+let isRiddleTutorialMode = false;
+let riddleTutorialStep = 1;
+
+function openWordleRulesModal() {
+    const modal = document.getElementById('modal-riddle-rules');
+    if (modal) modal.classList.add('active');
+}
+window.openWordleRulesModal = openWordleRulesModal;
+
+function closeWordleRulesModal() {
+    const modal = document.getElementById('modal-riddle-rules');
+    if (modal) modal.classList.remove('active');
+}
+window.closeWordleRulesModal = closeWordleRulesModal;
+
+function skipWordleTutorial() {
+    const userKey = currentUser || 'guest';
+    localStorage.setItem(`vocab_wordle_tutorial_seen_${userKey}`, 'true');
+    closeWordleRulesModal();
+    startWordRiddleGame(true);
+}
+window.skipWordleTutorial = skipWordleTutorial;
+
+function startWordleTutorial() {
+    const userKey = currentUser || 'guest';
+    closeWordleRulesModal();
+    isRiddleTutorialMode = true;
+    riddleTutorialStep = 1;
+
+    // 默认 5 字母、6 次机会、关闭计时器
+    riddleConfig.length = 5;
+    riddleConfig.attempts = 6;
+    riddleConfig.enableTimer = false;
+    isDailyWordleMode = false;
+    stopDailyTimer();
+    dailyWordleElapsedSeconds = 0;
+
+    riddleState = {
+        targetWord: 'PLANT',
+        clueMeaning: 'n. 植物; 工厂 vt. 种植; 栽培',
+        cluePhone: 'plænt',
+        bookName: '新手入门引导',
+        targetLength: 5,
+        maxAttempts: 6,
+        attempts: [],
+        currentInput: '',
+        gameOver: false,
+        isWon: false,
+        letterStatus: {},
+        hintLevel: 0,
+        isSubmitting: false,
+        revealedPositions: new Set(),
+        pendingHint: null,
+        revealedMeaning: false
+    };
+
+    updateRiddleModeUI();
+    activeFormalCol = 0;
+    riddleCurrentLetters = new Array(5).fill('');
+    activeRiddleDraft = null;
+    initRiddleDraftRows();
+    renderRiddleBoard();
+    renderRiddleKeyboard();
+
+    renderWordleTutorialBanner();
+    switchView('view-riddle');
+}
+window.startWordleTutorial = startWordleTutorial;
+
+function renderWordleTutorialBanner() {
+    const banner = document.getElementById('riddle-tutorial-banner');
+    if (!banner) return;
+    if (!isRiddleTutorialMode) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+
+    banner.style.display = 'block';
+
+    if (riddleTutorialStep === 1) {
+        banner.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:0.95rem; margin-bottom:3px; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:#6750A4;">flag</span>
+                        <span>第一步：初探</span>
+                    </div>
+                    <div style="font-size:0.84rem; line-height:1.45; color:var(--md-sys-color-on-surface-variant);">
+                        神秘单词共 5 个字母。
+                        <br>我们先输入 <strong>about</strong> 试探包含哪些字母。
+                    </div>
+                </div>
+                <button type="button" class="btn btn-filled btn-sm" onclick="fillTutorialWord('about')" style="border-radius:999px; background:#6750A4; flex-shrink:0;">
+                    填入 about
+                </button>
+            </div>
+        `;
+    } else if (riddleTutorialStep === 2) {
+        banner.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:0.95rem; margin-bottom:3px; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:#6750A4;">lightbulb</span>
+                        <span>第二步：再探</span>
+                    </div>
+                    <div style="font-size:0.84rem; line-height:1.45; color:var(--md-sys-color-on-surface-variant);">
+                        <strong style="color:#2e7d32;">t 绿色</strong>位置正确！<strong style="color:#e65100;">a 黄色</strong>包含但位置不对。
+                        <br>将 A 移到第 3 位，输入 <strong>stand</strong> 试试！
+                    </div>
+                </div>
+                <button type="button" class="btn btn-filled btn-sm" onclick="fillTutorialWord('stand')" style="border-radius:999px; background:#6750A4; flex-shrink:0;">
+                    填入 stand
+                </button>
+            </div>
+        `;
+    } else if (riddleTutorialStep === 3) {
+        banner.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:0.95rem; margin-bottom:3px; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:#6750A4;">auto_awesome</span>
+                        <span>第三步：猜词</span>
+                    </div>
+                    <div style="font-size:0.84rem; line-height:1.45; color:var(--md-sys-color-on-surface-variant);">
+                        太棒了！已确定后三位为 <strong>_ _ a n t</strong>。
+                        <br>结合线索猜出最终单词吧！遇到困难可点下方<strong>提示</strong>。
+                    </div>
+                </div>
+                <button type="button" class="btn btn-tonal btn-sm" onclick="finishTutorialGuidance()" style="border-radius:999px; flex-shrink:0;">
+                    我知道了
+                </button>
+            </div>
+        `;
+    }
+}
+window.renderWordleTutorialBanner = renderWordleTutorialBanner;
+
+function fillTutorialWord(word) {
+    if (!word) return;
+    const len = riddleState.targetLength || 5;
+    const chars = word.toUpperCase().slice(0, len).split('');
+    riddleCurrentLetters = chars;
+    riddleState.currentInput = chars.join('');
+    activeFormalCol = chars.length;
+    renderRiddleBoard();
+    renderRiddleKeyboard();
+    showToast(`已填入 ${word}，请按下回车键或点击“提交”！`);
+}
+window.fillTutorialWord = fillTutorialWord;
+
+function finishTutorialGuidance() {
+    isRiddleTutorialMode = false;
+    const userKey = currentUser || 'guest';
+    localStorage.setItem(`vocab_wordle_tutorial_seen_${userKey}`, 'true');
+    const banner = document.getElementById('riddle-tutorial-banner');
+    if (banner) banner.style.display = 'none';
+    showToast('新手引导已结束，继续自行探索吧~');
+}
+window.finishTutorialGuidance = finishTutorialGuidance;
+
 async function startWordRiddleGame(forceNew = false) {
     isDailyWordleMode = false;
     stopDailyTimer();
     dailyWordleElapsedSeconds = 0;
+
+    const userKey = currentUser || 'guest';
+    const tutorialSeen = localStorage.getItem(`vocab_wordle_tutorial_seen_${userKey}`) === 'true';
+    if (!forceNew && !tutorialSeen && !hasUnlockedDailyWordle()) {
+        openWordleRulesModal();
+        return;
+    }
 
     if (forceNew) {
         resetAllGameAlertsAndFeedback();
@@ -1245,6 +1562,11 @@ async function getDailyWordForDate(dateStr) {
 window.getDailyWordForDate = getDailyWordForDate;
 
 async function startDailyWordleGame() {
+    if (!hasUnlockedDailyWordle()) {
+        showToast('请先成功完成一次普通 Wordle 猜词，解锁今日挑战功能！', 'info');
+        return;
+    }
+
     isDailyWordleMode = true;
     updateRiddleModeUI();
 
@@ -1838,10 +2160,29 @@ function submitRiddleRow() {
 
     renderRiddleKeyboard();
 
+    if (isRiddleTutorialMode) {
+        if (riddleTutorialStep === 1 && guess === 'ABOUT') {
+            riddleTutorialStep = 2;
+            renderWordleTutorialBanner();
+        } else if (riddleTutorialStep === 2 && guess === 'STAND') {
+            riddleTutorialStep = 3;
+            renderWordleTutorialBanner();
+        }
+    }
+
     const isWin = (guess === target);
     if (isWin) {
         riddleState.gameOver = true;
         riddleState.isWon = true;
+        if (isRiddleTutorialMode) {
+            isRiddleTutorialMode = false;
+            const userKey = currentUser || 'guest';
+            localStorage.setItem(`vocab_wordle_tutorial_seen_${userKey}`, 'true');
+            localStorage.setItem(`vocab_wordle_first_won_${userKey}`, 'true');
+            const banner = document.getElementById('riddle-tutorial-banner');
+            if (banner) banner.style.display = 'none';
+            showToast('恭喜完成新手教程！已成功解锁今日Wordle挑战！', 'success');
+        }
         if (isDailyWordleMode) {
             stopDailyTimer();
             saveDailyWordleProgress();
@@ -1871,6 +2212,11 @@ function submitRiddleRow() {
     if (riddleState.attempts.length >= riddleState.maxAttempts) {
         riddleState.gameOver = true;
         riddleState.isWon = false;
+        if (isRiddleTutorialMode) {
+            isRiddleTutorialMode = false;
+            const banner = document.getElementById('riddle-tutorial-banner');
+            if (banner) banner.style.display = 'none';
+        }
         if (isDailyWordleMode) {
             stopDailyTimer();
             saveDailyWordleProgress();
@@ -2012,6 +2358,10 @@ function renderRiddleHintContent() {
 }
 
 function handleRiddleHint() {
+    if (riddleConfig.challengeMode || riddleConfig.enableTimer || isDailyWordleMode) {
+        showToast('挑战模式下已禁用提示功能');
+        return;
+    }
     if (riddleState.gameOver) {
         showToast(`游戏已结束，答案为【${formatRiddleCase(riddleState.targetWord)}】`);
         return;
@@ -2192,5 +2542,6 @@ window.selectRiddleCase = selectRiddleCase;
 window.selectRiddleLength = selectRiddleLength;
 window.selectRiddleAttempts = selectRiddleAttempts;
 window.selectRiddleTimer = selectRiddleTimer;
+window.selectRiddleChallengeMode = selectRiddleChallengeMode;
 
 

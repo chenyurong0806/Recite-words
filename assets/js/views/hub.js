@@ -35,7 +35,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -399,9 +399,13 @@ function updateHubResumeButtons() {
     }
 }
 
-// 首页点击“管理本地词书”直接无弹窗进入个人中心-管理词书页面
+// 首页点击“管理本地词书”直接进入独立管理词书页面
 function goToManageBooksInSettings() {
-    openMeSubview('books');
+    if (typeof openManageBooksPage === 'function') {
+        openManageBooksPage('view-hub');
+    } else {
+        openMeSubview('books');
+    }
 }
 
 async function loadCustomBook(e) {
@@ -417,18 +421,18 @@ async function loadCustomBook(e) {
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-            const text = await file.text();
-            const rawData = JSON.parse(text);
-            // 禁止导入文言实词
-            if (isShiCiBook(rawData) || (rawData && rawData.name && rawData.name.includes('实词')) || file.name.includes('实词') || file.name.includes('文言')) {
-                alert('文言词书禁止导入！');
-                continue;
+            let text = await file.text();
+            // 剥除 UTF-8 BOM 标记 (\uFEFF)
+            if (text.charCodeAt(0) === 0xFEFF) {
+                text = text.slice(1);
             }
-            if (Array.isArray(rawData) && rawData.some(it => it && (it.senses || it.isAncient || it.type === 'shici'))) {
-                alert('文言词书禁止导入！');
-                continue;
-            }
-            const bookName = file.name.replace(/\.json$/i, '');
+            const rawData = safeJsonParse(text);
+            if (!rawData) throw new Error('无效的 JSON 内容');
+
+            const isAncient = (file.name.includes('实词') || file.name.includes('文言') || 
+                (Array.isArray(rawData) && rawData.some(it => it && (it.isAncient || (it.pinyin && !it.word && it.char)))));
+
+            const bookName = cleanBookName(file.name.replace(/\.json$/i, ''));
             const bookId = 'custom_' + Date.now() + '_' + i;
             const normalized = BookManager.normalizeWords(rawData, bookName, bookId);
             if (normalized.length === 0) throw new Error('未解析到有效词条');
@@ -437,10 +441,13 @@ async function loadCustomBook(e) {
                 id: bookId,
                 name: bookName,
                 rawName: bookName,
+                category: isAncient ? '实词' : '自定义',
+                isShiCi: isAncient,
                 count: normalized.length,
                 words: normalized,
                 folderId: null,
                 isCloud: false,
+                syncStatus: 'downloaded',
                 createdAt: Date.now() + i
             };
 
@@ -449,9 +456,20 @@ async function loadCustomBook(e) {
 
             BookManager.bookCache[bookId] = normalized;
 
-            if (!singleSelectedBookIds.includes(bookId)) {
-                singleSelectedBookIds.push(bookId);
+            if (isAncient) {
+                if (typeof shiciConfig !== 'undefined' && Array.isArray(shiciConfig.selectedBooks)) {
+                    shiciConfig.selectedBooks.push(bookId);
+                    if (typeof saveShiCiState === 'function') saveShiCiState();
+                }
+            } else {
+                if (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds)) {
+                    if (!singleSelectedBookIds.includes(bookId)) {
+                        singleSelectedBookIds.push(bookId);
+                        localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+                    }
+                }
             }
+
             importedNames.push(bookName);
             successCount++;
         } catch (err) {
@@ -466,6 +484,8 @@ async function loadCustomBook(e) {
     BookManager.mergeCustomBooks();
 
     // 立即刷新所有相关词书列表
+    if (typeof renderBookSelectorPage === 'function' && window.currentView === 'view-book-selector') renderBookSelectorPage();
+    if (typeof renderManageBooksPage === 'function' && window.currentView === 'view-manage-books') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
     if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
     if (typeof renderLocalDuelBookChips === 'function') renderLocalDuelBookChips();
@@ -475,9 +495,13 @@ async function loadCustomBook(e) {
     if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
     if (typeof renderSettingsBooksSummary === 'function') renderSettingsBooksSummary();
 
+    // 如果处于离线引导弹窗中，自动关闭弹窗
+    const offlineGuide = document.getElementById('modal-offline-guide');
+    if (offlineGuide) offlineGuide.classList.remove('active');
+
     if (successCount > 0) {
         if (successCount === 1) {
-            showToast(`成功导入本地词书“${importedNames[0]}”！`);
+            showToast(`成功导入本地词书《${importedNames[0]}》！`);
         } else {
             showToast(`成功导入 ${successCount} 本词书！` + (failCount > 0 ? ` (${failCount} 本失败)` : ''));
         }

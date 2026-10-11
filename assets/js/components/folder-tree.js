@@ -66,7 +66,7 @@ function renderBookFolderTree(containerId, options = {}) {
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push(b);
         });
-        const catOrder = ['经典', '高中精选', '实词'];
+        const catOrder = ['高中', '初中', '大学', '实词', '翻译', '其他', 'Doris'];
         const catNames = Object.keys(categories).sort((a, b) => {
             let idxA = catOrder.indexOf(a);
             let idxB = catOrder.indexOf(b);
