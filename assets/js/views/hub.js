@@ -333,7 +333,7 @@ function updateHub() {
     }
 }
 
-// 刷新主页中单人学习与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
+// 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
 function updateHubResumeButtons() {
     if (!currentUser) return;
 
@@ -453,6 +453,11 @@ async function loadCustomBook(e) {
 
             window.customBooks.push(bookObj);
             await VocabOfflineDB.saveBook(bookObj);
+
+            // 同步保存至本地专属词书目录 (Electron 环境)
+            if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
+                ElectronManager.saveBookToDisk(bookName + '.json', text).catch(() => {});
+            }
 
             BookManager.bookCache[bookId] = normalized;
 

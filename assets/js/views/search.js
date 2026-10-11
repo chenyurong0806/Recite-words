@@ -1688,6 +1688,13 @@ async function renderHubSearchSuggestions(query) {
                     </div>
                 `;
         activeSuggs.innerHTML = emptyHtml;
+        const targetInp = (activeSuggs === suggsPage) ? (inpPage || inpHub) : (inpHub || inpPage);
+        if (targetInp && window.innerWidth <= 768) {
+            const rect = targetInp.getBoundingClientRect();
+            activeSuggs.style.top = `${Math.round(rect.bottom + 6)}px`;
+        } else {
+            activeSuggs.style.top = '';
+        }
         activeSuggs.style.display = 'block';
         return;
     }
@@ -1701,6 +1708,13 @@ async function renderHubSearchSuggestions(query) {
                 </div>
             `).join('');
     activeSuggs.innerHTML = suggHtml;
+    const targetInp = (activeSuggs === suggsPage) ? (inpPage || inpHub) : (inpHub || inpPage);
+    if (targetInp && window.innerWidth <= 768) {
+        const rect = targetInp.getBoundingClientRect();
+        activeSuggs.style.top = `${Math.round(rect.bottom + 6)}px`;
+    } else {
+        activeSuggs.style.top = '';
+    }
     activeSuggs.style.display = 'block';
 }
 

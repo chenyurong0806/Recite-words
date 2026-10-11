@@ -64,6 +64,13 @@ function openBookSelectorPage(mode = 'single') {
         }
     }
 
+    if (mode === 'single') {
+        if (!Array.isArray(singleSelectedBookIds) || singleSelectedBookIds.length === 0) {
+            singleSelectedBookIds = ['books/经典/高中考纲词汇.json'];
+            localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+        }
+    }
+
     const titleEl = document.getElementById('book-selector-page-title');
     const modeNames = {
         'single': '选择词书 (背单词)',
@@ -84,6 +91,12 @@ function openBookSelectorPage(mode = 'single') {
 }
 
 function exitBookSelectorPage() {
+    if (bookSelectorMode === 'single') {
+        if (!Array.isArray(singleSelectedBookIds) || singleSelectedBookIds.length === 0) {
+            singleSelectedBookIds = ['books/经典/高中考纲词汇.json'];
+            localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+        }
+    }
     if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
     switchView(bookSelectorPreviousView || 'view-hub');
     if (bookSelectorMode === 'room' && typeof updateRoomBookSummaryUI === 'function') {
@@ -282,7 +295,7 @@ function renderBookSelectorPage() {
     const totalSelectedCount = allBooks.filter(b => isBookIdSelectedInCurrentMode(b.id)).length;
     if (summaryChip) {
         if (bookSelectorActiveCategory === '我的') {
-            summaryChip.textContent = `我的词书 (${booksToDisplay.length} 本) · 已选 ${totalSelectedCount} 本`;
+            summaryChip.textContent = `共 ${booksToDisplay.length} 本 · 已选 ${totalSelectedCount} 本`;
         } else {
             summaryChip.textContent = `已选 ${totalSelectedCount} 本词书`;
         }
@@ -643,41 +656,74 @@ function renderManageBooksPage() {
    3. 词书操作菜单 (查看内容、重学词书、删除词书)
    ========================================================================== */
 function openBookActionMenu(event, bookId) {
-    if (event) event.stopPropagation();
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
     activeActionBookId = bookId;
     const bookMeta = BookManager.getBookMeta(bookId);
 
     const menu = document.getElementById('modal-book-actions-menu');
+    if (!menu) return;
+
     const titleEl = document.getElementById('book-action-menu-title');
     if (titleEl) titleEl.textContent = bookMeta ? `《${bookMeta.name}》` : '词书操作';
 
-    if (menu) menu.classList.add('active');
+    const sheet = menu.querySelector('.book-action-menu-sheet');
+    const btn = event ? (event.currentTarget || event.target.closest('.book-card-more-btn') || event.target) : null;
+    if (btn && sheet) {
+        const rect = btn.getBoundingClientRect();
+        sheet.style.position = 'fixed';
+        sheet.style.margin = '0';
+        const menuWidth = 160;
+        let left = rect.right - menuWidth;
+        if (left < 10) left = 10;
+        if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
+        let top = rect.bottom + 6;
+        if (top + 160 > window.innerHeight - 10) {
+            top = Math.max(10, rect.top - 160);
+        }
+        sheet.style.left = `${left}px`;
+        sheet.style.top = `${top}px`;
+    }
+
+    menu.classList.add('active', 'dropdown-mode');
 }
 
 function closeBookActionMenu() {
     const menu = document.getElementById('modal-book-actions-menu');
-    if (menu) menu.classList.remove('active');
+    if (menu) {
+        menu.classList.remove('active', 'dropdown-mode');
+        const sheet = menu.querySelector('.book-action-menu-sheet');
+        if (sheet) {
+            sheet.style.left = '';
+            sheet.style.top = '';
+            sheet.style.position = '';
+            sheet.style.margin = '';
+        }
+    }
 }
 
 /**
  * 查看词书全部单词内容
  */
 async function actionViewBookContent() {
-    closeBookActionMenu();
-    if (!activeActionBookId) return;
-
     const bookId = activeActionBookId;
-    const bookMeta = BookManager.getBookMeta(bookId);
+    closeBookActionMenu();
+    if (!bookId) return;
 
-    showToast('正在加载词书内容...');
-    const words = await BookManager.loadBookData(bookId);
-
-    if (!words || words.length === 0) {
-        alert('无法加载该词书的单词条目，请确认已下载完成。');
-        return;
+    if (typeof viewBookWordsInSettings === 'function') {
+        viewBookWordsInSettings(bookId);
+    } else {
+        const bookMeta = BookManager.getBookMeta(bookId);
+        showToast('正在加载词书内容...');
+        const words = await BookManager.loadBookData(bookId);
+        if (!words || words.length === 0) {
+            alert('无法加载该词书的单词条目，请确认已下载完成。');
+            return;
+        }
+        openBookWordsViewerModal(bookMeta ? bookMeta.name : bookId, words);
     }
-
-    openBookWordsViewerModal(bookMeta.name || bookId, words);
 }
 
 /**
@@ -836,6 +882,9 @@ async function actionDeleteBook() {
             showToast(`已移除《${bookName}》的本地下载缓存！`);
         }
 
+        // 立即从页面 DOM 移除被删除的词书卡片
+        document.querySelectorAll(`.book-cover-card[data-book-id="${bookId}"]`).forEach(el => el.remove());
+
         renderManageBooksPage();
         if (typeof renderBookSelectorPage === 'function' && window.currentView === 'view-book-selector') {
             renderBookSelectorPage();
@@ -931,14 +980,14 @@ async function handleBookSelectorToggle(bookId) {
             : singleSelectedBookIds.includes(bookId);
 
         if (isSel) {
-            if (singleSelectedBookIds.length > 1) {
-                singleSelectedBookIds = typeof toggleBookIdInList === 'function'
-                    ? toggleBookIdInList(singleSelectedBookIds, bookId)
-                    : singleSelectedBookIds.filter(id => id !== bookId);
-            } else {
-                showToast('至少需保留一本背单词词书');
+            const nextList = (typeof toggleBookIdInList === 'function'
+                ? toggleBookIdInList(singleSelectedBookIds, bookId)
+                : singleSelectedBookIds.filter(id => id !== bookId)).filter(id => id !== 'builtin_default');
+            if (!nextList || nextList.length === 0) {
+                showToast('背单词至少需要保留一本词书');
                 return;
             }
+            singleSelectedBookIds = nextList;
         } else {
             singleSelectedBookIds = typeof toggleBookIdInList === 'function'
                 ? toggleBookIdInList(singleSelectedBookIds, bookId)
@@ -1139,13 +1188,66 @@ window.openLocalDuelBookSelector = openLocalDuelBookSelector;
 
 // 支持鼠标滚轮在分类 Chips 栏上水平滑动
 document.addEventListener('wheel', (e) => {
-    const row = e.target.closest('.md3-cat-chips-row, .md3-cat-scroll-container');
-    if (row && e.deltaY) {
-        const targetScroll = row.classList.contains('md3-cat-chips-row') ? row : (row.querySelector('.md3-cat-chips-row') || row);
-        targetScroll.scrollLeft += e.deltaY;
-        e.preventDefault();
+    const container = e.target.closest('.md3-cat-scroll-container');
+    if (container) {
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (delta) {
+            container.scrollLeft += delta;
+            e.preventDefault();
+        }
     }
 }, { passive: false });
+
+// 支持电脑端鼠标拖拽横向滑动分类 Chips 栏
+(function initCatScrollDrag() {
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    let activeContainer = null;
+    let dragged = false;
+
+    document.addEventListener('mousedown', (e) => {
+        const container = e.target.closest('.md3-cat-scroll-container');
+        if (!container) return;
+        isDown = true;
+        activeContainer = container;
+        startX = e.pageX - container.offsetLeft;
+        scrollLeft = container.scrollLeft;
+        dragged = false;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDown || !activeContainer) return;
+        const x = e.pageX - activeContainer.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        if (Math.abs(x - startX) > 4) {
+            dragged = true;
+            activeContainer.classList.add('is-dragging');
+        }
+        activeContainer.scrollLeft = scrollLeft - walk;
+    });
+
+    const stopDrag = () => {
+        if (!isDown) return;
+        isDown = false;
+        if (activeContainer) {
+            activeContainer.classList.remove('is-dragging');
+            activeContainer = null;
+        }
+    };
+
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('mouseleave', stopDrag);
+
+    // 拖拽后阻止触发按钮的点击事件
+    document.addEventListener('click', (e) => {
+        if (dragged && e.target.closest('.md3-cat-scroll-container')) {
+            e.stopPropagation();
+            e.preventDefault();
+            dragged = false;
+        }
+    }, true);
+})();
 
 // 全局暴露管理词书入口
 window.openManageBooksPage = openManageBooksPage;

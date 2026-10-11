@@ -58,6 +58,8 @@
         /* 海报换背景按钮冷却态 */
         #btn-poster-change-bg.poster-bg-cd { opacity: 0.5; cursor: not-allowed; }
         #btn-poster-change-bg:disabled { pointer-events: none; }
+        /* 仅在 Electron 桌面端显示的专属按钮 */
+        body:not(.is-electron) .electron-only-btn { display: none !important; }
     </style>
     <!-- 捕获本地/独立标签页测试时 ToySDK 找不到宿主父窗口导致的握手超时异常 -->
     <script>
@@ -93,6 +95,7 @@
     <!-- 数据管理器与记忆算法引擎 (Managers & Engines) -->
     <script src="./assets/js/managers/sync-manager.js"></script>
     <script src="./assets/js/managers/book-manager.js"></script>
+    <script src="./assets/js/managers/electron-manager.js"></script>
     <script src="./assets/js/managers/tracker.js"></script>
     <script src="./assets/js/managers/ebbinghaus.js"></script>
     <script src="./assets/js/managers/level-manager.js"></script>
@@ -101,6 +104,7 @@
     <script src="./assets/js/components/virtual-keyboard.js"></script>
     <script src="./assets/js/components/folder-tree.js"></script>
     <script src="./assets/js/components/md3-select.js"></script>
+    <script src="./assets/js/components/md3-slider.js"></script>
     <script src="./assets/js/components/version-card.js"></script>
     <script src="./assets/js/components/avatar-cropper.js"></script>
     <script src="./assets/js/components/poster-generator.js"></script>
@@ -638,9 +642,8 @@
                     </div>
                     <div class="hub-search-suggestions" id="search-page-suggestions" style="display:none;" onmousedown="event.preventDefault()"></div>
                 </div>
-                <button type="button" class="btn btn-outlined search-page-settings-btn" onclick="openSearchSettingsModal()" title="搜索设置">
-                    <span class="material-symbols-rounded" style="font-size:19px; width:19px; height:19px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">tune</span>
-                    <span class="btn-label-text" style="line-height:1;">设置</span>
+                <button type="button" class="nav-back-btn search-page-settings-btn" onclick="openSearchSettingsModal()" title="搜索设置">
+                    <span class="material-symbols-rounded">tune</span>
                 </button>
             </div>
 
@@ -1269,7 +1272,11 @@
                                 <p>导入或导出所有配置与学习记录</p>
                             </div>
                         </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-filled btn-sm electron-only-btn" onclick="ElectronManager.openBackupsModal()" title="查看本地备份历史及安全还原">
+                                <span class="material-symbols-rounded" style="font-size:16px;">inventory_2</span>
+                                <span class="btn-label-text">本地备份管理</span>
+                            </button>
                             <button type="button" class="btn btn-tonal btn-sm" onclick="exportUserConfigAndProgress()">
                                 <span class="material-symbols-rounded" style="font-size:16px;">download</span>
                                 <span class="btn-label-text">导出备份</span>
@@ -1646,7 +1653,7 @@
                             </button>
                             <div id="single-review-book-menu" class="md3-custom-select-menu" style="display:none; right:0; left:auto; min-width:180px; max-width:260px; max-height:280px; overflow-y:auto;"></div>
                         </div>
-                        <button class="btn btn-outlined btn-sm" onclick="openSingleSettings()">
+                        <button class="btn btn-outlined btn-sm" id="single-settings-btn" onclick="openSingleSettings()">
                             <span class="material-symbols-rounded" style="font-size:18px;">tune</span>
                             <span class="btn-label-text">设置</span>
                         </button>
@@ -2429,8 +2436,16 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:12px; width:100%; margin-top:12px;">
                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline); font-size:18px;">text_fields</span>
-                            <input type="range" id="slider-app-zoom" class="md3-slider" min="0.85" max="1.25" step="0.05" value="1"
-                                oninput="setAppZoom(this.value)">
+                            <div class="md3-slider-component" style="flex:1;">
+                                <input type="range" id="slider-app-zoom" class="md3-slider-native-input" min="0.85" max="1.25" step="0.05" value="1"
+                                    oninput="setAppZoom(this.value)">
+                                <div class="md3-slider-visual-track">
+                                    <div class="md3-slider-active-bar"></div>
+                                    <div class="md3-slider-thumb-handle"></div>
+                                    <div class="md3-slider-inactive-bar"></div>
+                                    <div class="md3-slider-stop-dot"></div>
+                                </div>
+                            </div>
                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline); font-size:24px;">text_fields</span>
                         </div>
                     </div>
@@ -2494,7 +2509,7 @@
                                 <p id="settings-version-label"></p>
                             </div>
                         </div>
-                        <button class="btn btn-tonal btn-sm" onclick="checkCloudVersion(true)">
+                        <button class="btn btn-tonal btn-sm" onclick="ElectronManager.isAvailable() ? ElectronManager.checkForUpdates(true) : checkCloudVersion(true)">
                             <span class="material-symbols-rounded" style="font-size:16px;">cloud_sync</span>
                             <span class="btn-label-text">检查更新</span>
                         </button>
@@ -2613,7 +2628,7 @@
 
                 <!-- 单行横向滚动分类标签栏 -->
                 <div class="md3-cat-scroll-container">
-                    <div class="md3-cat-chips-row" id="book-selector-category-tabs" onwheel="if(event.deltaY){this.scrollLeft+=event.deltaY;event.preventDefault();}"></div>
+                    <div class="md3-cat-chips-row" id="book-selector-category-tabs"></div>
                 </div>
 
                 <!-- 汇总提示与状态 -->
@@ -2641,25 +2656,33 @@
 
                 <!-- 单行横向滚动分类标签栏 -->
                 <div class="md3-cat-scroll-container">
-                    <div class="md3-cat-chips-row" id="manage-books-category-tabs" onwheel="if(event.deltaY){this.scrollLeft+=event.deltaY;event.preventDefault();}"></div>
+                    <div class="md3-cat-chips-row" id="manage-books-category-tabs"></div>
                 </div>
 
-                <!-- 操作栏：导入词书与新建 (移到 md3-cat-scroll-container 下方，且仅在“我的”分类下显示) -->
-                <div id="manage-books-actions-bar" style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
-                    <button type="button" class="btn btn-tonal btn-sm" onclick="document.getElementById('manage-books-import-file').click()" title="导入本地 JSON 词书">
-                        <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                        <span class="btn-label-text">导入词书</span>
-                    </button>
-                    <input type="file" id="manage-books-import-file" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
-                    <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateCustomBook()" title="新建词书">
-                        <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                        <span class="btn-label-text">新建</span>
-                    </button>
-                </div>
-
-                <!-- 汇总提示 -->
-                <div class="book-selector-info-row">
+                <!-- 汇总提示与操作栏 (在一行内左右排布) -->
+                <div class="book-selector-info-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <span class="book-selector-summary-chip" id="manage-books-summary-chip">共 0 本词书</span>
+
+                    <!-- 操作栏：导入词书与新建 (移到与“共 X 本词书”同行的右侧，且仅在“我的”分类下显示) -->
+                    <div id="manage-books-actions-bar" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-tonal btn-sm electron-only-btn" onclick="ElectronManager.openBooksFolder()" title="在文件管理器中打开词书专属目录">
+                            <span class="material-symbols-rounded" style="font-size:18px;">folder_open</span>
+                            <span class="btn-label-text">打开词书目录</span>
+                        </button>
+                        <button type="button" class="btn btn-outlined btn-sm electron-only-btn" onclick="ElectronManager.scanAndSyncLocalBooks(false)" title="扫描词书目录中的新词书并加载">
+                            <span class="material-symbols-rounded" style="font-size:18px;">sync</span>
+                            <span class="btn-label-text">扫描词书</span>
+                        </button>
+                        <button type="button" class="btn btn-tonal btn-sm" onclick="document.getElementById('manage-books-import-file').click()" title="导入本地 JSON 词书">
+                            <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
+                            <span class="btn-label-text">导入词书</span>
+                        </button>
+                        <input type="file" id="manage-books-import-file" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
+                        <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateCustomBook()" title="新建词书">
+                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                            <span class="btn-label-text">新建</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 词书卡片容器 -->
@@ -2708,7 +2731,15 @@
                         <span id="ai-difficulty-display" style="font-weight:800; font-size:1.05rem; color:var(--md-sys-color-primary);">1段</span>
                     </div>
                     <div style="padding:10px 4px 4px 4px;">
-                        <input type="range" id="ai-difficulty-slider" class="md3-slider" min="1" max="9" step="1" value="1" oninput="handleAiDifficultySliderChange(this.value)">
+                        <div class="md3-slider-component">
+                            <input type="range" id="ai-difficulty-slider" class="md3-slider-native-input" min="1" max="9" step="1" value="1" oninput="handleAiDifficultySliderChange(this.value)">
+                            <div class="md3-slider-visual-track">
+                                <div class="md3-slider-active-bar"></div>
+                                <div class="md3-slider-thumb-handle"></div>
+                                <div class="md3-slider-inactive-bar"></div>
+                                <div class="md3-slider-stop-dot"></div>
+                            </div>
+                        </div>
                         <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--md-sys-color-outline); margin-top:4px;">
                             <span>1段</span>
                             <span>5段</span>
@@ -2777,7 +2808,7 @@
         <div class="modal-card" style="max-width: 480px;">
             <div class="modal-header">
                 <div>
-                    <h3 style="font-size:1.18rem; font-weight:700;">默写模式设置</h3>
+                    <h3 style="font-size:1.18rem; font-weight:700;">默写设置</h3>
                     <p style="font-size:0.84rem; margin-top:3px; color:var(--md-sys-color-outline);">自定义默写形式与发音</p>
                 </div>
                 <button class="modal-close-btn" onclick="closeDictationSettings()">
@@ -2806,12 +2837,19 @@
                     </div>
                 </div>
 
-                <div class="rule-group">
-                    <span class="rule-label">每组默写数量</span>
-                    <div class="chip-group" id="chips-dictation-batch">
-                        <div class="md3-chip" data-val="10" onclick="selectDictationBatch(10)">10 词</div>
-                        <div class="md3-chip selected" data-val="20" onclick="selectDictationBatch(20)">20 词</div>
-                        <div class="md3-chip" data-val="30" onclick="selectDictationBatch(30)">30 词</div>
+                <div class="md3-slider-row">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">每组默写数量</span>
+                        <span class="md3-slider-value-badge" id="badge-dictation-batch">20 词</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-dictation-batch" min="5" max="40" step="5" value="20" oninput="handleDictationBatchSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -2878,13 +2916,35 @@
                     </div>
                 </div>
 
-                <div class="rule-group">
-                    <span class="rule-label">学习节奏（每组学习数量）</span>
-                    <div class="chip-group" id="chips-shici-batch">
-                        <div class="md3-chip" data-val="10" onclick="selectShiCiBatch(10)">10 题</div>
-                        <div class="md3-chip selected" data-val="15" onclick="selectShiCiBatch(15)">15 题</div>
-                        <div class="md3-chip" data-val="20" onclick="selectShiCiBatch(20)">20 题</div>
-                        <div class="md3-chip" data-val="30" onclick="selectShiCiBatch(30)">30 题</div>
+                <div class="md3-slider-row">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">学习节奏（每组学习数量）</span>
+                        <span class="md3-slider-value-badge" id="badge-shici-batch">15 题</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-shici-batch" min="5" max="40" step="5" value="15" oninput="handleShiCiBatchSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md3-slider-row">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">复习节奏（每组复习数量）</span>
+                        <span class="md3-slider-value-badge" id="badge-shici-review-batch">20 题</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-shici-review-batch" min="5" max="45" step="5" value="20" oninput="handleShiCiReviewBatchSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -2998,7 +3058,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.6.1</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.7.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">
@@ -3075,7 +3135,7 @@
         <div class="modal-card">
             <div class="modal-header">
                 <div>
-                    <h3 style="font-size:1.18rem; font-weight:700;">单人学习设置</h3>
+                    <h3 style="font-size:1.18rem; font-weight:700;">背单词设置</h3>
                 </div>
                 <button class="modal-close-btn" onclick="closeSingleSettings()">
                     <span class="material-symbols-rounded">close</span>
@@ -3084,22 +3144,48 @@
 
             <div class="modal-body">
                 <div class="rule-group">
-                    <span class="rule-label">学习节奏（每组学习数量）</span>
-                    <div class="chip-group" id="chips-learn-batch">
-                        <div class="md3-chip" data-val="5" onclick="selectLearnBatch(5)">5 词</div>
-                        <div class="md3-chip selected" data-val="10" onclick="selectLearnBatch(10)">10 词</div>
-                        <div class="md3-chip" data-val="15" onclick="selectLearnBatch(15)">15 词</div>
-                        <div class="md3-chip" data-val="20" onclick="selectLearnBatch(20)">20 词</div>
+                    <span class="rule-label">学习顺序</span>
+                    <div class="chip-group" id="chips-single-order">
+                        <div class="md3-chip selected" id="chip-single-order-seq" onclick="selectSingleOrder('sequence')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">format_list_numbered</span>
+                            <span>顺序</span>
+                        </div>
+                        <div class="md3-chip" id="chip-single-order-rand" onclick="selectSingleOrder('random')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">shuffle</span>
+                            <span>乱序</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="rule-group">
-                    <span class="rule-label">复习节奏（每组复习数量）</span>
-                    <div class="chip-group" id="chips-review-batch">
-                        <div class="md3-chip" data-val="10" onclick="selectReviewBatch(10)">10 词</div>
-                        <div class="md3-chip" data-val="15" onclick="selectReviewBatch(15)">15 词</div>
-                        <div class="md3-chip selected" data-val="20" onclick="selectReviewBatch(20)">20 词</div>
-                        <div class="md3-chip" data-val="40" onclick="selectReviewBatch(40)">40 词</div>
+                <div class="md3-slider-row">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">学习节奏（每组学习数量）</span>
+                        <span class="md3-slider-value-badge" id="badge-single-learn-batch">10 词</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-single-learn-batch" min="5" max="40" step="5" value="10" oninput="handleSingleLearnBatchSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md3-slider-row">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">复习节奏（每组复习数量）</span>
+                        <span class="md3-slider-value-badge" id="badge-single-review-batch">20 词</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-single-review-batch" min="5" max="45" step="5" value="20" oninput="handleSingleReviewBatchSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -3348,26 +3434,35 @@
             </div>
 
             <div class="modal-body">
-                <div class="rule-group" id="riddle-settings-group-len">
-                    <span class="rule-label">单词长度</span>
-                    <div class="chip-group" id="chips-riddle-len">
-                        <div class="md3-chip" data-len="4" onclick="selectRiddleLength(4)">4 字母</div>
-                        <div class="md3-chip selected" data-len="5" onclick="selectRiddleLength(5)">5 字母</div>
-                        <div class="md3-chip" data-len="6" onclick="selectRiddleLength(6)">6 字母</div>
-                        <div class="md3-chip" data-len="7" onclick="selectRiddleLength(7)">7 字母</div>
-                        <div class="md3-chip" data-len="8" onclick="selectRiddleLength(8)">8 字母</div>
-                        <div class="md3-chip" data-len="9" onclick="selectRiddleLength(9)">9 字母</div>
-                        <div class="md3-chip" data-len="0" onclick="selectRiddleLength(0)">任意长度</div>
+                <div class="md3-slider-row" id="riddle-settings-group-len">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">单词长度</span>
+                        <span class="md3-slider-value-badge" id="badge-riddle-len">5 字母</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-riddle-len" min="4" max="9" step="1" value="5" oninput="handleRiddleLengthSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="rule-group" id="riddle-settings-group-att">
-                    <span class="rule-label">可尝试次数</span>
-                    <div class="chip-group" id="chips-riddle-attempts">
-                        <div class="md3-chip" data-att="4" onclick="selectRiddleAttempts(4)">4 次</div>
-                        <div class="md3-chip" data-att="5" onclick="selectRiddleAttempts(5)">5 次</div>
-                        <div class="md3-chip selected" data-att="6" onclick="selectRiddleAttempts(6)">6 次</div>
-                        <div class="md3-chip" data-att="8" onclick="selectRiddleAttempts(8)">8 次</div>
+                <div class="md3-slider-row" id="riddle-settings-group-att">
+                    <div class="md3-slider-header">
+                        <span class="md3-slider-label">可尝试次数</span>
+                        <span class="md3-slider-value-badge" id="badge-riddle-att">6 次</span>
+                    </div>
+                    <div class="md3-slider-component">
+                        <input type="range" class="md3-slider-native-input" id="slider-riddle-att" min="4" max="8" step="1" value="6" oninput="handleRiddleAttemptsSlider(this.value)">
+                        <div class="md3-slider-visual-track">
+                            <div class="md3-slider-active-bar"></div>
+                            <div class="md3-slider-thumb-handle"></div>
+                            <div class="md3-slider-inactive-bar"></div>
+                            <div class="md3-slider-stop-dot"></div>
+                        </div>
                     </div>
                 </div>
 

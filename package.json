@@ -1,17 +1,70 @@
 {
   "name": "recite-words",
-  "version": "2.6.1",
-  "description": "词迹 - 沉浸式多维度背词与联机对决学习平台",
+  "version": "2.7.0",
+  "description": "词迹 - 让背词更有趣",
+  "main": "main.js",
   "scripts": {
-    "bundle": "node scripts/bundle.js"
+    "start": "electron .",
+    "bundle": "node scripts/bundle.js",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder --win",
+    "release": "electron-builder --win --publish always"
   },
   "keywords": [
     "recite-words",
     "vocabulary",
     "md3",
-    "pwa"
+    "electron"
   ],
   "author": "chenyurong0806",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.chenyurong.recitewords",
+    "productName": "词迹",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!books/**",
+      "!dist/**",
+      "!.git/**",
+      "!.vscode/**",
+      "!*.md",
+      "!scripts/generate-doris-sql.js",
+      "!docs/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/images/icon-web.png",
+      "artifactName": "Recite-Words-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "词迹"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "chenyurong0806",
+      "repo": "Recite-words"
+    }
+  }
 }
-

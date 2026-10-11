@@ -325,7 +325,15 @@ const BookManager = {
             await VocabOfflineDB.deleteBook(bookId);
             delete this.bookCache[bookId];
             const target = this.availableBooks.find(b => b.id === bookId);
-            if (target) target.syncStatus = 'not_downloaded';
+            if (target) {
+                target.syncStatus = 'not_downloaded';
+                target.words = null;
+            }
+            const fallback = this.fallbackBooks ? this.fallbackBooks.find(b => b.id === bookId) : null;
+            if (fallback) {
+                fallback.syncStatus = 'not_downloaded';
+                fallback.words = null;
+            }
 
             // 若正被选中，则从选词列表剔除
             if (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds)) {
@@ -543,6 +551,12 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                                 updatedAt: bookMeta.updatedAt || Date.now(),
                                 isCloud: true
                             }).catch(() => { });
+
+                            // 同步保存一份至专属本地词书目录 (Electron 环境)
+                            if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
+                                const diskBookName = (bookMeta.name || bookId).replace(/[\\/:*?"<>|]/g, '_') + '.json';
+                                ElectronManager.saveBookToDisk(diskBookName, JSON.stringify(normalized, null, 2)).catch(() => {});
+                            }
 
                             const target = this.availableBooks.find(b => b.id === bookId);
                             if (target) target.syncStatus = 'downloaded';

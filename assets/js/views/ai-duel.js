@@ -107,6 +107,9 @@ function handleAiDifficultySliderChange(val) {
     aiDuelConfig.aiRank = num;
     const disp = document.getElementById('ai-difficulty-display');
     if (disp) disp.innerText = `${num}段`;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('ai-difficulty-slider');
+    }
     updateAiDuelSliderHint();
     localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
 }
@@ -271,6 +274,9 @@ function updateAiDuelSettingsChips() {
             }
         }
         slider.value = aiDuelConfig.aiRank || 1;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(slider);
+        }
     }
     if (disp) {
         disp.innerText = `${aiDuelConfig.aiRank || 1}段`;

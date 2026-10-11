@@ -22,6 +22,7 @@ const loadOrder = [
   // 2. Managers
   'managers/sync-manager.js',
   'managers/book-manager.js',
+  'managers/electron-manager.js',
   'managers/tracker.js',
   'managers/ebbinghaus.js',
   'managers/level-manager.js',
@@ -30,6 +31,7 @@ const loadOrder = [
   'components/virtual-keyboard.js',
   'components/folder-tree.js',
   'components/md3-select.js',
+  'components/md3-slider.js',
   'components/version-card.js',
   'components/avatar-cropper.js',
   'components/poster-generator.js',

@@ -1,2 +1,4 @@
 promo/
 books/Doris
+node_modules/
+dist/

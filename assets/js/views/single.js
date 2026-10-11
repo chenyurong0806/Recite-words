@@ -206,9 +206,10 @@ function loadCustomShiCiBook(event) {
     event.target.value = '';
 }
 
-let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false}');
+let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false,"order":"sequence"}');
 if (singleConfig.immediateRetest === undefined) singleConfig.immediateRetest = true;
 if (singleConfig.autoPlayAudio === undefined) singleConfig.autoPlayAudio = false;
+if (singleConfig.order === undefined) singleConfig.order = 'sequence';
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
@@ -322,14 +323,27 @@ function closeSingleSettings() {
 }
 
 function updateSingleSettingsChips() {
-    document.querySelectorAll('#chips-learn-batch .md3-chip').forEach(c => {
-        const val = parseInt(c.getAttribute('data-val'));
-        c.classList.toggle('selected', val === singleConfig.learnBatch);
-    });
-    document.querySelectorAll('#chips-review-batch .md3-chip').forEach(c => {
-        const val = parseInt(c.getAttribute('data-val'));
-        c.classList.toggle('selected', val === singleConfig.reviewBatch);
-    });
+    const orderSeq = document.getElementById('chip-single-order-seq');
+    const orderRand = document.getElementById('chip-single-order-rand');
+    if (orderSeq) orderSeq.classList.toggle('selected', singleConfig.order !== 'random');
+    if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
+
+    const learnSlider = document.getElementById('slider-single-learn-batch');
+    if (learnSlider) {
+        learnSlider.value = singleConfig.learnBatch || 10;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(learnSlider, val => `${val} 词`);
+        }
+    }
+
+    const reviewSlider = document.getElementById('slider-single-review-batch');
+    if (reviewSlider) {
+        reviewSlider.value = singleConfig.reviewBatch || 20;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 词`);
+        }
+    }
+
     const retestSwitch = document.getElementById('switch-single-retest');
     if (retestSwitch) {
         retestSwitch.checked = (singleConfig.immediateRetest !== false);
@@ -340,34 +354,39 @@ function updateSingleSettingsChips() {
     }
 }
 
-function toggleSingleRetestSwitch(checked) {
-    singleConfig.immediateRetest = checked;
-    showToast(checked ? '即时复习已开启' : '即时复习已关闭');
+function selectSingleOrder(order) {
+    singleConfig.order = order;
+    updateSingleSettingsChips();
     localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
 }
+window.selectSingleOrder = selectSingleOrder;
 
-function toggleSingleAutoplaySwitch(checked) {
-    if (!navigator.onLine && checked) {
-        showToast('当前未联网，无法开启发音');
-        const autoplaySwitch = document.getElementById('switch-single-autoplay');
-        if (autoplaySwitch) autoplaySwitch.checked = false;
-        singleConfig.autoPlayAudio = false;
-        localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
-        return;
+function handleSingleLearnBatchSlider(val) {
+    const num = parseInt(val) || 10;
+    singleConfig.learnBatch = num;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
     }
-    singleConfig.autoPlayAudio = checked;
-    showToast(checked ? '自动发音已开启' : '自动发音已关闭');
     localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
 }
+window.handleSingleLearnBatchSlider = handleSingleLearnBatchSlider;
+
+function handleSingleReviewBatchSlider(val) {
+    const num = parseInt(val) || 20;
+    singleConfig.reviewBatch = num;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
+    }
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+}
+window.handleSingleReviewBatchSlider = handleSingleReviewBatchSlider;
 
 function selectLearnBatch(val) {
-    singleConfig.learnBatch = val;
-    updateSingleSettingsChips();
+    handleSingleLearnBatchSlider(val);
 }
 
 function selectReviewBatch(val) {
-    singleConfig.reviewBatch = val;
-    updateSingleSettingsChips();
+    handleSingleReviewBatchSlider(val);
 }
 
 function selectImmediateRetest(val) {
@@ -567,8 +586,10 @@ async function startSingleLearning() {
         }
 
         const batchSize = singleConfig.learnBatch || 10;
-        const shuffled = [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
-        const pool = generateShuffledPoolFromWords(shuffled, shuffled.length);
+        const targets = (singleConfig.order === 'random')
+            ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize)
+            : candidateWords.slice(0, batchSize);
+        const pool = generateShuffledPoolFromWords(targets, targets.length);
 
         startSinglePlayerWithPool(pool, '新词学习');
     } catch (err) {
@@ -844,7 +865,8 @@ async function startSingleReview(specificBookId = null) {
             reviewTargets = [...unreviewedLearned].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
         }
 
-        const batchSize = singleConfig.reviewBatch || 20;
+        const reviewBatchSetting = singleConfig.reviewBatch || 20;
+        const batchSize = (reviewBatchSetting >= 45) ? reviewTargets.length : reviewBatchSetting;
         const selectedBatch = reviewTargets.slice(0, batchSize);
 
         const wordsList = selectedBatch.map(r => {
@@ -904,8 +926,10 @@ async function startSinglePlayerFromSelectedBooks() {
         closeSingleBookSelector();
         dictionary = words;
         const batchSize = singleConfig.learnBatch || 10;
-        const shuffled = [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
-        const pool = generateShuffledPoolFromWords(shuffled, shuffled.length);
+        const targets = (singleConfig.order === 'random')
+            ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize)
+            : candidateWords.slice(0, batchSize);
+        const pool = generateShuffledPoolFromWords(targets, targets.length);
         startSinglePlayerWithPool(pool, '单人练习');
     } catch (err) {
         alert('加载词书失败：' + err.message);
@@ -938,6 +962,10 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     saveSingleProgress();
     const titleEl = document.getElementById('single-mode-title');
     if (titleEl) titleEl.innerText = defaultBookName;
+    const settingsBtn = document.getElementById('single-settings-btn');
+    if (settingsBtn) {
+        settingsBtn.style.display = (defaultBookName === '英语错题重练') ? 'none' : '';
+    }
     if (typeof updateReviewPageActiveBookLabel === 'function') {
         updateReviewPageActiveBookLabel();
     }

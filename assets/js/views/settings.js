@@ -104,6 +104,9 @@ function setAppZoom(zoom) {
 
     const slider = document.getElementById('slider-app-zoom');
     if (slider && slider.value !== val) slider.value = val;
+    if (typeof updateMd3SliderUI === 'function' && slider) {
+        updateMd3SliderUI(slider);
+    }
     const valText = document.getElementById('app-zoom-val-text');
     if (valText) valText.innerText = `${Math.round(num * 100)}%`;
 }
@@ -221,7 +224,12 @@ function renderSettingsMain() {
 
     const savedZoom = localStorage.getItem('app_zoom') || '1';
     const slider = document.getElementById('slider-app-zoom');
-    if (slider) slider.value = savedZoom;
+    if (slider) {
+        slider.value = savedZoom;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(slider);
+        }
+    }
     const valText = document.getElementById('app-zoom-val-text');
     if (valText) valText.innerText = `${Math.round(parseFloat(savedZoom) * 100)}%`;
 
@@ -406,7 +414,7 @@ function handleDeleteCurrentAccount() {
 
 let settingsManageBooksCategory = 'english';
 
-function switchManageBooksCategory(cat) {
+function switchSettingsLocalManageBooksCategory(cat) {
     settingsManageBooksCategory = cat;
     const tabEn = document.getElementById('tab-manage-books-en');
     const tabShiCi = document.getElementById('tab-manage-books-shici');
@@ -442,6 +450,30 @@ function renderManageLocalBooksInSettings() {
     }
 
     let html = '';
+
+    if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
+        html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:14px; padding:10px 14px; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:22px;">folder_special</span>
+                    <div>
+                        <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">专属词书存放目录</div>
+                        <div style="font-size:0.76rem; color:var(--md-sys-color-outline);">下载与导入的词书均存放在本地独立目录中，可直接放入 .json 词书</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn btn-tonal btn-sm" onclick="ElectronManager.openBooksFolder()">
+                        <span class="material-symbols-rounded" style="font-size:16px;">folder_open</span>
+                        <span>打开目录</span>
+                    </button>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="ElectronManager.scanAndSyncLocalBooks(false)">
+                        <span class="material-symbols-rounded" style="font-size:16px;">sync</span>
+                        <span>扫描同步</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
 
     const isBookProgressActive = (b) => {
         const p = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookProgress === 'function')
@@ -1413,8 +1445,24 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.6.1';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.7.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.7.0',
+        date: '2026-10-11',
+        badge: '当前版本',
+        items: [
+            '更新词书并优化分类。',
+            '优化选择词书、管理词书页面。',
+            '优化离线版本体验。',
+            '优化UI。',
+            '优化搜索页面。',
+            '优化网页加载缓慢的问题。',
+            '修复无法导入词书的 bug。',
+            '在背单词设置中添加学习顺序设置。',
+            '在背实词设置中添加复习节奏设置。'
+        ]
+    },
     {
         version: 'v2.6.1',
         date: '2026-10-08',
@@ -1731,7 +1779,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.6.1'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.7.0'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;

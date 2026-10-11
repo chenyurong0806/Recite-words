@@ -86,6 +86,14 @@ function updateDictationSettingsChips() {
         const type = c.getAttribute('data-type');
         c.classList.toggle('selected', type === dictationConfig.type);
     });
+    const batchSlider = document.getElementById('slider-dictation-batch');
+    if (batchSlider) {
+        batchSlider.value = dictationConfig.batchSize || 20;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(batchSlider, val => `${val} 词`);
+        }
+    }
+
     document.querySelectorAll('#chips-dictation-batch .md3-chip').forEach(c => {
         const val = parseInt(c.getAttribute('data-val'));
         c.classList.toggle('selected', val === dictationConfig.batchSize);
@@ -98,6 +106,15 @@ function updateDictationSettingsChips() {
     const kbSwitch = document.getElementById('switch-dictation-kb');
     if (kbSwitch) kbSwitch.checked = (dictationVirtualKeyboardEnabled !== false);
 }
+
+function handleDictationBatchSlider(val) {
+    const num = parseInt(val) || 20;
+    dictationConfig.batchSize = num;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-dictation-batch', v => `${v} 词`);
+    }
+}
+window.handleDictationBatchSlider = handleDictationBatchSlider;
 
 function toggleDictationAutoplaySwitch(checked) {
     if (!navigator.onLine && checked) {
@@ -122,7 +139,7 @@ function selectDictationType(type) {
 }
 
 function selectDictationBatch(val) {
-    dictationConfig.batchSize = val;
+    handleDictationBatchSlider(val);
     updateDictationSettingsChips();
 }
 

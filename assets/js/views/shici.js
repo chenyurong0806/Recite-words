@@ -422,6 +422,7 @@ window.renderDictationSummaryHtml = renderDictationSummaryHtml;
 let shiciConfig = {
     order: 'sequential', // 'sequential' or 'random'
     batchSize: 15,
+    reviewBatch: 20,
     selectedBooks: ['books/实词/高中300实词.json'],
     immediateRetest: true
 };
@@ -686,6 +687,7 @@ function loadShiCiSettings() {
         const cfg = localStorage.getItem('shici_config_' + (currentUser || 'default'));
         if (cfg) Object.assign(shiciConfig, JSON.parse(cfg));
         if (shiciConfig.immediateRetest === undefined) shiciConfig.immediateRetest = true;
+        if (shiciConfig.reviewBatch === undefined) shiciConfig.reviewBatch = 20;
     } catch (e) { }
     try {
         const prog = localStorage.getItem('shici_progress_' + (currentUser || 'default'));
@@ -1048,7 +1050,8 @@ async function startShiCiReview() {
             return;
         }
 
-        const batchSize = shiciConfig.batchSize || 15;
+        const reviewBatchSetting = shiciConfig.reviewBatch || 20;
+        const batchSize = (reviewBatchSetting >= 45) ? reviewWords.length : reviewBatchSetting;
         const targets = [...reviewWords].sort(() => 0.5 - Math.random()).slice(0, batchSize);
         const questions = targets.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
         const targetTotal = new Set(questions.map(q => q.word)).size;
@@ -1600,13 +1603,34 @@ function selectShiCiOrderMode(mode) {
     saveShiCiState();
 }
 
-function selectShiCiBatch(batch) {
-    shiciConfig.batchSize = batch;
-    document.querySelectorAll('#chips-shici-batch .md3-chip').forEach(c => {
-        c.classList.toggle('selected', parseInt(c.getAttribute('data-val')) === batch);
-    });
+function handleShiCiBatchSlider(val) {
+    const num = parseInt(val) || 15;
+    shiciConfig.batchSize = num;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-shici-batch', v => `${v} 题`);
+    }
     saveShiCiState();
 }
+window.handleShiCiBatchSlider = handleShiCiBatchSlider;
+
+function handleShiCiReviewBatchSlider(val) {
+    const num = parseInt(val) || 20;
+    shiciConfig.reviewBatch = num;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-shici-review-batch', v => v >= 45 ? '全部' : `${v} 题`);
+    }
+    saveShiCiState();
+}
+window.handleShiCiReviewBatchSlider = handleShiCiReviewBatchSlider;
+
+function selectShiCiBatch(batch) {
+    handleShiCiBatchSlider(batch);
+}
+
+function selectShiCiReviewBatch(batch) {
+    handleShiCiReviewBatchSlider(batch);
+}
+window.selectShiCiReviewBatch = selectShiCiReviewBatch;
 
 function toggleShiCiRetestSwitch(checked) {
     shiciConfig.immediateRetest = !!checked;
@@ -1626,9 +1650,21 @@ function updateShiCiSettingsModalUi() {
     if (seqEl) seqEl.classList.toggle('selected', shiciConfig.order === 'sequential');
     if (randEl) randEl.classList.toggle('selected', shiciConfig.order === 'random');
 
-    document.querySelectorAll('#chips-shici-batch .md3-chip').forEach(c => {
-        c.classList.toggle('selected', parseInt(c.getAttribute('data-val')) === shiciConfig.batchSize);
-    });
+    const learnSlider = document.getElementById('slider-shici-batch');
+    if (learnSlider) {
+        learnSlider.value = shiciConfig.batchSize || 15;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(learnSlider, val => `${val} 题`);
+        }
+    }
+
+    const reviewSlider = document.getElementById('slider-shici-review-batch');
+    if (reviewSlider) {
+        reviewSlider.value = shiciConfig.reviewBatch || 20;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 题`);
+        }
+    }
 
     const swEl = document.getElementById('switch-shici-retest');
     if (swEl) swEl.checked = shiciConfig.immediateRetest !== false;

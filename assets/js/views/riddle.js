@@ -778,6 +778,22 @@ async function renderRiddleBookChips() {
 }
 
 function updateRiddleSettingsChips() {
+    const lenSlider = document.getElementById('slider-riddle-len');
+    if (lenSlider) {
+        lenSlider.value = riddleConfig.wordLength || 5;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(lenSlider, val => `${val} 字母`);
+        }
+    }
+
+    const attSlider = document.getElementById('slider-riddle-att');
+    if (attSlider) {
+        attSlider.value = riddleConfig.maxAttempts || 6;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI(attSlider, val => `${val} 次`);
+        }
+    }
+
     document.querySelectorAll('#chips-riddle-len .md3-chip').forEach(c => {
         const len = parseInt(c.getAttribute('data-len'));
         c.classList.toggle('selected', len === riddleConfig.wordLength);
@@ -801,16 +817,34 @@ function updateRiddleSettingsChips() {
     });
 }
 
-function selectRiddleLength(len) {
+function handleRiddleLengthSlider(val) {
+    const len = parseInt(val) || 5;
     riddleConfig.wordLength = len;
-    updateRiddleSettingsChips();
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-riddle-len', v => `${v} 字母`);
+    }
     updateRiddleSettingsFooterButtons();
+}
+window.handleRiddleLengthSlider = handleRiddleLengthSlider;
+
+function handleRiddleAttemptsSlider(val) {
+    const att = parseInt(val) || 6;
+    riddleConfig.maxAttempts = att;
+    if (typeof updateMd3SliderUI === 'function') {
+        updateMd3SliderUI('slider-riddle-att', v => `${v} 次`);
+    }
+    updateRiddleSettingsFooterButtons();
+}
+window.handleRiddleAttemptsSlider = handleRiddleAttemptsSlider;
+
+function selectRiddleLength(len) {
+    handleRiddleLengthSlider(len);
+    updateRiddleSettingsChips();
 }
 
 function selectRiddleAttempts(att) {
-    riddleConfig.maxAttempts = att;
+    handleRiddleAttemptsSlider(att);
     updateRiddleSettingsChips();
-    updateRiddleSettingsFooterButtons();
 }
 
 function selectRiddleChallengeMode(enabled) {
