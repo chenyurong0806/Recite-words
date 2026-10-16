@@ -50,7 +50,7 @@ function selectAiRule(rule) {
 
 function selectAiMatchType(type) {
     if (type === 'ranked') {
-        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const isGuest = (typeof isLocalAccount === 'function' && isLocalAccount()) ? false : ((typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客')));
         if (isGuest) {
             showToast('游客禁止参与排位赛，请先登录账号');
             return;
@@ -70,8 +70,9 @@ function selectAiMatchType(type) {
         } else if (aiDuelConfig.mode === 'timed') {
             aiDuelConfig.duration = 120;
         }
-        // 排位赛限制仅限云端词书
-        if (Array.isArray(aiDuelConfig.selectedBooks)) {
+        // 排位赛限制仅限云端词书 (仅在非离线模式下限制，离线模式允许使用本地词书)
+        const isOffline = typeof isOfflineMode === 'function' && isOfflineMode();
+        if (!isOffline && Array.isArray(aiDuelConfig.selectedBooks)) {
             const beforeCount = aiDuelConfig.selectedBooks.length;
             aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
             if (aiDuelConfig.selectedBooks.length === 0) {
@@ -128,14 +129,17 @@ function openAiDuelSettings() {
     const modal = document.getElementById('modal-ai-duel-settings');
     if (!modal) return;
 
-    // 游客禁止参与排位赛
-    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isOffline = typeof isOfflineMode === 'function' && isOfflineMode();
+    const isLocal = typeof isLocalAccount === 'function' && isLocalAccount();
+
+    // 游客禁止参与排位赛 (离线本地账号允许参与排位赛)
+    const isGuest = isLocal ? false : ((typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客')));
     if (isGuest) {
         aiDuelConfig.matchType = 'friendly';
     }
 
-    // 仅排位赛过滤本地词书，友谊赛允许使用本地词书
-    if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
+    // 仅在非离线模式排位赛过滤本地词书，离线模式或友谊赛允许使用本地词书
+    if (!isOffline && aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
     if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {

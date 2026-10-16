@@ -122,11 +122,224 @@ function unmarkDeviceBanned(username = '') {
     } catch (e) { }
 }
 
+/* ==========================================================================
+   离线模式核心状态与控制器
+   ========================================================================== */
+window._isDeviceOfflineForce = false;
+
+async function checkDeviceNetworkOnline() {
+    if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.isNetworkOnline === 'function') {
+        try {
+            const isOnline = await window.electronAPI.isNetworkOnline();
+            return !!isOnline;
+        } catch (e) {
+            console.warn('[checkDeviceNetworkOnline] electronAPI error:', e);
+        }
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return false;
+    }
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        await fetch('https://dict.youdao.com/favicon.ico', { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeoutId);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function isOfflineMode() {
+    if (window._isDeviceOfflineForce) {
+        return true;
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return true;
+    }
+    try {
+        return localStorage.getItem('vocab_offline_mode') === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
+function setOfflineMode(enabled, force = false) {
+    if (!enabled && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
+        if (typeof showToast === 'function') {
+            showToast('当前设备未连接网络，强制保持离线模式');
+        }
+        try { localStorage.setItem('vocab_offline_mode', 'true'); } catch (e) {}
+        handleOfflineModeChange(true);
+        return false;
+    }
+
+    try {
+        localStorage.setItem('vocab_offline_mode', enabled ? 'true' : 'false');
+    } catch (e) {}
+
+    handleOfflineModeChange(enabled);
+    return true;
+}
+
+function handleOfflineModeChange(enabled) {
+    if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('is-offline-mode', !!enabled);
+        // 仅在设备无法联网的情况下删除换背景按钮
+        if (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+            const btnPosterBg = document.getElementById('btn-poster-change-bg');
+            if (btnPosterBg) btnPosterBg.remove();
+        }
+    }
+    const toggle = document.getElementById('toggle-offline-mode');
+    if (toggle) {
+        toggle.checked = !!enabled;
+        if (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+            toggle.disabled = true;
+        } else {
+            toggle.disabled = false;
+        }
+    }
+    const desc = document.getElementById('settings-offline-mode-desc');
+    if (desc) {
+        if (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+            desc.innerText = '当前设备未连接网络，强制保持离线模式';
+        } else if (enabled) {
+            desc.innerText = '已开启离线模式，使用纯本地数据，不进行任何网络通信';
+        } else {
+            desc.innerText = '开启后完全使用本地数据，不进行任何网络通信';
+        }
+    }
+
+    // 离线模式下状态徽标
+    const badge = document.getElementById('hub-online-offline-badge');
+    const badgeText = document.getElementById('hub-online-offline-text');
+    if (badge && badgeText && enabled) {
+        badge.className = 'network-status-badge offline';
+        badgeText.innerText = '离线模式';
+    }
+
+    // 联动禁用/恢复“自动同步”按钮
+    const autoSyncSwitch = document.getElementById('switch-auto-sync');
+    const autoSyncLabel = document.getElementById('switch-auto-sync-label');
+    if (enabled) {
+        if (autoSyncSwitch) {
+            if (!autoSyncSwitch.disabled) {
+                try { localStorage.setItem('vocab_prev_auto_sync', autoSyncSwitch.checked ? 'true' : 'false'); } catch (e) {}
+            }
+            autoSyncSwitch.checked = false;
+            autoSyncSwitch.disabled = true;
+        }
+        if (autoSyncLabel) {
+            autoSyncLabel.style.opacity = '0.4';
+            autoSyncLabel.style.pointerEvents = 'none';
+        }
+    } else {
+        if (autoSyncSwitch) {
+            autoSyncSwitch.disabled = false;
+            let prevSync = 'true';
+            try { prevSync = localStorage.getItem('vocab_prev_auto_sync') || 'true'; } catch (e) {}
+            autoSyncSwitch.checked = (prevSync === 'true');
+        }
+        if (autoSyncLabel) {
+            autoSyncLabel.style.opacity = '1';
+            autoSyncLabel.style.pointerEvents = 'auto';
+        }
+    }
+
+    if (enabled) {
+        // 1. 断开与服务器的长连接通道，不再发送任何 api 请求
+        if (typeof unsubscribeGlobalPresence === 'function') {
+            try { unsubscribeGlobalPresence(); } catch (e) {}
+        }
+        // 2. 隐藏右上角云端版本提示
+        const updateCard = document.getElementById('version-update-card');
+        if (updateCard) updateCard.style.display = 'none';
+
+        // 3. 返回登录页面 (若当前非本地账号已登录状态，强制切回登录页)
+        if (typeof currentUserProfile === 'undefined' || !currentUserProfile || currentUserProfile.type !== 'local') {
+            if (typeof switchView === 'function') {
+                switchView('view-auth');
+            }
+        }
+    } else {
+        // 关闭离线模式：退出本地账号，清理本地会话，并切回在线登录页
+        if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') {
+            if (typeof handleLogout === 'function') {
+                handleLogout();
+            } else {
+                try { localStorage.removeItem('vocab_user_token'); } catch (e) {}
+                if (typeof currentUser !== 'undefined') currentUser = '';
+            }
+        }
+        if (typeof switchView === 'function') {
+            switchView('view-auth');
+        }
+    }
+
+    if (typeof renderAuthView === 'function') {
+        renderAuthView();
+    }
+
+    // 刷新词书分类与选择页面
+    if (typeof BookManager !== 'undefined' && typeof BookManager.refreshCategories === 'function') {
+        BookManager.refreshCategories();
+    }
+    if (typeof renderBookSelectorPage === 'function' && typeof currentView !== 'undefined' && currentView === 'view-book-selector') {
+        renderBookSelectorPage();
+    }
+    if (typeof renderManageLocalBooksInSettings === 'function' && typeof currentView !== 'undefined' && currentView === 'view-settings') {
+        renderManageLocalBooksInSettings();
+    }
+}
+
+// 启动时检测设备联网状态，若未联网强制开启离线模式，并在无法联网时删除换背景按钮
 if (typeof window !== 'undefined') {
-    window.getDeviceId = getDeviceId;
-    window.isDeviceBannedLocally = isDeviceBannedLocally;
-    window.markDeviceBanned = markDeviceBanned;
-    window.unmarkDeviceBanned = unmarkDeviceBanned;
+    window.isOfflineMode = isOfflineMode;
+    window.setOfflineMode = setOfflineMode;
+    window.handleOfflineModeChange = handleOfflineModeChange;
+    window.checkDeviceNetworkOnline = checkDeviceNetworkOnline;
+
+    const enforceDeviceNetworkCheck = async () => {
+        const isOnline = await checkDeviceNetworkOnline();
+        if (!isOnline) {
+            window._isDeviceOfflineForce = true;
+            try { localStorage.setItem('vocab_offline_mode', 'true'); } catch (e) {}
+            handleOfflineModeChange(true);
+            const btnPosterBg = document.getElementById('btn-poster-change-bg');
+            if (btnPosterBg) btnPosterBg.remove();
+        } else {
+            window._isDeviceOfflineForce = false;
+            const toggle = document.getElementById('toggle-offline-mode');
+            if (toggle) toggle.disabled = false;
+        }
+    };
+
+    enforceDeviceNetworkCheck();
+
+    window.addEventListener('DOMContentLoaded', () => {
+        enforceDeviceNetworkCheck();
+        if (isOfflineMode()) {
+            handleOfflineModeChange(true);
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        window._isDeviceOfflineForce = true;
+        setOfflineMode(true, true);
+        const btnPosterBg = document.getElementById('btn-poster-change-bg');
+        if (btnPosterBg) btnPosterBg.remove();
+    });
+
+    window.addEventListener('online', async () => {
+        await enforceDeviceNetworkCheck();
+        const toggle = document.getElementById('toggle-offline-mode');
+        if (toggle) toggle.disabled = false;
+        const desc = document.getElementById('settings-offline-mode-desc');
+        if (desc && !isOfflineMode()) {
+            desc.innerText = '开启后完全使用本地数据，不进行任何网络通信';
+        }
+    });
 }
 
 

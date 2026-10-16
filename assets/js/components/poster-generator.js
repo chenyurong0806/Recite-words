@@ -191,6 +191,9 @@
      * 从远程 API 获取一张新的风景背景图 (多源竞速与防封锁保护)
      */
     async function fetchRemoteBgImage() {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            return null;
+        }
         const seed = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
         const candidateUrls = [
             `https://picsum.photos/720/960?random=${seed}`,
@@ -212,6 +215,10 @@
      * 不再每次强制请求远程 API，彻底消除 404 和加载延迟
      */
     function preloadBackgroundImage() {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            _cachedBgImage = null;
+            return Promise.resolve(null);
+        }
         if (_cachedBgImage) return Promise.resolve(_cachedBgImage);
         if (_bgPreloadPromise) return _bgPreloadPromise;
 
@@ -241,6 +248,7 @@
      * 后台静默刷新一张新图写入 localStorage（不影响当前海报）
      */
     function _silentRefreshBg() {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
         if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
             window.requestIdleCallback(() => {
                 fetchRemoteBgImage().then(img => {
@@ -290,7 +298,9 @@
             }, 1000);
         }
 
-        if (typeof showToast === 'function') showToast('正在更换背景...');
+        if (typeof showToast === 'function') {
+            showToast((typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式使用纯白背景' : '正在更换背景...');
+        }
 
         const newImg = await fetchRemoteBgImage();
         if (!newImg) {
@@ -298,7 +308,8 @@
             try {
                 localStorage.removeItem(_POSTER_BG_STORAGE_KEY);
             } catch (e) { }
-            if (typeof showToast === 'function') showToast('未能加载到新背景，已切换为极简纯白背景');
+            const failMsg = (typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式下默认使用极简纯白背景' : '未能加载到新背景，已切换为极简纯白背景';
+            if (typeof showToast === 'function') showToast(failMsg);
         } else {
             _cachedBgImage = newImg;
             saveBgToLocalStorage(newImg);
@@ -406,13 +417,35 @@
     /* ==========================================================================
        文件下载与保存到相册
        ========================================================================== */
-    function downloadPosterImage(base64Data, filename) {
+    let _isDownloadingPoster = false;
+
+    async function downloadPosterImage(base64Data, filename) {
         if (!base64Data) {
             if (typeof showToast === 'function') showToast('海报数据无效');
             return false;
         }
+        if (_isDownloadingPoster) {
+            if (typeof showToast === 'function') showToast('正在保存海报，请稍候...');
+            return false;
+        }
+        _isDownloadingPoster = true;
         const fname = filename || `词迹海报_${Date.now()}.png`;
+
         try {
+            // 如果在 Electron 环境中，优先使用原生安全保存，彻底杜绝连续点击循环打开文件资源管理器卡死
+            if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.savePosterImage === 'function') {
+                const res = await window.electronAPI.savePosterImage(base64Data, fname);
+                if (res && res.success) {
+                    if (typeof showToast === 'function') showToast('🎉 海报已成功保存至本地！');
+                    return true;
+                } else if (res && res.canceled) {
+                    return false;
+                } else {
+                    if (typeof showToast === 'function') showToast('保存海报失败: ' + (res && res.error ? res.error : '未知错误'));
+                    return false;
+                }
+            }
+
             const parts = base64Data.split(';base64,');
             const contentType = (parts[0] && parts[0].split(':')[1]) || 'image/png';
             const raw = window.atob(parts[1] || parts[0]);
@@ -455,6 +488,10 @@
                 if (typeof showToast === 'function') showToast('下载失败，请长按图片保存');
                 return false;
             }
+        } finally {
+            setTimeout(() => {
+                _isDownloadingPoster = false;
+            }, 600);
         }
     }
 
@@ -463,7 +500,7 @@
             if (typeof showToast === 'function') showToast('请先生成海报');
             return;
         }
-        downloadPosterImage(currentPosterBase64);
+        await downloadPosterImage(currentPosterBase64);
     }
 
     async function savePosterToAlbum(base64Data) {
@@ -1531,33 +1568,38 @@
         if (btnSaveAlbum) btnSaveAlbum.style.display = isBiliApp ? 'inline-flex' : 'none';
         if (btnDownload) btnDownload.style.display = isBiliApp ? 'none' : 'inline-flex';
 
-        // 换背景按钮：始终显示，检查冷却状态
+        // 换背景按钮：仅在无法联网的情况下删除，可联网时显示并检查冷却状态
         const btnChangeBg = document.getElementById('btn-poster-change-bg');
+        const isNetworkBlocked = window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine);
         if (btnChangeBg) {
-            btnChangeBg.style.display = 'inline-flex';
-            const elapsed = Date.now() - _lastBgChangeTime;
-            if (elapsed < _BG_CHANGE_CD_MS) {
-                btnChangeBg.disabled = true;
-                btnChangeBg.classList.add('poster-bg-cd');
-                let cdLeft = Math.ceil((_BG_CHANGE_CD_MS - elapsed) / 1000);
-                const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
-                if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
-                const cdTimer = setInterval(() => {
-                    cdLeft--;
-                    if (cdLeft <= 0) {
-                        clearInterval(cdTimer);
-                        btnChangeBg.disabled = false;
-                        btnChangeBg.classList.remove('poster-bg-cd');
-                        if (cdLabel) cdLabel.textContent = '';
-                    } else {
-                        if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
-                    }
-                }, 1000);
+            if (isNetworkBlocked) {
+                btnChangeBg.remove();
             } else {
-                btnChangeBg.disabled = false;
-                btnChangeBg.classList.remove('poster-bg-cd');
-                const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
-                if (cdLabel) cdLabel.textContent = '';
+                btnChangeBg.style.display = 'inline-flex';
+                const elapsed = Date.now() - _lastBgChangeTime;
+                if (elapsed < _BG_CHANGE_CD_MS) {
+                    btnChangeBg.disabled = true;
+                    btnChangeBg.classList.add('poster-bg-cd');
+                    let cdLeft = Math.ceil((_BG_CHANGE_CD_MS - elapsed) / 1000);
+                    const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
+                    if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
+                    const cdTimer = setInterval(() => {
+                        cdLeft--;
+                        if (cdLeft <= 0) {
+                            clearInterval(cdTimer);
+                            btnChangeBg.disabled = false;
+                            btnChangeBg.classList.remove('poster-bg-cd');
+                            if (cdLabel) cdLabel.textContent = '';
+                        } else {
+                            if (cdLabel) cdLabel.textContent = `${cdLeft}s`;
+                        }
+                    }, 1000);
+                } else {
+                    btnChangeBg.disabled = false;
+                    btnChangeBg.classList.remove('poster-bg-cd');
+                    const cdLabel = btnChangeBg.querySelector('.poster-bg-cd-label');
+                    if (cdLabel) cdLabel.textContent = '';
+                }
             }
         }
 

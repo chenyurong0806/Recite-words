@@ -30,7 +30,7 @@ function openMeSubview(subviewKey) {
         switchView('view-me');
     }
     const performSwitch = () => {
-        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash'];
+        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
                 ? document.getElementById('me-subview-main')
@@ -66,6 +66,10 @@ function openMeSubview(subviewKey) {
         renderMasteredWordsInSettings();
     } else if (subviewKey === 'trash') {
         renderTrashWordsInSettings();
+    } else if (subviewKey === 'export-data') {
+        if (typeof initExportStudyDataView === 'function') {
+            initExportStudyDataView();
+        }
     }
 }
 
@@ -118,7 +122,50 @@ function initDisplaySettings() {
     const savedZoom = localStorage.getItem('app_zoom') || '1';
     document.documentElement.style.setProperty('--app-zoom', savedZoom);
     document.body.style.zoom = savedZoom;
+
+    syncOfflineModeSwitchUI();
 }
+
+function handleToggleOfflineMode(checked) {
+    if (typeof setOfflineMode === 'function') {
+        const success = setOfflineMode(checked);
+        if (!success) {
+            const toggle = document.getElementById('toggle-offline-mode');
+            if (toggle) toggle.checked = true;
+            return;
+        }
+        if (checked) {
+            showToast('已开启离线模式，正在切回登录页...');
+            setTimeout(() => {
+                if (typeof switchView === 'function') switchView('view-auth');
+            }, 300);
+        } else {
+            showToast('已关闭离线模式，正在切回在线登录页...');
+            setTimeout(() => {
+                if (typeof switchView === 'function') switchView('view-auth');
+            }, 300);
+        }
+    }
+}
+window.handleToggleOfflineMode = handleToggleOfflineMode;
+
+function syncOfflineModeSwitchUI() {
+    const toggle = document.getElementById('toggle-offline-mode');
+    const desc = document.getElementById('settings-offline-mode-desc');
+    if (!toggle) return;
+    const offline = (typeof isOfflineMode === 'function') && isOfflineMode();
+    toggle.checked = offline;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toggle.disabled = true;
+        if (desc) desc.innerText = '当前无网络连接，强制开启离线模式';
+    } else {
+        toggle.disabled = false;
+        if (desc) {
+            desc.innerText = offline ? '已开启离线模式，使用纯本地数据，不进行任何网络通信' : '开启后完全使用本地数据，不进行任何网络通信';
+        }
+    }
+}
+window.syncOfflineModeSwitchUI = syncOfflineModeSwitchUI;
 if (typeof window !== 'undefined') window.initDisplaySettings = initDisplaySettings;
 
 function switchSettingsSubview(subviewKey) {
@@ -650,10 +697,12 @@ async function confirmResetBookProgress(bookId, bookName) {
 function exportUserConfigAndProgress() {
     if (!currentUser) return showToast('请先登录后再导出备份');
     try {
+        const isCurrentLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.3.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.7.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
+            accountType: isCurrentLocal ? 'local' : 'online',
             data: {
                 ebbinghaus: localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`),
                 mastered: localStorage.getItem(`vocab_mastered_words_${currentUser}`),
@@ -694,7 +743,22 @@ function importUserConfigAndProgress(event) {
                 throw new Error('备份文件格式不符合要求');
             }
 
-            if (!confirm(`确定要恢复备份文件吗？\n导出时间: ${parsed.exportedAt || '未知'}\n用户名: ${parsed.user || '未知'}\n当前用户的复习进度与配置将被覆盖。`)) {
+            // 本地账号和在线账号的数据不允许互相导入 (Requirement 4)
+            const currentIsLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
+            const backupIsLocal = (parsed.accountType === 'local') || (parsed.user && typeof getLocalAccounts === 'function' && getLocalAccounts().some(a => a.username === parsed.user));
+
+            if (currentIsLocal && !backupIsLocal) {
+                alert('数据隔离保护：当前登录的是本地账号，禁止导入在线账号的备份数据！');
+                event.target.value = '';
+                return;
+            }
+            if (!currentIsLocal && backupIsLocal) {
+                alert('数据隔离保护：当前登录的是在线账号，禁止导入本地账号的备份数据！');
+                event.target.value = '';
+                return;
+            }
+
+            if (!confirm(`确定要恢复备份文件吗？\n导出时间: ${parsed.exportedAt || '未知'}\n用户名: ${parsed.user || '未知'}\n账号类型: ${backupIsLocal ? '本地账号' : '在线账号'}\n当前用户的复习进度与配置将被覆盖。`)) {
                 event.target.value = '';
                 return;
             }
@@ -737,7 +801,11 @@ function importUserConfigAndProgress(event) {
 }
 
 async function promptCreateFolder() {
-    const name = prompt('请输入新文件夹名称：');
+    const name = await (typeof showAppPrompt === 'function' ? showAppPrompt({
+        title: '新建文件夹',
+        message: '请输入新文件夹名称：',
+        placeholder: '文件夹名称'
+    }) : Promise.resolve(prompt('请输入新文件夹名称：')));
     if (!name || !name.trim()) return;
     const cleanName = name.trim();
     if (localFolders.some(f => f.name === cleanName)) {
@@ -753,7 +821,12 @@ async function promptCreateFolder() {
 }
 
 async function promptRenameFolder(folderId, oldName) {
-    const name = prompt('修改文件夹名称：', oldName);
+    const name = await (typeof showAppPrompt === 'function' ? showAppPrompt({
+        title: '重命名文件夹',
+        message: '修改文件夹名称：',
+        defaultValue: oldName,
+        placeholder: '新名称'
+    }) : Promise.resolve(prompt('修改文件夹名称：', oldName)));
     if (!name || !name.trim() || name.trim() === oldName) return;
     const folder = localFolders.find(f => f.id === folderId);
     if (folder) {
@@ -766,7 +839,15 @@ async function promptRenameFolder(folderId, oldName) {
 }
 
 async function confirmDeleteFolder(folderId) {
-    if (!confirm('确定删除此文件夹吗？')) return;
+    const ok = await (typeof showAppConfirm === 'function' ? showAppConfirm({
+        title: '删除文件夹',
+        message: '确定删除此文件夹吗？',
+        confirmText: '删除',
+        cancelText: '取消',
+        isDanger: true,
+        icon: 'folder_delete'
+    }) : Promise.resolve(confirm('确定删除此文件夹吗？')));
+    if (!ok) return;
     if (window.customBooks) {
         for (const b of window.customBooks) {
             if (b.folderId === folderId) {
@@ -838,12 +919,30 @@ let settingsViewingBookWords = [];
 let settingsViewingCurrentWordsList = [];
 let settingsViewingWordsExpanded = false;
 let settingsViewingExpandedShiCiWords = new Set();
+let settingsViewingBookPreviousView = 'view-manage-books';
+
+function exitBookWordsView() {
+    if (settingsViewingBookPreviousView === 'view-manage-books') {
+        switchView('view-manage-books');
+        if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+    } else if (settingsViewingBookPreviousView === 'view-me') {
+        switchView('view-me');
+        if (typeof openMeSubview === 'function') openMeSubview('main');
+    } else {
+        switchView(settingsViewingBookPreviousView || 'view-manage-books');
+    }
+}
+window.exitBookWordsView = exitBookWordsView;
 
 async function viewBookWordsInSettings(bookId) {
     const book = (window.customBooks || []).find(b => b.id === bookId) ||
         BookManager.availableBooks.find(b => b.id === bookId) ||
         BookManager.fallbackBooks.find(b => b.id === bookId);
     if (!book) return;
+
+    if (typeof currentView !== 'undefined' && currentView && currentView !== 'view-me') {
+        settingsViewingBookPreviousView = currentView;
+    }
 
     settingsViewingBookId = bookId;
     settingsViewingWordsExpanded = false;
@@ -1449,15 +1548,17 @@ var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window
 const APP_CHANGELOG = [
     {
         version: 'v2.7.0',
-        date: '2026-10-11',
+        date: '2026-10-13',
         badge: '当前版本',
         items: [
+            '加入离线模式。',
             '更新词书并优化分类。',
             '优化选择词书、管理词书页面。',
+            '优化更新功能。',
             '优化离线版本体验。',
             '优化UI。',
             '优化搜索页面。',
-            '优化网页加载缓慢的问题。',
+            '优化无网环境下的应用打开速度。',
             '修复无法导入词书的 bug。',
             '在背单词设置中添加学习顺序设置。',
             '在背实词设置中添加复习节奏设置。'

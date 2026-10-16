@@ -23,7 +23,8 @@
   },
   "devDependencies": {
     "electron": "^44.7.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2"
   },
   "build": {
     "appId": "com.chenyurong.recitewords",
@@ -50,7 +51,7 @@
           ]
         }
       ],
-      "icon": "assets/images/icon-web.png",
+      "icon": "assets/images/icon.ico",
       "artifactName": "Recite-Words-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -59,7 +60,9 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "词迹"
+      "shortcutName": "词迹",
+      "installerIcon": "assets/images/icon.ico",
+      "uninstallerIcon": "assets/images/icon.ico"
     },
     "publish": {
       "provider": "github",

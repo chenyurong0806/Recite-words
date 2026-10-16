@@ -341,12 +341,13 @@ function saveCurrentUserData(options = { immediate: false }) {
     }
 }
 
-function recordUserMistake(username, word, meaning, phone) {
+function recordUserMistake(username, word, meaning, phone, wrongAnswer = '', correctAnswer = '') {
     if (!username || !word) return;
     const cleanWord = String(word).trim();
     const cleanMeaning = meaning || '';
     const cleanPhone = phone || '';
     const isChinese = !/[a-zA-Z]/.test(cleanWord);
+    const now = Date.now();
 
     if (username === currentUser) {
         if (!userStats.mistakes) userStats.mistakes = {};
@@ -354,9 +355,12 @@ function recordUserMistake(username, word, meaning, phone) {
             userStats.mistakes[cleanWord] = { count: 0, meaning: cleanMeaning, phone: cleanPhone, isShiCi: isChinese };
         }
         userStats.mistakes[cleanWord].count++;
+        userStats.mistakes[cleanWord].updatedAt = now;
         if (cleanMeaning) userStats.mistakes[cleanWord].meaning = cleanMeaning;
         if (cleanPhone) userStats.mistakes[cleanWord].phone = cleanPhone;
         if (isChinese) userStats.mistakes[cleanWord].isShiCi = true;
+        if (wrongAnswer) userStats.mistakes[cleanWord].wrongAnswer = wrongAnswer;
+        if (correctAnswer) userStats.mistakes[cleanWord].correctAnswer = correctAnswer;
         saveCurrentUserData();
         if (!isChinese && window.EbbinghausEngine) {
             window.EbbinghausEngine.recordWord(cleanWord, cleanMeaning, cleanPhone, false);
@@ -370,9 +374,12 @@ function recordUserMistake(username, word, meaning, phone) {
                 stats.mistakes[cleanWord] = { count: 0, meaning: cleanMeaning, phone: cleanPhone, isShiCi: isChinese };
             }
             stats.mistakes[cleanWord].count++;
+            stats.mistakes[cleanWord].updatedAt = now;
             if (cleanMeaning) stats.mistakes[cleanWord].meaning = cleanMeaning;
             if (cleanPhone) stats.mistakes[cleanWord].phone = cleanPhone;
             if (isChinese) stats.mistakes[cleanWord].isShiCi = true;
+            if (wrongAnswer) stats.mistakes[cleanWord].wrongAnswer = wrongAnswer;
+            if (correctAnswer) stats.mistakes[cleanWord].correctAnswer = correctAnswer;
             localStorage.setItem(`vocab_stats_${username}`, JSON.stringify(stats));
 
             if (!isChinese) {
@@ -493,3 +500,62 @@ function resolveAppConfirm(result) {
         cb(!!result);
     }
 }
+
+let appPromptResolve = null;
+
+function showAppPrompt(optionsOrMessage, defaultValue = '') {
+    return new Promise((resolve) => {
+        let title = '请输入';
+        let message = '';
+        let defVal = '';
+        let placeholder = '';
+
+        if (typeof optionsOrMessage === 'object' && optionsOrMessage !== null) {
+            title = optionsOrMessage.title || '请输入';
+            message = optionsOrMessage.message || '';
+            defVal = optionsOrMessage.defaultValue || defaultValue || '';
+            placeholder = optionsOrMessage.placeholder || '';
+        } else {
+            message = String(optionsOrMessage || '');
+            defVal = defaultValue || '';
+        }
+
+        appPromptResolve = resolve;
+
+        const modal = document.getElementById('modal-app-prompt');
+        const titleEl = document.getElementById('app-prompt-title');
+        const msgEl = document.getElementById('app-prompt-message');
+        const inputEl = document.getElementById('app-prompt-input');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+        if (inputEl) {
+            inputEl.value = defVal;
+            inputEl.placeholder = placeholder;
+        }
+
+        if (modal) modal.classList.add('active');
+        setTimeout(() => {
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.select();
+            }
+        }, 60);
+    });
+}
+
+function resolveAppPrompt(result) {
+    const modal = document.getElementById('modal-app-prompt');
+    if (modal) modal.classList.remove('active');
+    if (typeof appPromptResolve === 'function') {
+        const cb = appPromptResolve;
+        appPromptResolve = null;
+        cb(result !== null ? String(result) : null);
+    }
+}
+
+window.showConfirmModal = showConfirmModal;
+window.showAppConfirm = showConfirmModal;
+window.resolveAppConfirm = resolveAppConfirm;
+window.showAppPrompt = showAppPrompt;
+window.resolveAppPrompt = resolveAppPrompt;

@@ -354,7 +354,7 @@ function renderDictationQuestion() {
         }, 150);
     }
 
-    if (dictationConfig.type === 'listen' && !q.isPhrase && dictationConfig.autoPlay && navigator.onLine) {
+    if (dictationConfig.type === 'listen' && !q.isPhrase && dictationConfig.autoPlay) {
         setTimeout(() => playDictationAudio(), 250);
     }
     if (typeof renderDictationKeyboard === 'function') {

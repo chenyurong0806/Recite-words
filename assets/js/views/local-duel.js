@@ -9,6 +9,7 @@
 let localDuelConfig = {
     selectedBooks: ['GaoKao3500'],
     opponentName: '挑战者',
+    matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     mode: 'lead',
     leadThreshold: 6,
     duration: 60,
@@ -20,6 +21,7 @@ try {
     if (saved) {
         if (saved.bookId && !saved.selectedBooks) saved.selectedBooks = [saved.bookId];
         Object.assign(localDuelConfig, saved);
+        if (!localDuelConfig.matchType) localDuelConfig.matchType = 'ranked';
     }
 } catch (e) { }
 
@@ -45,19 +47,36 @@ function renderLocalDuelOpponents() {
     if (!container) return;
 
     const myName = currentUser || '红方';
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
     let validAccounts = [];
+
+    // 1. 本地多账号系统：读取所有已注册本地账号
+    if (typeof getLocalAccounts === 'function') {
+        const localAccounts = getLocalAccounts();
+        if (Array.isArray(localAccounts)) {
+            localAccounts.forEach(acc => {
+                const u = acc.username || acc.id;
+                if (u && u !== myName) {
+                    validAccounts.push(u);
+                }
+            });
+        }
+    }
+
+    // 2. 设备历史登录账号池
     if (typeof getSavedDeviceAccounts === 'function') {
         const accounts = getSavedDeviceAccounts();
-        validAccounts = accounts
-            .filter(a => a && a.username && a.username !== myName && (now - (a.lastLoginTime || 0) <= SEVEN_DAYS_MS))
-            .map(a => a.username);
+        if (Array.isArray(accounts)) {
+            accounts.forEach(a => {
+                if (a && a.username && a.username !== myName) {
+                    validAccounts.push(a.username);
+                }
+            });
+        }
     }
 
     let candidates = Array.from(new Set(validAccounts));
     if (candidates.length === 0) {
-        candidates = ['挑战者'];
+        candidates = ['挑战者', '蓝方'];
     }
 
     if (!localDuelConfig.opponentName || localDuelConfig.opponentName === myName || !candidates.includes(localDuelConfig.opponentName)) {
@@ -179,14 +198,18 @@ function updateLocalDuelStartButtonState() {
 }
 
 function updateLocalDuelSettingsChips() {
+    const currentMatchType = localDuelConfig.matchType || 'ranked';
+    document.querySelectorAll('#chips-local-duel-match-type .md3-chip').forEach(c => {
+        const val = c.getAttribute('data-match-type') || c.getAttribute('data-type');
+        c.classList.toggle('selected', val === currentMatchType);
+    });
     document.querySelectorAll('#chips-local-duel-rule .md3-chip').forEach(c => {
         c.classList.toggle('selected', c.getAttribute('data-rule') === localDuelConfig.mode);
-    }); const groupLead =
-        document.getElementById('group-local-duel-lead'); const groupTimed =
-            document.getElementById('group-local-duel-timed'); if (groupLead)
-        groupLead.style.display = (localDuelConfig.mode === 'lead') ? 'block' : 'none';
-    if (groupTimed) groupTimed.style.display = (localDuelConfig.mode === 'timed') ?
-        'block' : 'none';
+    });
+    const groupLead = document.getElementById('group-local-duel-lead');
+    const groupTimed = document.getElementById('group-local-duel-timed');
+    if (groupLead) groupLead.style.display = (localDuelConfig.mode === 'lead') ? 'block' : 'none';
+    if (groupTimed) groupTimed.style.display = (localDuelConfig.mode === 'timed') ? 'block' : 'none';
 
     document.querySelectorAll('#chips-local-duel-lead .md3-chip').forEach(c => {
         c.classList.toggle('selected', parseInt(c.getAttribute('data-lead')) === localDuelConfig.leadThreshold);
@@ -198,6 +221,13 @@ function updateLocalDuelSettingsChips() {
         c.classList.toggle('selected', c.getAttribute('data-gauge') === (localDuelConfig.gaugeStyle || 'tug'));
     });
 }
+
+function selectLocalDuelMatchType(type) {
+    localDuelConfig.matchType = type;
+    updateLocalDuelSettingsChips();
+    localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+}
+window.selectLocalDuelMatchType = selectLocalDuelMatchType;
 
 function selectLocalDuelRule(rule) {
     localDuelConfig.mode = rule;
@@ -1123,6 +1153,62 @@ function endLocalDuel(winner, detailText) {
     const p1Final = localDuelState.p1 ? localDuelState.p1.score : 0;
     const p2Final = localDuelState.p2 ? localDuelState.p2.score : 0;
 
+    const isRanked = (localDuelConfig.matchType === 'ranked');
+    let rankOutcomeP1 = null;
+    let rankOutcomeP2 = null;
+
+    if (isRanked && typeof LevelManager !== 'undefined') {
+        const p1Data = LevelManager.getUserRankData(p1Name);
+        const p2Data = LevelManager.getUserRankData(p2Name);
+
+        const p1Win = (winner === 'p1');
+        const isDraw = (winner !== 'p1' && winner !== 'p2');
+
+        if (typeof LevelManager.calculateMatchResult === 'function') {
+            rankOutcomeP1 = LevelManager.calculateMatchResult({
+                isRanked: true,
+                isAi: false,
+                playerWin: p1Win,
+                isDraw: isDraw,
+                userRank: p1Data.rank,
+                userRating: p1Data.rating,
+                oppoRank: p2Data.rank,
+                oppoRating: p2Data.rating
+            });
+            rankOutcomeP2 = LevelManager.calculateMatchResult({
+                isRanked: true,
+                isAi: false,
+                playerWin: !p1Win && !isDraw,
+                isDraw: isDraw,
+                userRank: p2Data.rank,
+                userRating: p2Data.rating,
+                oppoRank: p1Data.rank,
+                oppoRating: p1Data.rating
+            });
+        }
+
+        if (p1Name && !LevelManager.isGuestUser(p1Name) && rankOutcomeP1) {
+            LevelManager.applyMatchResult(p1Name, rankOutcomeP1);
+        }
+        if (p2Name && !LevelManager.isGuestUser(p2Name) && rankOutcomeP2) {
+            LevelManager.applyMatchResult(p2Name, rankOutcomeP2);
+        }
+    }
+
+    let rankDetailsHtml = '';
+    if (isRanked && rankOutcomeP1 && rankOutcomeP2) {
+        const p1Sign = rankOutcomeP1.deltaPoints >= 0 ? '+' : '';
+        const p2Sign = rankOutcomeP2.deltaPoints >= 0 ? '+' : '';
+        rankDetailsHtml = `
+            <div style="font-size:0.88rem; color:var(--md-sys-color-primary); background:var(--md-sys-color-surface-container-low); padding:10px 16px; border-radius:14px; margin:12px auto; max-width:420px; line-height:1.6;">
+                <div>🔴 <strong>${escapeHtml(p1Name)}</strong>：${p1Sign}${rankOutcomeP1.deltaPoints}分 (当前 ${rankOutcomeP1.newRank}段 · ${rankOutcomeP1.newRating}分)</div>
+                <div style="margin-top:4px;">🔵 <strong>${escapeHtml(p2Name)}</strong>：${p2Sign}${rankOutcomeP2.deltaPoints}分 (当前 ${rankOutcomeP2.newRank}段 · ${rankOutcomeP2.newRating}分)</div>
+            </div>
+        `;
+    } else if (!isRanked) {
+        rankDetailsHtml = `<div style="font-size:0.85rem; color:var(--md-sys-color-outline); margin:10px 0;">[ 友谊赛模式 · 不计排位段位积分 ]</div>`;
+    }
+
     document.getElementById('result-icon').innerText = icon;
     document.getElementById('result-message').innerText = title;
     document.getElementById('result-details').innerHTML = `
@@ -1132,6 +1218,7 @@ function endLocalDuel(winner, detailText) {
                 <span style="color:var(--md-sys-color-outline);">VS</span>
                 <span style="color:var(--p2-sys-color);">🔵 ${p2Name}: ${p2Final} 题</span>
             </div>
+            ${rankDetailsHtml}
         `;
 
     const btnBack = document.getElementById('btn-back-room');

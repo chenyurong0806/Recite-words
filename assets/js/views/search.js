@@ -65,6 +65,7 @@ async function triggerAutoFetchYoudaoForManual() {
     const wordInput = document.getElementById('input-manual-word');
     const query = wordInput ? wordInput.value.trim() : manualAddWordState.word;
     if (!query) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
 
     const candidatesWrap = document.getElementById('manual-word-youdao-candidates');
     if (candidatesWrap) {
@@ -1369,6 +1370,9 @@ function extractWordMeaning(w, overrides = {}, bookId = '') {
 }
 
 function fetchYoudaoSuggestJsonp(query, num = 8) {
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        return Promise.resolve(null);
+    }
     return new Promise((resolve) => {
         if (!query) return resolve(null);
         const cbName = 'youdao_suggest_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -1385,9 +1389,18 @@ function fetchYoudaoSuggestJsonp(query, num = 8) {
         };
 
         function cleanup() {
-            if (timer) clearTimeout(timer);
-            delete window[cbName];
-            if (script.parentNode) script.parentNode.removeChild(script);
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+            // 设为空函数，防止超时后延迟返回的 JSONP 脚本抛出 ReferenceError
+            window[cbName] = function () {};
+            setTimeout(() => {
+                try { delete window[cbName]; } catch (e) {}
+            }, 30000);
+            if (script.parentNode) {
+                script.parentNode.removeChild(script);
+            }
         }
 
         script.onerror = function () {
@@ -1404,9 +1417,15 @@ function fetchYoudaoSuggestJsonp(query, num = 8) {
         document.head.appendChild(script);
     });
 }
+if (typeof window !== 'undefined') {
+    window.fetchYoudaoSuggestJsonp = fetchYoudaoSuggestJsonp;
+}
 
 async function searchYoudaoSuggest(query) {
     if (!query) return null;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        return null;
+    }
     const clean = query.trim();
 
     // 直接通过 JSONP 拉取有道词典建议（不请求不存在的第三方代理后端，杜绝 CORS 报错）
@@ -2620,7 +2639,11 @@ function handleInlineAddBookSelectChange(val) {
 }
 
 async function promptCreateCustomBookForInline() {
-    const name = prompt('请输入新词书名称：', '生词本');
+    const name = await (typeof showAppPrompt === 'function' ? showAppPrompt({
+        title: '新建词书',
+        message: '请输入新词书名称：',
+        defaultValue: '生词本'
+    }) : Promise.resolve(prompt('请输入新词书名称：', '生词本')));
     if (!name || !name.trim()) return;
     const newBookId = 'custom_' + Date.now();
     const newBook = {

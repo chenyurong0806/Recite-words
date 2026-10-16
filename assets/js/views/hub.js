@@ -414,6 +414,7 @@ async function loadCustomBook(e) {
 
     let successCount = 0;
     let failCount = 0;
+    let skippedCount = 0;
     const importedNames = [];
 
     if (!window.customBooks) window.customBooks = [];
@@ -421,6 +422,18 @@ async function loadCustomBook(e) {
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
+            const rawBookName = file.name.replace(/\.json$/i, '');
+            const bookName = cleanBookName(rawBookName);
+
+            // 检查是否重复导入：如果同名词书已存在，则自动跳过
+            const isDuplicate = (window.customBooks || []).some(b => b.name === bookName || b.rawName === bookName || b.name === rawBookName) ||
+                                (BookManager.availableBooks || []).some(b => b.name === bookName || b.rawName === bookName || b.name === rawBookName);
+            if (isDuplicate) {
+                console.log(`[loadCustomBook] 词书《${bookName}》已存在，跳过导入`);
+                skippedCount++;
+                continue;
+            }
+
             let text = await file.text();
             // 剥除 UTF-8 BOM 标记 (\uFEFF)
             if (text.charCodeAt(0) === 0xFEFF) {
@@ -432,7 +445,6 @@ async function loadCustomBook(e) {
             const isAncient = (file.name.includes('实词') || file.name.includes('文言') || 
                 (Array.isArray(rawData) && rawData.some(it => it && (it.isAncient || (it.pinyin && !it.word && it.char)))));
 
-            const bookName = cleanBookName(file.name.replace(/\.json$/i, ''));
             const bookId = 'custom_' + Date.now() + '_' + i;
             const normalized = BookManager.normalizeWords(rawData, bookName, bookId);
             if (normalized.length === 0) throw new Error('未解析到有效词条');
@@ -441,12 +453,13 @@ async function loadCustomBook(e) {
                 id: bookId,
                 name: bookName,
                 rawName: bookName,
-                category: isAncient ? '实词' : '自定义',
+                category: '未分类',
                 isShiCi: isAncient,
                 count: normalized.length,
                 words: normalized,
                 folderId: null,
                 isCloud: false,
+                isDiskBook: true,
                 syncStatus: 'downloaded',
                 createdAt: Date.now() + i
             };
@@ -454,9 +467,9 @@ async function loadCustomBook(e) {
             window.customBooks.push(bookObj);
             await VocabOfflineDB.saveBook(bookObj);
 
-            // 同步保存至本地专属词书目录 (Electron 环境)
+            // 直接导入词书不用为其创建文件夹，直接存入 local_books 根目录（放入未分类中）
             if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
-                ElectronManager.saveBookToDisk(bookName + '.json', text).catch(() => {});
+                ElectronManager.saveBookToDisk(bookName + '.json', text, 'local', '').catch(() => {});
             }
 
             BookManager.bookCache[bookId] = normalized;
@@ -489,8 +502,8 @@ async function loadCustomBook(e) {
     BookManager.mergeCustomBooks();
 
     // 立即刷新所有相关词书列表
-    if (typeof renderBookSelectorPage === 'function' && window.currentView === 'view-book-selector') renderBookSelectorPage();
-    if (typeof renderManageBooksPage === 'function' && window.currentView === 'view-manage-books') renderManageBooksPage();
+    if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+    if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
     if (typeof renderRoomBookChips === 'function') renderRoomBookChips();
     if (typeof renderLocalDuelBookChips === 'function') renderLocalDuelBookChips();
@@ -505,11 +518,13 @@ async function loadCustomBook(e) {
     if (offlineGuide) offlineGuide.classList.remove('active');
 
     if (successCount > 0) {
-        if (successCount === 1) {
+        if (successCount === 1 && skippedCount === 0) {
             showToast(`成功导入本地词书《${importedNames[0]}》！`);
         } else {
-            showToast(`成功导入 ${successCount} 本词书！` + (failCount > 0 ? ` (${failCount} 本失败)` : ''));
+            showToast(`导入完成：成功 ${successCount} 本${skippedCount > 0 ? `，跳过已存在 ${skippedCount} 本` : ''}${failCount > 0 ? ` (${failCount} 本失败)` : ''}`);
         }
+    } else if (skippedCount > 0) {
+        showToast(`所选词书均已存在，已自动跳过重复导入 (${skippedCount} 本)`);
     } else if (failCount > 0) {
         alert('所选词库解析失败，请确认为标准词典JSON格式。');
     }
@@ -535,11 +550,15 @@ function toggleBookIdInList(selectedIds, bookId) {
 function isShiCiBook(b) {
     if (!b) return false;
     if (typeof b === 'string') {
-        return b.includes('实词') || b.includes('shici');
+        return b.includes('实词') || b.includes('shici') || b.includes('文言');
     }
     if (b.type === 'shici' || b.isShiCi) return true;
-    if (b.category === '实词' || (b.name && b.name.includes('实词')) || (b.id && String(b.id).includes('实词'))) return true;
-    if (b.words && b.words.length > 0 && b.words[0].senses) return true;
+    if (b.category === '实词' || b.category === '实词词书' || (b.name && (b.name.includes('实词') || b.name.includes('文言'))) || (b.id && String(b.id).includes('实词'))) return true;
+    if (b.words && b.words.length > 0) {
+        if (b.words[0].senses) return true;
+        const firstWord = b.words[0].word || b.words[0].name || '';
+        if (/[\u4e00-\u9fa5]/.test(firstWord)) return true;
+    }
     return false;
 }
 

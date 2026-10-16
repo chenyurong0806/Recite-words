@@ -53,6 +53,7 @@ const loadOrder = [
   'views/shici.js',
   'views/settings.js',
   'views/search.js',
+  'views/export-data.js',
 
   // 5. Bootstrap
   'app.js'

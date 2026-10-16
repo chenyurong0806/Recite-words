@@ -31,31 +31,52 @@ try {
     console.warn('[Supabase] Client init failed, using offline fallback:', e);
 }
 
-if (!sbClient) {
-    const dummyQuery = {
-        select: function() { return this; },
-        insert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
-        update: function() { return this; },
-        delete: function() { return this; },
-        upsert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
-        eq: function() { return this; },
-        neq: function() { return this; },
-        in: function() { return this; },
-        order: function() { return this; },
-        limit: function() { return this; },
-        range: function() { return this; },
-        single: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
-        then: function(resolve) { return Promise.resolve({ data: null, error: { message: 'offline' } }).then(resolve); }
-    };
-    sbClient = {
-        from: () => dummyQuery,
-        channel: () => ({
-            on: function() { return this; },
-            subscribe: function(cb) { if (cb) cb('CLOSED'); return this; },
-            unsubscribe: () => {}
-        })
-    };
-}
+const dummyQuery = {
+    select: function() { return this; },
+    insert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+    update: function() { return this; },
+    delete: function() { return this; },
+    upsert: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+    eq: function() { return this; },
+    neq: function() { return this; },
+    in: function() { return this; },
+    order: function() { return this; },
+    limit: function() { return this; },
+    range: function() { return this; },
+    single: function() { return Promise.resolve({ data: null, error: { message: 'offline' } }); },
+    then: function(resolve) { return Promise.resolve({ data: null, error: { message: 'offline' } }).then(resolve); }
+};
+
+const dummyChannel = {
+    on: function() { return this; },
+    subscribe: function(cb) { if (cb) cb('CLOSED'); return this; },
+    unsubscribe: () => {},
+    track: () => Promise.resolve(),
+    untrack: () => Promise.resolve(),
+    send: () => Promise.resolve()
+};
+
+const _realSbClient = sbClient;
+sbClient = {
+    from: (table) => {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            return dummyQuery;
+        }
+        return _realSbClient ? _realSbClient.from(table) : dummyQuery;
+    },
+    channel: (name, opts) => {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            return dummyChannel;
+        }
+        return _realSbClient ? _realSbClient.channel(name, opts) : dummyChannel;
+    },
+    rpc: (fn, args) => {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            return Promise.resolve({ data: null, error: { message: 'offline' } });
+        }
+        return _realSbClient ? _realSbClient.rpc(fn, args) : Promise.resolve({ data: null, error: { message: 'offline' } });
+    }
+};
 
 /* ==========================================================================
    1.1 弱网连接质量监控与状态徽标 (红/黄/绿指示灯)
@@ -791,14 +812,17 @@ function getCloudBooksMasterySummary() {
 
 // 全量同步用户学习数据、等级与统计至 Supabase 云端
 async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        return { success: true, offline: true };
+    }
     const u = targetUsername || (typeof currentUser !== 'undefined' ? currentUser : null);
     if (!u) return;
     if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return;
     if (u.startsWith('游客_') || u.startsWith('游客')) return;
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') return { success: true, local: true };
 
-    // 检查是否为已登录用户 (支持云端账号与 B 站账号)
-    const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'))
-        || (!u.startsWith('游客'));
+    // 检查是否为已登录用户 (支持云端账号与 B 站账号，本地账号不上传云端)
+    const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'));
     if (!isRegisteredUser) return;
 
     let stats = null;

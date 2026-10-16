@@ -10,6 +10,9 @@ let wordleLeaderboardSort = 'time'; // 'time' | 'attempts'
 
 function openLeaderboardView(tab = 'level') {
     leaderboardPreviousView = (typeof currentView !== 'undefined' && currentView !== 'view-leaderboard') ? currentView : 'view-hub';
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        tab = 'level';
+    }
     leaderboardActiveTab = tab;
     wordleLeaderboardDate = (new Date()).toISOString().slice(0, 10);
 
@@ -37,17 +40,26 @@ function exitLeaderboardView() {
 }
 
 function switchLeaderboardTab(tab) {
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+    if (isOffline) {
+        tab = 'level';
+    }
     leaderboardActiveTab = tab;
     const tabLevelBtn = document.getElementById('tab-lb-level');
     const tabWordleBtn = document.getElementById('tab-lb-wordle');
     const levelSection = document.getElementById('lb-level-section');
     const wordleSection = document.getElementById('lb-wordle-section');
 
+    if (isOffline) {
+        if (tabWordleBtn) tabWordleBtn.style.display = 'none';
+        if (wordleSection) wordleSection.style.display = 'none';
+    }
+
     if (tabLevelBtn) tabLevelBtn.classList.toggle('active', tab === 'level');
     if (tabWordleBtn) tabWordleBtn.classList.toggle('active', tab === 'wordle');
 
     if (levelSection) levelSection.style.display = (tab === 'level') ? 'block' : 'none';
-    if (wordleSection) wordleSection.style.display = (tab === 'wordle') ? 'block' : 'none';
+    if (wordleSection && !isOffline) wordleSection.style.display = (tab === 'wordle') ? 'block' : 'none';
 
     if (tab === 'level') {
         renderLevelLeaderboard();
@@ -64,6 +76,131 @@ async function renderLevelLeaderboard() {
     const listContainer = document.getElementById('lb-level-list');
     const myRankBanner = document.getElementById('lb-level-my-rank');
     if (!listContainer) return;
+
+    // 离线模式专属逻辑：不与服务器通讯，仅读取并展示本地账号排行榜
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+        let localAccounts = typeof getLocalAccounts === 'function' ? getLocalAccounts() : [];
+        if (localAccounts.length === 0 && currUser) {
+            localAccounts.push({
+                username: currUser,
+                displayName: typeof getCurrentAccountDisplayName === 'function' ? getCurrentAccountDisplayName() : currUser,
+                initialRank: 1,
+                createdAt: Date.now()
+            });
+        }
+
+        const userScores = localAccounts.map(acc => {
+            const username = acc.username || acc.id || '本地玩家';
+            const displayName = acc.displayName || username;
+            let rank = acc.initialRank || 1;
+            let rating = (rank - 1) * 100;
+            if (typeof LevelManager !== 'undefined') {
+                const rData = LevelManager.getUserRankData(username);
+                if (rData && (rData.rating > 0 || rData.rank > 1)) {
+                    rating = rData.rating || 0;
+                    rank = LevelManager.getRankFromRating(rating);
+                } else if (acc.initialRank) {
+                    rank = acc.initialRank;
+                    rating = (rank - 1) * 100;
+                }
+            }
+            return {
+                username: username,
+                displayName: displayName,
+                avatar: acc.avatar || '',
+                rank: rank,
+                rating: rating,
+                isBili: false,
+                isLocal: true,
+                isMe: (username === currUser)
+            };
+        });
+
+        userScores.sort((a, b) => {
+            if (b.rating !== a.rating) return b.rating - a.rating;
+            return b.rank - a.rank;
+        });
+
+        if (userScores.length === 0) {
+            listContainer.innerHTML = `
+                <div style="text-align:center; padding:36px; color:var(--md-sys-color-outline);">
+                    <span class="material-symbols-rounded" style="font-size:36px; opacity:0.4;">military_tech</span>
+                    <p style="margin-top:8px;">暂无本地账号数据</p>
+                </div>
+            `;
+            if (myRankBanner) myRankBanner.style.display = 'none';
+            return;
+        }
+
+        // 渲染“我的排名”横幅（本地模式）
+        const myIndex = userScores.findIndex(u => u.isMe);
+        if (myRankBanner) {
+            if (myIndex >= 0) {
+                const myData = userScores[myIndex];
+                myRankBanner.style.display = 'flex';
+                myRankBanner.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-radius:18px; background:#e0f2fe; color:#0369a1; margin-bottom:14px;';
+                myRankBanner.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div style="width:38px; height:38px; border-radius:50%; background:#0284c7; color:white; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0;">
+                            #${myIndex + 1}
+                        </div>
+                        <div>
+                            <div style="font-weight:700; font-size:1rem; color:#0f172a;">本地段位排行</div>
+                            <div style="font-size:0.82rem; color:#64748b; margin-top:2px;">
+                                <span>${escapeHtml(myData.displayName || myData.username)}</span>
+                                <span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 6px; border-radius:4px; margin-left:4px;">本地账号</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:1.05rem; font-weight:800; color:#0369a1;">${myData.rank}段   ${myData.rating}分</span>
+                    </div>
+                `;
+            } else {
+                myRankBanner.style.display = 'none';
+            }
+        }
+
+        // 渲染本地账号列表
+        listContainer.innerHTML = userScores.map((u, idx) => {
+            const rank = idx + 1;
+            let rankBadge = '';
+            if (rank === 1) {
+                rankBadge = `<span class="material-symbols-rounded" style="color:#eab308; font-size:26px;">workspace_premium</span>`;
+            } else if (rank === 2) {
+                rankBadge = `<span class="material-symbols-rounded" style="color:#94a3b8; font-size:26px;">workspace_premium</span>`;
+            } else if (rank === 3) {
+                rankBadge = `<span class="material-symbols-rounded" style="color:#d97706; font-size:26px;">workspace_premium</span>`;
+            } else {
+                rankBadge = `<span style="font-weight:800; font-size:0.95rem; color:#64748b; width:26px; text-align:center;">${rank}</span>`;
+            }
+
+            return `
+                <div class="lb-user-row ${u.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${u.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
+                    <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
+                        <div style="width:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            ${rankBadge}
+                        </div>
+                        <div style="position:relative; width:42px; height:42px; border-radius:50%; overflow:hidden; background:#e2e8f0; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-symbols-rounded" style="font-size:24px; color:#94a3b8;">person</span>
+                        </div>
+                        <div style="min-width:0; flex:1;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#0f172a;">${escapeHtml(u.displayName || u.username)}</span>
+                                <span style="font-size:0.7rem; background:#f1f5f9; color:#64748b; padding:1px 5px; border-radius:4px;">本地</span>
+                                ${u.isMe ? `<span style="font-size:0.72rem; background:#dbeafe; color:#0284c7; padding:1px 7px; border-radius:9999px; font-weight:700;">我</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; flex-shrink:0;">
+                        <span style="font-size:1.05rem; font-weight:800; color:#0f172a;">${u.rank}段   ${u.rating}分</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        return;
+    }
 
     listContainer.innerHTML = `
         <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">

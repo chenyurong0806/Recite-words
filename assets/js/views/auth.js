@@ -5,11 +5,23 @@
 
 let authActiveTab = 'login'; // 'login' | 'register'
 let regAvatarDataUrl = '';
+let localAuthActiveTab = 'login';
+let localRegSelectedRank = 1;
 
 function renderAuthView() {
+    const offlineContainer = document.getElementById('auth-offline-container');
     const toyContainer = document.getElementById('auth-toy-container');
     const webContainer = document.getElementById('auth-web-container');
 
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        if (offlineContainer) offlineContainer.style.display = 'block';
+        if (toyContainer) toyContainer.style.display = 'none';
+        if (webContainer) webContainer.style.display = 'none';
+        switchLocalAuthTab(localAuthActiveTab);
+        return;
+    }
+
+    if (offlineContainer) offlineContainer.style.display = 'none';
     if (isBilibiliToy) {
         if (toyContainer) toyContainer.style.display = 'block';
         if (webContainer) webContainer.style.display = 'block';
@@ -19,6 +31,257 @@ function renderAuthView() {
     }
     switchAuthTab(authActiveTab);
 }
+
+/* ==========================================================================
+   离线模式本地账号专属管理系统 (Requirement 10)
+   ========================================================================== */
+function selectLocalRegRank(rank) {
+    localRegSelectedRank = Math.max(1, Math.min(3, parseInt(rank) || 1));
+    const container = document.getElementById('chips-local-reg-rank');
+    if (container) {
+        const chips = container.querySelectorAll('.md3-chip');
+        chips.forEach(chip => {
+            const r = parseInt(chip.getAttribute('data-rank'));
+            chip.classList.toggle('selected', r === localRegSelectedRank);
+        });
+    }
+}
+window.selectLocalRegRank = selectLocalRegRank;
+
+function switchLocalAuthTab(tab) {
+    localAuthActiveTab = tab;
+    const tabLogin = document.getElementById('tab-auth-local-login');
+    const tabReg = document.getElementById('tab-auth-local-register');
+    const secLogin = document.getElementById('auth-local-login-section');
+    const secReg = document.getElementById('auth-local-register-section');
+
+    if (tabLogin && tabReg) {
+        tabLogin.classList.toggle('active', tab === 'login');
+        tabReg.classList.toggle('active', tab === 'register');
+    }
+    if (secLogin) secLogin.style.display = (tab === 'login') ? 'flex' : 'none';
+    if (secReg) secReg.style.display = (tab === 'register') ? 'flex' : 'none';
+
+    if (tab === 'login') {
+        renderSavedLocalAccounts();
+    }
+}
+window.switchLocalAuthTab = switchLocalAuthTab;
+
+function getLocalAccounts() {
+    try {
+        const raw = SafeStorage.getItem('vocab_local_accounts');
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+window.getLocalAccounts = getLocalAccounts;
+
+function saveLocalAccounts(list) {
+    try {
+        SafeStorage.setItem('vocab_local_accounts', JSON.stringify(list || []));
+    } catch (e) {}
+}
+
+function renderSavedLocalAccounts() {
+    const listEl = document.getElementById('auth-local-saved-accounts-list');
+    if (!listEl) return;
+
+    const accounts = getLocalAccounts();
+    if (accounts.length === 0) {
+        listEl.innerHTML = `
+            <div style="text-align:center; padding:20px; color:var(--md-sys-color-outline); font-size:0.88rem;">
+                暂无已注册的本地账号，请点击上方“注册本地账号”创建
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = accounts.map(acc => {
+        const username = acc.username;
+        let rankDesc = '1段';
+        let ratingDesc = '50分';
+        if (typeof LevelManager !== 'undefined') {
+            const rd = LevelManager.getUserRankData(username);
+            rankDesc = `${rd.rank}段`;
+            ratingDesc = `${rd.rating}分`;
+        } else if (acc.rank) {
+            rankDesc = `${acc.rank}段`;
+        }
+
+        const safeUser = (typeof escapeHtml === 'function') ? escapeHtml(username) : username;
+        return `
+            <div class="saved-account-card" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:16px; background:var(--md-sys-color-surface-container, #f1f5f9); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); transition:all 0.2s ease;">
+                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                    <div style="width:42px; height:42px; border-radius:50%; background:var(--md-sys-color-primary-container, #dbeafe); color:var(--md-sys-color-primary, #0061a4); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; flex-shrink:0;">
+                        ${safeUser.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="min-width:0; flex:1; text-align:left;">
+                        <div style="font-weight:700; font-size:1rem; color:var(--md-sys-color-on-surface); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            ${safeUser}
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                            <span class="badge" style="background:#ffeedb; color:#c45716; font-size:0.72rem; padding:1px 6px; border-radius:6px; font-weight:700;">${rankDesc}</span>
+                            <span style="font-size:0.76rem; color:var(--md-sys-color-outline);">${ratingDesc}</span>
+                            ${acc.hasPassword ? '<span class="material-symbols-rounded" style="font-size:14px; color:#d97706;" title="有密码保护">lock</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                    <button type="button" class="btn btn-filled btn-sm" style="border-radius:9999px; height:32px; padding:0 14px; font-size:0.84rem; font-weight:700;" onclick="clickSavedLocalAccountToLogin('${safeUser}')">登录</button>
+                    <button type="button" class="md3-icon-btn" onclick="removeLocalAccount('${safeUser}')" title="删除本地账号" style="width:32px; height:32px; border-radius:50%; background:#e2e8f0; border:none; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;">
+                        <span class="material-symbols-rounded" style="font-size:16px; color:#475569;">close</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+window.renderSavedLocalAccounts = renderSavedLocalAccounts;
+
+async function clickSavedLocalAccountToLogin(username) {
+    const accounts = getLocalAccounts();
+    const acc = accounts.find(a => a.username === username);
+    if (!acc) return;
+
+    if (acc.hasPassword) {
+        const pwd = prompt(`请输入本地账号“${username}”的密码：`);
+        if (pwd === null) return;
+        const hashed = await hashPassword(pwd);
+        if (hashed !== acc.passwordHash) {
+            return showToast('密码错误，请重新输入');
+        }
+    }
+
+    loginLocalAccount(acc);
+}
+window.clickSavedLocalAccountToLogin = clickSavedLocalAccountToLogin;
+
+function loginLocalAccount(acc) {
+    const accounts = getLocalAccounts();
+    acc.lastLoginTime = Date.now();
+    const idx = accounts.findIndex(a => a.username === acc.username);
+    if (idx >= 0) accounts[idx] = acc;
+    saveLocalAccounts(accounts);
+
+    let rank = acc.rank || acc.initialRank || 1;
+    if (typeof LevelManager !== 'undefined') {
+        const rd = LevelManager.getUserRankData(acc.username);
+        rank = rd.rank;
+    }
+
+    currentUserProfile = {
+        isLoggedIn: true,
+        type: 'local',
+        username: acc.username,
+        avatar: acc.avatar || '',
+        rank: rank
+    };
+
+    SafeStorage.setItem('vocab_local_current_user', acc.username);
+    SafeStorage.setItem('vocab_pk_user', acc.username);
+    SafeStorage.removeItem('vocab_user_logged_out');
+
+    loadUserData(acc.username, currentUserProfile);
+
+    showToast(`欢迎回来本地账号 ${acc.username}！`);
+    switchView('view-hub');
+    if (typeof updateHub === 'function') updateHub();
+    if (typeof renderMeView === 'function') renderMeView();
+}
+
+function removeLocalAccount(username) {
+    if (!confirm(`确定要从本设备删除本地账号“${username}”吗？其做题记录将一并清除。`)) return;
+    let accounts = getLocalAccounts();
+    accounts = accounts.filter(a => a.username !== username);
+    saveLocalAccounts(accounts);
+
+    // 清除该本地用户的专属数据
+    try {
+        SafeStorage.removeItem(`vocab_stats_${username}`);
+        SafeStorage.removeItem(`vocab_rank_data_${username}`);
+        SafeStorage.removeItem(`vocab_ebbinghaus_db_${username}`);
+        SafeStorage.removeItem(`vocab_mastered_words_${username}`);
+        SafeStorage.removeItem(`vocab_daily_logs_${username}`);
+        SafeStorage.removeItem(`vocab_single_selected_books_${username}`);
+    } catch (e) {}
+
+    if (currentUser === username) {
+        currentUser = null;
+        currentUserProfile = null;
+        SafeStorage.removeItem('vocab_local_current_user');
+    }
+
+    renderSavedLocalAccounts();
+    showToast(`已删除本地账号“${username}”`);
+}
+window.removeLocalAccount = removeLocalAccount;
+
+async function handleLocalRegister() {
+    const nameInp = document.getElementById('auth-local-reg-username');
+    const pwdInp = document.getElementById('auth-local-reg-password');
+    const username = (nameInp ? nameInp.value : '').trim();
+    const password = (pwdInp ? pwdInp.value : '').trim();
+
+    if (!username) {
+        return showToast('请输入用户名');
+    }
+    if (username.length < 2 || username.length > 16) {
+        return showToast('用户名长度需在 2 到 16 个字符之间');
+    }
+    if (username.startsWith('游客')) {
+        return showToast('用户名不能以“游客”开头');
+    }
+
+    const accounts = getLocalAccounts();
+    if (accounts.some(a => a.username === username)) {
+        return showToast(`本地账号“${username}”已存在，请直接登录`);
+    }
+
+    let passwordHash = '';
+    if (password) {
+        passwordHash = await hashPassword(password);
+    }
+
+    const initRank = localRegSelectedRank || 1;
+    const initRating = (initRank - 1) * 100 + 50;
+
+    const newAcc = {
+        username: username,
+        passwordHash: passwordHash,
+        hasPassword: !!password,
+        initialRank: initRank,
+        rank: initRank,
+        rating: initRating,
+        avatar: '',
+        createdAt: Date.now(),
+        lastLoginTime: Date.now()
+    };
+
+    // 初始化段位数据
+    if (typeof LevelManager !== 'undefined') {
+        LevelManager.saveUserRankData(username, {
+            rank: initRank,
+            rating: initRating,
+            battles: { total: 0, wins: 0, losses: 0, draws: 0 }
+        });
+    }
+
+    // 初始化基础空数据
+    SafeStorage.setItem(`vocab_stats_${username}`, JSON.stringify({ total: 0, correct: 0, mistakes: {} }));
+    SafeStorage.setItem(`vocab_ebbinghaus_db_${username}`, JSON.stringify({}));
+
+    accounts.unshift(newAcc);
+    saveLocalAccounts(accounts);
+
+    if (nameInp) nameInp.value = '';
+    if (pwdInp) pwdInp.value = '';
+
+    showToast(`本地账号“${username}”创建成功！初始段位：${initRank}段`);
+    loginLocalAccount(newAcc);
+}
+window.handleLocalRegister = handleLocalRegister;
 
 function getSavedDeviceAccounts() {
     try {
@@ -506,6 +769,20 @@ function handleAuthBack() {
 window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        currentUser = null;
+        currentUserProfile = null;
+        SafeStorage.setItem('vocab_user_logged_out', 'true');
+        SafeStorage.removeItem('vocab_local_current_user');
+        SafeStorage.removeItem('vocab_auth_session');
+        if (notify) {
+            showToast('已退出登录');
+        }
+        switchView('view-auth');
+        renderAuthView();
+        return;
+    }
+
     const prevUser = currentUser;
     const guestName = getUniqueGuestName();
     if (typeof cleanAccountSwitchPresence === 'function' && prevUser) {
@@ -537,6 +814,10 @@ function handleAuthLogout(notify = true) {
 function handleSwitchAccount() {
     // 切换账号时不提前登出，保留原登录态，待用户登录新账号成功后再切换
     switchView('view-auth');
-    switchAuthTab('login');
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        switchLocalAuthTab('login');
+    } else {
+        switchAuthTab('login');
+    }
 }
 window.handleSwitchAccount = handleSwitchAccount;

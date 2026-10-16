@@ -60,6 +60,21 @@
         #btn-poster-change-bg:disabled { pointer-events: none; }
         /* 仅在 Electron 桌面端显示的专属按钮 */
         body:not(.is-electron) .electron-only-btn { display: none !important; }
+        /* 离线模式下隐藏在线专属元素：远程联机按钮、在线玩家列表、Wordle排行榜、对战卡片状态徽标等 */
+        body.is-offline-mode #btn-enter-online,
+        body.is-offline-mode #hub-online-players-card,
+        body.is-offline-mode #tab-lb-wordle,
+        body.is-offline-mode #lb-wordle-section,
+        body.is-offline-mode #hub-online-offline-badge {
+            display: none !important;
+        }
+        body.is-offline-mode #auth-web-container,
+        body.is-offline-mode #auth-toy-container {
+            display: none !important;
+        }
+        body:not(.is-offline-mode) #auth-offline-container {
+            display: none !important;
+        }
     </style>
     <!-- 捕获本地/独立标签页测试时 ToySDK 找不到宿主父窗口导致的握手超时异常 -->
     <script>
@@ -81,8 +96,8 @@
             document.head.appendChild(toyScript);
         }
     </script>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase JS Client (本地直接加载，零延迟秒开且离线无网环境下不卡顿) -->
+    <script src="./assets/js/core/supabase.client.js"></script>
     <!-- 引入主样式表 -->
     <link rel="stylesheet" href="./assets/css/style.css">
     <!-- 核心基础设施 (Core Infrastructure) -->
@@ -126,6 +141,7 @@
     <script src="./assets/js/views/shici.js"></script>
     <script src="./assets/js/views/settings.js"></script>
     <script src="./assets/js/views/search.js"></script>
+    <script src="./assets/js/views/export-data.js"></script>
 
     <!-- 应用主启动入口 (Bootstrap Entry) -->
     <script src="./assets/js/app.js"></script>
@@ -615,6 +631,85 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 离线模式专属登录与注册容器 -->
+                <div id="auth-offline-container" style="display: none;">
+                    <div style="margin-bottom: 16px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background: var(--md-sys-color-secondary-container, #e2e8f0); color: var(--md-sys-color-on-secondary-container, #334155); font-size: 0.8rem; font-weight: 700;">
+                        <span class="material-symbols-rounded" style="font-size: 16px;">wifi_off</span>
+                        <span>离线模式</span>
+                    </div>
+
+                    <!-- 标签栏：本地登录 / 注册本地账号 -->
+                    <div class="auth-tabs-row">
+                        <button type="button" class="auth-tab-btn active" id="tab-auth-local-login" onclick="switchLocalAuthTab('login')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">badge</span>
+                            <span>本地账号登录</span>
+                        </button>
+                        <button type="button" class="auth-tab-btn" id="tab-auth-local-register" onclick="switchLocalAuthTab('register')">
+                            <span class="material-symbols-rounded" style="font-size:18px;">person_add</span>
+                            <span>注册本地账号</span>
+                        </button>
+                    </div>
+
+                    <!-- 本地账号登录表单 -->
+                    <div id="auth-local-login-section" class="auth-form-body">
+                        <div id="auth-local-saved-accounts-section" style="width:100%; margin-bottom:12px;">
+                            <div style="font-size:0.88rem; font-weight:700; color:var(--md-sys-color-on-surface); margin-bottom:8px; text-align:left;">
+                                <span>已注册的本地账号：</span>
+                            </div>
+                            <div id="auth-local-saved-accounts-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        </div>
+
+                        <!-- 手动本地登录框 (可选密码验证) -->
+                        <div id="auth-local-manual-form" style="width:100%; display:none; flex-direction:column; gap:12px; margin-top:8px;">
+                            <div class="md3-text-field">
+                                <input type="text" id="auth-local-login-username" class="md3-text-field-input" placeholder=" " maxlength="20" autocomplete="username">
+                                <label for="auth-local-login-username" class="md3-text-field-label">用户名</label>
+                            </div>
+                            <div class="md3-text-field" id="auth-local-password-group" style="display:none;">
+                                <input type="password" id="auth-local-login-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitLocalAccountLogin()">
+                                <label for="auth-local-login-password" class="md3-text-field-label">密码 (若设置过)</label>
+                            </div>
+                            <button type="button" class="btn btn-filled auth-submit-btn" onclick="submitLocalAccountLogin()">
+                                <span class="material-symbols-rounded" style="font-size:18px;">login</span>
+                                <span class="btn-label-text">确认登录</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 本地账号注册表单 -->
+                    <div id="auth-local-register-section" class="auth-form-body" style="display:none;">
+                        <div class="md3-text-field">
+                            <input type="text" id="auth-local-reg-username" class="md3-text-field-input" placeholder=" " maxlength="16" autocomplete="username">
+                            <label for="auth-local-reg-username" class="md3-text-field-label">设置用户名 (2-16位，必填)</label>
+                        </div>
+                        <div class="md3-text-field">
+                            <input type="password" id="auth-local-reg-password" class="md3-text-field-input" placeholder=" " maxlength="32" autocomplete="new-password">
+                            <label for="auth-local-reg-password" class="md3-text-field-label">设置密码 (选填，留空则免密登录)</label>
+                        </div>
+
+                        <!-- 初始段位选择 (1-3段) -->
+                        <div style="margin: 6px 0 14px; text-align: left; width: 100%;">
+                            <label style="font-size:0.85rem; font-weight:600; color:var(--md-sys-color-on-surface); display:block; margin-bottom:8px;">选择初始段位：</label>
+                            <div class="chip-group" id="chips-local-reg-rank" style="display:flex; gap:8px;">
+                                <div class="md3-chip selected" data-rank="1" onclick="selectLocalRegRank(1)">1段</div>
+                                <div class="md3-chip" data-rank="2" onclick="selectLocalRegRank(2)">2段</div>
+                                <div class="md3-chip" data-rank="3" onclick="selectLocalRegRank(3)">3段</div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-filled auth-submit-btn" id="btn-auth-local-register" onclick="handleLocalRegister()">
+                            <span class="material-symbols-rounded" style="font-size:18px;">person_add</span>
+                            <span class="btn-label-text">创建并登录本地账号</span>
+                        </button>
+                    </div>
+
+                    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--md-sys-color-outline-variant);">
+                        <button type="button" class="btn btn-outlined auth-secondary-btn" onclick="continueAsGuest()">
+                            以临时游客继续
+                        </button>
+                    </div>
+                </div>
             </div>
             <footer class="site-global-footer">
                 <div>Copyright © 2026 词迹 All Rights Reserved.</div>
@@ -765,22 +860,22 @@
                         <h3>对战</h3>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%;">
-                        <div class="mode-card-btn-row">
-                            <button class="btn btn-filled" id="btn-enter-online" onclick="handleEnterOnlineClick()"
-                                style="background: #006874;">
-                                <span class="material-symbols-rounded">sports_esports</span>
-                                <span class="btn-label-text">远程联机</span>
-                            </button>
-                            <button class="btn btn-tonal" id="btn-enter-local-duel" onclick="openLocalDuelSettings()"
-                                style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
+                        <div class="mode-card-btn-row" id="hub-duel-btn-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                            <button class="btn btn-filled" id="btn-enter-local-duel" onclick="openLocalDuelSettings()"
+                                style="min-height: 40px; height: 40px; background: #0061a4; color: #ffffff; font-weight: 600; border: none;">
                                 <span class="material-symbols-rounded">touch_app</span>
                                 <span class="btn-label-text">同屏对决</span>
                             </button>
+                            <button class="btn btn-tonal" id="btn-enter-ai-duel" onclick="openAiDuelSettings()"
+                                style="min-height: 40px; height: 40px; background: #F3E8FF; color: #7E22CE; font-weight: 600; border: none;">
+                                <span class="material-symbols-rounded">smart_toy</span>
+                                <span class="btn-label-text">人机对战</span>
+                            </button>
                         </div>
-                        <button class="btn btn-tonal" onclick="openAiDuelSettings()"
-                            style="width: 100%; min-height: 40px; height: 40px; background: #E8DEF8; color: #4F378B;">
-                            <span class="material-symbols-rounded">smart_toy</span>
-                            <span class="btn-label-text">人机对战</span>
+                        <button class="btn btn-filled" id="btn-enter-online" onclick="handleEnterOnlineClick()"
+                            style="width: 100%; min-height: 40px; height: 40px; background: #006874; color: #ffffff;">
+                            <span class="material-symbols-rounded">sports_esports</span>
+                            <span class="btn-label-text">远程联机</span>
                         </button>
                     </div>
                 </div>
@@ -1188,7 +1283,7 @@
                                 <span class="material-symbols-rounded">folder_managed</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>云端和本地词书</h4>
+                                <h4>管理词书</h4>
                                 <p id="settings-books-summary-text">查看云端与本地词书、学习进度、新建/重学词书、导入与分类管理</p>
                             </div>
                         </div>
@@ -1247,6 +1342,23 @@
                 <div class="settings-card">
                     <div class="settings-row" style="justify-content:space-between; align-items:center;">
                         <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
+                                <span class="material-symbols-rounded" id="settings-offline-mode-icon">wifi_off</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>离线模式</h4>
+                                <p id="settings-offline-mode-desc">开启后完全使用本地数据，不进行任何网络通信</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" id="toggle-offline-mode-label">
+                            <input type="checkbox" id="toggle-offline-mode" onchange="handleToggleOfflineMode(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
+                        <div class="settings-row-left">
                             <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
                                 <span class="material-symbols-rounded">cloud_sync</span>
                             </div>
@@ -1262,31 +1374,17 @@
                             </span>
                         </label>
                     </div>
-                    <div class="settings-row" style="flex-wrap:wrap; gap:12px;">
-                        <div class="settings-row-left" style="flex:1; min-width:200px;">
+                    <div class="settings-row clickable" onclick="openExportStudyDataView()" style="cursor:pointer; justify-content:space-between; align-items:center;">
+                        <div class="settings-row-left">
                             <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">cloud_download</span>
+                                <span class="material-symbols-rounded">download_for_offline</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4>备份与恢复</h4>
-                                <p>导入或导出所有配置与学习记录</p>
+                                <h4>下载学习数据</h4>
+                                <p>自定义筛选日期与内容类型，导出为排版精美的 PDF 文档</p>
                             </div>
                         </div>
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                            <button type="button" class="btn btn-filled btn-sm electron-only-btn" onclick="ElectronManager.openBackupsModal()" title="查看本地备份历史及安全还原">
-                                <span class="material-symbols-rounded" style="font-size:16px;">inventory_2</span>
-                                <span class="btn-label-text">本地备份管理</span>
-                            </button>
-                            <button type="button" class="btn btn-tonal btn-sm" onclick="exportUserConfigAndProgress()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">download</span>
-                                <span class="btn-label-text">导出备份</span>
-                            </button>
-                            <button type="button" class="btn btn-outlined btn-sm" onclick="document.getElementById('settings-backup-input').click()">
-                                <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
-                                <span class="btn-label-text">导入备份</span>
-                            </button>
-                            <input type="file" id="settings-backup-input" accept=".json" style="display:none;" onchange="importUserConfigAndProgress(event)">
-                        </div>
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
                     </div>
                 </div>
             </div>
@@ -1295,7 +1393,7 @@
             <div id="settings-subview-words" class="me-subview settings-subview">
                 <div class="subview-header">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <button type="button" class="nav-back-btn" onclick="openManageBooksPage('view-me')" title="返回词书">
+                        <button type="button" class="nav-back-btn" onclick="exitBookWordsView()" title="返回">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
                         <div>
@@ -1385,6 +1483,212 @@
 
                 <div class="trash-scroll-container">
                     <div id="settings-trash-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+            </div>
+
+            <!-- 子页面 7: 下载学习数据子页面 -->
+            <div id="settings-subview-export-data" class="me-subview settings-subview">
+                <div class="subview-header export-subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">下载学习数据</h3>
+                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">自定义筛选与排版导出学习清单与报告</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-data-layout-container">
+                    <!-- 左侧设置与操作栏 -->
+                    <div class="export-data-controls-col">
+                        <!-- 1. 数据起止日期 -->
+                        <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">calendar_month</span>
+                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据起止日期</h4>
+                                </div>
+                                <span id="export-selected-date-desc" style="font-size:0.8rem; color:var(--md-sys-color-outline);"></span>
+                            </div>
+                            <div class="settings-category-tabs" id="export-date-presets" style="margin-bottom:10px;">
+                                <button type="button" class="settings-cat-tab active" data-range="today" onclick="selectExportDatePreset('today')">今天</button>
+                                <button type="button" class="settings-cat-tab" data-range="yesterday" onclick="selectExportDatePreset('yesterday')">昨天</button>
+                                <button type="button" class="settings-cat-tab" data-range="week" onclick="selectExportDatePreset('week')">本周</button>
+                                <button type="button" class="settings-cat-tab" data-range="month" onclick="selectExportDatePreset('month')">本月</button>
+                                <button type="button" class="settings-cat-tab" data-range="all" onclick="selectExportDatePreset('all')">全部数据</button>
+                                <button type="button" class="settings-cat-tab" data-range="custom" onclick="selectExportDatePreset('custom')">指定日期段</button>
+                            </div>
+                            <div id="export-custom-date-row" style="display:none; gap:10px; align-items:center; margin-top:10px; padding:10px 12px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m); flex-wrap:wrap;">
+                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:140px;">
+                                    <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">起始日期：</span>
+                                    <input type="date" id="export-date-start" class="input-field" style="height:34px; padding:0 8px; font-size:0.85rem;" onchange="onExportDateRangeChanged()">
+                                </div>
+                                <span style="color:var(--md-sys-color-outline);">至</span>
+                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:140px;">
+                                    <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">结束日期：</span>
+                                    <input type="date" id="export-date-end" class="input-field" style="height:34px; padding:0 8px; font-size:0.85rem;" onchange="onExportDateRangeChanged()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 数据内容与信息定制 -->
+                        <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">dataset</span>
+                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据内容与展示信息</h4>
+                            </div>
+
+                            <div style="display:flex; flex-direction:column; gap:12px;">
+                                <!-- 单词 -->
+                                <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                                            <input type="checkbox" id="export-check-words" checked onchange="toggleExportContentSection('words', this.checked)">
+                                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:18px;">spellcheck</span>
+                                            <span>单词 (Words)</span>
+                                        </label>
+                                        <span id="export-count-words" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
+                                    </div>
+                                    <div id="export-subfields-words" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
+                                        <label class="export-field-chk"><input type="checkbox" id="field-words-phone" checked onchange="renderExportPreview()"><span>音标</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-words-pos" checked onchange="renderExportPreview()"><span>词性</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-words-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-words-example" checked onchange="renderExportPreview()"><span>例句</span></label>
+                                    </div>
+                                </div>
+
+                                <!-- 词组 -->
+                                <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                                            <input type="checkbox" id="export-check-phrases" checked onchange="toggleExportContentSection('phrases', this.checked)">
+                                            <span class="material-symbols-rounded" style="color:#0284c7; font-size:18px;">format_quote</span>
+                                            <span>词组 (Phrases)</span>
+                                        </label>
+                                        <span id="export-count-phrases" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
+                                    </div>
+                                    <div id="export-subfields-phrases" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
+                                        <label class="export-field-chk"><input type="checkbox" id="field-phrases-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
+                                    </div>
+                                </div>
+
+                                <!-- 实词 -->
+                                <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                                            <input type="checkbox" id="export-check-shici" checked onchange="toggleExportContentSection('shici', this.checked)">
+                                            <span class="material-symbols-rounded" style="color:#d97706; font-size:18px;">history_edu</span>
+                                            <span>实词 (文言)</span>
+                                        </label>
+                                        <span id="export-count-shici" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
+                                    </div>
+                                    <div id="export-subfields-shici" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
+                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>例句（含典籍出处）</span></label>
+                                    </div>
+                                </div>
+
+                                <!-- 错题 -->
+                                <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                                            <input type="checkbox" id="export-check-mistakes" checked onchange="toggleExportContentSection('mistakes', this.checked)">
+                                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-error); font-size:18px;">error_outline</span>
+                                            <span>错题 (Mistakes)</span>
+                                        </label>
+                                        <span id="export-count-mistakes" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
+                                    </div>
+                                    <div id="export-subfields-mistakes" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
+                                        <label class="export-field-chk"><input type="checkbox" id="field-mistakes-wrong" checked onchange="renderExportPreview()"><span>错误搭配</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-mistakes-correct" checked onchange="renderExportPreview()"><span>正确搭配</span></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 导出格式、尺寸与主题外观 -->
+                        <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">palette</span>
+                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">导出格式与排版风格</h4>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px;">
+                                <!-- 文档大标题修改 -->
+                                <div style="grid-column: 1 / -1;">
+                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">文档大标题：</label>
+                                    <input type="text" id="export-custom-title-input" class="input-field" value="词迹 · 学习数据导出清单" placeholder="请输入自定义标题..." style="width:100%; height:40px; border-radius:var(--md-shape-m); font-size:0.88rem; padding:0 12px; box-sizing:border-box;" oninput="renderExportPreview()">
+                                </div>
+
+                                <!-- 导出格式 (仅支持 PDF / MD / TXT) -->
+                                <div>
+                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">导出格式：</label>
+                                    <select id="export-format-select" class="md3-select" style="width:100%; height:40px;" onchange="onExportFormatChanged(this.value)">
+                                        <option value="pdf" selected>PDF 文档 (.pdf)</option>
+                                        <option value="md">Markdown 文件 (.md)</option>
+                                        <option value="txt">纯文本文件 (.txt)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 尺寸选择 (A4, A5, B5, Letter) -->
+                                <div id="export-size-select-col">
+                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">纸张尺寸：</label>
+                                    <select id="export-paper-size" class="md3-select" style="width:100%; height:40px;" onchange="renderExportPreview()">
+                                        <option value="a4" selected>A4 标准纸 (210 × 297 mm)</option>
+                                        <option value="a5">A5 便携手账 (148 × 210 mm)</option>
+                                        <option value="b5">B5 习题本 (176 × 250 mm)</option>
+                                        <option value="letter">Letter 信纸 (216 × 279 mm)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 主题外观预设 -->
+                                <div id="export-theme-select-col">
+                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">主题外观：</label>
+                                    <select id="export-theme-preset" class="md3-select" style="width:100%; height:40px;" onchange="renderExportPreview()">
+                                        <option value="blue" selected>词迹蓝韵 (WordTrace Blue)</option>
+                                        <option value="minimal">典雅极简 (高对比省墨黑白)</option>
+                                        <option value="green">晨曦森林 (护眼翡翠绿调)</option>
+                                        <option value="warm">暮光温润 (暖杏护眼纸感)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 唯一的下载按钮（根据选中的格式下载） -->
+                        <div class="export-action-row" style="margin-top: 4px; margin-bottom: 24px;">
+                            <button type="button" class="btn btn-filled" id="btn-export-download-file" onclick="handleExportDownloadClick()" style="width:100%; height:46px; font-size:0.95rem; font-weight:700; border-radius:var(--md-shape-full); box-shadow: 0 3px 10px rgba(0, 97, 164, 0.28); display:flex; align-items:center; justify-content:center; gap:8px;">
+                                <span class="material-symbols-rounded" style="font-size:20px;">download</span>
+                                <span id="export-download-btn-label">下载文件</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 右侧实时效果预览区域 -->
+                    <div class="export-data-preview-col">
+                        <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">preview</span>
+                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">文档排版实时预览</h4>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span id="export-live-total-badge" class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-size:0.8rem; font-weight:600;">共 0 项</span>
+                                    <button type="button" class="btn btn-outlined btn-sm" onclick="renderExportPreview()" title="刷新预览">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 模拟纸张与文本预览容器 -->
+                            <div class="export-preview-viewport" style="background:#334155; padding:24px 12px; border-radius:var(--md-shape-m); overflow-x:auto; display:flex; justify-content:center; min-height:500px;">
+                                <div id="export-preview-paper" class="export-preview-paper">
+                                    <!-- 动态插入预览内容 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2396,6 +2700,7 @@
                     </div>
                 </div>
 
+
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">aspect_ratio</span>
                     <span>显示</span>
@@ -2632,8 +2937,12 @@
                 </div>
 
                 <!-- 汇总提示与状态 -->
-                <div class="book-selector-info-row">
+                <div class="book-selector-info-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <span class="book-selector-summary-chip" id="book-selector-summary-chip">已选 1 本词书</span>
+                    <button type="button" class="btn btn-text btn-sm" id="btn-clear-selected-books" onclick="clearAllSelectedBooksInCurrentMode()" style="color:var(--md-sys-color-error); font-size:0.82rem; padding: 4px 8px; height: auto; min-height: 28px;">
+                        <span class="material-symbols-rounded" style="font-size:16px;">clear_all</span>
+                        <span>清空已选</span>
+                    </button>
                 </div>
 
                 <!-- 词书卡片容器 -->
@@ -2660,28 +2969,32 @@
                 </div>
 
                 <!-- 汇总提示与操作栏 (在一行内左右排布) -->
-                <div class="book-selector-info-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <span class="book-selector-summary-chip" id="manage-books-summary-chip">共 0 本词书</span>
+                <div class="book-selector-info-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span class="book-selector-summary-chip" id="manage-books-summary-chip">共 0 本词书</span>
+                        <div id="manage-category-tools" style="display:none; align-items:center; gap:4px;">
+                            <button type="button" class="btn btn-text btn-sm" onclick="promptRenameCurrentCategory()" title="重命名当前分类" style="font-size:0.8rem; padding:3px 8px; height:26px;">
+                                <span class="material-symbols-rounded" style="font-size:15px;">edit</span>
+                                <span>重命名</span>
+                            </button>
+                            <button type="button" class="btn btn-text btn-sm" onclick="promptDeleteCurrentCategory()" title="删除当前分类" style="font-size:0.8rem; padding:3px 8px; height:26px; color:var(--md-sys-color-error);">
+                                <span class="material-symbols-rounded" style="font-size:15px;">folder_delete</span>
+                                <span>删除分类</span>
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- 操作栏：导入词书与新建 (移到与“共 X 本词书”同行的右侧，且仅在“我的”分类下显示) -->
                     <div id="manage-books-actions-bar" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-tonal btn-sm" id="btn-manage-create-category" onclick="promptCreateLocalCategory()" title="新建分类文件夹" style="display:none;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">create_new_folder</span>
+                            <span class="btn-label-text">新建分类</span>
+                        </button>
                         <button type="button" class="btn btn-tonal btn-sm electron-only-btn" onclick="ElectronManager.openBooksFolder()" title="在文件管理器中打开词书专属目录">
                             <span class="material-symbols-rounded" style="font-size:18px;">folder_open</span>
                             <span class="btn-label-text">打开词书目录</span>
                         </button>
-                        <button type="button" class="btn btn-outlined btn-sm electron-only-btn" onclick="ElectronManager.scanAndSyncLocalBooks(false)" title="扫描词书目录中的新词书并加载">
-                            <span class="material-symbols-rounded" style="font-size:18px;">sync</span>
-                            <span class="btn-label-text">扫描词书</span>
-                        </button>
-                        <button type="button" class="btn btn-tonal btn-sm" onclick="document.getElementById('manage-books-import-file').click()" title="导入本地 JSON 词书">
-                            <span class="material-symbols-rounded" style="font-size:18px;">upload_file</span>
-                            <span class="btn-label-text">导入词书</span>
-                        </button>
                         <input type="file" id="manage-books-import-file" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateCustomBook()" title="新建词书">
-                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                            <span class="btn-label-text">新建</span>
-                        </button>
                     </div>
                 </div>
 
@@ -3543,6 +3856,14 @@
                     </div>
                 </div>
 
+                <div class="rule-group" id="group-local-duel-match-type">
+                    <span class="rule-label">对战模式</span>
+                    <div class="chip-group" id="chips-local-duel-match-type">
+                        <div class="md3-chip selected" data-type="ranked" data-match-type="ranked" onclick="selectLocalDuelMatchType('ranked')">排位赛</div>
+                        <div class="md3-chip" data-type="friendly" data-match-type="friendly" onclick="selectLocalDuelMatchType('friendly')">友谊赛</div>
+                    </div>
+                </div>
+
                 <div class="rule-group">
                     <span class="rule-label">选择对手 (蓝方)</span>
                     <div class="chip-group" id="chips-local-duel-opponents"></div>
@@ -4050,6 +4371,26 @@
         </div>
     </div>
 
+    <!-- 全局输入弹窗 (替代不支持的系统 prompt，完美兼容 Electron 与所有浏览器) -->
+    <div id="modal-app-prompt" class="modal-overlay" style="z-index: 10002;">
+        <div class="modal-card" style="max-width: 400px; width: 92%; border-radius: var(--md-shape-xl, 24px); padding: 22px;">
+            <div class="modal-header" style="margin-bottom: 12px; padding: 0;">
+                <h3 id="app-prompt-title" style="margin:0; font-size:1.15rem; font-weight:700; color:var(--md-sys-color-on-surface);">请输入</h3>
+                <button type="button" class="modal-close-btn" onclick="resolveAppPrompt(null)">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 0; margin-bottom: 0;">
+                <p id="app-prompt-message" style="margin: 0 0 12px; font-size: 0.92rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5;"></p>
+                <input type="text" id="app-prompt-input" class="input-text" style="width: 100%; box-sizing: border-box; font-size: 0.95rem; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--md-sys-color-outline-variant);" onkeydown="if(event.key==='Enter') resolveAppPrompt(this.value)">
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:14px 0 0 0; margin-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
+                <button type="button" class="btn btn-outlined btn-sm" id="app-prompt-btn-cancel" onclick="resolveAppPrompt(null)">取消</button>
+                <button type="button" class="btn btn-filled btn-sm" id="app-prompt-btn-ok" onclick="resolveAppPrompt(document.getElementById('app-prompt-input').value)">确认</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 头像裁切与区域调整弹窗 -->
     <div id="modal-avatar-cropper" class="modal-overlay">
         <div class="modal-card" style="max-width: 380px; width: 92%;">
@@ -4264,6 +4605,27 @@
                     <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
                     <span>删除词书</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动词书至其他分类弹窗 -->
+    <div id="modal-move-book-category" class="modal-overlay" onclick="closeMoveBookCategoryModal()">
+        <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 360px; width: 90%; border-radius: var(--md-shape-xl, 24px); padding: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 id="move-book-modal-title" style="margin:0; font-size:1.05rem; font-weight:700;">移动词书至分类</h4>
+                <button type="button" class="modal-close-btn" onclick="closeMoveBookCategoryModal()">
+                    <span class="material-symbols-rounded" style="font-size:20px;">close</span>
+                </button>
+            </div>
+            <p style="font-size:0.85rem; color:var(--md-sys-color-outline); margin:0 0 12px;">选择目标分类文件夹：</p>
+            <div id="move-book-folder-options" style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; padding-right:4px;"></div>
+            <div style="margin-top:14px; border-top:1px solid var(--md-sys-color-outline-variant); padding-top:12px; display:flex; justify-content:space-between; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-sm" onclick="promptCreateAndMoveBook()" style="flex:1;">
+                    <span class="material-symbols-rounded" style="font-size:16px;">create_new_folder</span>
+                    <span>新建分类并移动</span>
+                </button>
+                <button type="button" class="btn btn-text btn-sm" onclick="closeMoveBookCategoryModal()">取消</button>
             </div>
         </div>
     </div>

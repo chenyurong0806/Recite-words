@@ -199,14 +199,17 @@ function playWordAudio(rawText, type = null) {
 
     // ----------------------------------------------------------------------
     // 场景 2：英语词组 (English Phrases)
-    // 策略：口语化扩展后，原生英语语音引擎优先（0 网络往返，语调平滑连贯）
+    // 策略：仅在无网环境下播放系统自带语音，有网环境下播放有道语音
     // ----------------------------------------------------------------------
     if (category === 'english_phrase') {
         const spokenPhrase = normalizePhraseForSpeech(cleanText);
-        const nativeSuccess = speakNative(spokenPhrase, type === 1 ? 'en-GB' : 'en-US', 0.92);
-        if (nativeSuccess) return;
+        const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode()) || (typeof navigator !== 'undefined' && !navigator.onLine) || window._isDeviceOfflineForce;
+        if (isOffline) {
+            speakNative(spokenPhrase, type === 1 ? 'en-GB' : 'en-US', 0.92);
+            return;
+        }
 
-        // 备用网络音频
+        // 有网环境下播放有道网络音频
         const url = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(spokenPhrase)}`;
         playNetworkAudioFallback(url);
         return;
@@ -214,8 +217,14 @@ function playWordAudio(rawText, type = null) {
 
     // ----------------------------------------------------------------------
     // 场景 3：英语单词 (English Single Words)
-    // 策略：内存缓存池优先（0 延迟秒开） + 高速网络 Audio 并行竞速 + 260ms 超时无缝降级
+    // 策略：仅在无网环境下播放系统自带语音；在线环境下仅播放有道语音，绝不重叠混音
     // ----------------------------------------------------------------------
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode()) || (typeof navigator !== 'undefined' && !navigator.onLine) || window._isDeviceOfflineForce;
+    if (isOffline) {
+        speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
+        return;
+    }
+
     const wordKey = `${cleanText.toLowerCase()}_type${type}`;
 
     // 命中缓存：直接 0 延迟秒播
@@ -225,7 +234,9 @@ function playWordAudio(rawText, type = null) {
             cachedAudio.currentTime = 0;
             currentActiveAudio = cachedAudio;
             cachedAudio.play().catch(() => {
-                speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
+                if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                    speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
+                }
             });
             return;
         } catch (e) {
@@ -233,50 +244,30 @@ function playWordAudio(rawText, type = null) {
         }
     }
 
-    // 未命中缓存：发起网络请求，并启动 260ms 超时竞速降级
+    // 未命中缓存：在线环境下播放有道语音，不启动系统并发定时器，彻底防止混音
     const netUrl = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`;
     const audio = new Audio(netUrl);
     currentActiveAudio = audio;
-
-    let hasStartedSpeaking = false;
-    let fallbackTimer = null;
-
-    // 降级保障：如果网络在 260ms 内还没能出声，立即由本地原生语音兜底，消除漫长等待
-    fallbackTimer = setTimeout(() => {
-        if (!hasStartedSpeaking) {
-            hasStartedSpeaking = true;
-            speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
-        }
-    }, 260);
-
-    audio.onplaying = () => {
-        hasStartedSpeaking = true;
-        if (fallbackTimer) clearTimeout(fallbackTimer);
-    };
 
     audio.onended = () => {
         currentActiveAudio = null;
     };
 
     audio.onerror = () => {
-        if (fallbackTimer) clearTimeout(fallbackTimer);
-        if (!hasStartedSpeaking) {
-            hasStartedSpeaking = true;
+        currentActiveAudio = null;
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
             speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
         }
     };
 
-    // 放入缓存池
-    if (AudioCache.size >= MAX_CACHE_SIZE) {
-        const oldestKey = AudioCache.keys().next().value;
-        AudioCache.delete(oldestKey);
-    }
-    AudioCache.set(wordKey, audio);
-
-    audio.play().catch(err => {
-        if (fallbackTimer) clearTimeout(fallbackTimer);
-        if (!hasStartedSpeaking) {
-            hasStartedSpeaking = true;
+    audio.play().then(() => {
+        if (AudioCache.size >= MAX_CACHE_SIZE) {
+            const oldestKey = AudioCache.keys().next().value;
+            AudioCache.delete(oldestKey);
+        }
+        AudioCache.set(wordKey, audio);
+    }).catch(() => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
             speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
         }
     });

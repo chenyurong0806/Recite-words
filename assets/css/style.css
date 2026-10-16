@@ -6212,11 +6212,17 @@ body.nav-hidden {
 
 .settings-row.clickable {
     cursor: pointer;
-    transition: background var(--md-motion-standard);
+    transition: background 0.18s ease, transform 0.12s ease;
+    border-radius: var(--md-shape-m);
 }
 
 .settings-row.clickable:hover {
-    background: var(--md-sys-color-surface-container-low);
+    background: var(--md-sys-color-surface-container, #e2e8f0);
+}
+
+.settings-row.clickable:active {
+    background: var(--md-sys-color-surface-container-high, #cbd5e1);
+    transform: scale(0.995);
 }
 
 .me-account-action-row {
@@ -7654,9 +7660,11 @@ body.nav-hidden {
 
 .book-card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 14px;
     padding: 8px 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .book-cover-card {
@@ -7670,6 +7678,8 @@ body.nav-hidden {
     position: relative;
     transition: all var(--md-motion-standard);
     user-select: none;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .book-cover-card:hover {
@@ -7730,6 +7740,10 @@ body.nav-hidden {
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .book-cover-art-count {
@@ -8605,4 +8619,442 @@ body.nav-hidden {
         box-sizing: border-box !important;
     }
 }
+
+/* 仅在无法联网的情况下由 JS 动态移除更换海报背景按钮 */
+
+/* ==========================================================================
+   本地模式独立文件夹树样式 (支持嵌套子文件夹、拖拽导入与拖动分类)
+   ========================================================================== */
+.local-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.local-tree-folder {
+    border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
+    border-radius: 16px;
+    background: var(--md-sys-color-surface-container-low, #f8fafc);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.local-tree-folder.nested-subfolder {
+    margin-top: 10px;
+    background: var(--md-sys-color-surface, #ffffff);
+    border-left: 3px solid var(--md-sys-color-primary, #0061a4);
+}
+
+.local-tree-folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--md-sys-color-surface-container, #eef2f6);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    gap: 10px;
+    position: relative;
+}
+
+.local-tree-folder-header:hover {
+    background: var(--md-sys-color-surface-container-high, #e2e8f0);
+}
+
+.local-tree-folder-header.drag-folder-hover {
+    background: var(--md-sys-color-primary-container, #dbeafe) !important;
+    outline: 2px dashed var(--md-sys-color-primary, #0284c7) !important;
+    outline-offset: -2px;
+}
+
+.local-tree-folder-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.local-tree-chevron {
+    font-size: 20px;
+    color: var(--md-sys-color-outline, #64748b);
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+    flex-shrink: 0;
+}
+
+.local-tree-folder.collapsed .local-tree-chevron {
+    transform: rotate(-90deg);
+}
+
+.local-tree-folder-icon {
+    font-size: 20px;
+    color: var(--md-sys-color-primary, #0061a4);
+    flex-shrink: 0;
+}
+
+.local-tree-folder-name {
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.local-tree-folder-badge {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--md-sys-color-outline, #64748b);
+    background: var(--md-sys-color-surface-container-highest, #cbd5e1);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* 悬浮在文件夹行时，在右侧展示快捷操作按钮 (简化无包裹纯图标按钮) */
+.local-tree-folder-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transform: translateX(4px);
+    flex-shrink: 0;
+    background: transparent;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+}
+
+.local-tree-folder-header:hover .local-tree-folder-actions,
+.local-tree-folder-header:focus-within .local-tree-folder-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+@media (hover: none) {
+    .local-tree-folder-actions {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+    }
+}
+
+.tree-act-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant, #64748b);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    box-shadow: none;
+}
+
+.tree-act-btn .material-symbols-rounded {
+    font-size: 18px;
+    line-height: 1;
+    color: var(--md-sys-color-outline, #64748b);
+    transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.tree-act-btn:hover {
+    background: var(--md-sys-color-surface-container-high, #e2e8f0);
+    transform: none;
+    box-shadow: none;
+}
+
+.tree-act-btn:hover .material-symbols-rounded {
+    color: var(--md-sys-color-primary, #0061a4);
+    transform: scale(1.08);
+}
+
+.tree-act-btn:active {
+    transform: scale(0.92);
+}
+
+.tree-act-btn.danger {
+    background: transparent;
+    color: var(--md-sys-color-outline, #64748b);
+}
+
+.tree-act-btn.danger .material-symbols-rounded {
+    color: var(--md-sys-color-outline, #64748b);
+}
+
+.tree-act-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    box-shadow: none;
+}
+
+.tree-act-btn.danger:hover .material-symbols-rounded {
+    color: var(--md-sys-color-error, #ba1a1a);
+}
+
+.local-tree-folder-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.local-tree-folder.collapsed .local-tree-folder-body {
+    display: none;
+}
+
+.local-tree-empty-folder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 16px;
+    border: 1.5px dashed var(--md-sys-color-outline-variant, #cbd5e1);
+    border-radius: 12px;
+    color: var(--md-sys-color-outline, #64748b);
+    font-size: 0.86rem;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.local-tree-empty-folder.drag-folder-hover {
+    background: var(--md-sys-color-primary-container, #dbeafe) !important;
+    border-color: var(--md-sys-color-primary, #0284c7) !important;
+    color: var(--md-sys-color-primary, #0284c7);
+}
+
+.book-card-dragging {
+    opacity: 0.35 !important;
+    transform: scale(0.96);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ==========================================================================
+   下载学习数据 & 导出排版样式 (左右分栏 + MD3 统一美化 + 水印对齐)
+   ========================================================================== */
+.export-subview-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--md-sys-color-surface);
+    padding-top: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.export-data-layout-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 6px;
+    align-items: start;
+}
+
+@media (min-width: 920px) {
+    .export-data-layout-container {
+        grid-template-columns: minmax(360px, 440px) 1fr;
+        gap: 22px;
+    }
+    .export-data-controls-col {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .export-data-preview-col {
+        position: sticky;
+        top: 68px;
+        max-height: calc(100vh - 84px);
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+}
+
+@media (max-width: 919px) {
+    .export-data-controls-col {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+}
+
+/* 统一复选框与标签样式 */
+.export-field-chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 10px;
+    border-radius: var(--md-shape-full);
+    background: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    transition: all 0.16s ease;
+}
+
+.export-field-chk:hover {
+    background: var(--md-sys-color-surface-container-high);
+    border-color: var(--md-sys-color-primary);
+}
+
+.export-field-chk:has(input[type="checkbox"]:checked) {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-color: var(--md-sys-color-primary);
+    font-weight: 600;
+}
+
+.export-content-block {
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.export-content-block:hover {
+    border-color: var(--md-sys-color-outline) !important;
+}
+
+.export-content-block input[type="checkbox"],
+.export-field-chk input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--md-sys-color-primary);
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    vertical-align: middle;
+}
+
+/* 模拟纸张与页面字体统一 */
+.export-preview-paper {
+    background: #ffffff;
+    color: #1e293b;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 680px;
+    min-height: 800px;
+    padding: 36px 36px 70px 36px;
+    position: relative;
+    font-family: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.export-preview-paper.size-a4 {
+    max-width: 680px;
+}
+.export-preview-paper.size-a5 {
+    max-width: 520px;
+    padding: 24px 24px 60px 24px;
+}
+.export-preview-paper.size-b5 {
+    max-width: 600px;
+    padding: 28px 28px 65px 28px;
+}
+.export-preview-paper.size-letter {
+    max-width: 700px;
+}
+
+.export-preview-paper.theme-blue {
+    --paper-primary: #0061a4;
+    --paper-accent: #0284c7;
+    --paper-bg: #ffffff;
+    --paper-card-bg: #f8fafc;
+    --paper-card-border: #e2e8f0;
+}
+.export-preview-paper.theme-minimal {
+    --paper-primary: #0f172a;
+    --paper-accent: #334155;
+    --paper-bg: #ffffff;
+    --paper-card-bg: #ffffff;
+    --paper-card-border: #cbd5e1;
+}
+.export-preview-paper.theme-green {
+    --paper-primary: #0f766e;
+    --paper-accent: #059669;
+    --paper-bg: #f0fdf4;
+    --paper-card-bg: #ffffff;
+    --paper-card-border: #bbf7d0;
+}
+.export-preview-paper.theme-warm {
+    --paper-primary: #9a3412;
+    --paper-accent: #ea580c;
+    --paper-bg: #fffbeb;
+    --paper-card-bg: #ffffff;
+    --paper-card-border: #fed7aa;
+}
+
+/* 水印栏与上方内容精准对齐 */
+.pdf-watermark-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 36px;
+    right: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+    user-select: none;
+}
+
+.pdf-watermark-bar.toy-watermark {
+    justify-content: flex-end;
+}
+
+.export-preview-paper.size-a5 .pdf-watermark-bar {
+    left: 24px;
+    right: 24px;
+    bottom: 16px;
+}
+.export-preview-paper.size-b5 .pdf-watermark-bar {
+    left: 28px;
+    right: 28px;
+    bottom: 18px;
+}
+
+/* Markdown 和纯文本实时预览容器样式 */
+.export-markdown-preview {
+    background: #ffffff;
+    color: #1e293b;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 680px;
+    min-height: 500px;
+    padding: 30px 32px 40px;
+    font-family: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    line-height: 1.6;
+}
+
+.export-txt-preview {
+    background: #1e293b;
+    color: #f1f5f9;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 680px;
+    min-height: 500px;
+    padding: 24px 28px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Roboto Mono', monospace;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    line-height: 1.55;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+
+
 
