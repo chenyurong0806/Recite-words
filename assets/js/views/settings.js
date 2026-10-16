@@ -699,7 +699,7 @@ function exportUserConfigAndProgress() {
     try {
         const isCurrentLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.7.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             accountType: isCurrentLocal ? 'local' : 'online',
@@ -1544,12 +1544,23 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.7.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.8.0',
+        date: '2026-10-16',
+        badge: '当前版本',
+        items: [
+            '加入下载学习数据功能。',
+            '优化离线模式的词书分类系统。',
+            '离线模式下同屏对决支持选择其他本地账号作为对手。',
+            '优化更新功能。'
+        ]
+    },
     {
         version: 'v2.7.0',
         date: '2026-10-13',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '加入离线模式。',
             '更新词书并优化分类。',
@@ -1567,7 +1578,7 @@ const APP_CHANGELOG = [
     {
         version: 'v2.6.1',
         date: '2026-10-08',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '更新生成海报和分享功能。',
             '添加更多词书。',
@@ -1880,7 +1891,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.7.0'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.8.0'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;

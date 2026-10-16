@@ -3291,24 +3291,26 @@ function initGlobalPresence() {
     const initialStatus = isPlayingMatch ? 'playing' : 'idle';
 
     if (globalLobbyChannel) {
-        if (globalLobbyChannel.state === 'joined' && lobbyCurrentChannelUser === currentUser) {
-            try {
-                if (myPresenceStatus === 'invisible') {
-                    globalLobbyChannel.untrack();
-                } else {
-                    globalLobbyChannel.track({
-                        username: currentUser,
-                        sessionId: CLIENT_SESSION_ID,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                        level: myRank,
-                        rank: myRank,
-                        rating: myRating,
-                        isBili: isBili,
-                        status: initialStatus,
-                        joinedAt: Date.now()
-                    });
-                }
-            } catch (e) { }
+        if ((globalLobbyChannel.state === 'joined' || globalLobbyChannel.state === 'subscribing') && lobbyCurrentChannelUser === currentUser) {
+            if (globalLobbyChannel.state === 'joined') {
+                try {
+                    if (myPresenceStatus === 'invisible') {
+                        globalLobbyChannel.untrack();
+                    } else if (typeof globalLobbyChannel.track === 'function') {
+                        globalLobbyChannel.track({
+                            username: currentUser,
+                            sessionId: CLIENT_SESSION_ID,
+                            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                            level: myRank,
+                            rank: myRank,
+                            rating: myRating,
+                            isBili: isBili,
+                            status: initialStatus,
+                            joinedAt: Date.now()
+                        }).catch(() => {});
+                    }
+                } catch (e) { }
+            }
             return;
         } else {
             try {
@@ -3325,14 +3327,26 @@ function initGlobalPresence() {
     intentionalLobbyClose = false;
     lobbyCurrentChannelUser = currentUser;
 
-    globalLobbyChannel = sbClient.channel('lobby-room', {
+    // 清理任何残留在 Supabase 客户端中的 lobby-room 频道，防止 subscribe() 之后重复绑定 presence 监听抛错
+    try {
+        const existingChannels = (typeof sbClient.getChannels === 'function') ? sbClient.getChannels() : (sbClient.channels || []);
+        existingChannels.forEach(c => {
+            if (c && (c.topic === 'realtime:lobby-room' || c.topic === 'lobby-room')) {
+                try { c.untrack(); } catch (e) { }
+                try { sbClient.removeChannel(c); } catch (e) { }
+            }
+        });
+    } catch (e) { }
+
+    const chan = sbClient.channel('lobby-room', {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
         }
     });
+    globalLobbyChannel = chan;
 
-    globalLobbyChannel
+    chan
         .on('presence', { event: 'sync' }, () => {
             syncGlobalPresenceState();
             fetchOnlineRoomsList();
@@ -3386,6 +3400,7 @@ function initGlobalPresence() {
             }
         })
         .subscribe(async (status) => {
+            if (chan !== globalLobbyChannel) return;
             isConnectingLobby = false;
             if (typeof updateGlobalNetworkBadge === 'function') {
                 updateGlobalNetworkBadge(status);
@@ -3395,18 +3410,22 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
-                if (myPresenceStatus !== 'invisible') {
-                    await globalLobbyChannel.track({
-                        username: currentUser,
-                        sessionId: CLIENT_SESSION_ID,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                        level: myRank,
-                        rank: myRank,
-                        rating: myRating,
-                        isBili: isBili,
-                        status: initialStatus,
-                        joinedAt: Date.now()
-                    });
+                if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+                    try {
+                        await chan.track({
+                            username: currentUser,
+                            sessionId: CLIENT_SESSION_ID,
+                            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                            level: myRank,
+                            rank: myRank,
+                            rating: myRating,
+                            isBili: isBili,
+                            status: initialStatus,
+                            joinedAt: Date.now()
+                        });
+                    } catch (e) {
+                        console.warn('[Presence] track error:', e);
+                    }
                 }
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
@@ -3428,7 +3447,7 @@ function initGlobalPresence() {
                         lobbyReconnectTimer = null;
                         intentionalLobbyClose = false;
                         initGlobalPresence();
-                    }, 3000);
+                    }, 4000);
                 }
             }
         });

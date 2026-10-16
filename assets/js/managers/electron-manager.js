@@ -394,7 +394,7 @@ const ElectronManager = {
         const isLocal = typeof isLocalAccount === 'function' && isLocalAccount();
         const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
         return {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.7.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
             exportedAt: new Date().toISOString(),
             user: user,
             accountType: isLocal ? 'local' : 'online',

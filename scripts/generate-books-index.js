@@ -47,7 +47,7 @@ for (const cat of categories) {
 }
 
 const indexData = {
-  version: '2.7.0',
+  version: '2.8.0',
   generatedAt: Date.now(),
   categories: categories,
   books: books

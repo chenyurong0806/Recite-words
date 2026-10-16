@@ -5,9 +5,9 @@
  */
 
 if (typeof window !== 'undefined') {
-    window.APP_VERSION = '2.7.0';
+    window.APP_VERSION = '2.8.0';
 }
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.7.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
@@ -4493,7 +4493,7 @@ const ElectronManager = {
         const isLocal = typeof isLocalAccount === 'function' && isLocalAccount();
         const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
         return {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.7.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
             exportedAt: new Date().toISOString(),
             user: user,
             accountType: isLocal ? 'local' : 'online',
@@ -6989,7 +6989,7 @@ function openChangelogInSettings() {
  * ============================================================ */
 function handleDownloadLatestZip(downloadUrl, version) {
     const data = cachedLatestVersionData || {};
-    const finalVersion = version || data.version || APP_VERSION || '2.7.0';
+    const finalVersion = version || data.version || APP_VERSION || '2.8.0';
     const rawTag = normalizeTag(finalVersion);
 
     let targetUrl = downloadUrl || data.downloadUrl || data.mirrorDownloadUrl;
@@ -11054,7 +11054,10 @@ function renderTreeFolderNode(node, level = 0, isManageMode = false, options = {
                 ` : ''}
             </div>
 
-            <div class="local-tree-folder-body">
+            <div class="local-tree-folder-body"
+                 ondragover="handleLocalFolderDragOver(event, '${escapeHtml(node.path)}')"
+                 ondragleave="handleLocalFolderDragLeave(event)"
+                 ondrop="handleLocalFolderDrop(event, '${escapeHtml(node.path)}')">
                 ${node.subfolders.map(subNode => renderTreeFolderNode(subNode, level + 1, isManageMode, options)).join('')}
 
                 ${node.books.length > 0 ? `
@@ -11209,7 +11212,10 @@ function renderLocalFolderTree(containerId, options = {}) {
                         </div>
                     ` : ''}
                 </div>
-                <div class="local-tree-folder-body">
+                <div class="local-tree-folder-body"
+                     ondragover="handleLocalFolderDragOver(event, '')"
+                     ondragleave="handleLocalFolderDragLeave(event)"
+                     ondrop="handleLocalFolderDrop(event, '')">
                     ${tree.uncatBooks.length > 0 ? `
                         <div class="book-card-grid local-tree-book-grid">
                             ${tree.uncatBooks.map(b => renderBookCardItem(b, isManageMode, '')).join('')}
@@ -11301,20 +11307,24 @@ function handleLocalFolderDragOver(e, targetFolderPath) {
         }
     }
 
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.add('drag-folder-hover');
 }
 
 function handleLocalFolderDragLeave(e) {
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.remove('drag-folder-hover');
 }
 
 async function handleLocalFolderDrop(e, targetFolderPath) {
     e.preventDefault();
     e.stopPropagation();
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.remove('drag-folder-hover');
+    document.querySelectorAll('.drag-folder-hover').forEach(el => el.classList.remove('drag-folder-hover'));
 
     if (targetFolderPath === '__cloud__') {
         showToast('云端词书分类为只读，无法移动或导入至此');
@@ -11433,7 +11443,7 @@ async function actionRenameFolder(folderPath) {
 async function actionDeleteFolder(folderPath) {
     const ok = await showAppConfirm({
         title: '删除文件夹',
-        message: `确定要删除文件夹「${folderPath}」吗？\n文件夹内的词书将被移至根目录（未分类），不会丢失词书数据。`,
+        message: `确定要删除文件夹「${folderPath}」吗？\n文件夹内的词书将被移至根目录。`,
         confirmText: '删除',
         cancelText: '取消',
         isDanger: true
@@ -11547,8 +11557,40 @@ async function moveBookToFolder(bookId, targetCategory) {
         : (window.customBooks || []).find(b => b.id === bookId);
     if (!bookMeta) return;
 
+    const oldCategory = bookMeta.category;
+    // 1. 立即乐观更新内存中的词书分类
+    bookMeta.category = cleanCat;
+    if (window.customBooks) {
+        const b = window.customBooks.find(x => x.id === bookId);
+        if (b) b.category = cleanCat;
+    }
+    if (typeof BookManager !== 'undefined') {
+        if (Array.isArray(BookManager.availableBooks)) {
+            const ab = BookManager.availableBooks.find(x => x.id === bookId);
+            if (ab) ab.category = cleanCat;
+        }
+        BookManager.mergeCustomBooks();
+    }
+
+    // 2. 立即刷新所有相关词书列表视图，零延迟响应
+    if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+    if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+    if (typeof renderManageBooksCategoryTabs === 'function') renderManageBooksCategoryTabs();
+    if (typeof renderBookSelectorCategoryTabs === 'function') renderBookSelectorCategoryTabs();
+    if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
+
+    // 3. 执行持久化
     if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
-        await ElectronManager.moveBook(bookId, cleanCat === '未分类' ? '' : cleanCat);
+        const ok = await ElectronManager.moveBook(bookId, cleanCat === '未分类' ? '' : cleanCat);
+        if (!ok) {
+            bookMeta.category = oldCategory;
+            if (window.customBooks) {
+                const b = window.customBooks.find(x => x.id === bookId);
+                if (b) b.category = oldCategory;
+            }
+            if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+            if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+        }
     } else {
         const b = (window.customBooks || []).find(x => x.id === bookId);
         if (b) {
@@ -11563,6 +11605,7 @@ async function moveBookToFolder(bookId, targetCategory) {
         showToast(`已将《${bookMeta.name}》移动至「${cleanCat}」`);
     }
 
+    // 4. 持久化后最终再次刷新视图
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
 }
@@ -12306,12 +12349,12 @@ async function actionResetBookProgress() {
 
     const okReset = await (typeof showAppConfirm === 'function' ? showAppConfirm({
         title: '重置学习进度',
-        message: `确定要重置词书《${bookName}》的学习进度吗？\n这将清空该词书所有记忆阶段与掌握记录，从头开始背诵。`,
+        message: `确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`,
         confirmText: '确认重置',
         cancelText: '取消',
         isDanger: true,
         icon: 'restart_alt'
-    }) : Promise.resolve(confirm(`确定要重置词书《${bookName}》的学习进度吗？\n这将清空该词书所有记忆阶段与掌握记录，从头开始背诵。`)));
+    }) : Promise.resolve(confirm(`确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`)));
     if (!okReset) {
         return;
     }
@@ -12361,12 +12404,12 @@ async function actionDeleteBook() {
 
     const okDelete = await (typeof showAppConfirm === 'function' ? showAppConfirm({
         title: '删除词书',
-        message: `确定要从本地删除《${bookName}》吗？\n如果是云端词书，你随时可以在云端分类中重新下载。`,
+        message: `确定要从本地删除《${bookName}》吗？\n如果是云端词书，你可以随时重新下载。`,
         confirmText: '确认删除',
         cancelText: '取消',
         isDanger: true,
         icon: 'delete'
-    }) : Promise.resolve(confirm(`确定要从本地删除《${bookName}》吗？\n如果是云端词书，你随时可以在云端分类中重新下载。`)));
+    }) : Promise.resolve(confirm(`确定要从本地删除《${bookName}》吗？\n如果是云端词书，你可以随时重新下载。`)));
     if (!okDelete) {
         return;
     }
@@ -23105,24 +23148,26 @@ function initGlobalPresence() {
     const initialStatus = isPlayingMatch ? 'playing' : 'idle';
 
     if (globalLobbyChannel) {
-        if (globalLobbyChannel.state === 'joined' && lobbyCurrentChannelUser === currentUser) {
-            try {
-                if (myPresenceStatus === 'invisible') {
-                    globalLobbyChannel.untrack();
-                } else {
-                    globalLobbyChannel.track({
-                        username: currentUser,
-                        sessionId: CLIENT_SESSION_ID,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                        level: myRank,
-                        rank: myRank,
-                        rating: myRating,
-                        isBili: isBili,
-                        status: initialStatus,
-                        joinedAt: Date.now()
-                    });
-                }
-            } catch (e) { }
+        if ((globalLobbyChannel.state === 'joined' || globalLobbyChannel.state === 'subscribing') && lobbyCurrentChannelUser === currentUser) {
+            if (globalLobbyChannel.state === 'joined') {
+                try {
+                    if (myPresenceStatus === 'invisible') {
+                        globalLobbyChannel.untrack();
+                    } else if (typeof globalLobbyChannel.track === 'function') {
+                        globalLobbyChannel.track({
+                            username: currentUser,
+                            sessionId: CLIENT_SESSION_ID,
+                            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                            level: myRank,
+                            rank: myRank,
+                            rating: myRating,
+                            isBili: isBili,
+                            status: initialStatus,
+                            joinedAt: Date.now()
+                        }).catch(() => {});
+                    }
+                } catch (e) { }
+            }
             return;
         } else {
             try {
@@ -23139,14 +23184,26 @@ function initGlobalPresence() {
     intentionalLobbyClose = false;
     lobbyCurrentChannelUser = currentUser;
 
-    globalLobbyChannel = sbClient.channel('lobby-room', {
+    // 清理任何残留在 Supabase 客户端中的 lobby-room 频道，防止 subscribe() 之后重复绑定 presence 监听抛错
+    try {
+        const existingChannels = (typeof sbClient.getChannels === 'function') ? sbClient.getChannels() : (sbClient.channels || []);
+        existingChannels.forEach(c => {
+            if (c && (c.topic === 'realtime:lobby-room' || c.topic === 'lobby-room')) {
+                try { c.untrack(); } catch (e) { }
+                try { sbClient.removeChannel(c); } catch (e) { }
+            }
+        });
+    } catch (e) { }
+
+    const chan = sbClient.channel('lobby-room', {
         config: {
             broadcast: { ack: true, self: false },
             presence: { key: currentUser }
         }
     });
+    globalLobbyChannel = chan;
 
-    globalLobbyChannel
+    chan
         .on('presence', { event: 'sync' }, () => {
             syncGlobalPresenceState();
             fetchOnlineRoomsList();
@@ -23200,6 +23257,7 @@ function initGlobalPresence() {
             }
         })
         .subscribe(async (status) => {
+            if (chan !== globalLobbyChannel) return;
             isConnectingLobby = false;
             if (typeof updateGlobalNetworkBadge === 'function') {
                 updateGlobalNetworkBadge(status);
@@ -23209,18 +23267,22 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
-                if (myPresenceStatus !== 'invisible') {
-                    await globalLobbyChannel.track({
-                        username: currentUser,
-                        sessionId: CLIENT_SESSION_ID,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                        level: myRank,
-                        rank: myRank,
-                        rating: myRating,
-                        isBili: isBili,
-                        status: initialStatus,
-                        joinedAt: Date.now()
-                    });
+                if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+                    try {
+                        await chan.track({
+                            username: currentUser,
+                            sessionId: CLIENT_SESSION_ID,
+                            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                            level: myRank,
+                            rank: myRank,
+                            rating: myRating,
+                            isBili: isBili,
+                            status: initialStatus,
+                            joinedAt: Date.now()
+                        });
+                    } catch (e) {
+                        console.warn('[Presence] track error:', e);
+                    }
                 }
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
@@ -23242,7 +23304,7 @@ function initGlobalPresence() {
                         lobbyReconnectTimer = null;
                         intentionalLobbyClose = false;
                         initGlobalPresence();
-                    }, 3000);
+                    }, 4000);
                 }
             }
         });
@@ -30293,7 +30355,7 @@ function exportUserConfigAndProgress() {
     try {
         const isCurrentLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.7.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             accountType: isCurrentLocal ? 'local' : 'online',
@@ -31138,12 +31200,23 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.7.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.8.0',
+        date: '2026-10-16',
+        badge: '当前版本',
+        items: [
+            '加入下载学习数据功能。',
+            '优化离线模式的词书分类系统。',
+            '离线模式下同屏对决支持选择其他本地账号作为对手。',
+            '优化更新功能。'
+        ]
+    },
     {
         version: 'v2.7.0',
         date: '2026-10-13',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '加入离线模式。',
             '更新词书并优化分类。',
@@ -31161,7 +31234,7 @@ const APP_CHANGELOG = [
     {
         version: 'v2.6.1',
         date: '2026-10-08',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '更新生成海报和分享功能。',
             '添加更多词书。',
@@ -31474,7 +31547,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.7.0'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.8.0'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;
@@ -33187,9 +33260,18 @@ function fetchYoudaoSuggestJsonp(query, num = 8) {
         };
 
         function cleanup() {
-            if (timer) clearTimeout(timer);
-            delete window[cbName];
-            if (script.parentNode) script.parentNode.removeChild(script);
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+            // 设为空函数，防止超时后延迟返回的 JSONP 脚本抛出 ReferenceError
+            window[cbName] = function () {};
+            setTimeout(() => {
+                try { delete window[cbName]; } catch (e) {}
+            }, 30000);
+            if (script.parentNode) {
+                script.parentNode.removeChild(script);
+            }
         }
 
         script.onerror = function () {
@@ -33205,6 +33287,9 @@ function fetchYoudaoSuggestJsonp(query, num = 8) {
         script.src = `https://dict.youdao.com/suggest?q=${encodeURIComponent(query)}&num=${num}&doctype=json&callback=${cbName}`;
         document.head.appendChild(script);
     });
+}
+if (typeof window !== 'undefined') {
+    window.fetchYoudaoSuggestJsonp = fetchYoudaoSuggestJsonp;
 }
 
 async function searchYoudaoSuggest(query) {
@@ -34718,6 +34803,55 @@ let exportFilteredData = {
     mistakes: []
 };
 
+let _exportDetailsLoadingPromise = null;
+async function ensureExportWordDetailsReady() {
+    if (_exportDetailsLoadingPromise) return _exportDetailsLoadingPromise;
+    _exportDetailsLoadingPromise = (async () => {
+        try {
+            // 1. 如果 ShiCiManager 存在但 data 未载入，尝试通过 loadSingleBook 加载高中300实词
+            if (typeof ShiCiManager !== 'undefined') {
+                if (!ShiCiManager.data || ShiCiManager.data.length === 0) {
+                    if (typeof ShiCiManager.loadSingleBook === 'function') {
+                        const loaded = await ShiCiManager.loadSingleBook('books/实词/高中300实词.json');
+                        if (loaded && Array.isArray(loaded) && loaded.length > 0) {
+                            ShiCiManager.data = loaded;
+                        }
+                    }
+                }
+            }
+            // 2. 如果 localStorage 存有实词缓存，载入到 ShiCiManager
+            try {
+                const cachedShici = localStorage.getItem('vocab_shici_cache') || localStorage.getItem('vocab_shici_cache_books/实词/高中300实词.json');
+                if (cachedShici && typeof ShiCiManager !== 'undefined' && (!ShiCiManager.data || ShiCiManager.data.length === 0)) {
+                    const parsed = JSON.parse(cachedShici);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        ShiCiManager.data = parsed;
+                        ShiCiManager.bookCache['books/实词/高中300实词.json'] = parsed;
+                    }
+                }
+            } catch (e) { }
+
+            // 3. 兜底直接 fetch 本地实词 JSON
+            if (typeof ShiCiManager !== 'undefined' && (!ShiCiManager.data || ShiCiManager.data.length === 0)) {
+                try {
+                    const res = await fetch('./books/实词/高中300实词.json');
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (Array.isArray(json) && json.length > 0) {
+                            ShiCiManager.data = json;
+                            ShiCiManager.bookCache['books/实词/高中300实词.json'] = json;
+                            try { localStorage.setItem('vocab_shici_cache', JSON.stringify(json)); } catch (e) { }
+                        }
+                    }
+                } catch (e) { }
+            }
+        } catch (err) {
+            console.warn('[ensureExportWordDetailsReady error]', err);
+        }
+    })();
+    return _exportDetailsLoadingPromise;
+}
+
 /**
  * 进入“下载学习数据”页面
  */
@@ -34726,6 +34860,10 @@ function openExportStudyDataView() {
         openMeSubview('export-data');
     }
     initExportStudyDataView();
+    ensureExportWordDetailsReady().then(() => {
+        collectAndFilterExportData();
+        renderExportPreview();
+    }).catch(() => {});
 }
 
 /**
@@ -34888,6 +35026,77 @@ function getSelectedTimeRange() {
 }
 
 /**
+ * 统一提取单词/实词词条的详细信息（音标/拼音、词性、释义、例句与出处）
+ */
+function extractWordDetails(wordKey, details, userItemMeaning) {
+    let meaningStr = userItemMeaning || '';
+    let posStr = '';
+    let exampleStr = details.example || '';
+    let sourceStr = details.source || '';
+    let phoneStr = details.phone || details.usphone || details.pinyin || '';
+
+    // 1. 实词 senses 结构解析
+    if (details.senses && Array.isArray(details.senses) && details.senses.length > 0) {
+        let matchedSense = null;
+        if (meaningStr) {
+            const cleanUserMeaning = meaningStr.replace(/[★\[\]（）()]/g, '').trim();
+            matchedSense = details.senses.find(s => {
+                const cleanS = (s.meaning || '').replace(/[★\[\]（）()]/g, '').trim();
+                return cleanS && (cleanUserMeaning.includes(cleanS) || cleanS.includes(cleanUserMeaning));
+            });
+        }
+        if (!matchedSense) {
+            matchedSense = details.senses.find(s => s.examples && s.examples.length > 0) || details.senses[0];
+        }
+        if (!posStr) posStr = matchedSense.part_of_speech || matchedSense.pos || '';
+        if (!meaningStr) meaningStr = (matchedSense.meaning || '').replace(/★/g, '');
+        if (!exampleStr && matchedSense.examples && matchedSense.examples.length > 0) {
+            exampleStr = matchedSense.examples[0].sentence || matchedSense.examples[0].text || '';
+            sourceStr = matchedSense.examples[0].source || '';
+        }
+        if (!exampleStr) {
+            for (const s of details.senses) {
+                if (s.examples && s.examples.length > 0 && s.examples[0].sentence) {
+                    exampleStr = s.examples[0].sentence;
+                    sourceStr = s.examples[0].source || '';
+                    break;
+                }
+            }
+        }
+    }
+
+    // 2. 英语单词 meanings 结构解析
+    if (details.meanings && Array.isArray(details.meanings) && details.meanings.length > 0) {
+        let matchedM = null;
+        if (meaningStr) {
+            matchedM = details.meanings.find(m => m.meaning && (meaningStr.includes(m.meaning) || m.meaning.includes(meaningStr)));
+        }
+        if (!matchedM) matchedM = details.meanings[0];
+        if (!posStr) posStr = matchedM.pos || '';
+        if (!meaningStr) meaningStr = matchedM.meaning || '';
+        if (!exampleStr && matchedM.examples && matchedM.examples.length > 0) {
+            exampleStr = matchedM.examples[0].sentence || matchedM.examples[0].text || '';
+        }
+    }
+
+    // 3. 顶层 examples 兼容
+    if (!exampleStr && details.examples && Array.isArray(details.examples) && details.examples.length > 0) {
+        const ex0 = details.examples[0];
+        if (typeof ex0 === 'string') {
+            exampleStr = ex0;
+        } else if (ex0 && typeof ex0 === 'object') {
+            exampleStr = ex0.sentence || ex0.text || '';
+            if (!sourceStr) sourceStr = ex0.source || '';
+        }
+    }
+
+    if (details.pinyin && !phoneStr) {
+        phoneStr = details.pinyin;
+    }
+    return { pos: posStr, meaning: meaningStr, example: exampleStr, source: sourceStr, phone: phoneStr };
+}
+
+/**
  * 汇总并按日期范围过滤学习数据
  */
 function collectAndFilterExportData() {
@@ -34910,7 +35119,16 @@ function collectAndFilterExportData() {
     let mistakesMap = (typeof userStats !== 'undefined' && userStats.mistakes) ? userStats.mistakes : {};
 
     // 4. 获取词书词典中可能存在的详细释义/例句对照
+    // 4. 获取词书词典中可能存在的详细释义/例句对照（涵盖英语词书、文言实词、自定义词书与本地缓存）
     const wordDetailsCache = new Map();
+    const registerWordDetail = (w) => {
+        if (!w || !w.word) return;
+        const key = String(w.word).trim().toLowerCase();
+        if (!wordDetailsCache.has(key)) {
+            wordDetailsCache.set(key, w);
+        }
+    };
+
     if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
         Object.values(BookManager.bookCache).forEach(bookWords => {
             if (Array.isArray(bookWords)) {
@@ -34920,8 +35138,43 @@ function collectAndFilterExportData() {
                     }
                 });
             }
+            if (Array.isArray(bookWords)) bookWords.forEach(registerWordDetail);
         });
     }
+
+    if (typeof ShiCiManager !== 'undefined') {
+        if (Array.isArray(ShiCiManager.data)) {
+            ShiCiManager.data.forEach(registerWordDetail);
+        }
+        if (ShiCiManager.bookCache && typeof ShiCiManager.bookCache === 'object') {
+            Object.values(ShiCiManager.bookCache).forEach(bookWords => {
+                if (Array.isArray(bookWords)) bookWords.forEach(registerWordDetail);
+            });
+        }
+    }
+
+    if (window.customBooks && Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (b && Array.isArray(b.words)) b.words.forEach(registerWordDetail);
+        });
+    }
+
+    try {
+        const rawShici = localStorage.getItem('vocab_shici_cache');
+        if (rawShici) {
+            const list = JSON.parse(rawShici);
+            if (Array.isArray(list)) list.forEach(registerWordDetail);
+        }
+        for (let i = 0; i < localStorage.length; i++) {
+            const lk = localStorage.key(i);
+            if (lk && lk.startsWith('vocab_shici_cache_')) {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem(lk));
+                    if (Array.isArray(parsed)) parsed.forEach(registerWordDetail);
+                } catch (e) { }
+            }
+        }
+    } catch (e) { }
 
     const wordsList = [];
     const phrasesList = [];
@@ -34943,38 +35196,19 @@ function collectAndFilterExportData() {
         const isChinese = Boolean(rec.isShiCi || /[\u4e00-\u9fa5]/.test(rec.word));
         const isPhrase = !isChinese && (rec.word.includes(' ') || (rec.meaning && rec.meaning.includes('词组')));
 
-        let meaningStr = rec.meaning || '';
-        let posStr = '';
-        let exampleStr = details.example || '';
-        let sourceStr = details.source || '';
-
-        if (details.meanings && Array.isArray(details.meanings) && details.meanings.length > 0) {
-            const m0 = details.meanings[0];
-            posStr = m0.pos || '';
-            if (!meaningStr) meaningStr = m0.meaning || '';
-            if (!exampleStr && m0.examples && m0.examples.length > 0) {
-                exampleStr = m0.examples[0].sentence || m0.examples[0].text || '';
-            }
-        }
-        if (details.senses && Array.isArray(details.senses) && details.senses.length > 0) {
-            const s0 = details.senses[0];
-            if (!posStr) posStr = s0.part_of_speech || s0.pos || '';
-            if (!meaningStr) meaningStr = (s0.meaning || '').replace(/★/g, '');
-            if (!exampleStr && s0.examples && s0.examples.length > 0) {
-                exampleStr = s0.examples[0].sentence || '';
-                sourceStr = s0.examples[0].source || '';
-            }
-        }
+        const extracted = extractWordDetails(wordKey, details, rec.meaning);
 
         const item = {
             word: rec.word.trim(),
-            phone: rec.phone || details.phone || details.usphone || details.pinyin || '',
-            pos: posStr,
-            meaning: meaningStr,
-            example: exampleStr,
-            source: sourceStr,
+            phone: rec.phone || extracted.phone,
+            pos: extracted.pos,
+            meaning: extracted.meaning,
+            example: extracted.example,
+            source: extracted.source,
             lastPracticed: practicedTime,
-            stage: rec.stage || 1
+            stage: rec.stage || 1,
+            isShiCi: isChinese,
+            isPhrase: isPhrase
         };
 
         seenWords.add(wordKey);
@@ -35004,15 +35238,20 @@ function collectAndFilterExportData() {
         const isChinese = Boolean((typeof m === 'object' && m.isShiCi) || /[\u4e00-\u9fa5]/.test(wStr));
         const isPhrase = !isChinese && wStr.includes(' ');
 
+        const userMeaning = (typeof m === 'object' ? m.meaning : '') || '';
+        const extracted = extractWordDetails(wordKey, details, userMeaning);
+
         const item = {
             word: wStr,
-            phone: (typeof m === 'object' ? m.phone : '') || details.phone || '',
-            pos: (details.meanings && details.meanings[0]?.pos) || '',
-            meaning: (typeof m === 'object' ? m.meaning : '') || (details.meanings && details.meanings[0]?.meaning) || '',
-            example: '',
-            source: '',
+            phone: (typeof m === 'object' ? m.phone : '') || extracted.phone,
+            pos: extracted.pos,
+            meaning: extracted.meaning,
+            example: extracted.example,
+            source: extracted.source,
             lastPracticed: markedTime || Date.now(),
-            stage: 5
+            stage: 5,
+            isShiCi: isChinese,
+            isPhrase: isPhrase
         };
 
         seenWords.add(wordKey);
@@ -35037,15 +35276,25 @@ function collectAndFilterExportData() {
         }
 
         const wordDetails = wordDetailsCache.get(key.toLowerCase()) || {};
+        const wordKey = key.trim().toLowerCase();
+        const details = wordDetailsCache.get(wordKey) || {};
+        const isChinese = Boolean(m.isShiCi || /[\u4e00-\u9fa5]/.test(key));
+        const isPhrase = !isChinese && (key.includes(' ') || (m.meaning && m.meaning.includes('词组')));
+
+        const extracted = extractWordDetails(wordKey, details, m.meaning || m.correctAnswer);
 
         mistakesList.push({
-            word: key,
+            word: key.trim(),
             count: m.count || 1,
-            meaning: m.meaning || (wordDetails.meanings && wordDetails.meanings[0]?.meaning) || '',
-            phone: m.phone || wordDetails.phone || '',
-            isShiCi: Boolean(m.isShiCi || !/[a-zA-Z]/.test(key)),
-            wrongAnswer: m.wrongAnswer || '错误搭配 / 易混释义',
-            correctAnswer: m.correctAnswer || m.meaning || (wordDetails.meanings && wordDetails.meanings[0]?.meaning) || '正确搭配 / 对应释义'
+            meaning: extracted.meaning,
+            phone: m.phone || extracted.phone,
+            pos: extracted.pos,
+            example: extracted.example,
+            source: extracted.source,
+            isShiCi: isChinese,
+            isPhrase: isPhrase,
+            wrongAnswer: m.wrongAnswer || '',
+            correctAnswer: m.correctAnswer || extracted.meaning
         });
     });
 
@@ -35196,7 +35445,7 @@ async function renderExportPreview() {
     const fmt = document.getElementById('export-format-select')?.value || 'pdf';
     const paperSize = document.getElementById('export-paper-size')?.value || 'a4';
     const themePreset = document.getElementById('export-theme-preset')?.value || 'blue';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据导出清单';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
 
     // 选中内容项
     const showWords = document.getElementById('export-check-words')?.checked !== false;
@@ -35324,7 +35573,7 @@ async function renderExportPreview() {
                 ${escapeHtml(docTitle)}
             </h2>
             <div style="font-size:0.84rem; color:#64748b;">
-                <span>统计范围：${escapeHtml(dateRangeLabel)}</span>
+                <span>范围：${escapeHtml(dateRangeLabel)}</span>
             </div>
         </div>
     `;
@@ -35462,7 +35711,7 @@ function renderMarkdownPreview(paperEl, docTitle, dateRangeLabel, opts) {
                 <span class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.78rem;">Markdown 预览</span>
             </div>
             <div style="font-size:0.84rem; color:#64748b; margin-top:4px; padding:6px 10px; background:#f8fafc; border-left:3px solid #cbd5e1; border-radius:3px;">
-                统计范围：${escapeHtml(dateRangeLabel)}
+                范围：${escapeHtml(dateRangeLabel)}
             </div>
         </div>
     `;
@@ -35566,7 +35815,7 @@ function generateMarkdownExportContent(docTitle, dateRangeLabel, opts) {
     const fieldMistakesCorrect = opts ? opts.fieldMistakesCorrect : (document.getElementById('field-mistakes-correct')?.checked !== false);
 
     let md = `# ${docTitle}\n\n`;
-    md += `> 统计范围：${dateRangeLabel}\n\n`;
+    md += `> 范围：${dateRangeLabel}\n\n`;
 
     if (showWords && exportFilteredData.words.length > 0) {
         md += `## 单词列表 (${exportFilteredData.words.length})\n\n`;
@@ -35639,7 +35888,7 @@ function generateTxtExportContent(docTitle, dateRangeLabel, opts) {
 
     let txt = `============================================================\n`;
     txt += `${docTitle}\n`;
-    txt += `统计范围：${dateRangeLabel}\n`;
+    txt += `范围：${dateRangeLabel}\n`;
     txt += `============================================================\n\n`;
 
     if (showWords && exportFilteredData.words.length > 0) {
@@ -35704,7 +35953,7 @@ async function exportStudyDataPDF() {
 
     const paperSize = document.getElementById('export-paper-size')?.value || 'a4';
     const themePreset = document.getElementById('export-theme-preset')?.value || 'blue';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据导出清单';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
 
     const isToy = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
     let watermarkCornerHtml = '';
@@ -35854,7 +36103,7 @@ async function exportStudyDataPDF() {
  */
 function exportStudyDataMarkdown() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据导出清单';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
     const dateStr = getTodayDateString();
     const md = generateMarkdownExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
@@ -35866,7 +36115,7 @@ function exportStudyDataMarkdown() {
  */
 function exportStudyDataTxt() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据导出清单';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
     const dateStr = getTodayDateString();
     const txt = generateTxtExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');

@@ -8995,12 +8995,12 @@ body.nav-hidden {
     --paper-card-border: #fed7aa;
 }
 
-/* 水印栏与上方内容精准对齐 */
+/* 水印栏与上方内容精准对齐（更贴近页面边缘） */
 .pdf-watermark-bar {
     position: absolute;
-    bottom: 20px;
-    left: 36px;
-    right: 36px;
+    bottom: 8px;
+    left: 18px;
+    right: 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -9013,14 +9013,14 @@ body.nav-hidden {
 }
 
 .export-preview-paper.size-a5 .pdf-watermark-bar {
-    left: 24px;
-    right: 24px;
-    bottom: 16px;
+    left: 12px;
+    right: 12px;
+    bottom: 6px;
 }
 .export-preview-paper.size-b5 .pdf-watermark-bar {
-    left: 28px;
-    right: 28px;
-    bottom: 18px;
+    left: 14px;
+    right: 14px;
+    bottom: 7px;
 }
 
 /* Markdown 和纯文本实时预览容器样式 */

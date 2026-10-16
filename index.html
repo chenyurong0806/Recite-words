@@ -1334,10 +1334,10 @@
                     </div>
                 </div>
 
-                <!-- 数据备份与管理 -->
+                <!-- 备份与管理 -->
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">backup</span>
-                    <span>数据备份与管理</span>
+                    <span>备份与管理</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row" style="justify-content:space-between; align-items:center;">
@@ -1381,7 +1381,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>下载学习数据</h4>
-                                <p>自定义筛选日期与内容类型，导出为排版精美的 PDF 文档</p>
+                                <p>将学习数据导出为 PDF 或其他文档格式</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
@@ -1495,7 +1495,6 @@
                         </button>
                         <div>
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">下载学习数据</h3>
-                            <span style="font-size:0.78rem; color:var(--md-sys-color-outline);">自定义筛选与排版导出学习清单与报告</span>
                         </div>
                     </div>
                 </div>
@@ -1508,7 +1507,7 @@
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">calendar_month</span>
-                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据起止日期</h4>
+                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据日期</h4>
                                 </div>
                                 <span id="export-selected-date-desc" style="font-size:0.8rem; color:var(--md-sys-color-outline);"></span>
                             </div>
@@ -1537,7 +1536,7 @@
                         <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">dataset</span>
-                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据内容与展示信息</h4>
+                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">数据内容</h4>
                             </div>
 
                             <div style="display:flex; flex-direction:column; gap:12px;">
@@ -1586,23 +1585,19 @@
                                     </div>
                                     <div id="export-subfields-shici" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
                                         <label class="export-field-chk"><input type="checkbox" id="field-shici-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
-                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>例句（含典籍出处）</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>出处</span></label>
                                     </div>
                                 </div>
 
                                 <!-- 错题 -->
                                 <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
                                             <input type="checkbox" id="export-check-mistakes" checked onchange="toggleExportContentSection('mistakes', this.checked)">
                                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-error); font-size:18px;">error_outline</span>
                                             <span>错题 (Mistakes)</span>
                                         </label>
                                         <span id="export-count-mistakes" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
-                                    </div>
-                                    <div id="export-subfields-mistakes" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
-                                        <label class="export-field-chk"><input type="checkbox" id="field-mistakes-wrong" checked onchange="renderExportPreview()"><span>错误搭配</span></label>
-                                        <label class="export-field-chk"><input type="checkbox" id="field-mistakes-correct" checked onchange="renderExportPreview()"><span>正确搭配</span></label>
                                     </div>
                                 </div>
                             </div>
@@ -1619,7 +1614,7 @@
                                 <!-- 文档大标题修改 -->
                                 <div style="grid-column: 1 / -1;">
                                     <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">文档大标题：</label>
-                                    <input type="text" id="export-custom-title-input" class="input-field" value="词迹 · 学习数据导出清单" placeholder="请输入自定义标题..." style="width:100%; height:40px; border-radius:var(--md-shape-m); font-size:0.88rem; padding:0 12px; box-sizing:border-box;" oninput="renderExportPreview()">
+                                    <input type="text" id="export-custom-title-input" class="input-field" value="词迹 · 学习数据" placeholder="请输入自定义标题..." style="width:100%; height:40px; border-radius:var(--md-shape-m); font-size:0.88rem; padding:0 12px; box-sizing:border-box;" oninput="renderExportPreview()">
                                 </div>
 
                                 <!-- 导出格式 (仅支持 PDF / MD / TXT) -->
@@ -1647,10 +1642,10 @@
                                 <div id="export-theme-select-col">
                                     <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">主题外观：</label>
                                     <select id="export-theme-preset" class="md3-select" style="width:100%; height:40px;" onchange="renderExportPreview()">
-                                        <option value="blue" selected>词迹蓝韵 (WordTrace Blue)</option>
-                                        <option value="minimal">典雅极简 (高对比省墨黑白)</option>
-                                        <option value="green">晨曦森林 (护眼翡翠绿调)</option>
-                                        <option value="warm">暮光温润 (暖杏护眼纸感)</option>
+                                        <option value="blue" selected>词迹蓝韵</option>
+                                        <option value="minimal">典雅极简</option>
+                                        <option value="green">晨曦森林</option>
+                                        <option value="warm">暮光温润</option>
                                     </select>
                                 </div>
                             </div>
@@ -1671,7 +1666,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">preview</span>
-                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">文档排版实时预览</h4>
+                                    <h4 style="margin:0; font-size:0.98rem; font-weight:700;">文档预览</h4>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <span id="export-live-total-badge" class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-size:0.8rem; font-weight:600;">共 0 项</span>
@@ -2992,7 +2987,7 @@
                         </button>
                         <button type="button" class="btn btn-tonal btn-sm electron-only-btn" onclick="ElectronManager.openBooksFolder()" title="在文件管理器中打开词书专属目录">
                             <span class="material-symbols-rounded" style="font-size:18px;">folder_open</span>
-                            <span class="btn-label-text">打开词书目录</span>
+                            <span class="btn-label-text">打开目录</span>
                         </button>
                         <input type="file" id="manage-books-import-file" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
                     </div>
@@ -3371,7 +3366,7 @@
                     </div>
                     <div>
                         <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0;">版本更新说明</h3>
-                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.7.0</span>
+                        <span style="font-size: 0.78rem; color: var(--md-sys-color-outline);" id="welcome-update-ver">v2.8.0</span>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closeWelcomeUpdateModal()">

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteLocalCategory: (categoryName, deleteFiles = false) => ipcRenderer.invoke('delete-local-category', { categoryName, deleteFiles }),
     moveBookFile: (params) => ipcRenderer.invoke('move-book-file', params),
     savePosterImage: (base64Data, filename) => ipcRenderer.invoke('save-poster-image', { base64Data, filename }),
+    saveAndOpenExportFile: (params) => ipcRenderer.invoke('save-and-open-export-file', params),
 
     // 本地数据备份相关
     openBackupsFolder: () => ipcRenderer.invoke('open-backups-folder'),

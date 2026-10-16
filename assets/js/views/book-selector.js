@@ -485,7 +485,10 @@ function renderTreeFolderNode(node, level = 0, isManageMode = false, options = {
                 ` : ''}
             </div>
 
-            <div class="local-tree-folder-body">
+            <div class="local-tree-folder-body"
+                 ondragover="handleLocalFolderDragOver(event, '${escapeHtml(node.path)}')"
+                 ondragleave="handleLocalFolderDragLeave(event)"
+                 ondrop="handleLocalFolderDrop(event, '${escapeHtml(node.path)}')">
                 ${node.subfolders.map(subNode => renderTreeFolderNode(subNode, level + 1, isManageMode, options)).join('')}
 
                 ${node.books.length > 0 ? `
@@ -640,7 +643,10 @@ function renderLocalFolderTree(containerId, options = {}) {
                         </div>
                     ` : ''}
                 </div>
-                <div class="local-tree-folder-body">
+                <div class="local-tree-folder-body"
+                     ondragover="handleLocalFolderDragOver(event, '')"
+                     ondragleave="handleLocalFolderDragLeave(event)"
+                     ondrop="handleLocalFolderDrop(event, '')">
                     ${tree.uncatBooks.length > 0 ? `
                         <div class="book-card-grid local-tree-book-grid">
                             ${tree.uncatBooks.map(b => renderBookCardItem(b, isManageMode, '')).join('')}
@@ -732,20 +738,24 @@ function handleLocalFolderDragOver(e, targetFolderPath) {
         }
     }
 
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.add('drag-folder-hover');
 }
 
 function handleLocalFolderDragLeave(e) {
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.remove('drag-folder-hover');
 }
 
 async function handleLocalFolderDrop(e, targetFolderPath) {
     e.preventDefault();
     e.stopPropagation();
-    const header = e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget;
+    const folder = e.currentTarget.closest('.local-tree-folder');
+    const header = folder ? folder.querySelector('.local-tree-folder-header') : (e.currentTarget.closest('.local-tree-folder-header') || e.currentTarget);
     if (header) header.classList.remove('drag-folder-hover');
+    document.querySelectorAll('.drag-folder-hover').forEach(el => el.classList.remove('drag-folder-hover'));
 
     if (targetFolderPath === '__cloud__') {
         showToast('云端词书分类为只读，无法移动或导入至此');
@@ -864,7 +874,7 @@ async function actionRenameFolder(folderPath) {
 async function actionDeleteFolder(folderPath) {
     const ok = await showAppConfirm({
         title: '删除文件夹',
-        message: `确定要删除文件夹「${folderPath}」吗？\n文件夹内的词书将被移至根目录（未分类），不会丢失词书数据。`,
+        message: `确定要删除文件夹「${folderPath}」吗？\n文件夹内的词书将被移至根目录。`,
         confirmText: '删除',
         cancelText: '取消',
         isDanger: true
@@ -978,8 +988,40 @@ async function moveBookToFolder(bookId, targetCategory) {
         : (window.customBooks || []).find(b => b.id === bookId);
     if (!bookMeta) return;
 
+    const oldCategory = bookMeta.category;
+    // 1. 立即乐观更新内存中的词书分类
+    bookMeta.category = cleanCat;
+    if (window.customBooks) {
+        const b = window.customBooks.find(x => x.id === bookId);
+        if (b) b.category = cleanCat;
+    }
+    if (typeof BookManager !== 'undefined') {
+        if (Array.isArray(BookManager.availableBooks)) {
+            const ab = BookManager.availableBooks.find(x => x.id === bookId);
+            if (ab) ab.category = cleanCat;
+        }
+        BookManager.mergeCustomBooks();
+    }
+
+    // 2. 立即刷新所有相关词书列表视图，零延迟响应
+    if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+    if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+    if (typeof renderManageBooksCategoryTabs === 'function') renderManageBooksCategoryTabs();
+    if (typeof renderBookSelectorCategoryTabs === 'function') renderBookSelectorCategoryTabs();
+    if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
+
+    // 3. 执行持久化
     if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
-        await ElectronManager.moveBook(bookId, cleanCat === '未分类' ? '' : cleanCat);
+        const ok = await ElectronManager.moveBook(bookId, cleanCat === '未分类' ? '' : cleanCat);
+        if (!ok) {
+            bookMeta.category = oldCategory;
+            if (window.customBooks) {
+                const b = window.customBooks.find(x => x.id === bookId);
+                if (b) b.category = oldCategory;
+            }
+            if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+            if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+        }
     } else {
         const b = (window.customBooks || []).find(x => x.id === bookId);
         if (b) {
@@ -994,6 +1036,7 @@ async function moveBookToFolder(bookId, targetCategory) {
         showToast(`已将《${bookMeta.name}》移动至「${cleanCat}」`);
     }
 
+    // 4. 持久化后最终再次刷新视图
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
 }
@@ -1737,12 +1780,12 @@ async function actionResetBookProgress() {
 
     const okReset = await (typeof showAppConfirm === 'function' ? showAppConfirm({
         title: '重置学习进度',
-        message: `确定要重置词书《${bookName}》的学习进度吗？\n这将清空该词书所有记忆阶段与掌握记录，从头开始背诵。`,
+        message: `确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`,
         confirmText: '确认重置',
         cancelText: '取消',
         isDanger: true,
         icon: 'restart_alt'
-    }) : Promise.resolve(confirm(`确定要重置词书《${bookName}》的学习进度吗？\n这将清空该词书所有记忆阶段与掌握记录，从头开始背诵。`)));
+    }) : Promise.resolve(confirm(`确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`)));
     if (!okReset) {
         return;
     }
@@ -1792,12 +1835,12 @@ async function actionDeleteBook() {
 
     const okDelete = await (typeof showAppConfirm === 'function' ? showAppConfirm({
         title: '删除词书',
-        message: `确定要从本地删除《${bookName}》吗？\n如果是云端词书，你随时可以在云端分类中重新下载。`,
+        message: `确定要从本地删除《${bookName}》吗？\n如果是云端词书，你可以随时重新下载。`,
         confirmText: '确认删除',
         cancelText: '取消',
         isDanger: true,
         icon: 'delete'
-    }) : Promise.resolve(confirm(`确定要从本地删除《${bookName}》吗？\n如果是云端词书，你随时可以在云端分类中重新下载。`)));
+    }) : Promise.resolve(confirm(`确定要从本地删除《${bookName}》吗？\n如果是云端词书，你可以随时重新下载。`)));
     if (!okDelete) {
         return;
     }

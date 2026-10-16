@@ -667,6 +667,40 @@ ipcMain.handle('read-book-file', async (_event, { filePath }) => {
     }
 });
 
+// 保存并调用系统工具直接打开导出文件（PDF、Markdown、TXT）
+ipcMain.handle('save-and-open-export-file', async (_event, { fileName, content, format, htmlContent, printOptions }) => {
+    try {
+        const downloadsDir = app.getPath('downloads');
+        const safeName = (fileName || `export_${Date.now()}`).replace(/[/\\?%*:|"<>]/g, '_');
+        const targetPath = path.join(downloadsDir, safeName);
+
+        if (format === 'pdf') {
+            const printWin = new BrowserWindow({
+                show: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true
+                }
+            });
+            await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent || '')}`);
+            const pdfBuffer = await printWin.webContents.printToPDF({
+                pageSize: printOptions?.pageSize || 'A4',
+                printBackground: true
+            });
+            try { printWin.destroy(); } catch (e) { }
+            await fs.promises.writeFile(targetPath, pdfBuffer);
+        } else {
+            await fs.promises.writeFile(targetPath, content || '', 'utf8');
+        }
+
+        await shell.openPath(targetPath);
+        return { success: true, filePath: targetPath };
+    } catch (err) {
+        console.error('[IPC save-and-open-export-file error]:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 // 保存海报图片 (原生安全写入，解决连续点击循环打开文件资源管理器卡死)
 let isPosterSavingDialog = false;
 ipcMain.handle('save-poster-image', async (_event, { base64Data, filename }) => {
