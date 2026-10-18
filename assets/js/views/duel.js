@@ -2694,8 +2694,33 @@ function renderMatchResultBadgeHtml(matchResult) {
         titleText = `💔 掉段至 ${matchResult.newRank}段`;
     }
 
+    let protectionNotice = '';
+    if (matchResult.usedProtectionCard === 'rank_protect') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#fef3c7; color:#b45309; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">shield</span>
+                <span>已触发【排位保护卡】，本次战败不扣分！</span>
+            </div>
+        `;
+    } else if (matchResult.usedProtectionCard === 'tier_protect') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#dbeafe; color:#1d4ed8; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">security</span>
+                <span>已触发【段位保护卡】，本次战败不掉段！</span>
+            </div>
+        `;
+    } else if (matchResult.usedProtectionCard === 'rank_double') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#f3e8ff; color:#7e22ce; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">trending_up</span>
+                <span>已触发【排位翻倍卡】，获得的等级分翻倍！(+${matchResult.deltaPoints}分)</span>
+            </div>
+        `;
+    }
+
     return `
         <div style="margin-top:14px; padding:14px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m);">
+            ${protectionNotice}
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="user-level-badge" style="background:${badgeColor}; font-size:0.85rem; font-weight:800; padding:3px 10px;">${matchResult.newRank}段</span>
@@ -2722,11 +2747,15 @@ function renderMatchResultBadgeHtml(matchResult) {
 }
 
 function endGame(msg, broadcastToPeer) {
+    if (!isPlayingMatch) {
+        console.warn('[Duel] endGame ignored: match is already finalized or inactive');
+        return;
+    }
+    isPlayingMatch = false;
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
-    isPlayingMatch = false;
     flushPendingScoreSync(realtimeChannel);
     if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
@@ -2779,7 +2808,8 @@ function endGame(msg, broadcastToPeer) {
             userRank: myRankData.rank,
             userRating: myRankData.rating,
             oppoRank,
-            oppoRating
+            oppoRating,
+            username: currentUser
         });
 
         LevelManager.applyMatchResult(currentUser, matchResult);
@@ -3097,17 +3127,22 @@ async function applyForfeitPenalty() {
         userRank: myRankData.rank,
         userRating: myRankData.rating,
         oppoRank,
-        oppoRating
+        oppoRating,
+        username: currentUser
     });
 
     await LevelManager.applyMatchResult(currentUser, matchResult);
 
     if (typeof showToast === 'function') {
-        const deduct = Math.abs(matchResult.deltaPoints);
-        if (deduct > 0) {
-            showToast(`中途退出判定战败，扣除 ${deduct} 等级分 (当前: ${matchResult.newRating}分)`);
+        if (matchResult.usedProtectionCard === 'rank_protect') {
+            showToast(`触发【排位保护卡】，本局不扣分！(${matchResult.newRating}-0)`);
+        } else if (matchResult.usedProtectionCard === 'tier_protect') {
+            showToast(`触发【段位保护卡】，本局不掉段！(${matchResult.newRank}段 ${matchResult.newRating}-${Math.abs(matchResult.deltaPoints)})`);
         } else {
-            showToast(`中途退出判定战败`);
+            const deduct = Math.abs(matchResult.deltaPoints);
+            if (deduct > 0) {
+                showToast(`中途退出，-${deduct}分 (当前: ${matchResult.newRating}分)`);
+            }
         }
     }
 
@@ -3129,24 +3164,17 @@ async function confirmExitGame() {
         let ok = true;
         if (typeof showConfirmModal === 'function') {
             ok = await showConfirmModal({
-                title: '退出对决',
-                message: '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？',
-                confirmText: '退出并扣分',
                 title: willDeductPoints ? '退出对决' : '退出对战',
                 message: willDeductPoints
                     ? '对局正在进行中，中途退出将受到扣分惩罚，确定要退出吗？'
-                    : (isGuest 
-                        ? '对局正在进行中，确定要退出吗？'
-                        : '对局正在进行中，确定要退出吗？'),
+                    : '对局正在进行中，确定要退出吗？',
                 confirmText: willDeductPoints ? '退出并扣分' : '退出对战',
                 cancelText: '继续对战',
-                isDanger: true,
                 isDanger: willDeductPoints,
                 icon: 'logout'
             });
         } else {
             try {
-                ok = window.confirm('正在对战中，中途退出将受到扣分惩罚，确定要退出吗？');
                 ok = window.confirm(willDeductPoints
                     ? '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？'
                     : '对局正在进行中，确定要退出吗？');
@@ -3155,7 +3183,9 @@ async function confirmExitGame() {
             }
         }
         if (!ok) return;
-        await applyForfeitPenalty();
+
+        isPlayingMatch = false;
+
         if (willDeductPoints) {
             await applyForfeitPenalty();
         } else if (!isAi && realtimeChannel) {
@@ -3330,27 +3360,62 @@ function initGlobalPresence() {
     // 清理任何残留在 Supabase 客户端中的 lobby-room 频道，防止 subscribe() 之后重复绑定 presence 监听抛错
     try {
         const existingChannels = (typeof sbClient.getChannels === 'function') ? sbClient.getChannels() : (sbClient.channels || []);
-        existingChannels.forEach(c => {
+        existingChannels.slice().forEach(c => {
             if (c && (c.topic === 'realtime:lobby-room' || c.topic === 'lobby-room')) {
                 try { c.untrack(); } catch (e) { }
+                try { c.unsubscribe(); } catch (e) { }
+                try { if (typeof c.teardown === 'function') c.teardown(); } catch (e) { }
                 try { sbClient.removeChannel(c); } catch (e) { }
+                if (sbClient.channels && Array.isArray(sbClient.channels)) {
+                    sbClient.channels = sbClient.channels.filter(ch => ch !== c);
+                }
+                if (sbClient.realtime && Array.isArray(sbClient.realtime.channels)) {
+                    sbClient.realtime.channels = sbClient.realtime.channels.filter(ch => ch !== c);
+                }
             }
         });
     } catch (e) { }
 
-    const chan = sbClient.channel('lobby-room', {
-        config: {
-            broadcast: { ack: true, self: false },
-            presence: { key: currentUser }
-        }
-    });
+    let chan;
+    try {
+        chan = sbClient.channel('lobby-room', {
+            config: {
+                broadcast: { ack: true, self: false },
+                presence: { key: currentUser }
+            }
+        });
+    } catch (e) {
+        console.warn('[Presence] Failed to create lobby-room channel:', e);
+        isConnectingLobby = false;
+        return;
+    }
     globalLobbyChannel = chan;
 
-    chan
-        .on('presence', { event: 'sync' }, () => {
-            syncGlobalPresenceState();
-            fetchOnlineRoomsList();
-        })
+    // 若频道已被订阅（罕见复用情况），不再重复绑定 presence 回调以防抛错
+    if (chan.state === 'joined' || chan.state === 'joining') {
+        isConnectingLobby = false;
+        if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+            chan.track({
+                username: currentUser,
+                sessionId: CLIENT_SESSION_ID,
+                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                level: myRank,
+                rank: myRank,
+                rating: myRating,
+                isBili: isBili,
+                status: initialStatus,
+                joinedAt: Date.now()
+            }).catch(() => {});
+        }
+        return;
+    }
+
+    try {
+        chan
+            .on('presence', { event: 'sync' }, () => {
+                syncGlobalPresenceState();
+                fetchOnlineRoomsList();
+            })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
             if (Array.isArray(leftPresences)) {
                 leftPresences.forEach(p => {
@@ -3451,6 +3516,10 @@ function initGlobalPresence() {
                 }
             }
         });
+    } catch (err) {
+        console.warn('[Presence] Setup channel listeners error:', err);
+        isConnectingLobby = false;
+    }
 
     startPresenceHeartbeat();
 }

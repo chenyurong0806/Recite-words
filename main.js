@@ -685,7 +685,8 @@ ipcMain.handle('save-and-open-export-file', async (_event, { fileName, content, 
             await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent || '')}`);
             const pdfBuffer = await printWin.webContents.printToPDF({
                 pageSize: printOptions?.pageSize || 'A4',
-                printBackground: true
+                printBackground: true,
+                preferCSSPageSize: true
             });
             try { printWin.destroy(); } catch (e) { }
             await fs.promises.writeFile(targetPath, pdfBuffer);

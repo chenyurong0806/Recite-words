@@ -5,9 +5,9 @@
  */
 
 if (typeof window !== 'undefined') {
-    window.APP_VERSION = '2.8.0';
+    window.APP_VERSION = '2.9.0';
 }
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.9.0';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
@@ -112,6 +112,11 @@ function markDeviceBanned(username = '', deviceId = '') {
         if (username) localStorage.setItem(`vocab_banned_user_${username}`, 'true');
         const dev = deviceId || getDeviceId();
         if (dev) localStorage.setItem('vocab_banned_device_id', dev);
+        if (typeof SafeStorage !== 'undefined') {
+            SafeStorage.setItem('vocab_is_banned', 'true');
+            if (username) SafeStorage.setItem(`vocab_banned_user_${username}`, 'true');
+            if (dev) SafeStorage.setItem('vocab_banned_device_id', dev);
+        }
     } catch (e) { }
 }
 
@@ -120,6 +125,11 @@ function unmarkDeviceBanned(username = '') {
         localStorage.removeItem('vocab_is_banned');
         localStorage.removeItem('vocab_banned_device_id');
         if (username) localStorage.removeItem(`vocab_banned_user_${username}`);
+        if (typeof SafeStorage !== 'undefined') {
+            SafeStorage.removeItem('vocab_is_banned');
+            SafeStorage.removeItem('vocab_banned_device_id');
+            if (username) SafeStorage.removeItem(`vocab_banned_user_${username}`);
+        }
     } catch (e) { }
 }
 
@@ -151,12 +161,19 @@ async function checkDeviceNetworkOnline() {
     }
 }
 
+function isElectronApp() {
+    return Boolean(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron);
+}
+
 function isOfflineMode() {
-    if (window._isDeviceOfflineForce) {
-        return true;
-    }
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return true;
+    // 仅在 Electron 应用中支持强制断网离线检测；网页版永远不自动切换离线模式
+    if (isElectronApp()) {
+        if (window._isDeviceOfflineForce) {
+            return true;
+        }
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            return true;
+        }
     }
     try {
         return localStorage.getItem('vocab_offline_mode') === 'true';
@@ -166,7 +183,7 @@ function isOfflineMode() {
 }
 
 function setOfflineMode(enabled, force = false) {
-    if (!enabled && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
+    if (!enabled && isElectronApp() && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
         if (typeof showToast === 'function') {
             showToast('当前设备未连接网络，强制保持离线模式');
         }
@@ -266,7 +283,9 @@ function handleOfflineModeChange(enabled) {
     } else {
         // 关闭离线模式：退出本地账号，清理本地会话，并切回在线登录页
         if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') {
-            if (typeof handleLogout === 'function') {
+            if (typeof handleAuthLogout === 'function') {
+                handleAuthLogout(false);
+            } else if (typeof handleLogout === 'function') {
                 handleLogout();
             } else {
                 try { localStorage.removeItem('vocab_user_token'); } catch (e) {}
@@ -292,16 +311,32 @@ function handleOfflineModeChange(enabled) {
     if (typeof renderManageLocalBooksInSettings === 'function' && typeof currentView !== 'undefined' && currentView === 'view-settings') {
         renderManageLocalBooksInSettings();
     }
+
+    // 道具系统与徽标状态联动更新
+    if (typeof ItemManager !== 'undefined') {
+        try {
+            ItemManager.updateBadge();
+            if (document.getElementById('settings-subview-items-content')) {
+                ItemManager.renderItemsView();
+            }
+        } catch (e) { }
+    }
 }
 
-// 启动时检测设备联网状态，若未联网强制开启离线模式，并在无法联网时删除换背景按钮
+// 仅在 Electron 环境下启动时检测设备联网状态，若未联网强制开启离线模式，网页版不要自动切换离线模式
 if (typeof window !== 'undefined') {
+    window.isElectronApp = isElectronApp;
     window.isOfflineMode = isOfflineMode;
     window.setOfflineMode = setOfflineMode;
     window.handleOfflineModeChange = handleOfflineModeChange;
     window.checkDeviceNetworkOnline = checkDeviceNetworkOnline;
 
     const enforceDeviceNetworkCheck = async () => {
+        // 仅在 Electron 应用中做启动离线检测
+        if (!isElectronApp()) {
+            window._isDeviceOfflineForce = false;
+            return;
+        }
         const isOnline = await checkDeviceNetworkOnline();
         if (!isOnline) {
             window._isDeviceOfflineForce = true;
@@ -319,13 +354,16 @@ if (typeof window !== 'undefined') {
     enforceDeviceNetworkCheck();
 
     window.addEventListener('DOMContentLoaded', () => {
-        enforceDeviceNetworkCheck();
+        if (isElectronApp()) {
+            enforceDeviceNetworkCheck();
+        }
         if (isOfflineMode()) {
             handleOfflineModeChange(true);
         }
     });
 
     window.addEventListener('offline', () => {
+        if (!isElectronApp()) return;
         window._isDeviceOfflineForce = true;
         setOfflineMode(true, true);
         const btnPosterBg = document.getElementById('btn-poster-change-bg');
@@ -333,6 +371,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.addEventListener('online', async () => {
+        if (!isElectronApp()) return;
         await enforceDeviceNetworkCheck();
         const toggle = document.getElementById('toggle-offline-mode');
         if (toggle) toggle.disabled = false;
@@ -844,12 +883,7 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     const cleanName = username.trim();
     const deviceId = (typeof getDeviceId === 'function') ? getDeviceId() : 'dev_unknown';
 
-    // 1. 检查本地是否被封禁
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        throw new Error('当前设备已被管理员封禁，禁止注册新账号');
-    }
-
-    // 2. 检查云端：当前设备是否存在被封禁的账号
+    // 1. 检查云端：当前设备是否存在处于封禁状态的账号 (以云端实时数据为准)
     try {
         const { data: bannedDevAccounts } = await sbClient
             .from('user_accounts')
@@ -863,6 +897,11 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
                 markDeviceBanned(bannedDevAccounts[0].username, deviceId);
             }
             throw new Error(`当前设备绑定的账号（${bannedDevAccounts[0].username}）已被管理员封禁，禁止注册新账号`);
+        } else {
+            // 云端该设备已无被封禁的账号（已解封），清理本地可能残留的封禁标记
+            if (typeof unmarkDeviceBanned === 'function') {
+                unmarkDeviceBanned();
+            }
         }
     } catch (e) {
         if (e.message && e.message.includes('封禁')) throw e;
@@ -881,8 +920,18 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
             try {
                 localStorage.setItem('vocab_registered_account', regName);
                 localStorage.setItem('vocab_device_has_registered', 'true');
+                SafeStorage.setItem('vocab_registered_account', regName);
+                SafeStorage.setItem('vocab_device_has_registered', 'true');
             } catch (e) { }
             throw new Error(`当前设备已绑定注册过账号“${regName}”，一台设备仅限注册一个账号`);
+        } else if (!devQueryErr && existingDevAccounts && existingDevAccounts.length === 0) {
+            // 云端该设备无注册账号（说明之前的账号已被注销或删除），清理本地过期的绑定标记
+            try {
+                localStorage.removeItem('vocab_registered_account');
+                localStorage.removeItem('vocab_device_has_registered');
+                SafeStorage.removeItem('vocab_registered_account');
+                SafeStorage.removeItem('vocab_device_has_registered');
+            } catch (e) { }
         }
     } catch (e) {
         if (e.message && e.message.includes('一台设备')) throw e;
@@ -968,6 +1017,11 @@ async function supabaseLoginUser(arg1, arg2) {
             markDeviceBanned(cleanName, data.device_id);
         }
         throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    } else {
+        // 账号正常可用（未被封禁或已被解封）：清除可能残留的本地设备封禁标记
+        if (typeof unmarkDeviceBanned === 'function') {
+            unmarkDeviceBanned(cleanName);
+        }
     }
 
     // 自动补全设备绑定 (老账号初次登录时无 device_id)
@@ -1000,6 +1054,11 @@ async function supabaseLoginWithHash(username, hashedPassword) {
             markDeviceBanned(cleanName, data.device_id);
         }
         throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    } else {
+        // 账号正常可用（未被封禁或已被解封）：清除可能残留的本地设备封禁标记
+        if (typeof unmarkDeviceBanned === 'function') {
+            unmarkDeviceBanned(cleanName);
+        }
     }
 
     // 自动补全设备绑定
@@ -1116,6 +1175,66 @@ async function supabaseDeleteAccount(username, password = null) {
             throw new Error('密码错误，无法注销账号');
         }
     }
+
+    // 1. 清除邮件状态记录 (user_mail_status)
+    try {
+        await sbClient
+            .from('user_mail_status')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 user_mail_status 异常:', e);
+    }
+
+    // 2. 清除用户道具 (user_items)
+    try {
+        await sbClient
+            .from('user_items')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 user_items 异常:', e);
+    }
+
+    // 3. 清除对战房间 (rooms)
+    try {
+        await sbClient
+            .from('rooms')
+            .delete()
+            .eq('host', username);
+
+        let roomCode = '';
+        if (typeof getUserRoomCode === 'function') {
+            roomCode = getUserRoomCode(username);
+        } else {
+            let hash = 5381;
+            for (let i = 0; i < username.length; i++) {
+                hash = ((hash << 5) + hash) + username.charCodeAt(i);
+                hash |= 0;
+            }
+            roomCode = Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(-6);
+        }
+        if (roomCode) {
+            await sbClient
+                .from('rooms')
+                .delete()
+                .in('code', [roomCode, `ONL_${roomCode}`, `USR_${roomCode}`]);
+        }
+    } catch (e) {
+        console.warn('[Supabase] 清理 rooms 异常:', e);
+    }
+
+    // 4. 清除 Wordle 排行榜与打卡记录 (daily_wordle_records)
+    try {
+        await sbClient
+            .from('daily_wordle_records')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 daily_wordle_records 异常:', e);
+    }
+
+    // 5. 删除账号主体记录 (user_accounts)
     const { error } = await sbClient
         .from('user_accounts')
         .delete()
@@ -2107,26 +2226,26 @@ const VocabOfflineDB = {
 /**
  * 清理目前储存在 Toy 云储存中的所有词书残留数据
  */
-async function cleanToyLegacyBookStorage() {
-    if (typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && typeof window.toy.removeCloudStorage === 'function') {
-        try {
-            const allKeys = await window.toy.getCloudStorage();
-            if (allKeys && typeof allKeys === 'object') {
-                const legacyKeys = Object.keys(allKeys).filter(k => {
-                    const lk = k.toLowerCase();
-                    return lk.includes('book') || lk.includes('doris') || lk.includes('word') || lk.startsWith('books_') || lk === 'cached_cloud_books';
-                });
-                if (legacyKeys.length > 0) {
-                    await window.toy.removeCloudStorage(legacyKeys);
-                    console.log('[Toy Storage] 已成功删除储存于 Toy 云储存中的词书残留数据:', legacyKeys);
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy Storage] 清理云端词书残留异常:', e);
-        }
-    }
-}
-window.cleanToyLegacyBookStorage = cleanToyLegacyBookStorage;
+// async function cleanToyLegacyBookStorage() {
+//     if (typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && typeof window.toy.removeCloudStorage === 'function') {
+//         try {
+//             const allKeys = await window.toy.getCloudStorage();
+//             if (allKeys && typeof allKeys === 'object') {
+//                 const legacyKeys = Object.keys(allKeys).filter(k => {
+//                     const lk = k.toLowerCase();
+//                     return lk.includes('book') || lk.includes('doris') || lk.includes('word') || lk.startsWith('books_') || lk === 'cached_cloud_books';
+//                 });
+//                 if (legacyKeys.length > 0) {
+//                     await window.toy.removeCloudStorage(legacyKeys);
+//                     console.log('[Toy Storage] 已成功删除储存于 Toy 云储存中的词书残留数据:', legacyKeys);
+//                 }
+//             }
+//         } catch (e) {
+//             console.warn('[Toy Storage] 清理云端词书残留异常:', e);
+//         }
+//     }
+// }
+// window.cleanToyLegacyBookStorage = cleanToyLegacyBookStorage;
 
 
 
@@ -2781,6 +2900,16 @@ function loadUserData(username, profile = null) {
                 restoreUserDataFromCloud(cloudUser);
             }
         }).catch(() => { });
+    }
+
+    if (typeof ItemManager !== 'undefined' && ItemManager.isAvailable()) {
+        ItemManager.fetchUserItems();
+    }
+    if (typeof ActivityManager !== 'undefined' && ActivityManager.isAvailable()) {
+        ActivityManager.init();
+    }
+    if (typeof MailManager !== 'undefined' && MailManager.isAvailable()) {
+        MailManager.fetchMails();
     }
 }
 
@@ -4493,7 +4622,7 @@ const ElectronManager = {
         const isLocal = typeof isLocalAccount === 'function' && isLocalAccount();
         const user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
         return {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.9.0',
             exportedAt: new Date().toISOString(),
             user: user,
             accountType: isLocal ? 'local' : 'online',
@@ -5134,6 +5263,14 @@ const DailyStudyTracker = {
         logs[todayStr][type] = (logs[todayStr][type] || 0) + count;
         this.saveLogs(logs);
         this.renderWeekCalendar(currentCalendarWeekOffset);
+
+        if (typeof ItemManager !== 'undefined') {
+            if (type === 'learned' || type === 'reviewed') {
+                ItemManager.recordTaskProgress('task_learn_words', count);
+            } else if (type === 'riddle') {
+                ItemManager.recordTaskProgress('task_wordle', count);
+            }
+        }
     },
     getDaysOfWeek(offset = 0) {
         const now = new Date();
@@ -5813,16 +5950,45 @@ const LevelManager = {
         userRank = 1,
         userRating = 0,
         oppoRank = 1,
-        oppoRating = 50
+        oppoRating = 50,
+        username = ''
     } = {}) {
+        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+
         // 0. 游客禁止参与排位赛
-        if (typeof currentUser !== 'undefined' && this.isGuestUser(currentUser)) {
+        if (this.isGuestUser(u)) {
             isRanked = false;
         }
 
-        // 人机等级分固定在每段中间（例如 1段为50分，2段为150分），不受输赢影响
+        // 参数安全校验与清洗 (防止 NaN、undefined 或极端脏数据破坏段位与等级分)
+        userRank = Math.max(1, Math.min(this.MAX_RANK, parseInt(userRank) || 1));
+        oppoRank = Math.max(1, Math.min(this.MAX_RANK, parseInt(oppoRank) || 1));
+
+        userRating = parseInt(userRating);
+        if (isNaN(userRating) || userRating < 0) {
+            userRating = this.getRankMidpointRating(userRank);
+        }
+        oppoRating = parseInt(oppoRating);
+        if (isNaN(oppoRating) || oppoRating < 0) {
+            oppoRating = this.getRankMidpointRating(oppoRank);
+        }
+
+        // 确保等级分与传入的段位在合理的区间内，纠正陈旧或异常等级分
+        const expectedUserMin = (userRank - 1) * 100;
+        const expectedUserMax = userRank >= this.MAX_RANK ? Infinity : userRank * 100;
+        if (userRating < expectedUserMin || (userRank < this.MAX_RANK && userRating > expectedUserMax + 50)) {
+            userRating = this.getRankMidpointRating(userRank);
+        }
+
+        // 人机等级分固定在每段中间
         if (isAi) {
             oppoRating = this.getRankMidpointRating(oppoRank);
+        } else {
+            const expectedOppoMin = (oppoRank - 1) * 100;
+            const expectedOppoMax = oppoRank >= this.MAX_RANK ? Infinity : oppoRank * 100;
+            if (oppoRating < expectedOppoMin || (oppoRank < this.MAX_RANK && oppoRating > expectedOppoMax + 50)) {
+                oppoRating = this.getRankMidpointRating(oppoRank);
+            }
         }
 
         // 1. 友谊赛模式不增减积分
@@ -5898,18 +6064,33 @@ const LevelManager = {
             };
         }
 
-        // 双方分差
-        const ratingDiff = oppoRating - userRating;
+        // 双方分差（限制在 [-300, 300] 内，避免段位悬殊时产生极端分值）
+        const rawDiff = oppoRating - userRating;
+        const ratingDiff = Math.max(-300, Math.min(300, rawDiff));
 
         if (playerWin) {
             // 基础加分：根据双方分差自适应浮动 [12, 36]
             const baseGain = Math.max(12, Math.min(36, Math.round(20 + ratingDiff * 0.08)));
             // 随段位提升放慢加分速度 (1段 100% 速度，逐步递减至 9段 40% 速度)
             const rankSlowdownFactor = Math.max(0.40, 1.0 - (userRank - 1) * 0.075);
-            const winGain = Math.max(3, Math.round(baseGain * rankSlowdownFactor));
+            // 最终单局胜场加分严格限制在 [5, 40]
+            let winGain = Math.max(5, Math.min(40, Math.round(baseGain * rankSlowdownFactor)));
 
-            const newRating = userRating + winGain;
-            const newRank = this.getRankFromRating(newRating);
+            // 检查排位翻倍卡：使用后下一次排位赛赢了获取的等级分翻倍
+            let usedCard = null;
+            const hasRankDouble = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('rank_double', u);
+            if (hasRankDouble) {
+                winGain *= 2;
+                usedCard = 'rank_double';
+            }
+
+            let newRating = userRating + winGain;
+            let newRank = this.getRankFromRating(newRating);
+            // 单局胜利最多提升 1 段，杜绝连跳多段
+            newRank = Math.min(userRank + 1, Math.min(this.MAX_RANK, newRank));
+            if (newRank < this.MAX_RANK) {
+                newRating = Math.min(newRating, newRank * 100);
+            }
             const isPromoted = (newRank > userRank);
 
             return {
@@ -5924,24 +6105,85 @@ const LevelManager = {
                 isPromoted: isPromoted,
                 isDemoted: false,
                 isPromotionMatch: false,
-                reason: isPromoted
-                    ? `排位胜利！成功升至 ${newRank}段`
-                    : `排位胜利，获得 +${winGain} 分！`
+                usedProtectionCard: usedCard,
+                reason: usedCard === 'rank_double'
+                    ? (isPromoted
+                        ? `排位胜利，触发【排位翻倍卡】等级分翻倍！成功升至 ${newRank}段 (+${winGain}分)`
+                        : `排位胜利，触发【排位翻倍卡】等级分翻倍，获得 +${winGain} 分！`)
+                    : (isPromoted
+                        ? `排位胜利！成功升至 ${newRank}段 (+${winGain}分)`
+                        : `排位胜利，获得 +${winGain} 分！`)
             };
         } else {
+            // 战败处理：检查排位保护道具（优先级：排位保护卡 ＞ 段位保护卡）
+            // 1. 最高优先级：排位保护卡（输了直接不扣分，段位也不会降低）
+            const hasRankProtect = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('rank_protect', u);
+            if (hasRankProtect) {
+                return {
+                    isRanked: true,
+                    playerWin: false,
+                    isDraw: false,
+                    deltaPoints: 0,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: userRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    usedProtectionCard: 'rank_protect',
+                    reason: '排位战败，触发【排位保护卡】免除扣分！(-0分)'
+                };
+            }
+
             // 战败扣分：根据双方分差自适应浮动 [6, 26]
             const baseLoss = Math.max(6, Math.min(26, Math.round(15 - ratingDiff * 0.08)));
-            const lossDeduct = Math.min(userRating, baseLoss);
+            // 最终单局败场扣分严格限制在 [4, 30]
+            const lossDeduct = Math.max(4, Math.min(30, Math.min(userRating, baseLoss)));
 
-            const newRating = Math.max(0, userRating - lossDeduct);
-            const newRank = this.getRankFromRating(newRating);
-            const isDemoted = (newRank < userRank);
+            let newRating = Math.max(0, userRating - lossDeduct);
+            let newRank = this.getRankFromRating(newRating);
+            // 单局战败最多降 1 段，绝对不可直接暴跌回 1 段
+            newRank = Math.max(Math.max(1, userRank - 1), newRank);
+            if (newRank > 1) {
+                newRating = Math.max((newRank - 1) * 100 + 1, newRating);
+            }
+            let isDemoted = (newRank < userRank);
 
+            // 2. 次优先级：段位保护卡（仅在将发生掉段时触发保护，免受一次掉段）
+            if (isDemoted) {
+                const hasTierProtect = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('tier_protect', u);
+                if (hasTierProtect) {
+                    newRank = userRank; // 保持当前段位！
+                    newRating = Math.max((userRank - 1) * 100 + 1, newRating); // 保存在当前段位最低分
+                    isDemoted = false;
+                    const actualDelta = newRating - userRating;
+                    return {
+                        isRanked: true,
+                        playerWin: false,
+                        isDraw: false,
+                        deltaPoints: actualDelta,
+                        oldRank: userRank,
+                        oldRating: userRating,
+                        newRank: newRank,
+                        newRating: newRating,
+                        isPromoted: false,
+                        isDemoted: false,
+                        isPromotionMatch: false,
+                        usedProtectionCard: 'tier_protect',
+                        reason: actualDelta === 0
+                            ? `排位战败，触发【段位保护卡】不掉段！(当前：${newRank}段 ${newRating}分)`
+                            : `排位战败，触发【段位保护卡】不掉段！-${Math.abs(actualDelta)} 分(当前：${newRank}段 ${newRating}分)`
+                    };
+                }
+            }
+
+            const actualLoss = userRating - newRating;
             return {
                 isRanked: true,
                 playerWin: false,
                 isDraw: false,
-                deltaPoints: -lossDeduct,
+                deltaPoints: -actualLoss,
                 oldRank: userRank,
                 oldRating: userRating,
                 newRank: newRank,
@@ -5950,8 +6192,8 @@ const LevelManager = {
                 isDemoted: isDemoted,
                 isPromotionMatch: false,
                 reason: isDemoted
-                    ? `排位战败，降至 ${newRank}段 (-${lossDeduct}分)`
-                    : `排位战败，扣除 ${lossDeduct} 分`
+                    ? `排位战败，降至 ${newRank}段 (-${actualLoss}分)`
+                    : `排位战败，扣除 ${actualLoss} 分`
             };
         }
     },
@@ -5960,6 +6202,19 @@ const LevelManager = {
     async applyMatchResult(username, matchResult) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         if (!u || this.isGuestUser(u)) return matchResult;
+
+        // 消耗触发的保护卡道具
+        if (matchResult && matchResult.usedProtectionCard && typeof ItemManager !== 'undefined') {
+            await ItemManager.consumeProtectionCard(matchResult.usedProtectionCard, u);
+        }
+
+        // 记录每日排位活动任务进度
+        if (matchResult && matchResult.isRanked && typeof ItemManager !== 'undefined') {
+            ItemManager.recordTaskProgress('task_daily_ranked', 1);
+            if (matchResult.playerWin) {
+                ItemManager.recordTaskProgress('task_win_ranked', 1);
+            }
+        }
 
         const current = this.getUserRankData(u);
         const battles = current.battles || { total: 0, wins: 0, losses: 0, draws: 0 };
@@ -6031,6 +6286,2631 @@ const LevelManager = {
 window.LevelManager = LevelManager;
 
 /* --- End: managers/level-manager.js --- */
+
+/* --- Begin: managers/item-manager.js --- */
+/**
+ * 道具系统管理器 (ItemManager)
+ * Module: assets/js/managers/item-manager.js
+ * 
+ * 核心功能：
+ * 1. 道具云端存储 (Supabase user_items 表) 与本地安全缓存
+ * 2. 道具定义与图鉴（排位保护卡、段位保护卡）
+ * 3. 道具有效期与生效时限控制、不可叠加规则
+ * 4. 战败扣分与掉段保护逻辑（优先级：排位保护卡 ＞ 段位保护卡）
+ * 5. 活动任务系统（完成任务获取道具）
+ */
+
+(function (window) {
+    'use strict';
+
+    // 道具定义与图鉴数据库
+    const ITEM_DEFINITIONS = {
+        rank_protect: {
+            type: 'rank_protect',
+            name: '排位保护卡',
+            icon: 'shield',
+            color: '#d97706',
+            bgColor: '#fef3c7',
+            borderColor: '#fde68a',
+            badgeText: '战败不扣分',
+            validityDays: 30, // 领取后 1 个月内
+            activeLimitHours: 720, // 使用后若有时限（最长 30 天或单次消耗）
+            shortDesc: '下一次排位赛输了不扣分',
+            detailDesc: '排位赛专属保分道具。使用后进入生效状态，下一次排位赛（无论人机还是联机排位）若不幸战败，自动免除本次对局的所有等级分扣除惩罚。战败触发一次后自动消耗。',
+            priority: 1,
+            rules: [
+                '【有效期】自领取之时起 1 个月（30天）内有效，过期失效且无法使用。',
+                '【生效规则】点击使用后进入“生效中”状态；在下一次排位赛战败时自动抵扣扣分惩罚。',
+                '【单次消耗】生效后战败保护一次即消耗移除。',
+                '【禁止叠加】相同道具不能叠加使用，当前有排位保护卡生效时无法再次使用。',
+                '【优先级】使用优先级：排位保护卡 ＞ 段位保护卡。若同时处于生效状态，优先触发排位保护卡免除扣分。'
+            ]
+        },
+        tier_protect: {
+            type: 'tier_protect',
+            name: '段位保护卡',
+            icon: 'security',
+            color: '#2563eb',
+            bgColor: '#dbeafe',
+            borderColor: '#bfdbfe',
+            badgeText: '免受一次掉段',
+            validityDays: 30, // 领取后 1 个月内
+            activeLimitHours: 720,
+            shortDesc: '免受一次掉段',
+            detailDesc: '段位阶梯守护道具。使用后进入生效状态，当排位赛战败扣分将导致段位降低（如2段跌回1段）时，自动触发段位保护，将积分保存在当前段位最低分（如2段1分），免受降段惩罚。若战败未导致降段，则继续保留生效中状态。',
+            priority: 2,
+            rules: [
+                '【有效期】自领取之时起有效，临期（<24h）会标注提醒，过期失效且无法使用。',
+                '【生效规则】点击使用后进入“生效中”状态；仅在战败扣分会导致掉段时触发保护。',
+                '【保留生效】若战败扣分但未降段，则不触发消耗，继续保留生效中状态。',
+                '【禁止叠加】相同道具不能叠加使用。',
+                '【优先级】使用优先级：排位保护卡 ＞ 段位保护卡。若排位保护卡已免除扣分，则段位保护卡不消耗。'
+            ]
+        },
+        rank_double: {
+            type: 'rank_double',
+            name: '排位翻倍卡',
+            icon: 'trending_up',
+            color: '#7e22ce',
+            bgColor: '#f3e8ff',
+            borderColor: '#e9d5ff',
+            badgeText: '一次性',
+            validityDays: 30,
+            activeLimitHours: 720,
+            shortDesc: '下一次排位赛获取的等级分翻倍',
+            detailDesc: '排位赛冲分专属道具。使用后进入生效状态，下一次排位赛（无论人机还是联机排位）若取得胜利，获得的等级分自动翻倍！战胜触发一次后自动消耗。战败不触发且不消耗。',
+            priority: 3,
+            rules: [
+                '【有效期】自领取之时起有效（不同活动奖励时限可能不同），临期（<24h）会标注提醒，过期失效且无法使用。',
+                '【生效规则】点击使用后进入“生效中”状态；在下一次排位赛胜利时，获得的等级分翻倍。',
+                '【单次消耗】生效后在取得排位赛胜利并翻倍积分后自动消耗移除；战败不消耗。',
+                '【禁止叠加】相同道具不能叠加使用，当前有排位翻倍卡生效时无法再次使用。'
+            ]
+        }
+    };
+
+    const ItemManager = {
+        DEFINITIONS: ITEM_DEFINITIONS,
+        _itemsCache: [],
+        _activeTab: 'items', // 'items' | 'handbook'
+        _itemsCacheUser: '',
+
+        // 检查用户是否具有使用道具资格（已登录云端账号或B站授权且非离线模式）
+        isAvailable() {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+            const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile)
+                ? currentUserProfile
+                : (window.currentUserProfile || null);
+            if (profile && profile.isLoggedIn && (profile.type === 'cloud' || profile.type === 'bilibili')) return true;
+            if (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客')) return true;
+            return false;
+        },
+
+        getCurrentUsername() {
+            const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile)
+                ? currentUserProfile
+                : (window.currentUserProfile || null);
+            if (profile && profile.username && !profile.username.startsWith('游客')) {
+                return profile.username;
+            }
+            if (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+                return currentUser;
+            }
+            return '';
+        },
+
+        // 从云端 Supabase 获取当前用户拥有的所有道具
+        async fetchUserItems(silent = false) {
+            const username = this.getCurrentUsername();
+            if (!username || !this.isAvailable()) {
+                this._itemsCache = [];
+                this._itemsCacheUser = username || '';
+                this.updateBadge();
+                return [];
+            }
+
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    const { data, error } = await sbClient
+                        .from('user_items')
+                        .select('*')
+                        .eq('username', username)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        console.warn('[ItemManager] fetchUserItems error:', error);
+                    } else if (Array.isArray(data)) {
+                        this._itemsCache = this._processItemsExpiry(data);
+                        this._itemsCacheUser = username;
+                        this._saveLocalCache(username, this._itemsCache);
+                        this.updateBadge();
+                        this.renderItemsView();
+                        return this._itemsCache;
+                    }
+                }
+            } catch (e) {
+                console.warn('[ItemManager] fetchUserItems exception:', e);
+            }
+
+            // 失败时从本地安全缓存读取兜底
+            this._itemsCache = this._loadLocalCache(username);
+            this._itemsCache = this._processItemsExpiry(this._itemsCache);
+            this._itemsCacheUser = username;
+            this.updateBadge();
+            this.renderItemsView();
+            return this._itemsCache;
+        },
+
+        // 检查并修正道具过期状态
+        _processItemsExpiry(items) {
+            if (!Array.isArray(items)) return [];
+            const now = Date.now();
+            return items.map(item => {
+                const itemCopy = { ...item };
+                // 1. 检查道具自身有效期 (expire_at)
+                if (itemCopy.expire_at) {
+                    const expireTime = new Date(itemCopy.expire_at).getTime();
+                    if (!isNaN(expireTime) && expireTime <= now) {
+                        if (itemCopy.status !== 'used') {
+                            itemCopy.status = 'expired';
+                        }
+                    }
+                }
+                // 2. 检查使用后的时限 (active_until)
+                if (itemCopy.status === 'active' && itemCopy.active_until) {
+                    const activeUntilTime = new Date(itemCopy.active_until).getTime();
+                    if (!isNaN(activeUntilTime) && activeUntilTime <= now) {
+                        itemCopy.status = 'expired';
+                    }
+                }
+                return itemCopy;
+            });
+        },
+
+        _loadLocalCache(username) {
+            try {
+                const raw = localStorage.getItem(`vocab_user_items_${username}`);
+                if (raw) return JSON.parse(raw);
+            } catch (e) { }
+            return [];
+        },
+
+        _saveLocalCache(username, items) {
+            try {
+                localStorage.setItem(`vocab_user_items_${username}`, JSON.stringify(items));
+            } catch (e) { }
+        },
+
+        // 获取用户当前的道具列表（过滤已移除或根据状态）
+        getUserItems(username) {
+            const u = username || this.getCurrentUsername();
+            if (!u) return [];
+            if (this._itemsCache && this._itemsCache.length > 0 && this._itemsCacheUser === u) {
+                return this._itemsCache;
+            }
+            const local = this._loadLocalCache(u);
+            this._itemsCache = this._processItemsExpiry(local);
+            this._itemsCacheUser = u;
+            return this._itemsCache;
+        },
+
+        // 检查某类型道具是否正在生效中
+        hasActiveCard(itemType, username) {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+            if (!this.isAvailable()) return false;
+            const items = this.getUserItems(username);
+            const now = Date.now();
+            return items.some(item => {
+                if (item.item_type !== itemType) return false;
+                if (item.status !== 'active') return false;
+                // 必须在有效期和时限内
+                if (item.expire_at && new Date(item.expire_at).getTime() <= now) return false;
+                if (item.active_until && new Date(item.active_until).getTime() <= now) return false;
+                return true;
+            });
+        },
+
+        // 使用道具
+        async useItem(itemId) {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+                if (typeof showToast === 'function') showToast('离线模式下已禁用道具功能');
+                return false;
+            }
+            if (!this.isAvailable()) {
+                if (typeof showToast === 'function') showToast('当前状态无法使用道具，请登录云端账号');
+                return false;
+            }
+
+            const username = this.getCurrentUsername();
+            if (!username) {
+                if (typeof showToast === 'function') showToast('请先登录云端账号');
+                return false;
+            }
+
+            const items = this.getUserItems(username);
+            const item = items.find(it => String(it.id) === String(itemId));
+            if (!item) {
+                if (typeof showToast === 'function') showToast('未找到该道具');
+                return false;
+            }
+
+            const def = ITEM_DEFINITIONS[item.item_type] || {};
+            const now = Date.now();
+
+            // 1. 检查是否已过期
+            if (item.status === 'expired' || (item.expire_at && new Date(item.expire_at).getTime() <= now)) {
+                item.status = 'expired';
+                this._saveLocalCache(username, items);
+                this.renderItemsView();
+                if (typeof showToast === 'function') showToast('该道具已过有效期，无法使用！');
+                return false;
+            }
+
+            // 2. 检查是否已在生效中
+            if (item.status === 'active') {
+                if (typeof showToast === 'function') showToast(`该【${item.item_name || '道具'}】已处于生效中！`);
+                return false;
+            }
+
+            // 3. 检查不可叠加规则：同类道具不可叠加使用
+            const alreadyActive = items.some(it => 
+                String(it.id) !== String(itemId) &&
+                it.item_type === item.item_type &&
+                it.status === 'active' &&
+                (!it.expire_at || new Date(it.expire_at).getTime() > now) &&
+                (!it.active_until || new Date(it.active_until).getTime() > now)
+            );
+
+            if (alreadyActive) {
+                if (typeof showToast === 'function') {
+                    showToast(`相同道具不可叠加使用！`);
+                }
+                return false;
+            }
+
+            // 4. 设置生效状态及使用时限
+            const nowIso = new Date().toISOString();
+            const activeHours = def.activeLimitHours || 720;
+            const activeUntilIso = new Date(now + activeHours * 3600 * 1000).toISOString();
+
+            item.status = 'active';
+            item.used_at = nowIso;
+            item.active_until = activeUntilIso;
+
+            this._saveLocalCache(username, items);
+            this.renderItemsView();
+            if (typeof showToast === 'function') {
+                showToast(`“${item.item_name}”已生效！`);
+            }
+
+            // 同步云端 Supabase
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    await sbClient
+                        .from('user_items')
+                        .update({
+                            status: 'active',
+                            used_at: nowIso,
+                            active_until: activeUntilIso
+                        })
+                        .eq('id', item.id);
+                }
+            } catch (e) {
+                console.warn('[ItemManager] useItem cloud sync warning:', e);
+            }
+
+            this.updateBadge();
+            return true;
+        },
+
+        // 在排位赛结算中消耗生效中的保护卡
+        async consumeProtectionCard(itemType, username) {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+            const u = username || this.getCurrentUsername();
+            if (!u) return false;
+
+            const items = this.getUserItems(u);
+            const activeCard = items.find(it => it.item_type === itemType && it.status === 'active');
+            if (!activeCard) return false;
+
+            const nowIso = new Date().toISOString();
+            activeCard.status = 'used';
+            activeCard.consumed_at = nowIso;
+
+            this._saveLocalCache(u, items);
+            this.updateBadge();
+
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    await sbClient
+                        .from('user_items')
+                        .update({
+                            status: 'used'
+                        })
+                        .eq('id', activeCard.id);
+                }
+            } catch (e) {
+                console.warn('[ItemManager] consumeProtectionCard cloud error:', e);
+            }
+
+            return true;
+        },
+
+        // 给指定用户发放道具（支持 Supabase 后台写入，也可由前端发放/完成活动发放）
+        async grantItem(username, itemType, durationDays = 30) {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+                console.warn('[ItemManager] 离线模式下禁止发放道具');
+                return null;
+            }
+            const u = username || this.getCurrentUsername();
+            if (!u) return null;
+
+            const def = ITEM_DEFINITIONS[itemType];
+            if (!def) throw new Error(`未知的道具类型: ${itemType}`);
+
+            const now = new Date();
+            const expireAt = new Date(now.getTime() + durationDays * 24 * 3600 * 1000).toISOString();
+
+            const newItem = {
+                username: u,
+                item_type: itemType,
+                item_name: def.name,
+                status: 'unused',
+                obtained_at: now.toISOString(),
+                expire_at: expireAt,
+                created_at: now.toISOString()
+            };
+
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    const { data, error } = await sbClient
+                        .from('user_items')
+                        .insert([newItem])
+                        .select()
+                        .single();
+
+                    if (!error && data) {
+                        this._itemsCache.unshift(data);
+                        this._itemsCacheUser = u;
+                        this._saveLocalCache(u, this._itemsCache);
+                        this.updateBadge();
+                        this.renderItemsView();
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.warn('[ItemManager] grantItem error:', e);
+            }
+
+            // 本地 fallback
+            newItem.id = 'local_' + Date.now();
+            this._itemsCache.unshift(newItem);
+            this._itemsCacheUser = u;
+            this._saveLocalCache(u, this._itemsCache);
+            this.updateBadge();
+            this.renderItemsView();
+            return newItem;
+        },
+
+        // 空实现，兼容旧模块调用
+        recordTaskProgress(taskId, count = 1) {},
+
+        // 更新账号管理中的我的道具入口徽标
+        updateBadge() {
+            const badgeEl = document.getElementById('me-items-badge');
+            if (!badgeEl) return;
+
+            if (!this.isAvailable()) {
+                badgeEl.style.display = 'none';
+                return;
+            }
+
+            const u = this.getCurrentUsername();
+            const items = this.getUserItems(u);
+            const activeCount = items.filter(it => it.status === 'active').length;
+            const unusedCount = items.filter(it => it.status === 'unused' && (!it.expire_at || new Date(it.expire_at).getTime() > Date.now())).length;
+
+            if (activeCount > 0) {
+                badgeEl.style.display = 'inline-flex';
+                badgeEl.style.background = '#dcfce7';
+                badgeEl.style.color = '#15803d';
+                badgeEl.innerText = `${activeCount}个生效中`;
+            } else if (unusedCount > 0) {
+                badgeEl.style.display = 'inline-flex';
+                badgeEl.style.background = 'var(--md-sys-color-primary-container)';
+                badgeEl.style.color = 'var(--md-sys-color-primary)';
+                badgeEl.innerText = `${unusedCount}个可用`;
+            } else {
+                badgeEl.style.display = 'none';
+            }
+        },
+
+        // =========================================================================
+        // 渲染“我的道具”全页面与各个选项卡
+        // =========================================================================
+        renderItemsView(targetTab = null) {
+            if (targetTab) this._activeTab = targetTab;
+            const container = document.getElementById('settings-subview-items-content');
+            if (!container) return;
+
+            const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+            if (isOffline) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:60px 20px;">
+                        <div style="width:64px; height:64px; border-radius:50%; background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                            <span class="material-symbols-rounded" style="font-size:36px;">cloud_off</span>
+                        </div>
+                        <h3 style="margin:0 0 8px; font-weight:700;">离线模式已禁用道具功能</h3>
+                        <p style="color:var(--md-sys-color-outline); font-size:0.9rem; max-width:340px; margin:0 auto 20px; line-height:1.5;">
+                            当前处于离线模式，道具功能仅支持在联网状态及云端排位赛中使用。请在设置中退出离线模式后重试。
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            const u = this.getCurrentUsername();
+            const isAvail = this.isAvailable();
+
+            if (!isAvail) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:60px 20px;">
+                        <span class="material-symbols-rounded" style="font-size:64px; color:var(--md-sys-color-outline);">lock</span>
+                        <h3 style="margin:16px 0 8px; font-weight:700;">道具系统未解锁</h3>
+                        <p style="color:var(--md-sys-color-outline); font-size:0.9rem; max-width:320px; margin:0 auto 20px;">
+                            道具为云端排位赛专属特权，请登录词迹云端账号后解锁道具背包与活动任务！
+                        </p>
+                        <button type="button" class="btn btn-filled" onclick="switchView('view-auth')" style="border-radius:999px; padding:0 24px;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">login</span>
+                            <span>去登录云端账号</span>
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const items = this.getUserItems(u);
+            const activeCount = items.filter(it => it.status === 'active').length;
+            const unusedCount = items.filter(it => it.status === 'unused' && (!it.expire_at || new Date(it.expire_at).getTime() > Date.now())).length;
+
+            // Tab 头部切换条（精简为我的道具与道具图鉴，右侧放置刷新按钮）
+            const tabsHtml = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+                    <div class="settings-category-tabs" style="display:flex; gap:8px; margin:0;">
+                        <button type="button" class="settings-cat-tab ${this._activeTab === 'items' ? 'active' : ''}" onclick="ItemManager.switchTab('items')" style="display:flex; align-items:center; gap:6px;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">backpack</span>
+                            <span>我的道具</span>
+                        </button>
+                        <button type="button" class="settings-cat-tab ${this._activeTab === 'handbook' ? 'active' : ''}" onclick="ItemManager.switchTab('handbook')" style="display:flex; align-items:center; gap:6px;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">auto_stories</span>
+                            <span>道具图鉴</span>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-text btn-sm" onclick="ItemManager.fetchUserItems()" title="刷新道具" style="display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 10px; border-radius:var(--md-shape-full);">
+                        <span class="material-symbols-rounded" style="font-size:17px;">refresh</span>
+                        <span>刷新</span>
+                    </button>
+                </div>
+            `;
+
+            let bodyHtml = '';
+            if (this._activeTab === 'items') {
+                bodyHtml = this._renderMyItemsList(items);
+            } else {
+                bodyHtml = this._renderHandbook();
+            }
+
+            container.innerHTML = tabsHtml + bodyHtml;
+        },
+
+        switchTab(tab) {
+            this._activeTab = tab;
+            this.renderItemsView();
+        },
+
+        // 渲染“我的道具”列表
+        _renderMyItemsList(items) {
+            const now = Date.now();
+            const validItems = items.filter(it => it.status !== 'used');
+
+            if (!validItems || validItems.length === 0) {
+                return `
+                    <div class="card" style="text-align:center; padding:50px 20px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
+                        <div style="width:64px; height:64px; border-radius:50%; background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                            <span class="material-symbols-rounded" style="font-size:32px;">inventory_2</span>
+                        </div>
+                        <h4 style="margin:0 0 6px; font-weight:700;">背包空空如也</h4>
+                        <p style="color:var(--md-sys-color-outline); font-size:0.85rem; margin:0 auto 16px; max-width:320px;">
+                            参与活动可以获取道具哟~
+                        </p>
+                        <div style="display:flex; justify-content:center; gap:10px;">
+                            <button type="button" class="btn btn-filled btn-sm" onclick="if(typeof openActivityView==='function')openActivityView();else if(typeof openActivityModal==='function')openActivityModal();else if(window.ActivityManager&&ActivityManager.openActivityModal)ActivityManager.openActivityModal();">
+                                <span class="material-symbols-rounded" style="font-size:16px;">celebration</span>
+                                <span>前往活动中心</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const cardsHtml = validItems.map(item => {
+                const def = ITEM_DEFINITIONS[item.item_type] || {
+                    name: item.item_name || '道具',
+                    icon: 'shield',
+                    color: '#0284c7',
+                    bgColor: '#e0f2fe',
+                    shortDesc: '排位辅助道具'
+                };
+
+                const isExpired = (item.status === 'expired') || (item.expire_at && new Date(item.expire_at).getTime() <= now);
+                const isActive = (item.status === 'active') && !isExpired;
+
+                const expireMs = item.expire_at ? new Date(item.expire_at).getTime() : null;
+                const isExpiringSoon = !isExpired && expireMs && (expireMs - now > 0) && (expireMs - now < 24 * 3600 * 1000);
+                let remainingHoursText = '';
+                if (isExpiringSoon) {
+                    const hoursLeft = Math.max(1, Math.ceil((expireMs - now) / 3600000));
+                    remainingHoursText = `仅剩 ${hoursLeft} 小时`;
+                }
+
+                let expireDateStr = '永久有效';
+                let expireTimeStr = '';
+                if (item.expire_at) {
+                    const exp = new Date(item.expire_at);
+                    if (!isNaN(exp.getTime())) {
+                        const month = String(exp.getMonth() + 1).padStart(2, '0');
+                        const day = String(exp.getDate()).padStart(2, '0');
+                        const hours = String(exp.getHours()).padStart(2, '0');
+                        const minutes = String(exp.getMinutes()).padStart(2, '0');
+                        expireDateStr = `${exp.getFullYear()}-${month}-${day}`;
+                        expireTimeStr = `${hours}:${minutes}`;
+                    }
+                }
+
+                let statusBadge = '';
+                let actionBtn = '';
+
+                if (isActive) {
+                    statusBadge = `
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:700; display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px;">
+                            <span class="material-symbols-rounded" style="font-size:14px;">check_circle</span>
+                            <span>生效中</span>
+                        </span>
+                    `;
+                    actionBtn = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.85; cursor:default; background:#dcfce7; color:#15803d; font-weight:700; height:32px; min-height:32px; padding:0 12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-rounded" style="font-size:16px;">offline_bolt</span>
+                            <span>生效中</span>
+                        </button>
+                    `;
+                } else if (isExpired) {
+                    statusBadge = `
+                        <span class="badge" style="background:#f1f5f9; color:#94a3b8; font-weight:600; padding:3px 10px; border-radius:99px;">已过期</span>
+                    `;
+                    actionBtn = `
+                        <button type="button" class="btn btn-outlined btn-sm" disabled style="opacity:0.5; height:32px; min-height:32px; padding:0 12px; font-size:0.8rem;">
+                            <span>已过期</span>
+                        </button>
+                    `;
+                } else {
+                    statusBadge = `
+                        <span class="badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface); font-weight:600; padding:3px 10px; border-radius:99px;">未使用</span>
+                    `;
+                    actionBtn = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ItemManager.useItem('${item.id}')" style="box-shadow: 0 2px 8px rgba(0,97,164,0.2); height:32px; min-height:32px; padding:0 14px; font-size:0.82rem; display:inline-flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
+                            <span>使用</span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; justify-content:space-between; gap:12px; position:relative; overflow:hidden;">
+                        ${isActive ? '<div style="position:absolute; top:0; left:0; right:0; height:3px; background:#16a34a;"></div>' : ''}
+                        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:48px; height:48px; border-radius:14px; background:${def.bgColor || '#f1f5f9'}; color:${def.color || '#0284c7'}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-symbols-rounded" style="font-size:26px;">${def.icon || 'shield'}</span>
+                                </div>
+                                <div>
+                                    <h4 style="margin:0; font-size:1.05rem; font-weight:700;">${item.item_name || def.name}</h4>
+                                    <p style="margin:4px 0 0; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant); line-height:1.4;">${def.shortDesc || ''}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--md-sys-color-outline-variant); display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
+                                <div style="display:flex; align-items:center; gap:5px; font-size:0.76rem; color:${isExpiringSoon ? '#dc2626' : 'var(--md-sys-color-outline)'}; line-height:1.3;">
+                                    <span class="material-symbols-rounded" style="font-size:15px; flex-shrink:0; ${isExpiringSoon ? 'color:#dc2626;' : ''}">schedule</span>
+                                    <span style="font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">有效期至：${expireDateStr}</span>
+                                </div>
+                                <div style="padding-left:20px; font-size:0.76rem; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${isExpiringSoon ? `
+                                        <span style="font-weight:700; color:#dc2626;">${expireTimeStr}到期 (${remainingHoursText})</span>
+                                    ` : (expireTimeStr ? `
+                                        <span style="color:var(--md-sys-color-outline);">${expireTimeStr}到期</span>
+                                    ` : `
+                                        <span style="color:var(--md-sys-color-outline);">长期有效</span>
+                                    `)}
+                                </div>
+                            </div>
+                            <div style="flex-shrink:0;">${actionBtn}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                    ${cardsHtml}
+                </div>
+            `;
+        },
+
+        // 渲染“道具图鉴” (精简清晰版)
+        _renderHandbook() {
+            return `
+                <div style="margin-bottom:14px; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); font-size:0.83rem; color:var(--md-sys-color-outline); display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">info</span>
+                    <span>道具使用后自动生效，同类道具不可叠加。</span>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                    <!-- 排位保护卡 -->
+                    <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:44px; height:44px; border-radius:12px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-symbols-rounded" style="font-size:24px;">shield</span>
+                                </div>
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <h4 style="margin:0; font-size:1.02rem; font-weight:700;">排位保护卡</h4>
+                                    </div>
+                                    <div style="font-size:0.78rem; color:#d97706; font-weight:700; margin-top:3px;">一次性</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--md-sys-color-surface-container-low); padding:10px 12px; border-radius:var(--md-shape-s); font-size:0.83rem; line-height:1.5; color:var(--md-sys-color-on-surface-variant);">
+                            使用后，下一次排位赛战败免受扣分惩罚。一次性使用。
+                        </div>
+                    </div>
+
+                    <!-- 段位保护卡 -->
+                    <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:44px; height:44px; border-radius:12px; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-symbols-rounded" style="font-size:24px;">security</span>
+                                </div>
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <h4 style="margin:0; font-size:1.02rem; font-weight:700;">段位保护卡</h4>
+                                    </div>
+                                    <div style="font-size:0.78rem; color:#2563eb; font-weight:700; margin-top:3px;">一次性</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--md-sys-color-surface-container-low); padding:10px 12px; border-radius:var(--md-shape-s); font-size:0.83rem; line-height:1.5; color:var(--md-sys-color-on-surface-variant);">
+                            使用后，当扣分会导致掉段时，积分将保存在当前段位最低分，免受掉段惩罚。一次性使用。
+                        </div>
+                    </div>
+
+                    <!-- 排位翻倍卡 -->
+                    <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:44px; height:44px; border-radius:12px; background:#f3e8ff; color:#7e22ce; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-symbols-rounded" style="font-size:24px;">trending_up</span>
+                                </div>
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <h4 style="margin:0; font-size:1.02rem; font-weight:700;">排位翻倍卡</h4>
+                                    </div>
+                                    <div style="font-size:0.78rem; color:#7e22ce; font-weight:700; margin-top:3px;">一次性</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--md-sys-color-surface-container-low); padding:10px 12px; border-radius:var(--md-shape-s); font-size:0.83rem; line-height:1.5; color:var(--md-sys-color-on-surface-variant);">
+                            使用后，下一次排位赛获取的等级分翻倍。一次性使用，战败不消耗。
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    };
+
+    window.ItemManager = ItemManager;
+
+    // 全局快捷打开道具页面函数
+    window.openMyItemsPage = function () {
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+            if (typeof showToast === 'function') {
+                showToast('离线模式下已禁用道具功能');
+            }
+            return;
+        }
+        if (!ItemManager.isAvailable()) {
+            if (typeof showToast === 'function') {
+                showToast('未登录状态无法使用道具，请登录云端账号或B站授权');
+            }
+            return;
+        }
+        if (typeof openMeSubview === 'function') {
+            openMeSubview('items');
+        }
+        ItemManager.renderItemsView();
+        ItemManager.fetchUserItems();
+    };
+
+})(window);
+
+/* --- End: managers/item-manager.js --- */
+
+/* --- Begin: managers/activity-manager.js --- */
+/**
+ * 活动系统管理器 (ActivityManager)
+ * Module: assets/js/managers/activity-manager.js
+ * 
+ * 核心功能：
+ * 1. 首页“活动”入口状态与未读数徽标管理（仅在支持该活动的平台显示，离线模式不显示）
+ * 2. 平台活动过滤：关注和互动两个活动仅在 Toy 平台显示
+ * 3. 简化活动详情弹窗 UI，打开后自动更新任务完成情况
+ * 4. 简化任务列表：未完成显示“前往”或当前进度，完成显示“领取奖励”，领完显示“已领取”
+ * 5. 活动 1: 关注作者 B 站账号 (Toy平台，一次性，通过 toy.getAuthorRelation() 检测，奖励段位保护卡)
+ * 6. 活动 2: 给关联视频互动 (Toy平台，周期任务，点赞收藏奖排位保护卡，投币奖排位保护卡，关联视频变化时动态更新)
+ */
+
+(function (window) {
+    'use strict';
+
+    const AUTHOR_MID = '1569750390';
+    const DEFAULT_VIDEO_BVID = 'BV1ieH96NERu';
+
+    const ActivityManager = {
+        _activities: [],
+        _records: {},
+        _readActivityIds: new Set(),
+        _hasNotifiedCompleted: {},
+
+        // 检查环境是否允许活动系统（离线模式不显示）
+        isAvailable() {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+            return true;
+        },
+
+        // 判断当前是否处于 B站 Toy 平台
+        isToyPlatform() {
+            return Boolean(
+                (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) ||
+                (typeof window !== 'undefined' && (window.isBilibiliToy || window.toy || window.__cachedToyGuestId))
+            );
+        },
+
+        // 检查当前用户是否为游客模式
+        isGuest() {
+            const u = this.getCurrentUsername();
+            if (!u) return true;
+            if (typeof LevelManager !== 'undefined' && typeof LevelManager.isGuestUser === 'function') {
+                return LevelManager.isGuestUser(u);
+            }
+            return u.startsWith('游客') || u === 'guest';
+        },
+
+        // 谨慎检测是否真正运行在 B 站 App 容器内（避免普通网页触发 SDK 强行弹出“请在哔哩哔哩App中使用”弹窗）
+        isBiliAppEnv() {
+            if (typeof window === 'undefined') return false;
+            if (typeof window.toy === 'undefined') return false;
+            const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : '';
+            return /bili/i.test(ua) || Boolean(window.toy && window.toy.platform === 'app');
+        },
+
+        isToyBiliUser() {
+            const isToy = this.isToyPlatform();
+            const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile)
+                ? currentUserProfile
+                : (window.currentUserProfile || null);
+            const isBili = Boolean(profile && profile.isLoggedIn && profile.type === 'bilibili');
+            return isToy && isBili;
+        },
+
+        getCurrentUsername() {
+            if (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+                return currentUser;
+            }
+            const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile) ? currentUserProfile : null;
+            if (profile && profile.username) return profile.username;
+            return '';
+        },
+
+        // 获取当前关联视频 BVID (支持 URL 查询参数、配置或默认视频)
+        getAssociatedVideoBvid() {
+            try {
+                if (typeof window !== 'undefined' && window.location && window.location.search) {
+                    const params = new URLSearchParams(window.location.search);
+                    const bvidParam = params.get('bvid') || params.get('bv');
+                    if (bvidParam) return bvidParam.trim();
+                }
+            } catch (e) { }
+
+            if (typeof window !== 'undefined' && window.toyAssociatedVideo) {
+                return String(window.toyAssociatedVideo).trim();
+            }
+
+            try {
+                const stored = localStorage.getItem('vocab_toy_associated_bvid');
+                if (stored) return stored.trim();
+            } catch (e) { }
+
+            return DEFAULT_VIDEO_BVID;
+        },
+
+        setAssociatedVideoBvid(bvid) {
+            if (!bvid) return;
+            const cleanBvid = bvid.trim();
+            try {
+                localStorage.setItem('vocab_toy_associated_bvid', cleanBvid);
+            } catch (e) { }
+            this.checkAssociatedVideoChange(cleanBvid);
+        },
+
+        // 初始化活动系统
+        async init() {
+            this.loadState();
+            this.initActivitiesList();
+            this.updateBadge();
+
+            // 记录当前关联视频，不在此处自动调用 SDK 检测，避免一进网页就弹出 App 提示
+            const currentBvid = this.getAssociatedVideoBvid();
+            this._records.lastCheckedBvid = currentBvid;
+            this.saveState();
+        },
+
+        loadState() {
+            const u = this.getCurrentUsername() || 'guest';
+            try {
+                const raw = localStorage.getItem(`vocab_activity_records_${u}`);
+                this._records = raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                this._records = {};
+            }
+
+            try {
+                const rawRead = localStorage.getItem(`vocab_read_activities_${u}`);
+                this._readActivityIds = rawRead ? new Set(JSON.parse(rawRead)) : new Set();
+            } catch (e) {
+                this._readActivityIds = new Set();
+            }
+        },
+
+        saveState() {
+            const u = this.getCurrentUsername() || 'guest';
+            try {
+                localStorage.setItem(`vocab_activity_records_${u}`, JSON.stringify(this._records));
+                localStorage.setItem(`vocab_read_activities_${u}`, JSON.stringify(Array.from(this._readActivityIds)));
+            } catch (e) { }
+        },
+
+        initActivitiesList() {
+            this._activities = [
+                {
+                    id: 'act_bili_follow',
+                    title: '关注 up 主',
+                    type: 'once',
+                    typeLabel: '一次性',
+                    icon: 'person_add',
+                    platform: 'toy',
+                    summary: '关注 up 主，即可领取一张【段位保护卡】！',
+                    tasks: [
+                        {
+                            taskId: 'task_follow_author',
+                            title: '关注 up 主',
+                            rewardType: 'tier_protect',
+                            rewardDesc: '段位保护卡 x1 (1个月有效)'
+                        }
+                    ]
+                },
+                {
+                    id: 'act_bili_video_interaction',
+                    title: '视频互动',
+                    type: 'periodic',
+                    typeLabel: '长期任务',
+                    icon: 'thumb_up',
+                    platform: 'toy',
+                    summary: '给作者最新点赞、收藏、投币，即可领取【排位翻倍卡】！',
+                    tasks: [
+                        {
+                            taskId: 'task_video_like',
+                            title: '给关联视频点赞',
+                            rewardType: 'rank_double',
+                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                        },
+                        {
+                            taskId: 'task_video_fav',
+                            title: '给关联视频收藏',
+                            rewardType: 'rank_double',
+                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                        },
+                        {
+                            taskId: 'task_video_coin',
+                            title: '给关联视频投币',
+                            rewardType: 'rank_double',
+                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                        }
+                    ]
+                }
+            ];
+        },
+
+        // 判断该活动是否支持当前平台运行
+        isActivitySupported(act) {
+            if (!act) return false;
+            const isToy = this.isToyPlatform();
+            const p = act.platform || act.targetPlatform;
+            if (!p || p === 'all') return true;
+            if (p === 'toy' || p === 'bilibili_toy') return isToy;
+            if (p === 'web') return !isToy;
+            return true;
+        },
+
+        // 获取当前平台支持的活动列表（若活动不支持此平台，则不要在此平台中显示）
+        getAvailableActivities() {
+            return this._activities.filter(act => this.isActivitySupported(act));
+        },
+
+        // 检查关联视频变动
+        async checkAssociatedVideoChange(bvid) {
+            const prevBvid = this._records.lastCheckedBvid || '';
+            if (bvid && bvid !== prevBvid) {
+                this._records.lastCheckedBvid = bvid;
+                this.saveState();
+
+                // 关联视频变化时，仅在真实处于 B 站 App 环境且非游客时静默更新检测
+                if (this.isBiliAppEnv() && !this.isGuest()) {
+                    await this.detectVideoInteractionTasks(bvid, true);
+                }
+            }
+        },
+
+        // 检测关注作者任务完成情况（仅在 B 站 App 内有效）
+        async detectFollowTask() {
+            if (!this.isBiliAppEnv() || this.isGuest()) return false;
+
+            const record = this._records.act_bili_follow || { completed: false, claimed: false };
+            if (record.claimed) return true;
+
+            try {
+                if (typeof window.toy !== 'undefined' && typeof window.toy.getAuthorRelation === 'function') {
+                    const res = await window.toy.getAuthorRelation();
+                    const isFollowing = Boolean(res && res.status === 'ok' && res.data && (res.data.isFollowing || res.data.is_following));
+                    if (isFollowing && !record.completed) {
+                        record.completed = true;
+                        this._records.act_bili_follow = record;
+                        this.saveState();
+                        this.notifyTaskStatusChange('关注作者 B 站账号');
+                        this.updateBadge();
+                    }
+                    return isFollowing;
+                }
+            } catch (e) {
+                console.warn('[ActivityManager] detectFollowTask error:', e);
+            }
+            return false;
+        },
+
+        // 检测关联视频互动任务完成情况（仅在 B 站 App 内有效）
+        async detectVideoInteractionTasks(targetBvid = null, notifyOnUpdate = false) {
+            if (!this.isBiliAppEnv() || this.isGuest()) return;
+
+            const bvid = targetBvid || this.getAssociatedVideoBvid();
+            if (!this._records.videoTasks) this._records.videoTasks = {};
+            if (!this._records.videoTasks[bvid]) {
+                this._records.videoTasks[bvid] = {
+                    likeCompleted: false,
+                    likeClaimed: false,
+                    favCompleted: false,
+                    favClaimed: false,
+                    coinCompleted: false,
+                    coinClaimed: false,
+                    isLiked: false,
+                    isFavorited: false,
+                    coinCount: 0
+                };
+            }
+
+            const videoRec = this._records.videoTasks[bvid];
+
+            try {
+                if (typeof window.toy !== 'undefined' && typeof window.toy.getVideoUserActions === 'function') {
+                    const res = await window.toy.getVideoUserActions({
+                        videos: [{ bvid: bvid }]
+                    });
+
+                    if (res && Array.isArray(res.items) && res.items.length > 0) {
+                        const item = res.items[0];
+                        if (item.status === 'ok') {
+                            const isLiked = Boolean(item.liked);
+                            const isFavorited = Boolean(item.favorited);
+                            const coinCount = parseInt(item.coinCount || item.coin_count || 0);
+
+                            videoRec.isLiked = isLiked;
+                            videoRec.isFavorited = isFavorited;
+                            videoRec.coinCount = coinCount;
+
+                            let stateChanged = false;
+
+                            // 任务1: 点赞
+                            if (isLiked) {
+                                if (!videoRec.likeCompleted) {
+                                    videoRec.likeCompleted = true;
+                                    stateChanged = true;
+                                    if (notifyOnUpdate && !videoRec.likeClaimed) {
+                                        this.notifyTaskStatusChange('给关联视频点赞');
+                                    }
+                                }
+                            }
+
+                            // 任务2: 收藏
+                            if (isFavorited) {
+                                if (!videoRec.favCompleted) {
+                                    videoRec.favCompleted = true;
+                                    stateChanged = true;
+                                    if (notifyOnUpdate && !videoRec.favClaimed) {
+                                        this.notifyTaskStatusChange('给关联视频收藏');
+                                    }
+                                }
+                            }
+
+                            // 任务3: 投币
+                            if (coinCount > 0) {
+                                if (!videoRec.coinCompleted) {
+                                    videoRec.coinCompleted = true;
+                                    stateChanged = true;
+                                    if (notifyOnUpdate && !videoRec.coinClaimed) {
+                                        this.notifyTaskStatusChange('给关联视频投币');
+                                    }
+                                }
+                            }
+
+                            this.saveState();
+                            if (stateChanged) {
+                                this.updateBadge();
+                                if (document.getElementById('view-activity') && document.getElementById('view-activity').classList.contains('active')) {
+                                    this.renderActivitiesView();
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[ActivityManager] detectVideoInteractionTasks error:', e);
+            }
+        },
+
+        // 任务状态发生更新时的醒目提醒
+        notifyTaskStatusChange(taskName) {
+            const now = Date.now();
+            if (this._hasNotifiedCompleted[taskName] && now - this._hasNotifiedCompleted[taskName] < 60000) {
+                return;
+            }
+            this._hasNotifiedCompleted[taskName] = now;
+
+            if (typeof showToast === 'function') {
+                showToast(`活动任务【${taskName}】已完成，快去领取奖励吧！`, 4500);
+            }
+        },
+
+        // 领取活动任务奖励
+        async claimActivityTaskReward(activityId, taskId) {
+            if (this.isGuest()) {
+                if (typeof showToast === 'function') {
+                    showToast('登录账号才可以参与活动！');
+                }
+                return;
+            }
+
+            const u = this.getCurrentUsername();
+            if (!u) {
+                if (typeof showToast === 'function') showToast('登录账号才可以领取奖励！');
+                return;
+            }
+
+            const act = this._activities.find(a => a.id === activityId);
+            if (!act) return;
+
+            const bvid = this.getAssociatedVideoBvid();
+
+            if (activityId === 'act_bili_follow') {
+                const r = this._records.act_bili_follow || {};
+                if (r.claimed) {
+                    if (typeof showToast === 'function') showToast('该奖励已经领取过了');
+                    return;
+                }
+                if (!r.completed) {
+                    if (!this.isBiliAppEnv()) {
+                        if (typeof showToast === 'function') showToast('关注检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                        return;
+                    }
+                    const isFollow = await this.detectFollowTask();
+                    if (!isFollow) {
+                        if (typeof showToast === 'function') showToast('检测到您尚未关注作者账号，请关注后重试');
+                        return;
+                    }
+                }
+
+                r.claimed = true;
+                this._records.act_bili_follow = r;
+                this.saveState();
+
+                if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                    await ItemManager.grantItem(u, 'tier_protect', 30);
+                }
+
+                this.renderActivityDetail(activityId);
+                this.renderActivitiesView();
+                this.updateBadge();
+
+                if (typeof showToast === 'function') {
+                    showToast('领取成功！', 4000);
+                }
+            } else if (activityId === 'act_bili_video_interaction') {
+                if (!this._records.videoTasks) this._records.videoTasks = {};
+                if (!this._records.videoTasks[bvid]) {
+                    this._records.videoTasks[bvid] = {
+                        likeCompleted: false,
+                        likeClaimed: false,
+                        favCompleted: false,
+                        favClaimed: false,
+                        coinCompleted: false,
+                        coinClaimed: false
+                    };
+                }
+                const vt = this._records.videoTasks[bvid];
+
+                // 1. 点赞任务
+                if (taskId === 'task_video_like') {
+                    if (vt.likeClaimed) {
+                        if (typeof showToast === 'function') showToast('该任务奖励已领取');
+                        return;
+                    }
+                    if (!vt.likeCompleted) {
+                        if (!this.isBiliAppEnv()) {
+                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            return;
+                        }
+                        await this.detectVideoInteractionTasks(bvid);
+                        if (!vt.likeCompleted) {
+                            if (typeof showToast === 'function') showToast('尚未完成点赞，请点赞后重试');
+                            return;
+                        }
+                    }
+
+                    vt.likeClaimed = true;
+                    this.saveState();
+
+                    if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                        await ItemManager.grantItem(u, 'rank_double', 30);
+                    }
+
+                    this.renderActivityDetail(activityId);
+                    this.renderActivitiesView();
+                    this.updateBadge();
+
+                    if (typeof showToast === 'function') {
+                        showToast('领取成功！', 4000);
+                    }
+                }
+                // 2. 收藏任务
+                else if (taskId === 'task_video_fav') {
+                    if (vt.favClaimed) {
+                        if (typeof showToast === 'function') showToast('该任务奖励已领取');
+                        return;
+                    }
+                    if (!vt.favCompleted) {
+                        if (!this.isBiliAppEnv()) {
+                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            return;
+                        }
+                        await this.detectVideoInteractionTasks(bvid);
+                        if (!vt.favCompleted) {
+                            if (typeof showToast === 'function') showToast('尚未完成收藏，请收藏后重试');
+                            return;
+                        }
+                    }
+
+                    vt.favClaimed = true;
+                    this.saveState();
+
+                    if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                        await ItemManager.grantItem(u, 'rank_double', 30);
+                    }
+
+                    this.renderActivityDetail(activityId);
+                    this.renderActivitiesView();
+                    this.updateBadge();
+
+                    if (typeof showToast === 'function') {
+                        showToast('领取成功！', 4000);
+                    }
+                }
+                // 3. 投币任务
+                else if (taskId === 'task_video_coin') {
+                    if (vt.coinClaimed) {
+                        if (typeof showToast === 'function') showToast('该任务奖励已领取');
+                        return;
+                    }
+                    if (!vt.coinCompleted) {
+                        if (!this.isBiliAppEnv()) {
+                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            return;
+                        }
+                        await this.detectVideoInteractionTasks(bvid);
+                        if (!vt.coinCompleted) {
+                            if (typeof showToast === 'function') showToast('尚未完成投币，请投币支持后重试');
+                            return;
+                        }
+                    }
+
+                    vt.coinClaimed = true;
+                    this.saveState();
+
+                    if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                        await ItemManager.grantItem(u, 'rank_double', 30);
+                    }
+
+                    this.renderActivityDetail(activityId);
+                    this.renderActivitiesView();
+                    this.updateBadge();
+
+                    if (typeof showToast === 'function') {
+                        showToast('领取成功！', 4000);
+                    }
+                }
+                // 兼容旧 task_video_like_fav
+                else if (taskId === 'task_video_like_fav') {
+                    if (vt.likeClaimed && vt.favClaimed) {
+                        if (typeof showToast === 'function') showToast('该任务奖励已领取');
+                        return;
+                    }
+                    vt.likeClaimed = true;
+                    vt.favClaimed = true;
+                    this.saveState();
+                    if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                        await ItemManager.grantItem(u, 'rank_double', 30);
+                    }
+                    this.renderActivityDetail(activityId);
+                    this.renderActivitiesView();
+                    this.updateBadge();
+                    if (typeof showToast === 'function') showToast('领取成功！', 4000);
+                }
+            }
+        },
+
+        // 执行前往动作
+        doActivityAction(action) {
+            if (this.isGuest()) {
+                if (typeof showToast === 'function') {
+                    showToast('游客模式仅支持查看活动，请登录账号后参与！');
+                }
+                return;
+            }
+
+            if (action === 'follow_author') {
+                if (typeof window.toy !== 'undefined' && typeof window.toy.navigate === 'function') {
+                    try {
+                        window.toy.navigate({
+                            type: 'space',
+                            id: String(AUTHOR_MID)
+                        });
+                        return;
+                    } catch (e) {
+                        console.warn('[Toy] navigate to space failed:', e);
+                    }
+                }
+                window.open(`https://space.bilibili.com/${AUTHOR_MID}`, '_blank');
+                return;
+            }
+
+            if (action === 'open_video') {
+                const bvid = this.getAssociatedVideoBvid();
+                if (typeof window.toy !== 'undefined' && typeof window.toy.navigate === 'function') {
+                    try {
+                        window.toy.navigate({
+                            type: 'video',
+                            id: String(bvid)
+                        });
+                        return;
+                    } catch (e) {
+                        console.warn('[Toy] navigate to video failed:', e);
+                    }
+                }
+                window.open(`https://www.bilibili.com/video/${bvid}`, '_blank');
+                return;
+            }
+        },
+
+        // 计算未读与待领取提醒数量（仅计算当前平台可用的活动）
+        getUnreadAndPendingCount() {
+            if (!this.isAvailable()) return 0;
+            let count = 0;
+
+            const bvid = this.getAssociatedVideoBvid();
+            const availActivities = this.getAvailableActivities();
+
+            availActivities.forEach(act => {
+                // 1. 新活动未读
+                if (!this._readActivityIds.has(act.id)) {
+                    count++;
+                }
+
+                // 2. 有已达成待领取的任务
+                if (act.id === 'act_bili_follow') {
+                    const r = this._records.act_bili_follow;
+                    if (r && r.completed && !r.claimed) {
+                        count++;
+                    }
+                } else if (act.id === 'act_bili_video_interaction') {
+                    const vt = this._records.videoTasks && this._records.videoTasks[bvid];
+                    if (vt) {
+                        if ((vt.likeCompleted || vt.isLiked) && !vt.likeClaimed) count++;
+                        if ((vt.favCompleted || vt.isFavorited) && !vt.favClaimed) count++;
+                        if ((vt.coinCompleted || (vt.coinCount > 0)) && !vt.coinClaimed) count++;
+                    }
+                }
+            });
+
+            return count;
+        },
+
+        // 更新首页活动图标右上角的徽标及卡片显示
+        updateBadge() {
+            const badgeEl = document.getElementById('hub-activity-unread-badge');
+            const entryCard = document.getElementById('hub-activity-entry-card');
+
+            if (!this.isAvailable()) {
+                if (entryCard) entryCard.style.display = 'none';
+                if (badgeEl) badgeEl.style.display = 'none';
+                return;
+            }
+
+            const availActivities = this.getAvailableActivities();
+
+            // 非离线模式下，始终显示活动入口卡片（无论是否为 toy 平台）
+            if (entryCard) {
+                entryCard.style.display = 'flex';
+            }
+
+            if (!badgeEl) return;
+
+            if (availActivities.length === 0) {
+                badgeEl.style.display = 'none';
+                return;
+            }
+
+            const count = this.getUnreadAndPendingCount();
+            if (count > 0) {
+                badgeEl.style.display = 'inline-flex';
+                badgeEl.innerText = count > 99 ? '99+' : String(count);
+            } else {
+                badgeEl.style.display = 'none';
+            }
+        },
+
+        // 标记某活动为已读
+        markActivityAsRead(activityId) {
+            this._readActivityIds.add(activityId);
+            this.saveState();
+            this.updateBadge();
+        },
+
+        // 渲染活动主页面
+        renderActivitiesView() {
+            const listEl = document.getElementById('activity-list-container');
+            if (!listEl) return;
+
+            const availActivities = this.getAvailableActivities();
+            if (availActivities.length === 0) {
+                listEl.innerHTML = `
+                    <div class="card" style="text-align:center; padding:60px 16px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant);">
+                        <span class="material-symbols-rounded" style="font-size:52px; color:var(--md-sys-color-outline); opacity:0.5;">campaign</span>
+                        <h4 style="margin:12px 0 4px; font-weight:700; color:var(--md-sys-color-on-surface);">暂无进行中的活动</h4>
+                    </div>
+                `;
+                return;
+            }
+
+            const bvid = this.getAssociatedVideoBvid();
+
+            const cardsHtml = availActivities.map(act => {
+                const isRead = this._readActivityIds.has(act.id);
+                let statusBadge = '';
+                let claimableNotice = false;
+
+                if (act.id === 'act_bili_follow') {
+                    const r = this._records.act_bili_follow || {};
+                    if (r.claimed) {
+                        statusBadge = `<span class="badge" style="background:#f1f5f9; color:#64748b; font-weight:700;">已参与并领取</span>`;
+                    } else if (r.completed) {
+                        statusBadge = `<span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700; border:1px solid #86efac;">可领取奖励</span>`;
+                        claimableNotice = true;
+                    } else {
+                        statusBadge = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-weight:700;">${act.typeLabel}</span>`;
+                    }
+                } else if (act.id === 'act_bili_video_interaction') {
+                    const vt = (this._records.videoTasks && this._records.videoTasks[bvid]) || {};
+                    const isLikeDone = Boolean(vt.likeCompleted || vt.isLiked);
+                    const isFavDone = Boolean(vt.favCompleted || vt.isFavorited);
+                    const isCoinDone = Boolean(vt.coinCompleted || (vt.coinCount > 0));
+
+                    const hasClaimable = (isLikeDone && !vt.likeClaimed) || (isFavDone && !vt.favClaimed) || (isCoinDone && !vt.coinClaimed);
+                    const allClaimed = vt.likeClaimed && vt.favClaimed && vt.coinClaimed;
+
+                    if (allClaimed) {
+                        statusBadge = `<span class="badge" style="background:#f1f5f9; color:#64748b; font-weight:700;">本期已领完</span>`;
+                    } else if (hasClaimable) {
+                        statusBadge = `<span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700; border:1px solid #86efac;">有奖励待领</span>`;
+                        claimableNotice = true;
+                    } else {
+                        statusBadge = `<span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-weight:700;">${act.typeLabel}</span>`;
+                    }
+                }
+
+                return `
+                    <div class="card activity-item-card clickable" onclick="ActivityManager.openDetailModal('${act.id}')" style="padding:16px 20px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid ${claimableNotice ? '#86efac' : 'var(--md-sys-color-outline-variant)'}; display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; position:relative; overflow:hidden; transition:all 0.2s ease;">
+                        <div style="display:flex; align-items:center; gap:14px; flex:1; min-width:0;">
+                            <div style="width:48px; height:48px; border-radius:14px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <span class="material-symbols-rounded" style="font-size:26px;">${act.icon}</span>
+                            </div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:var(--md-sys-color-on-surface);">${act.title}</h3>
+                                    ${statusBadge}
+                                </div>
+                                <p style="margin:4px 0 0; font-size:0.83rem; color:var(--md-sys-color-on-surface-variant); line-height:1.4;">${act.summary}</p>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:4px; font-size:0.85rem; font-weight:700; color:var(--md-sys-color-primary); flex-shrink:0;">
+                            <span>查看详情</span>
+                            <span class="material-symbols-rounded entry-card-arrow" style="font-size:16px;">arrow_forward</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            listEl.innerHTML = cardsHtml;
+        },
+
+        // 打开活动详情弹窗（自动更新任务完成情况）
+        openDetailModal(activityId) {
+            const act = this._activities.find(a => a.id === activityId);
+            if (!act || !this.isActivitySupported(act)) return;
+
+            this.markActivityAsRead(activityId);
+            this.renderActivityDetail(activityId);
+            const modal = document.getElementById('modal-activity-detail');
+            if (modal) {
+                modal.dataset.activityId = activityId;
+                modal.classList.add('active');
+            }
+
+            // 仅在真正的 B 站 App 且非游客环境下自动触发检测，普通网页端严禁调用，防止强行弹出 App 弹窗
+            if (this.isBiliAppEnv() && !this.isGuest()) {
+                if (activityId === 'act_bili_follow') {
+                    this.detectFollowTask().then(() => {
+                        this.renderActivityDetail(activityId);
+                    });
+                } else if (activityId === 'act_bili_video_interaction') {
+                    this.detectVideoInteractionTasks().then(() => {
+                        this.renderActivityDetail(activityId);
+                    });
+                }
+            }
+        },
+
+        closeDetailModal() {
+            const modal = document.getElementById('modal-activity-detail');
+            if (modal) {
+                delete modal.dataset.activityId;
+                modal.classList.remove('active');
+            }
+        },
+
+        // 渲染简化的活动详情内容
+        renderActivityDetail(activityId) {
+            const container = document.getElementById('activity-detail-content');
+            if (!container) return;
+
+            const act = this._activities.find(a => a.id === activityId);
+            if (!act || !this.isActivitySupported(act)) return;
+
+            const bvid = this.getAssociatedVideoBvid();
+            const isGuestUser = this.isGuest();
+            const isBiliApp = this.isBiliAppEnv();
+
+            let guestNoticeHtml = '';
+            if (isGuestUser) {
+                guestNoticeHtml = `
+                    <div style="margin-bottom:12px; padding:10px 14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:var(--md-shape-m); font-size:0.83rem; color:#c2410c; display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">lock</span>
+                        <span>当前为游客模式，仅支持浏览活动。请登录账号后参与任务并领取奖励！</span>
+                    </div>
+                `;
+            } else if (!isBiliApp) {
+                guestNoticeHtml = `
+                    <div style="margin-bottom:12px; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); font-size:0.82rem; color:var(--md-sys-color-outline); display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">info</span>
+                        <span>提示：该任务需要在哔哩哔哩 App 内完成</span>
+                    </div>
+                `;
+            }
+
+            let tasksHtml = '';
+
+            if (act.id === 'act_bili_follow') {
+                const r = this._records.act_bili_follow || {};
+                const isCompleted = Boolean(r.completed);
+                const isClaimed = Boolean(r.claimed);
+
+                let rightActionHtml = '';
+                if (isClaimed) {
+                    rightActionHtml = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
+                            <span>已领取</span>
+                        </button>
+                    `;
+                } else if (isCompleted) {
+                    rightActionHtml = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_follow', 'task_follow_author')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
+                            <span>领取奖励</span>
+                        </button>
+                    `;
+                } else {
+                    rightActionHtml = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('follow_author')" style="height:32px; padding:0 14px;">
+                            <span>前往</span>
+                            <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
+                        </button>
+                    `;
+                }
+
+                tasksHtml = `
+                    <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">关注作者 B 站官方账号</div>
+                            <div style="font-size:0.78rem; color:#b45309; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
+                                <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
+                                <span>奖励：段位保护卡 x1 (1个月有效)</span>
+                            </div>
+                        </div>
+                        <div style="flex-shrink:0;">${rightActionHtml}</div>
+                    </div>
+                `;
+            } else if (act.id === 'act_bili_video_interaction') {
+                const vt = (this._records.videoTasks && this._records.videoTasks[bvid]) || {};
+
+                // 任务1：点赞（进度类，target: 1）
+                const likeProgress = (vt.likeCompleted || vt.isLiked) ? 1 : 0;
+                const isLikeCompleted = vt.likeCompleted || vt.isLiked;
+                const isLikeClaimed = Boolean(vt.likeClaimed);
+
+                let rightAction1 = '';
+                if (isLikeClaimed) {
+                    rightAction1 = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
+                            <span>已领取</span>
+                        </button>
+                    `;
+                } else if (isLikeCompleted) {
+                    rightAction1 = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_like')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
+                            <span>领取奖励</span>
+                        </button>
+                    `;
+                } else {
+                    rightAction1 = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
+                                进度 ${likeProgress}/1
+                            </span>
+                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
+                                <span>前往</span>
+                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                // 任务2：收藏（进度类，target: 1）
+                const favProgress = (vt.favCompleted || vt.isFavorited) ? 1 : 0;
+                const isFavCompleted = vt.favCompleted || vt.isFavorited;
+                const isFavClaimed = Boolean(vt.favClaimed);
+
+                let rightAction2 = '';
+                if (isFavClaimed) {
+                    rightAction2 = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
+                            <span>已领取</span>
+                        </button>
+                    `;
+                } else if (isFavCompleted) {
+                    rightAction2 = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_fav')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
+                            <span>领取奖励</span>
+                        </button>
+                    `;
+                } else {
+                    rightAction2 = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
+                                进度 ${favProgress}/1
+                            </span>
+                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
+                                <span>前往</span>
+                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                // 任务3：投币（进度类，target: 1）
+                const coinProgress = (vt.coinCount && vt.coinCount > 0) ? 1 : 0;
+                const isTask3Completed = vt.coinCompleted || coinProgress >= 1;
+                const isTask3Claimed = Boolean(vt.coinClaimed);
+
+                let rightAction3 = '';
+                if (isTask3Claimed) {
+                    rightAction3 = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
+                            <span>已领取</span>
+                        </button>
+                    `;
+                } else if (isTask3Completed) {
+                    rightAction3 = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_coin')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
+                            <span>领取奖励</span>
+                        </button>
+                    `;
+                } else {
+                    rightAction3 = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
+                                进度 ${coinProgress}/1
+                            </span>
+                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
+                                <span>前往</span>
+                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                tasksHtml = `
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <!-- 任务1：点赞 -->
+                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频点赞</div>
+                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
+                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
+                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
+                                </div>
+                            </div>
+                            <div style="flex-shrink:0;">${rightAction1}</div>
+                        </div>
+
+                        <!-- 任务2：收藏 -->
+                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频收藏</div>
+                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
+                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
+                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
+                                </div>
+                            </div>
+                            <div style="flex-shrink:0;">${rightAction2}</div>
+                        </div>
+
+                        <!-- 任务3：投币 -->
+                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频投币</div>
+                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
+                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
+                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
+                                </div>
+                            </div>
+                            <div style="flex-shrink:0;">${rightAction3}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--md-sys-color-on-surface);">${act.title}</h3>
+                        <span class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); font-weight:700; font-size:0.75rem;">${act.typeLabel}</span>
+                    </div>
+                    <div style="font-size:0.83rem; color:var(--md-sys-color-outline); margin-top:4px; line-height:1.45;">${act.summary}</div>
+                </div>
+
+                ${guestNoticeHtml}
+
+                <div style="margin-top:14px;">
+                    ${tasksHtml}
+                </div>
+            `;
+        },
+
+        // 手动测试或切换关联视频
+        promptChangeVideo() {
+            const current = this.getAssociatedVideoBvid();
+            const input = window.prompt('请输入新的关联视频 BV 号（如 BV1ieH96NERu）：', current);
+            if (input && input.trim() && input.trim() !== current) {
+                this.setAssociatedVideoBvid(input.trim());
+                this.renderActivityDetail('act_bili_video_interaction');
+                if (typeof showToast === 'function') {
+                    showToast(`已切换关联视频为 ${input.trim()}，任务状态已重置更新！`);
+                }
+            }
+        }
+    };
+
+    window.ActivityManager = ActivityManager;
+
+    // 窗口聚焦时若详情弹窗处于打开状态，自动触发状态刷新（仅在 B 站 App 环境且非游客）
+    if (typeof window !== 'undefined') {
+        window.addEventListener('focus', () => {
+            const modal = document.getElementById('modal-activity-detail');
+            if (modal && modal.classList.contains('active') && modal.dataset.activityId) {
+                const actId = modal.dataset.activityId;
+                if (ActivityManager.isBiliAppEnv() && !ActivityManager.isGuest()) {
+                    if (actId === 'act_bili_follow') {
+                        ActivityManager.detectFollowTask().then(() => ActivityManager.renderActivityDetail(actId));
+                    } else if (actId === 'act_bili_video_interaction') {
+                        ActivityManager.detectVideoInteractionTasks().then(() => ActivityManager.renderActivityDetail(actId));
+                    }
+                }
+            }
+        });
+    }
+
+    // 全局快捷打开活动页面
+    window.openActivityView = function () {
+        if (!ActivityManager.isAvailable()) {
+            if (typeof showToast === 'function') showToast('离线模式下无法查看活动');
+            return;
+        }
+        if (typeof switchView === 'function') {
+            switchView('view-activity');
+        }
+        ActivityManager.renderActivitiesView();
+    };
+    window.openActivityModal = window.openActivityView;
+    ActivityManager.openActivityModal = window.openActivityView;
+
+    window.exitActivityView = function () {
+        if (typeof switchView === 'function') {
+            switchView('view-hub');
+        }
+        ActivityManager.updateBadge();
+    };
+
+})(window);
+
+/* --- End: managers/activity-manager.js --- */
+
+/* --- Begin: managers/mail-manager.js --- */
+/**
+ * 邮件系统管理器 (MailManager)
+ * Module: assets/js/managers/mail-manager.js
+ * 
+ * 核心功能：
+ * 1. 首页右上角“邮箱”入口徽标与未读邮件数管理（离线模式不显示）
+ * 2. 云端 Supabase 邮件数据同步与多目标筛选 (全体用户 / B站用户 / Supabase云端账号 / 指定用户)
+ * 3. 邮件详情查看、自动标记已读
+ * 4. 邮件附件道具领取并自动存入“我的道具” (支持排位保护卡、段位保护卡等)
+ */
+
+(function (window) {
+    'use strict';
+
+    function formatMailContent(rawContent) {
+        if (!rawContent) return '';
+        const escaped = String(rawContent)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        return escaped.replace(
+            /(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--md-sys-color-primary); text-decoration:underline; font-weight:600; word-break:break-all;">$1</a>'
+        );
+    }
+
+    const MailManager = {
+        _mails: [],
+        _mailStatusMap: {}, // mailId -> { is_read, is_claimed, is_deleted, read_at, claimed_at, deleted_at }
+        _deletedMailIds: new Set(),
+        _claimedMailIds: new Set(), // 严格持久化已领取的邮件ID，杜绝重复领取与按钮反复跳变
+        _claimingIds: new Set(),    // 正在领取的事务锁
+        _currentUsername: null,
+        _isFetching: false,
+
+        // 检查环境是否允许邮件系统（离线模式不显示）
+        isAvailable() {
+            if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+            return true;
+        },
+
+        getCurrentUser() {
+            const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile)
+                ? currentUserProfile
+                : (window.currentUserProfile || null);
+
+            let username = '';
+            let type = 'guest';
+            let isLoggedIn = false;
+
+            if (profile && profile.isLoggedIn) {
+                isLoggedIn = true;
+                username = profile.username || '';
+                type = profile.type || 'guest';
+            } else if (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+                username = currentUser;
+                type = 'cloud';
+                isLoggedIn = true;
+            }
+
+            return { username, type, isLoggedIn };
+        },
+
+        // 初始化
+        async init() {
+            const user = this.getCurrentUser();
+            if (user.isLoggedIn && user.username) {
+                this.loadLocalCache(user.username);
+            } else {
+                this._mails = [];
+                this._mailStatusMap = {};
+                this._deletedMailIds = new Set();
+                this._claimedMailIds = new Set();
+                this._claimingIds = new Set();
+                this._currentUsername = '';
+            }
+            this.updateBadge();
+            if (this.isAvailable() && user.isLoggedIn && user.username) {
+                await this.fetchMails(true);
+            }
+        },
+
+        // 账号切换或登出时彻底重置当前用户的邮件内存状态
+        resetForUser(username) {
+            const u = (username && !String(username).startsWith('游客')) ? String(username).trim() : '';
+            this._currentUsername = u;
+            this._mails = [];
+            this._mailStatusMap = {};
+            this._deletedMailIds = new Set();
+            this._claimedMailIds = new Set();
+            this._claimingIds = new Set();
+            if (u) {
+                this.loadLocalCache(u);
+            } else {
+                this.updateBadge();
+            }
+        },
+
+        loadLocalCache(targetUser) {
+            const user = this.getCurrentUser();
+            const u = targetUser || (user.isLoggedIn && user.username ? user.username : '');
+            this._currentUsername = u;
+            this._deletedMailIds = new Set();
+            this._claimedMailIds = new Set();
+            this._claimingIds = new Set();
+            this._mailStatusMap = {};
+            this._mails = [];
+
+            if (!u || u.startsWith('游客')) {
+                this.updateBadge();
+                return;
+            }
+
+            try {
+                const rawDel = localStorage.getItem(`vocab_deleted_mails_${u}`);
+                if (rawDel) {
+                    const parsedDel = JSON.parse(rawDel);
+                    if (Array.isArray(parsedDel)) {
+                        parsedDel.forEach(id => {
+                            if (id && String(id) !== 'sys_welcome_new_user') {
+                                this._deletedMailIds.add(String(id));
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                this._deletedMailIds = new Set();
+            }
+
+            try {
+                const rawClaimed = localStorage.getItem(`vocab_claimed_mails_${u}`);
+                if (rawClaimed) {
+                    const parsedClaimed = JSON.parse(rawClaimed);
+                    if (Array.isArray(parsedClaimed)) {
+                        parsedClaimed.forEach(id => {
+                            if (id && String(id) !== 'sys_welcome_new_user') {
+                                this._claimedMailIds.add(String(id));
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                this._claimedMailIds = new Set();
+            }
+
+            try {
+                const rawStatus = localStorage.getItem(`vocab_mail_status_${u}`);
+                if (rawStatus) {
+                    const parsedStatus = JSON.parse(rawStatus);
+                    if (parsedStatus && typeof parsedStatus === 'object') {
+                        delete parsedStatus['sys_welcome_new_user'];
+                        this._mailStatusMap = parsedStatus;
+                        Object.keys(parsedStatus).forEach(mId => {
+                            if (parsedStatus[mId] && parsedStatus[mId].is_claimed) {
+                                this._claimedMailIds.add(String(mId));
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                this._mailStatusMap = {};
+            }
+
+            try {
+                const rawMails = localStorage.getItem(`vocab_mails_${u}`);
+                if (rawMails) {
+                    const parsed = JSON.parse(rawMails);
+                    if (Array.isArray(parsed)) {
+                        this._mails = parsed.filter(m => 
+                            m && 
+                            String(m.id) !== 'sys_welcome_new_user' && 
+                            !this._deletedMailIds.has(String(m.id))
+                        );
+                    }
+                }
+            } catch (e) {
+                this._mails = [];
+            }
+        },
+
+        saveLocalCache() {
+            const user = this.getCurrentUser();
+            const u = (user.isLoggedIn && user.username) ? user.username : '';
+            if (!u || u.startsWith('游客')) return;
+            try {
+                localStorage.setItem(`vocab_mails_${u}`, JSON.stringify(this._mails || []));
+                localStorage.setItem(`vocab_mail_status_${u}`, JSON.stringify(this._mailStatusMap || {}));
+                localStorage.setItem(`vocab_deleted_mails_${u}`, JSON.stringify(Array.from(this._deletedMailIds || [])));
+                localStorage.setItem(`vocab_claimed_mails_${u}`, JSON.stringify(Array.from(this._claimedMailIds || [])));
+            } catch (e) { }
+        },
+
+        // 从 Supabase 获取系统邮件
+        async fetchMails(silent = false) {
+            if (!this.isAvailable()) {
+                this._mails = [];
+                this._mailStatusMap = {};
+                this._deletedMailIds = new Set();
+                this._currentUsername = '';
+                this.updateBadge();
+                return [];
+            }
+
+            const user = this.getCurrentUser();
+            if (!user.isLoggedIn || !user.username || user.username.startsWith('游客')) {
+                // 未登录状态：不拉取专属邮件，清空邮件数据与未读徽标
+                this._mails = [];
+                this._mailStatusMap = {};
+                this._deletedMailIds = new Set();
+                this._currentUsername = '';
+                this.updateBadge();
+                return [];
+            }
+
+            // 若当前用户与内存中记录的用户不一致，彻底重置为新用户
+            if (this._currentUsername !== user.username) {
+                this.resetForUser(user.username);
+            }
+
+            if (this._isFetching) return this._mails;
+            this._isFetching = true;
+
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    // 1. 获取所有有效的系统邮件
+                    const { data: mailsData, error: mailsError } = await sbClient
+                        .from('system_mails')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (mailsError) {
+                        console.warn('[MailManager] fetch system_mails error:', mailsError);
+                    } else if (Array.isArray(mailsData)) {
+                        const now = Date.now();
+
+                        // 2. 根据目标群体过滤用户可见的邮件
+                        const filteredMails = mailsData.filter(mail => {
+                            if (!mail) return false;
+                            // 检查邮件有效期
+                            if (mail.expires_at) {
+                                const exp = new Date(mail.expires_at).getTime();
+                                if (!isNaN(exp) && exp < now) return false;
+                            }
+
+                            const target = (mail.target_type || 'all').toLowerCase();
+
+                            // 全体用户
+                            if (target === 'all') return true;
+
+                            // B站授权用户
+                            if (target === 'bilibili') {
+                                return user.type === 'bilibili';
+                            }
+
+                            // Supabase云端账号用户
+                            if (target === 'cloud') {
+                                return user.type === 'cloud';
+                            }
+
+                            // 指定特定用户名单 (JSON 数组、逗号分隔字符串或单一用户名)
+                            if (target === 'users') {
+                                if (!mail.target_users) return false;
+                                if (Array.isArray(mail.target_users)) {
+                                    return mail.target_users.includes(user.username);
+                                }
+                                if (typeof mail.target_users === 'string') {
+                                    try {
+                                        const parsed = JSON.parse(mail.target_users);
+                                        if (Array.isArray(parsed)) {
+                                            return parsed.includes(user.username);
+                                        }
+                                    } catch (e) { }
+                                    // 逗号分隔判断
+                                    const userList = mail.target_users.split(',').map(s => s.trim());
+                                    return userList.includes(user.username);
+                                }
+                                return false;
+                            }
+
+                            return false;
+                        });
+
+                        // 3. 获取当前用户已有的阅读/领取/删除状态（云端数据库为当前账号唯一真实来源，避免不同账号状态串扰）
+                        const { data: statusData, error: statusError } = await sbClient
+                            .from('user_mail_status')
+                            .select('*')
+                            .eq('username', user.username);
+
+                        if (!statusError && Array.isArray(statusData)) {
+                            const cloudStatusMap = {};
+                            const cloudDeletedIds = new Set();
+                            statusData.forEach(st => {
+                                if (st && st.mail_id != null) {
+                                    const idStr = String(st.mail_id);
+                                    if (st.is_deleted) {
+                                        cloudDeletedIds.add(idStr);
+                                    }
+                                    const isClaimed = Boolean(st.is_claimed) || this._claimedMailIds.has(idStr);
+                                    if (isClaimed) {
+                                        this._claimedMailIds.add(idStr);
+                                    }
+                                    cloudStatusMap[idStr] = {
+                                        is_read: Boolean(st.is_read),
+                                        is_claimed: isClaimed,
+                                        is_deleted: Boolean(st.is_deleted),
+                                        read_at: st.read_at || null,
+                                        claimed_at: st.claimed_at || null,
+                                        deleted_at: st.deleted_at || null
+                                    };
+                                }
+                            });
+                            // 确保本地已领取的ID绝对不会因为网络往返延迟被冲刷为未领取
+                            this._claimedMailIds.forEach(idStr => {
+                                if (!cloudStatusMap[idStr]) {
+                                    cloudStatusMap[idStr] = {
+                                        is_read: true,
+                                        is_claimed: true,
+                                        is_deleted: false,
+                                        claimed_at: new Date().toISOString()
+                                    };
+                                } else {
+                                    cloudStatusMap[idStr].is_claimed = true;
+                                }
+                            });
+                            this._mailStatusMap = cloudStatusMap;
+                            this._deletedMailIds = cloudDeletedIds;
+                        }
+
+                        // 4. 将状态合入邮件列表中，并排除已删除的邮件
+                        this._mails = filteredMails
+                            .filter(mail => !this._deletedMailIds.has(String(mail.id)))
+                            .map(mail => {
+                                const idStr = String(mail.id);
+                                const st = this._mailStatusMap[idStr] || {};
+                                const isClaimed = Boolean(st.is_claimed || this._claimedMailIds.has(idStr));
+                                return {
+                                    ...mail,
+                                    is_read: Boolean(st.is_read),
+                                    is_claimed: isClaimed,
+                                    read_at: st.read_at || null,
+                                    claimed_at: st.claimed_at || null
+                                };
+                            });
+
+                        this.saveLocalCache();
+                        this.updateBadge();
+                        if (!silent) {
+                            this.renderMailboxView();
+                        }
+                        this._isFetching = false;
+                        return this._mails;
+                    }
+                }
+            } catch (e) {
+                console.warn('[MailManager] fetchMails exception:', e);
+            }
+
+            this._isFetching = false;
+            this.updateBadge();
+            return this._mails;
+        },
+
+        // 获取未读邮件数量
+        getUnreadCount() {
+            if (!this.isAvailable()) return 0;
+            return this._mails.filter(m => !m.is_read).length;
+        },
+
+        // 获取待领取附件的邮件数量
+        getUnclaimedCount() {
+            if (!this.isAvailable()) return 0;
+            return this._mails.filter(m => m.reward_item_type && !m.is_claimed).length;
+        },
+
+        // 更新未读徽标
+        updateBadge() {
+            const badge = document.getElementById('hub-mailbox-unread-badge');
+            if (!badge) return;
+
+            if (!this.isAvailable()) {
+                badge.style.display = 'none';
+                return;
+            }
+
+            const unreadCount = this.getUnreadCount();
+            if (unreadCount > 0) {
+                badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        },
+
+        // 渲染邮箱页面列表
+        renderMailboxView() {
+            const listEl = document.getElementById('mailbox-list-container');
+            if (!listEl) return;
+
+            const user = this.getCurrentUser();
+            if (!user.isLoggedIn) {
+                listEl.innerHTML = `
+                    <div style="text-align:center; padding:60px 16px; color:var(--md-sys-color-outline);">
+                        <span class="material-symbols-rounded" style="font-size:52px; opacity:0.35;">mark_email_unread</span>
+                        <h4 style="margin:12px 0 6px; font-weight:700; color:var(--md-sys-color-on-surface);">请先登录账号</h4>
+                        <p style="margin:0 0 16px; font-size:0.85rem;">登录账号后，即可接收邮件与奖励</p>
+                        <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="margin:0 auto;">
+                            <span class="material-symbols-rounded" style="font-size:16px;">login</span>
+                            <span>前往登录</span>
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!this._mails || this._mails.length === 0) {
+                listEl.innerHTML = `
+                    <div style="text-align:center; padding:60px 16px; color:var(--md-sys-color-outline);">
+                        <span class="material-symbols-rounded" style="font-size:52px; opacity:0.35;">mail</span>
+                        <h4 style="margin:12px 0 4px; font-weight:700; color:var(--md-sys-color-on-surface);">暂无新邮件</h4>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = this._mails.map(mail => {
+                const idStr = String(mail.id);
+                const isRead = Boolean(mail.is_read);
+                const hasReward = Boolean(mail.reward_item_type);
+                const isClaimed = Boolean(mail.is_claimed || (this._claimedMailIds && this._claimedMailIds.has(idStr)));
+
+                // 格式化时间
+                let timeStr = '刚刚';
+                if (mail.created_at) {
+                    const d = new Date(mail.created_at);
+                    if (!isNaN(d.getTime())) {
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const hours = String(d.getHours()).padStart(2, '0');
+                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                        timeStr = `${d.getFullYear()}-${month}-${day} ${hours}:${minutes}`;
+                    }
+                }
+
+                const sender = mail.sender || '系统管理员';
+
+                return `
+                    <div class="card mail-item-card clickable" onclick="MailManager.openMailDetail('${mail.id}')" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; gap:10px; cursor:pointer; position:relative; overflow:hidden; transition:all 0.2s ease;">
+                        ${!isRead ? '<span style="position:absolute; top:12px; right:12px; width:8px; height:8px; border-radius:50%; background:#ef4444;" title="未读邮件"></span>' : ''}
+                        <div style="display:flex; align-items:flex-start; gap:12px;">
+                            <div style="width:44px; height:44px; border-radius:12px; background:${!isRead ? '#fee2e2' : 'var(--md-sys-color-surface-container)'}; color:${!isRead ? '#dc2626' : 'var(--md-sys-color-primary)'}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <span class="material-symbols-rounded" style="font-size:24px;">${!isRead ? 'mark_email_unread' : 'mail'}</span>
+                            </div>
+                            <div style="min-width:0; flex:1; display:flex; flex-direction:column; gap:4px;">
+                                <!-- 第一行：标题在左，删除按钮在右（已读时显示） -->
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                                    <h3 style="margin:0; font-size:1.02rem; font-weight:${!isRead ? '800' : '700'}; color:var(--md-sys-color-on-surface); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${mail.title || '系统通知'}</h3>
+                                    ${isRead ? `
+                                        <button type="button" class="mail-card-delete-btn" onclick="MailManager.deleteMail('${mail.id}', event)" title="删除邮件" style="flex-shrink:0;">
+                                            <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                                <!-- 第二行：发件人在左，时间紧随其后（无圆点、不加粗、基线对齐，放不下时优雅换行） -->
+                                <div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; font-size:0.76rem; color:var(--md-sys-color-outline); line-height:1.4; margin-top:2px; width:100%; box-sizing:border-box;">
+                                    <span style="font-weight:normal; color:var(--md-sys-color-outline); white-space:nowrap;">发件人：${sender}</span>
+                                    <span style="font-weight:normal; color:var(--md-sys-color-outline); white-space:nowrap; font-variant-numeric:tabular-nums;">${timeStr}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${hasReward ? `
+                            <div style="background:${isClaimed ? '#f1f5f9' : '#f0fdf4'}; border:1px solid ${isClaimed ? '#cbd5e1' : '#bbf7d0'}; border-radius:var(--md-shape-s); padding:5px 10px; display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:${isClaimed ? '#64748b' : '#166534'}; font-weight:600; width:fit-content;">
+                                <span class="material-symbols-rounded" style="font-size:16px; color:${isClaimed ? '#94a3b8' : '#16a34a'};">${isClaimed ? 'check_circle' : 'featured_seasonal_and_gifts'}</span>
+                                <span>${isClaimed ? '' : '可领取：'}${mail.reward_item_name || ((typeof ItemManager !== 'undefined' && ItemManager.DEFINITIONS && ItemManager.DEFINITIONS[mail.reward_item_type]?.name) || '道具')} ×${mail.reward_item_count || 1}${isClaimed ? '（已领取）' : ''}</span>
+                            </div>
+                        ` : ''}
+
+                        <div style="font-size:0.83rem; color:var(--md-sys-color-on-surface-variant); line-height:1.45; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
+                            ${(mail.content || '').replace(/<[^>]+>/g, '')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            listEl.innerHTML = html;
+        },
+
+        // 打开邮件详情弹窗
+        async openMailDetail(mailId) {
+            const idStr = String(mailId);
+            const mail = this._mails.find(m => String(m.id) === idStr);
+            if (!mail) return;
+
+            // 自动标记为已读
+            if (!mail.is_read) {
+                mail.is_read = true;
+                const nowIso = new Date().toISOString();
+                mail.read_at = nowIso;
+
+                if (!this._mailStatusMap[idStr]) {
+                    this._mailStatusMap[idStr] = { is_read: true, is_claimed: false, read_at: nowIso };
+                } else {
+                    this._mailStatusMap[idStr].is_read = true;
+                    this._mailStatusMap[idStr].read_at = nowIso;
+                }
+
+                this.saveLocalCache();
+                this.updateBadge();
+
+                // 异步同步已读状态至云端 Supabase
+                this._syncStatusToCloud(idStr, { is_read: true, read_at: nowIso });
+            }
+
+            this.renderMailDetailContent(mail);
+
+            const modal = document.getElementById('modal-mail-detail');
+            if (modal) modal.classList.add('active');
+        },
+
+        closeMailDetail() {
+            const modal = document.getElementById('modal-mail-detail');
+            if (modal) modal.classList.remove('active');
+            this.renderMailboxView();
+        },
+
+        // 渲染详情模态框内容
+        renderMailDetailContent(mail) {
+            const container = document.getElementById('mail-detail-content');
+            if (!container) return;
+
+            const sender = mail.sender || '系统管理员';
+            let timeStr = '刚刚';
+            if (mail.created_at) {
+                const d = new Date(mail.created_at);
+                if (!isNaN(d.getTime())) {
+                    timeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                }
+            }
+
+            const hasReward = Boolean(mail.reward_item_type);
+            const isClaimed = Boolean(mail.is_claimed || (this._claimedMailIds && this._claimedMailIds.has(String(mail.id))));
+
+            let rewardHtml = '';
+            if (hasReward) {
+                const itemName = mail.reward_item_name || ((typeof ItemManager !== 'undefined' && ItemManager.DEFINITIONS && ItemManager.DEFINITIONS[mail.reward_item_type]?.name) || (mail.reward_item_type === 'rank_protect' ? '排位保护卡' : (mail.reward_item_type === 'rank_double' ? '排位翻倍卡' : '段位保护卡')));
+                const itemCount = mail.reward_item_count || 1;
+                const days = mail.reward_days || 30;
+
+                rewardHtml = `
+                    <div style="margin-top:20px; padding:14px 16px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:var(--md-shape-m);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:44px; height:44px; border-radius:12px; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-symbols-rounded" style="font-size:26px;">featured_seasonal_and_gifts</span>
+                                </div>
+                                <div>
+                                    <div style="font-weight:700; font-size:0.95rem; color:#166534;">
+                                        【${itemName}】×${itemCount}
+                                    </div>
+                                    <div style="font-size:0.78rem; color:#15803d; margin-top:2px;">
+                                        领取后 ${days} 天内有效
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                ${isClaimed ? `
+                                    <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.65; cursor:not-allowed;">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                                        <span>已领取</span>
+                                    </button>
+                                ` : `
+                                    <button type="button" class="btn btn-filled btn-sm" onclick="MailManager.claimMailReward('${mail.id}')" style="background:#16a34a; color:#fff; font-weight:700; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">redeem</span>
+                                        <span>立即领取</span>
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `<div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:14px;"><div style="width:48px; height:48px; border-radius:14px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span class="material-symbols-rounded" style="font-size:26px;">mail</span></div><div><h3 style="margin:0; font-size:1.2rem; font-weight:800; color:var(--md-sys-color-on-surface); line-height:1.35;">${mail.title || '系统通知'}</h3><div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; font-size:0.8rem; color:var(--md-sys-color-outline); margin-top:4px;"><span style="font-weight:normal; color:var(--md-sys-color-outline);">发件人：${sender}</span><span style="font-weight:normal; color:var(--md-sys-color-outline); font-variant-numeric:tabular-nums;">${timeStr}</span></div></div></div><div style="padding:0 !important; margin:0 !important; background:var(--md-sys-color-surface-container-lowest, #fbfcfe); border-radius:var(--md-shape-m); font-size:0.92rem; line-height:1.7; color:var(--md-sys-color-on-surface); white-space:pre-wrap; word-break:break-word; min-height:80px; text-align:left !important; display:block; width:100%; box-sizing:border-box;">${formatMailContent(mail.content)}</div>${rewardHtml}`;
+
+            // 更新模态框底部（给已读邮件提供删除邮件按钮，居右与关闭对齐）
+            const footer = document.querySelector('#modal-mail-detail .modal-footer');
+            if (footer) {
+                footer.style.display = 'flex';
+                footer.style.justifyContent = 'flex-end';
+                footer.style.alignItems = 'center';
+                footer.style.gap = '10px';
+                footer.innerHTML = `
+                    <button type="button" class="btn btn-text btn-sm" onclick="MailManager.deleteMail('${mail.id}')" style="color:#dc2626; display:inline-flex; align-items:center; gap:4px; padding:0 12px; height:36px; min-height:36px;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+                        <span>删除邮件</span>
+                    </button>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="MailManager.closeMailDetail()" style="height:36px; min-height:36px; padding:0 16px;">关闭</button>
+                `;
+            }
+        },
+
+        // 删除已读邮件
+        async deleteMail(mailId, event) {
+            if (event && typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
+
+            const idStr = String(mailId);
+            const mail = this._mails.find(m => String(m.id) === idStr);
+            if (!mail) return;
+
+            // 仅已读邮件允许删除
+            if (!mail.is_read) {
+                if (typeof showToast === 'function') showToast('未读邮件暂不支持删除');
+                return;
+            }
+
+            // 若有未领取的道具，弹出确认
+            if (mail.reward_item_type && !mail.is_claimed) {
+                const confirmed = window.confirm('该邮件内含有未领取的奖励，删除后将无法领取。确定要删除吗？');
+                if (!confirmed) return;
+            }
+
+            if (!this._deletedMailIds) this._deletedMailIds = new Set();
+            this._deletedMailIds.add(idStr);
+
+            // 从当前列表中移除
+            this._mails = this._mails.filter(m => String(m.id) !== idStr);
+
+            // 记录已删除状态
+            if (!this._mailStatusMap[idStr]) {
+                this._mailStatusMap[idStr] = { is_read: true, is_deleted: true, deleted_at: new Date().toISOString() };
+            } else {
+                this._mailStatusMap[idStr].is_deleted = true;
+                this._mailStatusMap[idStr].deleted_at = new Date().toISOString();
+            }
+
+            this.saveLocalCache();
+            this.updateBadge();
+
+            // 若详情弹窗打开，则关闭
+            const modal = document.getElementById('modal-mail-detail');
+            if (modal && modal.classList.contains('active')) {
+                modal.classList.remove('active');
+            }
+
+            this.renderMailboxView();
+
+            if (typeof showToast === 'function') {
+                showToast('邮件已删除');
+            }
+
+            // 异步同步至云端
+            await this._syncStatusToCloud(idStr, { is_deleted: true, deleted_at: new Date().toISOString() });
+        },
+
+        // 领取邮件附件中的道具
+        async claimMailReward(mailId) {
+            const idStr = String(mailId);
+            const mail = this._mails.find(m => String(m.id) === idStr);
+            if (!mail) return;
+
+            // 1. 严格检查是否已领取或正在处理，杜绝网络延迟期间重复点击
+            if (mail.is_claimed || (this._claimedMailIds && this._claimedMailIds.has(idStr)) || (this._claimingIds && this._claimingIds.has(idStr))) {
+                if (typeof showToast === 'function') showToast('该邮件的附件道具已经领取过了！');
+                return;
+            }
+
+            if (!mail.reward_item_type) {
+                if (typeof showToast === 'function') showToast('此邮件无附件道具');
+                return;
+            }
+
+            const user = this.getCurrentUser();
+            if (!user.isLoggedIn || !user.username) {
+                if (typeof showToast === 'function') showToast('请先登录账号后再领取道具！');
+                return;
+            }
+
+            // 2. 立即上锁并记录已领取状态，杜绝任何并发冲突与界面闪烁
+            if (!this._claimingIds) this._claimingIds = new Set();
+            if (!this._claimedMailIds) this._claimedMailIds = new Set();
+            this._claimingIds.add(idStr);
+            this._claimedMailIds.add(idStr);
+
+            const nowIso = new Date().toISOString();
+            mail.is_claimed = true;
+            mail.claimed_at = nowIso;
+
+            if (!this._mailStatusMap[idStr]) {
+                this._mailStatusMap[idStr] = { is_read: true, is_claimed: true, claimed_at: nowIso };
+            } else {
+                this._mailStatusMap[idStr].is_claimed = true;
+                this._mailStatusMap[idStr].claimed_at = nowIso;
+            }
+
+            this.saveLocalCache();
+
+            // 3. 立即重绘弹窗和邮件列表，使“领取奖励”按钮毫秒级锁定为“已领取”禁用状态
+            this.renderMailDetailContent(mail);
+            this.renderMailboxView();
+            this.updateBadge();
+
+            const itemType = mail.reward_item_type;
+            const days = mail.reward_days || 30;
+            const count = mail.reward_item_count || 1;
+
+            try {
+                // 4. 调用道具管理器发放道具
+                if (typeof ItemManager !== 'undefined' && typeof ItemManager.grantItem === 'function') {
+                    for (let i = 0; i < count; i++) {
+                        await ItemManager.grantItem(user.username, itemType, days);
+                    }
+                }
+
+                // 5. 异步同步 Supabase user_mail_status
+                await this._syncStatusToCloud(idStr, { is_claimed: true, claimed_at: nowIso });
+
+                if (typeof showToast === 'function') {
+                    showToast('领取成功！', 4500);
+                }
+            } catch (e) {
+                console.error('[MailManager] claimMailReward error:', e);
+                if (typeof showToast === 'function') showToast('领取过程中网络波动，请检查背包');
+            } finally {
+                if (this._claimingIds) {
+                    this._claimingIds.delete(idStr);
+                }
+            }
+        },
+
+        // 将阅读/领取状态同步更新至 Supabase 数据库
+        async _syncStatusToCloud(mailId, updates) {
+            const user = this.getCurrentUser();
+            if (!user.isLoggedIn || !user.username) return;
+            const idStr = String(mailId);
+
+            try {
+                if (typeof sbClient !== 'undefined' && sbClient && typeof sbClient.from === 'function') {
+                    // 查询该记录是否存在
+                    const { data: existing } = await sbClient
+                        .from('user_mail_status')
+                        .select('id')
+                        .eq('mail_id', idStr)
+                        .eq('username', user.username)
+                        .maybeSingle();
+
+                    if (existing && existing.id) {
+                        await sbClient
+                            .from('user_mail_status')
+                            .update(updates)
+                            .eq('id', existing.id);
+                    } else {
+                        await sbClient
+                            .from('user_mail_status')
+                            .insert([{
+                                mail_id: idStr,
+                                username: user.username,
+                                is_read: true,
+                                is_claimed: false,
+                                read_at: new Date().toISOString(),
+                                ...updates
+                            }]);
+                    }
+                }
+            } catch (e) {
+                console.warn('[MailManager] _syncStatusToCloud error:', e);
+            }
+        }
+    };
+
+    window.MailManager = MailManager;
+
+    // 全局快捷函数
+    window.openMailboxView = function () {
+        if (!MailManager.isAvailable()) {
+            if (typeof showToast === 'function') showToast('离线模式下无法查看邮箱');
+            return;
+        }
+        if (typeof switchView === 'function') {
+            switchView('view-mailbox');
+        }
+        MailManager.renderMailboxView();
+        MailManager.fetchMails();
+    };
+
+    window.exitMailboxView = function () {
+        if (typeof switchView === 'function') {
+            switchView('view-hub');
+        }
+        MailManager.updateBadge();
+    };
+
+})(window);
+
+/* --- End: managers/mail-manager.js --- */
 
 /* --- Begin: components/virtual-keyboard.js --- */
 /**
@@ -6566,7 +9446,7 @@ function toggleMd3Select(selectId, event) {
 
 function selectMd3Option(selectId, val, label, onChangeFnName) {
     const triggerLabel = document.getElementById(selectId + '-label');
-    const hiddenInput = document.getElementById(selectId + '-input');
+    const hiddenInput = document.getElementById(selectId + '-input') || document.getElementById(selectId);
     const menu = document.getElementById(selectId + '-menu');
     if (triggerLabel) triggerLabel.textContent = label;
     if (hiddenInput) {
@@ -6989,7 +9869,7 @@ function openChangelogInSettings() {
  * ============================================================ */
 function handleDownloadLatestZip(downloadUrl, version) {
     const data = cachedLatestVersionData || {};
-    const finalVersion = version || data.version || APP_VERSION || '2.8.0';
+    const finalVersion = version || data.version || APP_VERSION || '2.9.0';
     const rawTag = normalizeTag(finalVersion);
 
     let targetUrl = downloadUrl || data.downloadUrl || data.mirrorDownloadUrl;
@@ -7667,11 +10547,13 @@ function closeAvatarCropperModal() {
         }
     }
 
+    const FALLBACK_TOY_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgAQMAAACxAfVuAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABd0lEQVRIib2WQc6FIAyEa1yw5AjcRC9m1MSL6U04AksXxv4zVRP/5C0tJO9FPhaUYdoi8mtMqnpKx098ZbWpBxwwG+MZz6Ahh3xw6gOTllF6XYPussth07oQIW2KkMQbSlOwP0WuDU35rYj0vOb3dXwLzUuAXVj3FN4GqwGfAS/vovl/6nwJsXvhr98FbkptHuJcDw5pKQyoQUCAqrPl0fdwwnZI10h1c9D77B5QaR9Y1ryU9D57JTgkLJQOCbuGvDMcSOEBsSH+G94mZT4SRa4GL+W5AMyzMyQPyMrQXC2FudnqTJFrwVYPBNSzAFL51kLygJMupUFuSkBL4VjKWA8OcNSILLqbqebWlHeAMI/ENa6WqelW3gNatRP2zesVstg7pBK0Ea3Soi5leNkJPp3LCvrVoKUetK6NhOlYetHOrDK4QHsF6fUOCY/ydeFWrJ2hMuTJFdqbVu2C2TnrQSqPhLU84sIQfeDtJRy4twKoL4P5w1/jD54/YSK5eWNtAAAAAElFTkSuQmCC';
+
     /**
      * 获取或预加载 Toy 平台二维码
      */
     async function getToyQrCodeData() {
-        if (_cachedToyQrData) return _cachedToyQrData;
+        if (_cachedToyQrData && _cachedToyQrData.base64) return _cachedToyQrData;
         let base64 = '';
         let url = (typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:'))
             ? window.location.href
@@ -7679,7 +10561,10 @@ function closeAvatarCropperModal() {
 
         if (typeof window !== 'undefined' && window.toy && typeof window.toy.getQrCode === 'function') {
             try {
-                const res = await window.toy.getQrCode({ path: '' });
+                let res = await window.toy.getQrCode({ path: '' });
+                if (!res) {
+                    res = await window.toy.getQrCode();
+                }
                 if (res) {
                     if (res.base64) base64 = res.base64;
                     if (res.url) url = res.url;
@@ -7687,6 +10572,13 @@ function closeAvatarCropperModal() {
             } catch (e) {
                 console.warn('[Toy] getQrCode error:', e);
             }
+        }
+        if (base64) {
+            if (!base64.startsWith('data:')) {
+                base64 = 'data:image/png;base64,' + base64;
+            }
+        } else {
+            base64 = FALLBACK_TOY_QR_DATA_URL;
         }
         _cachedToyQrData = { base64, url };
         return _cachedToyQrData;
@@ -8873,11 +11765,18 @@ function closeAvatarCropperModal() {
         if (titleEl) titleEl.innerText = title;
         if (img) img.src = dataUrl;
 
-        // 根据平台环境动态决定功能按钮：B站 App 内展示“直接分享”与“保存到相册”，普通网页展示“下载海报”
+        // 根据平台环境动态决定功能按钮：已移除B站分享功能。B站 App 展示“保存到相册”，普通网页展示“下载海报”
         const isBiliApp = await checkIsBilibiliApp();
-        if (btnShare) btnShare.style.display = isBiliApp ? 'inline-flex' : 'none';
+        if (btnShare) btnShare.style.display = 'none';
         if (btnSaveAlbum) btnSaveAlbum.style.display = isBiliApp ? 'inline-flex' : 'none';
         if (btnDownload) btnDownload.style.display = isBiliApp ? 'none' : 'inline-flex';
+
+        // 如果是手机端，在海报下方提示长按图片来分享
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        const mobileTip = document.getElementById('poster-mobile-share-tip');
+        if (mobileTip) {
+            mobileTip.style.display = isMobile ? 'block' : 'none';
+        }
 
         // 换背景按钮：仅在无法联网的情况下删除，可联网时显示并检查冷却状态
         const btnChangeBg = document.getElementById('btn-poster-change-bg');
@@ -9145,6 +12044,7 @@ function closeAvatarCropperModal() {
         window.checkIsBilibiliApp = checkIsBilibiliApp;
         window.isBilibiliAppSync = isBilibiliAppSync;
         window.isToyPlatform = isToyPlatform;
+        window.getToyQrCodeData = getToyQrCodeData;
         window.downloadPosterImage = downloadPosterImage;
         window.showPosterPreviewModal = showPosterPreviewModal;
         window.closePosterPreviewModal = closePosterPreviewModal;
@@ -9330,6 +12230,9 @@ async function clickSavedLocalAccountToLogin(username) {
 window.clickSavedLocalAccountToLogin = clickSavedLocalAccountToLogin;
 
 function loginLocalAccount(acc) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser(acc.username);
+    }
     const accounts = getLocalAccounts();
     acc.lastLoginTime = Date.now();
     const idx = accounts.findIndex(a => a.username === acc.username);
@@ -9575,6 +12478,9 @@ function showManualLoginForm(prefUsername = '') {
 }
 
 async function prepareUserSwitch(newUser) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser(newUser);
+    }
     const prevUser = currentUser;
     if (prevUser && prevUser !== newUser) {
         if (typeof cleanAccountSwitchPresence === 'function') {
@@ -9601,10 +12507,6 @@ function withAuthTimeout(promise, ms = 5000, timeoutMsg = '登录请求超时（
 }
 
 async function selectSavedAccountToLogin(username) {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止登录');
-        return;
-    }
     const list = getSavedDeviceAccounts();
     const acc = list.find(a => a.username === username);
     if (!acc) return;
@@ -9640,7 +12542,7 @@ async function selectSavedAccountToLogin(username) {
         }
         loadUserData(user.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
@@ -9710,11 +12612,6 @@ function handleRegAvatarChange(event) {
 }
 
 async function handleCloudLogin() {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止登录');
-        return;
-    }
-
     const usernameInput = document.getElementById('auth-login-username');
     const passwordInput = document.getElementById('auth-login-password');
     const loginBtn = document.getElementById('btn-auth-cloud-login');
@@ -9762,7 +12659,7 @@ async function handleCloudLogin() {
 
         loadUserData(user.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         showToast(`欢迎回来 ${user.username}！`);
 
@@ -9779,17 +12676,6 @@ async function handleCloudLogin() {
 }
 
 async function handleCloudRegister() {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止注册新账号');
-        return;
-    }
-
-    const localReg = SafeStorage.getItem('vocab_registered_account');
-    if (localReg) {
-        showToast(`当前设备已绑定注册过账号“${localReg}”，一台设备仅限注册一个账号`);
-        return;
-    }
-
     const usernameInput = document.getElementById('auth-reg-username');
     const passwordInput = document.getElementById('auth-reg-password');
     const password2Input = document.getElementById('auth-reg-password2');
@@ -9846,9 +12732,9 @@ async function handleCloudRegister() {
 
         loadUserData(newUser.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
-        showToast(`注册成功！已为您登录云端账号`);
+        showToast(`注册成功！已为您送上一封礼包邮件～`);
 
         if (passwordInput) passwordInput.value = '';
         if (password2Input) password2Input.value = '';
@@ -9899,7 +12785,7 @@ async function handleBiliToyLogin() {
 
         loadUserData(biliProfile.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         if (typeof syncAllUserDataToCloud === 'function') {
             syncAllUserDataToCloud(biliProfile.username);
@@ -9918,6 +12804,9 @@ async function handleBiliToyLogin() {
 
 function continueAsGuest() {
     const guestName = getUniqueGuestName();
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
@@ -9940,6 +12829,9 @@ function handleAuthBack() {
 window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
     if (typeof isOfflineMode === 'function' && isOfflineMode()) {
         currentUser = null;
         currentUserProfile = null;
@@ -10000,11 +12892,20 @@ window.handleSwitchAccount = handleSwitchAccount;
  * Module: assets/js/views/hub.js
  */
 
-function showToast(text) {
+let toastTimer = null;
+function showToast(text, duration = 2600) {
     const snackbar = document.getElementById('snackbar');
+    if (!snackbar) return;
+    if (toastTimer) {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+    }
     snackbar.innerText = text;
     snackbar.classList.add('show');
-    setTimeout(() => snackbar.classList.remove('show'), 2600);
+    toastTimer = setTimeout(() => {
+        snackbar.classList.remove('show');
+        toastTimer = null;
+    }, duration);
 }
 
 let currentView = 'view-auth';
@@ -10032,12 +12933,12 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
 
     const performSwitch = () => {
         currentView = viewId;
         window.currentView = viewId;
-        const shouldHideNav = hideNavViews.includes(viewId) || !currentUser;
+        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
 
         // 纯类名控制，触发 CSS 3D 平滑移出/移入动画
         if (shouldHideNav) {
@@ -10316,6 +13217,16 @@ function updateHub() {
     checkNetworkStatus();
     updateHubResumeButtons();
 
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+    const btnDailyWordle = document.getElementById('btn-hub-daily-wordle');
+    if (btnDailyWordle) {
+        btnDailyWordle.style.display = isOffline ? 'none' : '';
+    }
+    const presenceSec = document.getElementById('hub-dd-presence-section');
+    if (presenceSec) {
+        presenceSec.style.display = isOffline ? 'none' : 'block';
+    }
+
     if (window.EbbinghausEngine) {
         window.EbbinghausEngine.updateDueBadge();
     }
@@ -10327,6 +13238,12 @@ function updateHub() {
     }
     if (typeof initSearchTabs === 'function') {
         initSearchTabs();
+    }
+    if (typeof ActivityManager !== 'undefined') {
+        ActivityManager.updateBadge();
+    }
+    if (typeof MailManager !== 'undefined') {
+        MailManager.updateBadge();
     }
 }
 
@@ -10509,10 +13426,6 @@ async function loadCustomBook(e) {
     else if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
     if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
     if (typeof renderSettingsBooksSummary === 'function') renderSettingsBooksSummary();
-
-    // 如果处于离线引导弹窗中，自动关闭弹窗
-    const offlineGuide = document.getElementById('modal-offline-guide');
-    if (offlineGuide) offlineGuide.classList.remove('active');
 
     if (successCount > 0) {
         if (successCount === 1 && skippedCount === 0) {
@@ -12739,7 +15652,7 @@ async function submitDorisPassword() {
     }
 
     closeDorisPasswordModal();
-    showToast('密钥验证成功，已永久解锁 Doris 内部词书！');
+    showToast('已永久解锁内部词书！');
 
     // 永久解锁成功后，自动将活跃分类切换至 Doris
     bookSelectorActiveCategory = 'Doris';
@@ -12923,12 +15836,7 @@ async function handleBookSelectorToggle(bookId) {
         if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.includes(bookId);
         if (isSel) {
-            if (aiDuelConfig.selectedBooks.length > 1) {
-                aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.filter(id => id !== bookId);
-            } else {
-                showToast('至少需保留一本词书');
-                return;
-            }
+            aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.filter(id => id !== bookId);
         } else {
             aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : [...aiDuelConfig.selectedBooks, bookId];
         }
@@ -12939,12 +15847,7 @@ async function handleBookSelectorToggle(bookId) {
         if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.includes(bookId);
         if (isSel) {
-            if (localDuelConfig.selectedBooks.length > 1) {
-                localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.filter(id => id !== bookId);
-            } else {
-                showToast('至少需保留一本词书');
-                return;
-            }
+            localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.filter(id => id !== bookId);
         } else {
             localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : [...localDuelConfig.selectedBooks, bookId];
         }
@@ -19342,6 +22245,21 @@ function renderMeView() {
                     }
                 }
             }
+
+            // 渲染我的道具入口与徽标 (离线模式或未登录账号不显示)
+            const myItemsRow = document.getElementById('me-row-my-items');
+            if (myItemsRow) {
+                const isOnlineAccount = currentUserProfile && currentUserProfile.isLoggedIn && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili');
+                const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+                if (isOnlineAccount && !isOffline) {
+                    myItemsRow.style.display = 'flex';
+                    if (typeof ItemManager !== 'undefined') {
+                        ItemManager.updateBadge();
+                    }
+                } else {
+                    myItemsRow.style.display = 'none';
+                }
+            }
         }
     }
 
@@ -19407,21 +22325,27 @@ let isUserDataSynced = false;
 
 function updateSyncButtonStatus(isSynced) {
     const btn = document.getElementById('btn-sync-cloud-data');
-    if (!btn) return;
-    const label = btn.querySelector('.btn-label-text');
-    const icon = btn.querySelector('.material-symbols-rounded');
+    const row = document.getElementById('me-row-sync-data');
+    const rowBadge = document.getElementById('me-sync-row-badge');
+    const rowIcon = document.getElementById('me-sync-row-icon');
+    if (!btn && !row) return;
 
-    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮
+    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮/行
     const autoSync = (typeof isAutoSyncEnabled === 'function')
         ? isAutoSyncEnabled()
         : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
 
     if (autoSync) {
-        btn.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+        if (row) row.style.display = 'none';
         return;
     } else {
-        btn.style.display = 'inline-flex';
+        if (btn) btn.style.display = 'inline-flex';
+        if (row) row.style.display = 'flex';
     }
+
+    const label = btn ? btn.querySelector('.btn-label-text') : null;
+    const icon = btn ? btn.querySelector('.material-symbols-rounded') : null;
 
     // 2. 检查是否正在同步中
     if (window.SyncManager && window.SyncManager.isSyncing) {
@@ -19430,13 +22354,25 @@ function updateSyncButtonStatus(isSynced) {
             icon.style.animation = 'spin 1s linear infinite';
         }
         if (label) label.innerText = '同步中...';
-        btn.disabled = true;
-        btn.style.borderColor = 'var(--md-sys-color-outline)';
-        btn.style.color = 'var(--md-sys-color-outline)';
+        if (btn) {
+            btn.disabled = true;
+            btn.style.borderColor = 'var(--md-sys-color-outline)';
+            btn.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (rowIcon) {
+            rowIcon.innerText = 'sync';
+            rowIcon.style.animation = 'spin 1s linear infinite';
+        }
+        if (rowBadge) {
+            rowBadge.innerText = '同步中...';
+            rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
+            rowBadge.style.color = 'var(--md-sys-color-outline)';
+        }
         return;
     }
 
     if (icon) icon.style.animation = '';
+    if (rowIcon) rowIcon.style.animation = '';
 
     // 3. 统计本地待同步队列数据
     const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
@@ -19447,16 +22383,32 @@ function updateSyncButtonStatus(isSynced) {
         isUserDataSynced = true;
         if (icon) icon.innerText = 'check';
         if (label) label.innerText = '已是最新';
-        btn.disabled = false;
-        btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
-        btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+        if (btn) {
+            btn.disabled = false;
+            btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
+            btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+        }
+        if (rowIcon) rowIcon.innerText = 'cloud_done';
+        if (rowBadge) {
+            rowBadge.innerText = '已是最新';
+            rowBadge.style.background = '#dcfce7';
+            rowBadge.style.color = '#15803d';
+        }
     } else {
         isUserDataSynced = false;
         if (icon) icon.innerText = 'sync';
         if (label) label.innerText = pendingCount > 0 ? `同步数据 (${pendingCount})` : '同步数据';
-        btn.disabled = false;
-        btn.style.borderColor = 'var(--md-sys-color-primary)';
-        btn.style.color = 'var(--md-sys-color-primary)';
+        if (btn) {
+            btn.disabled = false;
+            btn.style.borderColor = 'var(--md-sys-color-primary)';
+            btn.style.color = 'var(--md-sys-color-primary)';
+        }
+        if (rowIcon) rowIcon.innerText = 'sync';
+        if (rowBadge) {
+            rowBadge.innerText = pendingCount > 0 ? `待同步 (${pendingCount})` : '点击同步';
+            rowBadge.style.background = 'var(--md-sys-color-primary-container)';
+            rowBadge.style.color = 'var(--md-sys-color-primary)';
+        }
     }
 }
 window.updateSyncButtonStatus = updateSyncButtonStatus;
@@ -19480,6 +22432,14 @@ async function handleManualSyncUserData() {
         if (icon) icon.style.animation = 'spin 1s linear infinite';
         if (label) label.innerText = '同步中...';
         btn.disabled = true;
+    }
+    const rowIcon = document.getElementById('me-sync-row-icon');
+    const rowBadge = document.getElementById('me-sync-row-badge');
+    if (rowIcon) rowIcon.style.animation = 'spin 1s linear infinite';
+    if (rowBadge) {
+        rowBadge.innerText = '同步中...';
+        rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
+        rowBadge.style.color = 'var(--md-sys-color-outline)';
     }
 
     try {
@@ -19724,7 +22684,42 @@ async function confirmDeleteAccount() {
             await supabaseDeleteAccount(targetUser, null);
         }
 
-        // 本地清理
+        // 本地彻底清理
+        try {
+            const userSuffix = `_${targetUser}`;
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (
+                    key.endsWith(userSuffix) ||
+                    key.includes(`_${targetUser}_`) ||
+                    key === `vocab_mails_${targetUser}` ||
+                    key === `vocab_mail_status_${targetUser}` ||
+                    key === `vocab_claimed_mails_${targetUser}` ||
+                    key === `vocab_deleted_mails_${targetUser}` ||
+                    key === `vocab_user_items_${targetUser}` ||
+                    key === `vocab_item_active_${targetUser}` ||
+                    key === `vocab_stats_${targetUser}` ||
+                    key === `vocab_ebbinghaus_db_${targetUser}` ||
+                    key === `vocab_user_avatar_${targetUser}` ||
+                    key === `vocab_riddle_history_${targetUser}` ||
+                    key === `vocab_riddle_streak_${targetUser}` ||
+                    key === `vocab_wordle_records_${targetUser}` ||
+                    key === `vocab_rank_data_${targetUser}` ||
+                    key === `vocab_sync_queue_${targetUser}` ||
+                    key === `shici_config_${targetUser}` ||
+                    key === `shici_progress_${targetUser}` ||
+                    key === `vocab_review_filter_${targetUser}`
+                )) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(k => {
+                try { localStorage.removeItem(k); } catch (e) {}
+                try { SafeStorage.removeItem(k); } catch (e) {}
+            });
+        } catch (e) {}
+
         if (typeof removeSavedDeviceAccount === 'function') {
             removeSavedDeviceAccount(targetUser);
         }
@@ -19735,10 +22730,26 @@ async function confirmDeleteAccount() {
         SafeStorage.removeItem('vocab_auth_session');
         SafeStorage.removeItem('vocab_pk_user');
         SafeStorage.removeItem('vocab_guest_name');
+        SafeStorage.removeItem('vocab_registered_account');
+        SafeStorage.removeItem('vocab_device_has_registered');
+        try { localStorage.removeItem('vocab_registered_account'); } catch (e) {}
+        try { localStorage.removeItem('vocab_device_has_registered'); } catch (e) {}
+
+        // 清空内存管理器状态
+        if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+            MailManager.resetForUser('');
+        }
+        if (typeof ItemManager !== 'undefined') {
+            ItemManager._itemsCache = [];
+            ItemManager._itemsCacheUser = '';
+            ItemManager.updateBadge();
+        }
 
         closeDeleteAccountModal();
         showToast(`账号 “${targetUser}” 已成功删除`);
-        if (typeof handleLogout === 'function') {
+        if (typeof handleAuthLogout === 'function') {
+            handleAuthLogout(false);
+        } else if (typeof handleLogout === 'function') {
             handleLogout(false);
         } else {
             location.reload();
@@ -22551,8 +25562,33 @@ function renderMatchResultBadgeHtml(matchResult) {
         titleText = `💔 掉段至 ${matchResult.newRank}段`;
     }
 
+    let protectionNotice = '';
+    if (matchResult.usedProtectionCard === 'rank_protect') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#fef3c7; color:#b45309; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">shield</span>
+                <span>已触发【排位保护卡】，本次战败不扣分！</span>
+            </div>
+        `;
+    } else if (matchResult.usedProtectionCard === 'tier_protect') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#dbeafe; color:#1d4ed8; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">security</span>
+                <span>已触发【段位保护卡】，本次战败不掉段！</span>
+            </div>
+        `;
+    } else if (matchResult.usedProtectionCard === 'rank_double') {
+        protectionNotice = `
+            <div style="margin-bottom:8px; padding:6px 12px; background:#f3e8ff; color:#7e22ce; border-radius:99px; font-size:0.8rem; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">trending_up</span>
+                <span>已触发【排位翻倍卡】，获得的等级分翻倍！(+${matchResult.deltaPoints}分)</span>
+            </div>
+        `;
+    }
+
     return `
         <div style="margin-top:14px; padding:14px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m);">
+            ${protectionNotice}
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="user-level-badge" style="background:${badgeColor}; font-size:0.85rem; font-weight:800; padding:3px 10px;">${matchResult.newRank}段</span>
@@ -22579,11 +25615,15 @@ function renderMatchResultBadgeHtml(matchResult) {
 }
 
 function endGame(msg, broadcastToPeer) {
+    if (!isPlayingMatch) {
+        console.warn('[Duel] endGame ignored: match is already finalized or inactive');
+        return;
+    }
+    isPlayingMatch = false;
     clearInterval(gameTimer);
     if (p1State.timerId) clearInterval(p1State.timerId);
     if (typeof aiDuelTimer !== 'undefined' && aiDuelTimer) clearTimeout(aiDuelTimer);
     if (typeof window.aiDuelTimer !== 'undefined' && window.aiDuelTimer) clearTimeout(window.aiDuelTimer);
-    isPlayingMatch = false;
     flushPendingScoreSync(realtimeChannel);
     if (typeof updateMyLobbyPresence === 'function') updateMyLobbyPresence();
 
@@ -22636,7 +25676,8 @@ function endGame(msg, broadcastToPeer) {
             userRank: myRankData.rank,
             userRating: myRankData.rating,
             oppoRank,
-            oppoRating
+            oppoRating,
+            username: currentUser
         });
 
         LevelManager.applyMatchResult(currentUser, matchResult);
@@ -22954,17 +25995,22 @@ async function applyForfeitPenalty() {
         userRank: myRankData.rank,
         userRating: myRankData.rating,
         oppoRank,
-        oppoRating
+        oppoRating,
+        username: currentUser
     });
 
     await LevelManager.applyMatchResult(currentUser, matchResult);
 
     if (typeof showToast === 'function') {
-        const deduct = Math.abs(matchResult.deltaPoints);
-        if (deduct > 0) {
-            showToast(`中途退出判定战败，扣除 ${deduct} 等级分 (当前: ${matchResult.newRating}分)`);
+        if (matchResult.usedProtectionCard === 'rank_protect') {
+            showToast(`触发【排位保护卡】，本局不扣分！(${matchResult.newRating}-0)`);
+        } else if (matchResult.usedProtectionCard === 'tier_protect') {
+            showToast(`触发【段位保护卡】，本局不掉段！(${matchResult.newRank}段 ${matchResult.newRating}-${Math.abs(matchResult.deltaPoints)})`);
         } else {
-            showToast(`中途退出判定战败`);
+            const deduct = Math.abs(matchResult.deltaPoints);
+            if (deduct > 0) {
+                showToast(`中途退出，-${deduct}分 (当前: ${matchResult.newRating}分)`);
+            }
         }
     }
 
@@ -22986,24 +26032,17 @@ async function confirmExitGame() {
         let ok = true;
         if (typeof showConfirmModal === 'function') {
             ok = await showConfirmModal({
-                title: '退出对决',
-                message: '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？',
-                confirmText: '退出并扣分',
                 title: willDeductPoints ? '退出对决' : '退出对战',
                 message: willDeductPoints
                     ? '对局正在进行中，中途退出将受到扣分惩罚，确定要退出吗？'
-                    : (isGuest 
-                        ? '对局正在进行中，确定要退出吗？'
-                        : '对局正在进行中，确定要退出吗？'),
+                    : '对局正在进行中，确定要退出吗？',
                 confirmText: willDeductPoints ? '退出并扣分' : '退出对战',
                 cancelText: '继续对战',
-                isDanger: true,
                 isDanger: willDeductPoints,
                 icon: 'logout'
             });
         } else {
             try {
-                ok = window.confirm('正在对战中，中途退出将受到扣分惩罚，确定要退出吗？');
                 ok = window.confirm(willDeductPoints
                     ? '正在对战中，中途退出将受到扣分惩罚，确定要退出吗？'
                     : '对局正在进行中，确定要退出吗？');
@@ -23012,7 +26051,9 @@ async function confirmExitGame() {
             }
         }
         if (!ok) return;
-        await applyForfeitPenalty();
+
+        isPlayingMatch = false;
+
         if (willDeductPoints) {
             await applyForfeitPenalty();
         } else if (!isAi && realtimeChannel) {
@@ -23187,27 +26228,62 @@ function initGlobalPresence() {
     // 清理任何残留在 Supabase 客户端中的 lobby-room 频道，防止 subscribe() 之后重复绑定 presence 监听抛错
     try {
         const existingChannels = (typeof sbClient.getChannels === 'function') ? sbClient.getChannels() : (sbClient.channels || []);
-        existingChannels.forEach(c => {
+        existingChannels.slice().forEach(c => {
             if (c && (c.topic === 'realtime:lobby-room' || c.topic === 'lobby-room')) {
                 try { c.untrack(); } catch (e) { }
+                try { c.unsubscribe(); } catch (e) { }
+                try { if (typeof c.teardown === 'function') c.teardown(); } catch (e) { }
                 try { sbClient.removeChannel(c); } catch (e) { }
+                if (sbClient.channels && Array.isArray(sbClient.channels)) {
+                    sbClient.channels = sbClient.channels.filter(ch => ch !== c);
+                }
+                if (sbClient.realtime && Array.isArray(sbClient.realtime.channels)) {
+                    sbClient.realtime.channels = sbClient.realtime.channels.filter(ch => ch !== c);
+                }
             }
         });
     } catch (e) { }
 
-    const chan = sbClient.channel('lobby-room', {
-        config: {
-            broadcast: { ack: true, self: false },
-            presence: { key: currentUser }
-        }
-    });
+    let chan;
+    try {
+        chan = sbClient.channel('lobby-room', {
+            config: {
+                broadcast: { ack: true, self: false },
+                presence: { key: currentUser }
+            }
+        });
+    } catch (e) {
+        console.warn('[Presence] Failed to create lobby-room channel:', e);
+        isConnectingLobby = false;
+        return;
+    }
     globalLobbyChannel = chan;
 
-    chan
-        .on('presence', { event: 'sync' }, () => {
-            syncGlobalPresenceState();
-            fetchOnlineRoomsList();
-        })
+    // 若频道已被订阅（罕见复用情况），不再重复绑定 presence 回调以防抛错
+    if (chan.state === 'joined' || chan.state === 'joining') {
+        isConnectingLobby = false;
+        if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+            chan.track({
+                username: currentUser,
+                sessionId: CLIENT_SESSION_ID,
+                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                level: myRank,
+                rank: myRank,
+                rating: myRating,
+                isBili: isBili,
+                status: initialStatus,
+                joinedAt: Date.now()
+            }).catch(() => {});
+        }
+        return;
+    }
+
+    try {
+        chan
+            .on('presence', { event: 'sync' }, () => {
+                syncGlobalPresenceState();
+                fetchOnlineRoomsList();
+            })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
             if (Array.isArray(leftPresences)) {
                 leftPresences.forEach(p => {
@@ -23308,6 +26384,10 @@ function initGlobalPresence() {
                 }
             }
         });
+    } catch (err) {
+        console.warn('[Presence] Setup channel listeners error:', err);
+        isConnectingLobby = false;
+    }
 
     startPresenceHeartbeat();
 }
@@ -24958,7 +28038,7 @@ window.addEventListener('beforeunload', () => {
    7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR & RANK MATCHING)
    ========================================================================== */
 let aiDuelConfig = {
-    selectedBooks: ['books/经典/高中考纲词汇.json'],
+    selectedBooks: [],
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     aiRank: 1, // 1段 ~ 9段
     speedMode: 'smart',
@@ -24972,12 +28052,12 @@ try {
     if (savedAi) {
         Object.assign(aiDuelConfig, savedAi);
         if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
-        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
-        if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
-            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+        if (!Array.isArray(aiDuelConfig.selectedBooks)) {
+            aiDuelConfig.selectedBooks = [];
         }
-        if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
+        if (aiDuelConfig.matchType === 'ranked') {
+            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
         }
         if (typeof aiDuelConfig.aiRank !== 'number') {
             aiDuelConfig.aiRank = 1;
@@ -25026,9 +28106,6 @@ function selectAiMatchType(type) {
         if (!isOffline && Array.isArray(aiDuelConfig.selectedBooks)) {
             const beforeCount = aiDuelConfig.selectedBooks.length;
             aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-            if (aiDuelConfig.selectedBooks.length === 0) {
-                aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-            }
             if (aiDuelConfig.selectedBooks.length !== beforeCount) {
                 showToast('排位赛仅支持云端词书，已自动移除本地词书');
             }
@@ -25093,8 +28170,8 @@ function openAiDuelSettings() {
     if (!isOffline && aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
-    if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-        aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+    if (!Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = [];
     }
 
     // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
@@ -25120,22 +28197,28 @@ function closeAiDuelSettings() {
 function updateAiDuelBookSummaryUI() {
     const titleEl = document.getElementById('ai-duel-selected-book-title');
     const summaryEl = document.getElementById('ai-duel-books-summary');
-    if (!aiDuelConfig || !Array.isArray(aiDuelConfig.selectedBooks)) return;
+    if (!aiDuelConfig) return;
+    if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
+    
     // 仅排位赛过滤本地词书
     if (aiDuelConfig.matchType === 'ranked') {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-        if (aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-        }
     }
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    if (allBooks && allBooks.length > 0) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => allBooks.some(b => b.id === id || (typeof isBookIdSelected === 'function' && isBookIdSelected([id], b.id))));
+    }
     const count = aiDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
-            ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
-            : `已选 ${count} 本词书`;
+        if (count === 0) {
+            summaryEl.innerText = '未选择词书';
+        } else {
+            summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
+                ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
+                : `已选 ${count} 本词书`;
+        }
     }
     if (titleEl) {
         if (count === 0) {
@@ -25852,7 +28935,7 @@ function clearMistakes() {
    10. 希沃同屏多触控对决
    ========================================================================== */
 let localDuelConfig = {
-    selectedBooks: ['GaoKao3500'],
+    selectedBooks: [],
     opponentName: '挑战者',
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     mode: 'lead',
@@ -25866,6 +28949,7 @@ try {
     if (saved) {
         if (saved.bookId && !saved.selectedBooks) saved.selectedBooks = [saved.bookId];
         Object.assign(localDuelConfig, saved);
+        if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
         if (!localDuelConfig.matchType) localDuelConfig.matchType = 'ranked';
     }
 } catch (e) { }
@@ -26009,13 +29093,17 @@ function closeLocalDuelSettings() {
 function updateLocalDuelBookSummaryUI() {
     const titleEl = document.getElementById('local-duel-selected-book-title');
     const summaryEl = document.getElementById('local-duel-books-summary');
-    if (!localDuelConfig || !Array.isArray(localDuelConfig.selectedBooks)) return;
+    if (!localDuelConfig) return;
+    if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    if (allBooks && allBooks.length > 0) {
+        localDuelConfig.selectedBooks = localDuelConfig.selectedBooks.filter(id => allBooks.some(b => b.id === id || (typeof isBookIdSelected === 'function' && isBookIdSelected([id], b.id))));
+    }
     const count = localDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = `已选 ${count} 本词书`;
+        summaryEl.innerText = count > 0 ? `已选 ${count} 本词书` : '未选择词书';
     }
     if (titleEl) {
         if (count === 0) {
@@ -27018,7 +30106,8 @@ function endLocalDuel(winner, detailText) {
                 userRank: p1Data.rank,
                 userRating: p1Data.rating,
                 oppoRank: p2Data.rank,
-                oppoRating: p2Data.rating
+                oppoRating: p2Data.rating,
+                username: p1Name
             });
             rankOutcomeP2 = LevelManager.calculateMatchResult({
                 isRanked: true,
@@ -27028,7 +30117,8 @@ function endLocalDuel(winner, detailText) {
                 userRank: p2Data.rank,
                 userRating: p2Data.rating,
                 oppoRank: p1Data.rank,
-                oppoRating: p1Data.rating
+                oppoRating: p1Data.rating,
+                username: p2Name
             });
         }
 
@@ -29448,6 +32538,9 @@ function endShiCiGame() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
+    if (typeof ItemManager !== 'undefined') {
+        ItemManager.recordTaskProgress('task_shici', 1);
+    }
     renderResult();
     switchView('view-result');
 }
@@ -29686,7 +32779,7 @@ function openMeSubview(subviewKey) {
         switchView('view-me');
     }
     const performSwitch = () => {
-        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data'];
+        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
                 ? document.getElementById('me-subview-main')
@@ -29696,6 +32789,9 @@ function openMeSubview(subviewKey) {
                 else el.classList.remove('active');
             }
         });
+        if (subviewKey === 'items' && typeof ItemManager !== 'undefined') {
+            ItemManager.renderItemsView();
+        }
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
@@ -29791,15 +32887,9 @@ function handleToggleOfflineMode(checked) {
             return;
         }
         if (checked) {
-            showToast('已开启离线模式，正在切回登录页...');
-            setTimeout(() => {
-                if (typeof switchView === 'function') switchView('view-auth');
-            }, 300);
+            showToast('已开启离线模式');
         } else {
-            showToast('已关闭离线模式，正在切回在线登录页...');
-            setTimeout(() => {
-                if (typeof switchView === 'function') switchView('view-auth');
-            }, 300);
+            showToast('已关闭离线模式');
         }
     }
 }
@@ -30087,11 +33177,47 @@ function handleDeleteCurrentAccount() {
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.endsWith(userSuffix) || key === `shici_config_${targetUser}` || key === `shici_progress_${targetUser}` || key === `vocab_review_filter_${targetUser}`)) {
+        if (key && (
+            key.endsWith(userSuffix) ||
+            key.includes(`_${targetUser}_`) ||
+            key === `vocab_mails_${targetUser}` ||
+            key === `vocab_mail_status_${targetUser}` ||
+            key === `vocab_claimed_mails_${targetUser}` ||
+            key === `vocab_deleted_mails_${targetUser}` ||
+            key === `vocab_user_items_${targetUser}` ||
+            key === `vocab_item_active_${targetUser}` ||
+            key === `vocab_stats_${targetUser}` ||
+            key === `vocab_ebbinghaus_db_${targetUser}` ||
+            key === `vocab_user_avatar_${targetUser}` ||
+            key === `vocab_riddle_history_${targetUser}` ||
+            key === `vocab_riddle_streak_${targetUser}` ||
+            key === `vocab_wordle_records_${targetUser}` ||
+            key === `vocab_rank_data_${targetUser}` ||
+            key === `vocab_sync_queue_${targetUser}` ||
+            key === `shici_config_${targetUser}` ||
+            key === `shici_progress_${targetUser}` ||
+            key === `vocab_review_filter_${targetUser}`
+        )) {
             keysToRemove.push(key);
         }
     }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) {}
+        try { SafeStorage.removeItem(k); } catch (e) {}
+    });
+
+    if (typeof isOfflineMode === 'function' && !isOfflineMode() && typeof supabaseDeleteAccount === 'function' && typeof sbClient !== 'undefined' && sbClient) {
+        supabaseDeleteAccount(targetUser, null).catch(e => console.warn('[Settings] Supabase delete account error:', e));
+    }
+
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
+    if (typeof ItemManager !== 'undefined') {
+        ItemManager._itemsCache = [];
+        ItemManager._itemsCacheUser = '';
+        ItemManager.updateBadge();
+    }
 
     // 从用户列表中移除
     allUsersList = allUsersList.filter(u => u !== targetUser);
@@ -30355,7 +33481,7 @@ function exportUserConfigAndProgress() {
     try {
         const isCurrentLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.9.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             accountType: isCurrentLocal ? 'local' : 'online',
@@ -31200,12 +34326,28 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.9.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.9.0',
+        date: '2026-10-18',
+        badge: '当前版本',
+        items: [
+            '添加“活动”系统。',
+            '添加“道具”系统。',
+            '添加“邮箱”系统。',
+            '优化底部栏显示。',
+            '优化下载学习数据功能。',
+            '优化UI。',
+            '修复账号解封后仍无法登录的bug。',
+            '修复排位赛等级分计算问题。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.8.0',
         date: '2026-10-16',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '加入下载学习数据功能。',
             '优化离线模式的词书分类系统。',
@@ -31547,7 +34689,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.8.0'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.9.0'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;
@@ -33812,7 +36954,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                                         <div class="chinese-result-main">
                                             <div class="chinese-result-word-row">
                                                 <span class="chinese-result-word">${escapeHtml(item.word)}</span>
-                                                ${item.phone ? `<span class="chinese-result-phone">/${escapeHtml(item.phone)}/</span>` : ''}
+                                                ${item.phone ? `<span class="chinese-result-phone">${escapeHtml(item.phone)}</span>` : ''}
                                                 <span class="badge" style="font-size:0.75rem;">${escapeHtml(item.source)}</span>
                                             </div>
                                             <div class="chinese-result-meaning">${escapeHtml(item.meaning)}</div>
@@ -34803,13 +37945,39 @@ let exportFilteredData = {
     mistakes: []
 };
 
+const FALLBACK_TOY_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgAQMAAACxAfVuAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABd0lEQVRIib2WQc6FIAyEa1yw5AjcRC9m1MSL6U04AksXxv4zVRP/5C0tJO9FPhaUYdoi8mtMqnpKx098ZbWpBxwwG+MZz6Ahh3xw6gOTllF6XYPussth07oQIW2KkMQbSlOwP0WuDU35rYj0vOb3dXwLzUuAXVj3FN4GqwGfAS/vovl/6nwJsXvhr98FbkptHuJcDw5pKQyoQUCAqrPl0fdwwnZI10h1c9D77B5QaR9Y1ryU9D57JTgkLJQOCbuGvDMcSOEBsSH+G94mZT4SRa4GL+W5AMyzMyQPyMrQXC2FudnqTJFrwVYPBNSzAFL51kLygJMupUFuSkBL4VjKWA8OcNSILLqbqebWlHeAMI/ENa6WqelW3gNatRP2zesVstg7pBK0Ea3Soi5leNkJPp3LCvrVoKUetK6NhOlYetHOrDK4QHsF6fUOCY/ydeFWrJ2hMuTJFdqbVu2C2TnrQSqPhLU84sIQfeDtJRy4twKoL4P5w1/jD54/YSK5eWNtAAAAAElFTkSuQmCC';
+
+const APP_ICON_DATA_URL = 'data:image/png;base64,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';
+
+let _html2pdfPromise = null;
+function ensureHtml2PdfLoaded() {
+    if (typeof window !== 'undefined' && typeof window.html2pdf !== 'undefined') return Promise.resolve(window.html2pdf);
+    if (_html2pdfPromise) return _html2pdfPromise;
+    _html2pdfPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = './assets/lib/html2pdf.bundle.min.js';
+        script.onload = () => resolve(window.html2pdf);
+        script.onerror = () => reject(new Error('无法加载 html2pdf 导出引擎'));
+        document.head.appendChild(script);
+    });
+    return _html2pdfPromise;
+}
+
 let _exportDetailsLoadingPromise = null;
 async function ensureExportWordDetailsReady() {
     if (_exportDetailsLoadingPromise) return _exportDetailsLoadingPromise;
     _exportDetailsLoadingPromise = (async () => {
         try {
-            // 1. 如果 ShiCiManager 存在但 data 未载入，尝试通过 loadSingleBook 加载高中300实词
+            // 1. 如果 ShiCiManager 存在，优先调用 loadData 载入全部已知实词书籍
             if (typeof ShiCiManager !== 'undefined') {
+                if (typeof ShiCiManager.loadData === 'function' && (!ShiCiManager.data || ShiCiManager.data.length === 0)) {
+                    try {
+                        const shiciWords = await ShiCiManager.loadData();
+                        if (Array.isArray(shiciWords) && shiciWords.length > 0) {
+                            ShiCiManager.data = shiciWords;
+                        }
+                    } catch (e) { }
+                }
                 if (!ShiCiManager.data || ShiCiManager.data.length === 0) {
                     if (typeof ShiCiManager.loadSingleBook === 'function') {
                         const loaded = await ShiCiManager.loadSingleBook('books/实词/高中300实词.json');
@@ -34880,6 +38048,8 @@ function initExportStudyDataView() {
     if (endInput) endInput.value = todayStr;
 
     selectExportDatePreset(exportCurrentDatePreset || 'today');
+    const fmt = document.getElementById('export-format-select')?.value || 'pdf';
+    onExportFormatChanged(fmt);
 }
 
 function getTodayDateString() {
@@ -34974,6 +38144,10 @@ function onExportFormatChanged(fmt) {
         else if (fmt === 'md') labelEl.textContent = '下载 Markdown 文件';
         else if (fmt === 'txt') labelEl.textContent = '下载纯文本文件';
         else labelEl.textContent = '下载文件';
+    }
+    const copyBtn = document.getElementById('btn-export-copy-clipboard');
+    if (copyBtn) {
+        copyBtn.style.display = (fmt === 'md' || fmt === 'txt') ? 'flex' : 'none';
     }
     renderExportPreview();
 }
@@ -35117,6 +38291,30 @@ function collectAndFilterExportData() {
 
     // 3. 获取错题本
     let mistakesMap = (typeof userStats !== 'undefined' && userStats.mistakes) ? userStats.mistakes : {};
+
+    // 3.5 获取文言实词艾宾浩斯学习记录与实词进度
+    let shiciRecords = {};
+    if (typeof ShiCiEbbinghausEngine !== 'undefined' && typeof ShiCiEbbinghausEngine.getRecords === 'function') {
+        shiciRecords = ShiCiEbbinghausEngine.getRecords() || {};
+    } else {
+        try {
+            const userKey = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'default';
+            const raw = localStorage.getItem(`shici_ebbinghaus_db_${userKey}`);
+            if (raw) shiciRecords = JSON.parse(raw);
+        } catch (e) { }
+    }
+
+    let curShiciProg = (typeof shiciProgress !== 'undefined') ? shiciProgress : null;
+    if (!curShiciProg || (!curShiciProg.learnedWords && !curShiciProg.masteredWords)) {
+        try {
+            const userKey = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'default';
+            const rawProg = localStorage.getItem('shici_progress_' + userKey);
+            if (rawProg) {
+                const parsedProg = JSON.parse(rawProg);
+                curShiciProg = Object.assign(curShiciProg || {}, parsedProg);
+            }
+        } catch (e) { }
+    }
 
     // 4. 获取词书词典中可能存在的详细释义/例句对照
     // 4. 获取词书词典中可能存在的详细释义/例句对照（涵盖英语词书、文言实词、自定义词书与本地缓存）
@@ -35264,6 +38462,137 @@ function collectAndFilterExportData() {
             wordsList.push(item);
         }
     });
+
+    // 整合文言实词艾宾浩斯记录
+    Object.values(shiciRecords).forEach(rec => {
+        if (!rec || !rec.word) return;
+        const wordKey = rec.word.trim().toLowerCase();
+        if (seenWords.has(wordKey)) return;
+
+        const practicedTime = rec.lastPracticed || rec.updatedAt || 0;
+        if (!isAll && practicedTime && (practicedTime < startTime || practicedTime > endTime)) {
+            return;
+        }
+
+        const details = wordDetailsCache.get(wordKey) || {};
+        const extracted = extractWordDetails(wordKey, details, rec.meaning);
+
+        const item = {
+            word: rec.word.trim(),
+            phone: rec.phone || extracted.phone,
+            pos: extracted.pos,
+            meaning: extracted.meaning,
+            example: extracted.example,
+            source: extracted.source,
+            lastPracticed: practicedTime,
+            stage: rec.stage || 1,
+            isShiCi: true,
+            isPhrase: false
+        };
+
+        seenWords.add(wordKey);
+        shiciList.push(item);
+    });
+
+    // 整合实词进度库 (learnedWords / masteredWords / 词书学习进度)
+    if (curShiciProg) {
+        if (curShiciProg.learnedWords && typeof curShiciProg.learnedWords === 'object') {
+            Object.entries(curShiciProg.learnedWords).forEach(([wStr, timeVal]) => {
+                const cleanW = (wStr || '').trim();
+                if (!cleanW) return;
+                const wordKey = cleanW.toLowerCase();
+                if (seenWords.has(wordKey)) return;
+
+                const practicedTime = (typeof timeVal === 'number' && timeVal > 0) ? timeVal : 0;
+                if (!isAll && practicedTime && (practicedTime < startTime || practicedTime > endTime)) {
+                    return;
+                }
+
+                const details = wordDetailsCache.get(wordKey) || {};
+                const extracted = extractWordDetails(wordKey, details, '');
+
+                const item = {
+                    word: cleanW,
+                    phone: extracted.phone,
+                    pos: extracted.pos,
+                    meaning: extracted.meaning,
+                    example: extracted.example,
+                    source: extracted.source,
+                    lastPracticed: practicedTime || Date.now(),
+                    stage: 1,
+                    isShiCi: true,
+                    isPhrase: false
+                };
+
+                seenWords.add(wordKey);
+                shiciList.push(item);
+            });
+        }
+
+        if (curShiciProg.masteredWords && typeof curShiciProg.masteredWords === 'object') {
+            Object.entries(curShiciProg.masteredWords).forEach(([wStr, timeVal]) => {
+                const cleanW = (wStr || '').trim();
+                if (!cleanW) return;
+                const wordKey = cleanW.toLowerCase();
+                if (seenWords.has(wordKey)) return;
+
+                const practicedTime = (typeof timeVal === 'number' && timeVal > 0) ? timeVal : 0;
+                if (!isAll && practicedTime && (practicedTime < startTime || practicedTime > endTime)) {
+                    return;
+                }
+
+                const details = wordDetailsCache.get(wordKey) || {};
+                const extracted = extractWordDetails(wordKey, details, '');
+
+                const item = {
+                    word: cleanW,
+                    phone: extracted.phone,
+                    pos: extracted.pos,
+                    meaning: extracted.meaning,
+                    example: extracted.example,
+                    source: extracted.source,
+                    lastPracticed: practicedTime || Date.now(),
+                    stage: 5,
+                    isShiCi: true,
+                    isPhrase: false
+                };
+
+                seenWords.add(wordKey);
+                shiciList.push(item);
+            });
+        }
+
+        if (isAll && typeof curShiciProg.currentIndex === 'number' && curShiciProg.currentIndex > 0) {
+            if (typeof ShiCiManager !== 'undefined' && Array.isArray(ShiCiManager.data)) {
+                const count = Math.min(curShiciProg.currentIndex, ShiCiManager.data.length);
+                for (let i = 0; i < count; i++) {
+                    const wObj = ShiCiManager.data[i];
+                    if (!wObj || !wObj.word) continue;
+                    const wordKey = wObj.word.trim().toLowerCase();
+                    if (seenWords.has(wordKey)) continue;
+
+                    const details = wordDetailsCache.get(wordKey) || wObj;
+                    const extracted = extractWordDetails(wordKey, details, '');
+
+                    const item = {
+                        word: wObj.word.trim(),
+                        phone: extracted.phone,
+                        pos: extracted.pos,
+                        meaning: extracted.meaning,
+                        example: extracted.example,
+                        source: extracted.source,
+                        lastPracticed: Date.now(),
+                        stage: 1,
+                        isShiCi: true,
+                        isPhrase: false
+                    };
+
+                    seenWords.add(wordKey);
+                    shiciList.push(item);
+                }
+            }
+        }
+    }
 
     // 整合错题本
     const mistakesList = [];
@@ -35445,7 +38774,7 @@ async function renderExportPreview() {
     const fmt = document.getElementById('export-format-select')?.value || 'pdf';
     const paperSize = document.getElementById('export-paper-size')?.value || 'a4';
     const themePreset = document.getElementById('export-theme-preset')?.value || 'blue';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
 
     // 选中内容项
     const showWords = document.getElementById('export-check-words')?.checked !== false;
@@ -35526,14 +38855,23 @@ async function renderExportPreview() {
                 if (qrRes && qrRes.base64) toyQrBase64 = qrRes.base64;
             } catch (e) { }
         }
+        if (!toyQrBase64 && typeof window !== 'undefined' && window.getToyQrCodeData) {
+            try {
+                const qrRes = await window.getToyQrCodeData();
+                if (qrRes && qrRes.base64) toyQrBase64 = qrRes.base64;
+            } catch (e) { }
+        }
+        if (!toyQrBase64) {
+            toyQrBase64 = FALLBACK_TOY_QR_DATA_URL;
+        }
         watermarkHtml = `
             <div class="pdf-watermark-bar toy-watermark">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="display:flex; flex-direction:column; line-height:1.2; text-align:right;">
-                        <span style="font-weight:700; font-size:11px; color:#1e293b;">词迹</span>
-                        <span style="font-size:9px; color:#64748b;">让背词更有趣</span>
+                <div class="pdf-toy-watermark-card" style="display:inline-flex; align-items:center; gap:7px;">
+                    <img src="${toyQrBase64}" alt="Toy QR" style="width:28px; height:28px; border-radius:2px; object-fit:contain; display:block; flex-shrink:0;">
+                    <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
+                        <span style="font-weight:800; font-size:11px; color:#1e293b; letter-spacing:0.5px;">词迹</span>
+                        <span style="font-size:8.5px; color:#64748b;">让背词更有趣</span>
                     </div>
-                    ${toyQrBase64 ? `<img src="${toyQrBase64}" alt="Toy QR" style="width:34px; height:34px; border-radius:4px; border:1px solid #cbd5e1; background:#ffffff; padding:1px; object-fit:contain;">` : `<span style="font-size:9px; color:#0061a4; font-weight:600; padding:2px 6px; border:1px solid #0061a4; border-radius:4px;">Toy</span>`}
                 </div>
             </div>
         `;
@@ -35541,13 +38879,13 @@ async function renderExportPreview() {
         watermarkHtml = `
             <div class="pdf-watermark-bar standard-watermark">
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="./assets/images/icon-web.png" alt="App Icon" style="width:22px; height:22px; border-radius:5px; object-fit:contain;">
+                    <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:22px; height:22px; border-radius:5px; object-fit:contain;">
                     <div style="display:flex; flex-direction:column; line-height:1.2;">
                         <span style="font-weight:700; font-size:11px; color:#1e293b;">词迹</span>
                         <span style="font-size:9px; color:#64748b;">让背词更有趣</span>
                     </div>
                 </div>
-                <span style="font-size:9px; color:#475569; padding:2px 6px; border:1px solid #cbd5e1; border-radius:4px; font-family:monospace; background:rgba(255,255,255,0.85);">https://www.bilibili.com/toy/cyr</span>
+                <span style="font-size:8.5px; color:#475569; padding:2px 7px; border:1px solid #cbd5e1; border-radius:4px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:rgba(255,255,255,0.9); font-weight:500; white-space:nowrap; letter-spacing:normal; word-break:keep-all;">https://www.bilibili.com/toy/cyr</span>
             </div>
         `;
     }
@@ -35556,24 +38894,21 @@ async function renderExportPreview() {
         paperEl.innerHTML = `
             <div style="text-align:center; padding:90px 20px; color:#64748b;">
                 <span class="material-symbols-rounded" style="font-size:48px; opacity:0.4;">folder_off</span>
-                <h4 style="margin:12px 0 6px; font-weight:700; font-size:1.1rem; color:#334155;">所选时间段暂无学习记录</h4>
-                <p style="font-size:0.88rem; margin:0 auto; max-width:320px;">
-                    你可以选择“全部数据”查看历史词库，或在背词、对战后再次导出今日的学习清单。
-                </p>
+                <h4 style="margin:12px 0 6px; font-weight:700; font-size:1.1rem; color:#334155;">所选时间段暂无匹配的学习数据</h4>
             </div>
             ${watermarkHtml}
         `;
         return;
     }
 
-    // 头部大标题（已删除右侧生成日期与合计次要信息，支持自定义大标题）
+    // 头部大标题（标题居左，生成日期与时间段标签靠右对齐）
     let bodyHtml = `
-        <div style="border-bottom: 2px solid var(--paper-primary, #0061a4); padding-bottom: 14px; margin-bottom: 22px;">
-            <h2 style="margin:0 0 6px; font-size:1.45rem; font-weight:800; color:var(--paper-primary, #0061a4); letter-spacing:-0.5px;">
+        <div class="pdf-doc-header" style="display:flex; justify-content:space-between; align-items:baseline; border-bottom: 2px solid var(--paper-primary, #0061a4); padding-bottom: 12px; margin-bottom: 20px; page-break-after: avoid; break-after: avoid;">
+            <h2 style="margin:0; font-size:1.45rem; font-weight:800; color:var(--paper-primary, #0061a4); letter-spacing:-0.5px;">
                 ${escapeHtml(docTitle)}
             </h2>
-            <div style="font-size:0.84rem; color:#64748b;">
-                <span>范围：${escapeHtml(dateRangeLabel)}</span>
+            <div style="font-size:0.84rem; color:#64748b; font-weight:500;">
+                <span>${escapeHtml(dateRangeLabel)}</span>
             </div>
         </div>
     `;
@@ -35581,31 +38916,35 @@ async function renderExportPreview() {
     // 1. 单词部分
     if (showWords && exportFilteredData.words.length > 0) {
         bodyHtml += `
-            <div class="pdf-section" style="margin-bottom:24px;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4);">
+            <div class="pdf-section" style="margin-bottom:16px;">
+                <div class="pdf-section-title" style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4); page-break-after:avoid; break-after:avoid;">
                     <span style="display:inline-block; width:4px; height:15px; background:var(--paper-primary, #0061a4); border-radius:2px;"></span>
                     <span>单词列表 (${exportFilteredData.words.length})</span>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                <div class="pdf-cards-list" style="display:block;">
                     ${exportFilteredData.words.map((item, idx) => {
+                        const cleanPhraseMeaning = String(item.relatedPhraseMeaning || '').replace(/^\s*[\(（](.*)[\)）]\s*$/, '$1').trim();
                         return `
-                            <div style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:8px 12px; font-size:0.88rem;">
+                            <div class="pdf-card-item" style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:8px 12px; font-size:0.88rem; margin-bottom:8px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box;">
                                 <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
                                     <span style="font-weight:700; font-size:0.98rem; color:#0f172a;">${idx + 1}. ${escapeHtml(item.word)}</span>
-                                    ${fieldWordsPhone && item.phone ? `<span style="font-size:0.82rem; color:#64748b; font-family:monospace;">${escapeHtml(item.phone)}</span>` : ''}
+                                    ${fieldWordsPhone && item.phone ? `<span style="font-size:0.82rem; color:#64748b; font-family:'Segoe UI', 'Lucida Sans Unicode', Arial, sans-serif;">${escapeHtml(item.phone)}</span>` : ''}
                                     ${fieldWordsPos && item.pos ? `<span style="font-size:0.75rem; font-weight:600; color:var(--paper-accent, #0284c7); background:rgba(2,132,199,0.08); padding:1px 5px; border-radius:3px;">${escapeHtml(item.pos)}</span>` : ''}
                                 </div>
                                 ${fieldWordsMeaning && item.meaning ? `<div style="color:#334155; margin-top:3px; line-height:1.45;">${escapeHtml(item.meaning)}</div>` : ''}
                                 ${fieldWordsExample ? (
                                     item.relatedPhrase ? `
                                         <div style="color:#64748b; font-size:0.82rem; margin-top:3px; padding-left:8px; border-left:2px solid var(--paper-primary, #0061a4);">
-                                            <strong style="color:var(--paper-primary, #0061a4); font-weight:600;">相关词组：</strong>
-                                            <span style="font-weight:600; color:#334155;">${escapeHtml(item.relatedPhrase)}</span>
-                                            ${item.relatedPhraseMeaning ? `<span style="color:#64748b; margin-left:6px;">(${escapeHtml(item.relatedPhraseMeaning)})</span>` : ''}
+                                            <div>
+                                                <strong style="color:var(--paper-primary, #0061a4); font-weight:600;">相关词组：</strong>
+                                                <span style="font-weight:600; color:#334155;">${escapeHtml(item.relatedPhrase)}</span>
+                                            </div>
+                                            <strong style="color:var(--paper-primary, #0061a4); font-weight:600;">释义：</strong>
+                                            ${cleanPhraseMeaning ? `<span style="color:#64748b; margin-top:2px;">${escapeHtml(cleanPhraseMeaning)}</span>` : ''}
                                         </div>
                                     ` : (item.example ? `
                                         <div style="color:#64748b; font-size:0.82rem; font-style:italic; margin-top:3px; padding-left:8px; border-left:2px solid #cbd5e1;">
-                                            例句：${escapeHtml(item.example)}
+                                            ${escapeHtml(item.example)}
                                         </div>
                                     ` : '')
                                 ) : ''}
@@ -35620,15 +38959,15 @@ async function renderExportPreview() {
     // 2. 词组部分
     if (showPhrases && exportFilteredData.phrases.length > 0) {
         bodyHtml += `
-            <div class="pdf-section" style="margin-bottom:24px;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4);">
+            <div class="pdf-section" style="margin-bottom:16px;">
+                <div class="pdf-section-title" style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4); page-break-after:avoid; break-after:avoid;">
                     <span style="display:inline-block; width:4px; height:15px; background:var(--paper-primary, #0061a4); border-radius:2px;"></span>
                     <span>词组与搭配 (${exportFilteredData.phrases.length})</span>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                <div class="pdf-cards-list" style="display:block;">
                     ${exportFilteredData.phrases.map((item, idx) => {
                         return `
-                            <div style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:8px 12px; font-size:0.88rem;">
+                            <div class="pdf-card-item" style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:8px 12px; font-size:0.88rem; margin-bottom:8px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box;">
                                 <div style="font-weight:700; font-size:0.96rem; color:#0f172a;">${idx + 1}. ${escapeHtml(item.word)}</div>
                                 ${fieldPhrasesMeaning && item.meaning ? `<div style="color:#334155; margin-top:2px;">${escapeHtml(item.meaning)}</div>` : ''}
                             </div>
@@ -35642,21 +38981,21 @@ async function renderExportPreview() {
     // 3. 实词部分 (使用页面统一字体，不使用 serif)
     if (showShici && exportFilteredData.shici.length > 0) {
         bodyHtml += `
-            <div class="pdf-section" style="margin-bottom:24px;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4);">
+            <div class="pdf-section" style="margin-bottom:16px;">
+                <div class="pdf-section-title" style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:var(--paper-primary, #0061a4); page-break-after:avoid; break-after:avoid;">
                     <span style="display:inline-block; width:4px; height:15px; background:var(--paper-primary, #0061a4); border-radius:2px;"></span>
                     <span>文言实词 (${exportFilteredData.shici.length})</span>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                <div class="pdf-cards-list" style="display:block;">
                     ${exportFilteredData.shici.map((item, idx) => {
                         return `
-                            <div style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:9px 12px; font-size:0.88rem;">
+                            <div class="pdf-card-item" style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-radius:6px; padding:9px 12px; font-size:0.88rem; margin-bottom:8px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box;">
                                 <div style="display:flex; align-items:baseline; gap:8px;">
                                     <span style="font-weight:700; font-size:1.02rem; color:var(--paper-primary, #0061a4);">${idx + 1}. ${escapeHtml(item.word)}</span>
                                     ${item.phone ? `<span style="font-size:0.82rem; color:#64748b;">[${escapeHtml(item.phone)}]</span>` : ''}
                                 </div>
                                 ${fieldShiciMeaning && item.meaning ? `<div style="color:#334155; margin-top:3px; line-height:1.45;"><strong>释义：</strong>${escapeHtml(item.meaning)}</div>` : ''}
-                                ${fieldShiciExample && item.example ? `<div style="color:#475569; font-size:0.84rem; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.02); border-radius:4px;">“${escapeHtml(item.example)}” ${item.source ? `<span style="color:#94a3b8; font-size:0.78rem;">—— ${escapeHtml(item.source)}</span>` : ''}</div>` : ''}
+                                ${fieldShiciExample && item.example ? `<div style="color:#475569; font-size:0.84rem; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.02); border-radius:4px;">“${escapeHtml(item.example)}” ${item.source ? `<span style="color:#94a3b8; font-size:0.78rem;">   —${escapeHtml(item.source)}</span>` : ''}</div>` : ''}
                             </div>
                         `;
                     }).join('')}
@@ -35668,22 +39007,26 @@ async function renderExportPreview() {
     // 4. 错题部分
     if (showMistakes && exportFilteredData.mistakes.length > 0) {
         bodyHtml += `
-            <div class="pdf-section" style="margin-bottom:24px;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:#ba1a1a;">
+            <div class="pdf-section" style="margin-bottom:16px;">
+                <div class="pdf-section-title" style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:1.02rem; font-weight:700; color:#ba1a1a; page-break-after:avoid; break-after:avoid;">
                     <span style="display:inline-block; width:4px; height:15px; background:#ba1a1a; border-radius:2px;"></span>
                     <span>错题归纳 (${exportFilteredData.mistakes.length})</span>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                <div class="pdf-cards-list" style="display:block;">
                     ${exportFilteredData.mistakes.map((item, idx) => {
                         return `
-                            <div style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-left:3px solid #ba1a1a; border-radius:6px; padding:8px 12px; font-size:0.88rem;">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="font-weight:700; font-size:0.96rem; color:#0f172a;">${idx + 1}. ${escapeHtml(item.word)}</span>
-                                    <span style="font-size:0.75rem; color:#ba1a1a; font-weight:600; background:rgba(239,68,68,0.08); padding:1px 6px; border-radius:9999px;">错 ${item.count} 次</span>
+                            <div class="pdf-card-item" style="background:var(--paper-card-bg, #f8fafc); border:1px solid var(--paper-card-border, #e2e8f0); border-left:3px solid #ba1a1a; border-radius:6px; padding:8px 12px; font-size:0.88rem; margin-bottom:8px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                    <span style="font-weight:700; font-size:0.96rem; color:#0f172a; flex:1; min-width:0; word-break:break-word;">${idx + 1}. ${escapeHtml(item.word)}</span>
+                                    <span style="font-size:0.75rem; color:#ba1a1a; font-weight:600; background:rgba(239,68,68,0.08); padding:2px 8px; border-radius:9999px; white-space:nowrap; flex-shrink:0;">错 ${item.count} 次</span>
                                 </div>
                                 <div style="display:flex; flex-direction:column; gap:3px; margin-top:4px;">
-                                    ${fieldMistakesWrong ? `<div style="font-size:0.82rem; color:#e11d48;"><strong style="font-weight:600;">错误搭配：</strong>${escapeHtml(item.wrongAnswer || '---')}</div>` : ''}
-                                    ${fieldMistakesCorrect ? `<div style="font-size:0.82rem; color:#15803d;"><strong style="font-weight:600;">正确搭配：</strong>${escapeHtml(item.correctAnswer || item.meaning || '---')}</div>` : ''}
+                                    <div style="font-size:0.82rem; color:#15803d;"><strong style="font-weight:600;">正确答案：</strong>${escapeHtml(item.correctAnswer || item.meaning || '---')}</div>
+                                    ${fieldShiciExample && item.example ? `
+                                        <div style="color:#475569; font-size:0.82rem; margin-top:3px; padding:4px 8px; background:rgba(0,0,0,0.02); border-radius:4px;">
+                                            “${escapeHtml(item.example)}” ${item.source ? `<span style="color:#94a3b8; font-size:0.78rem;">   —${escapeHtml(item.source)}</span>` : ''}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             </div>
                         `;
@@ -35706,12 +39049,9 @@ function renderMarkdownPreview(paperEl, docTitle, dateRangeLabel, opts) {
 
     let html = `
         <div style="border-bottom: 2px solid var(--md-sys-color-primary, #0061a4); padding-bottom: 12px; margin-bottom: 18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h1 style="margin:0 0 6px; font-size:1.45rem; font-weight:800; color:var(--md-sys-color-primary, #0061a4);">${escapeHtml(docTitle)}</h1>
-                <span class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.78rem;">Markdown 预览</span>
-            </div>
+            <h1 style="margin:0 0 6px; font-size:1.45rem; font-weight:800; color:var(--md-sys-color-primary, #0061a4);">${escapeHtml(docTitle)}</h1>
             <div style="font-size:0.84rem; color:#64748b; margin-top:4px; padding:6px 10px; background:#f8fafc; border-left:3px solid #cbd5e1; border-radius:3px;">
-                范围：${escapeHtml(dateRangeLabel)}
+                ${escapeHtml(dateRangeLabel)}
             </div>
         </div>
     `;
@@ -35725,12 +39065,13 @@ function renderMarkdownPreview(paperEl, docTitle, dateRangeLabel, opts) {
     if (opts.showWords && exportFilteredData.words.length > 0) {
         html += `<h2 style="font-size:1.1rem; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin:20px 0 12px;">## 单词列表 (${exportFilteredData.words.length})</h2><div style="display:flex; flex-direction:column; gap:8px;">`;
         exportFilteredData.words.forEach((w, i) => {
+            const cleanM = (w.relatedPhraseMeaning || '').replace(/^\s*[\(（](.*)[\)）]\s*$/, '$1').trim();
             html += `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:0.88rem;">`;
-            html += `<div><strong>${i + 1}. ${escapeHtml(w.word)}</strong> ${opts.fieldWordsPhone && w.phone ? `<code style="background:#e2e8f0; padding:1px 4px; border-radius:3px; font-size:0.82rem;">${escapeHtml(w.phone)}</code>` : ''} ${opts.fieldWordsPos && w.pos ? `<em>${escapeHtml(w.pos)}</em>` : ''}</div>`;
+            html += `<div><strong>${i + 1}. ${escapeHtml(w.word)}</strong> ${opts.fieldWordsPhone && w.phone ? `<span style="font-family:'Segoe UI', 'Lucida Sans Unicode', Arial, sans-serif; color:#64748b; font-size:0.82rem; margin-left:4px;">${escapeHtml(w.phone)}</span>` : ''} ${opts.fieldWordsPos && w.pos ? `<em>${escapeHtml(w.pos)}</em>` : ''}</div>`;
             if (opts.fieldWordsMeaning && w.meaning) html += `<div style="color:#334155; margin-top:2px;">• 释义：${escapeHtml(w.meaning)}</div>`;
             if (opts.fieldWordsExample) {
                 if (w.relatedPhrase) {
-                    html += `<div style="color:#0061a4; margin-top:2px; font-size:0.82rem;">• 相关词组：<strong>${escapeHtml(w.relatedPhrase)}</strong> ${w.relatedPhraseMeaning ? `(${escapeHtml(w.relatedPhraseMeaning)})` : ''}</div>`;
+                    html += `<div style="color:#0061a4; margin-top:2px; font-size:0.82rem;">• 相关词组：<strong>${escapeHtml(w.relatedPhrase)}</strong>${cleanM ? ` <span style="color:#64748b;">释义：${escapeHtml(cleanM)}</span>` : ''}</div>`;
                 } else if (w.example) {
                     html += `<div style="color:#64748b; margin-top:2px; font-size:0.82rem;">• 例句：${escapeHtml(w.example)}</div>`;
                 }
@@ -35765,20 +39106,14 @@ function renderMarkdownPreview(paperEl, docTitle, dateRangeLabel, opts) {
         exportFilteredData.mistakes.forEach((m, i) => {
             html += `<div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:8px 12px; font-size:0.88rem;">`;
             html += `<div style="display:flex; justify-content:space-between;"><strong>${i + 1}. ${escapeHtml(m.word)}</strong> <span style="color:#ba1a1a; font-size:0.78rem;">错 ${m.count} 次</span></div>`;
-            if (opts.fieldMistakesWrong) html += `<div style="color:#e11d48; font-size:0.82rem; margin-top:2px;">• 错误搭配：${escapeHtml(m.wrongAnswer || '---')}</div>`;
-            if (opts.fieldMistakesCorrect) html += `<div style="color:#15803d; font-size:0.82rem; margin-top:2px;">• 正确搭配：${escapeHtml(m.correctAnswer || m.meaning || '---')}</div>`;
+            html += `<div style="color:#15803d; font-size:0.82rem; margin-top:2px;">• 正确搭配：${escapeHtml(m.correctAnswer || m.meaning || '---')}</div>`;
+            if (opts.fieldShiciExample && m.example) {
+                html += `<div style="color:#64748b; font-size:0.82rem; margin-top:2px;">• 出处：“${escapeHtml(m.example)}” ${m.source ? `—— ${escapeHtml(m.source)}` : ''}</div>`;
+            }
             html += `</div>`;
         });
         html += `</div>`;
     }
-
-    // 附带源码折叠面板
-    html += `
-        <details style="margin-top:26px; border:1px solid #cbd5e1; border-radius:6px; padding:10px 14px; background:#f1f5f9;">
-            <summary style="cursor:pointer; font-weight:600; font-size:0.85rem; color:#475569;">查看原始 Markdown 代码</summary>
-            <pre style="margin-top:10px; font-size:0.8rem; line-height:1.5; white-space:pre-wrap; background:#ffffff; padding:12px; border-radius:4px; border:1px solid #e2e8f0; max-height:280px; overflow-y:auto;">${escapeHtml(mdText)}</pre>
-        </details>
-    `;
 
     paperEl.innerHTML = html;
 }
@@ -35811,20 +39146,18 @@ function generateMarkdownExportContent(docTitle, dateRangeLabel, opts) {
     const fieldShiciMeaning = opts ? opts.fieldShiciMeaning : (document.getElementById('field-shici-meaning')?.checked !== false);
     const fieldShiciExample = opts ? opts.fieldShiciExample : (document.getElementById('field-shici-example')?.checked !== false);
 
-    const fieldMistakesWrong = opts ? opts.fieldMistakesWrong : (document.getElementById('field-mistakes-wrong')?.checked !== false);
-    const fieldMistakesCorrect = opts ? opts.fieldMistakesCorrect : (document.getElementById('field-mistakes-correct')?.checked !== false);
-
     let md = `# ${docTitle}\n\n`;
     md += `> 范围：${dateRangeLabel}\n\n`;
 
     if (showWords && exportFilteredData.words.length > 0) {
         md += `## 单词列表 (${exportFilteredData.words.length})\n\n`;
         exportFilteredData.words.forEach((w, i) => {
+            const cleanM = (w.relatedPhraseMeaning || '').replace(/^\s*[\(（](.*)[\)）]\s*$/, '$1').trim();
             md += `${i + 1}. **${w.word}** ${fieldWordsPhone && w.phone ? `\`${w.phone}\`` : ''} ${fieldWordsPos && w.pos ? `*${w.pos}*` : ''}\n`;
             if (fieldWordsMeaning && w.meaning) md += `   - 释义：${w.meaning}\n`;
             if (fieldWordsExample) {
                 if (w.relatedPhrase) {
-                    md += `   - 相关词组：**${w.relatedPhrase}** ${w.relatedPhraseMeaning ? `(${w.relatedPhraseMeaning})` : ''}\n`;
+                    md += `   - 相关词组：**${w.relatedPhrase}**${cleanM ? ` 释义：${cleanM}` : ''}\n`;
                 } else if (w.example) {
                     md += `   - 例句：${w.example}\n`;
                 }
@@ -35855,8 +39188,10 @@ function generateMarkdownExportContent(docTitle, dateRangeLabel, opts) {
         md += `## 错题汇总 (${exportFilteredData.mistakes.length})\n\n`;
         exportFilteredData.mistakes.forEach((m, i) => {
             md += `${i + 1}. **${m.word}** (错 ${m.count} 次)\n`;
-            if (fieldMistakesWrong) md += `   - 错误搭配：${m.wrongAnswer || '---'}\n`;
-            if (fieldMistakesCorrect) md += `   - 正确搭配：${m.correctAnswer || m.meaning || '---'}\n`;
+            md += `   - 正确搭配：${m.correctAnswer || m.meaning || '---'}\n`;
+            if (fieldShiciExample && m.example) {
+                md += `   - 出处：“${m.example}” ${m.source ? `—— ${m.source}` : ''}\n`;
+            }
         });
         md += `\n`;
     }
@@ -35883,9 +39218,6 @@ function generateTxtExportContent(docTitle, dateRangeLabel, opts) {
     const fieldShiciMeaning = opts ? opts.fieldShiciMeaning : (document.getElementById('field-shici-meaning')?.checked !== false);
     const fieldShiciExample = opts ? opts.fieldShiciExample : (document.getElementById('field-shici-example')?.checked !== false);
 
-    const fieldMistakesWrong = opts ? opts.fieldMistakesWrong : (document.getElementById('field-mistakes-wrong')?.checked !== false);
-    const fieldMistakesCorrect = opts ? opts.fieldMistakesCorrect : (document.getElementById('field-mistakes-correct')?.checked !== false);
-
     let txt = `============================================================\n`;
     txt += `${docTitle}\n`;
     txt += `范围：${dateRangeLabel}\n`;
@@ -35895,11 +39227,12 @@ function generateTxtExportContent(docTitle, dateRangeLabel, opts) {
         txt += `[ 单词列表 ] (共 ${exportFilteredData.words.length} 条)\n`;
         txt += `------------------------------------------------------------\n`;
         exportFilteredData.words.forEach((w, i) => {
+            const cleanM = (w.relatedPhraseMeaning || '').replace(/^\s*[\(（](.*)[\)）]\s*$/, '$1').trim();
             txt += `${i + 1}. ${w.word} ${fieldWordsPhone && w.phone ? `[${w.phone}]` : ''} ${fieldWordsPos && w.pos ? `[${w.pos}]` : ''}\n`;
             if (fieldWordsMeaning && w.meaning) txt += `   释义: ${w.meaning}\n`;
             if (fieldWordsExample) {
                 if (w.relatedPhrase) {
-                    txt += `   相关词组: ${w.relatedPhrase} ${w.relatedPhraseMeaning ? `(${w.relatedPhraseMeaning})` : ''}\n`;
+                    txt += `   相关词组: ${w.relatedPhrase}${cleanM ? ` 释义: ${cleanM}` : ''}\n`;
                 } else if (w.example) {
                     txt += `   例句: ${w.example}\n`;
                 }
@@ -35933,8 +39266,10 @@ function generateTxtExportContent(docTitle, dateRangeLabel, opts) {
         txt += `------------------------------------------------------------\n`;
         exportFilteredData.mistakes.forEach((m, i) => {
             txt += `${i + 1}. ${m.word} (错 ${m.count} 次)\n`;
-            if (fieldMistakesWrong) txt += `   错误搭配: ${m.wrongAnswer || '---'}\n`;
-            if (fieldMistakesCorrect) txt += `   正确搭配: ${m.correctAnswer || m.meaning || '---'}\n`;
+            txt += `   正确搭配: ${m.correctAnswer || m.meaning || '---'}\n`;
+            if (fieldShiciExample && m.example) {
+                txt += `   出处: “${m.example}” ${m.source ? `—— ${m.source}` : ''}\n`;
+            }
         });
         txt += `\n`;
     }
@@ -35942,160 +39277,560 @@ function generateTxtExportContent(docTitle, dateRangeLabel, opts) {
     return txt;
 }
 
+function escapePdfHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 /**
- * 导出 PDF / 启动高保真打印
+ * 客户端流式动态分页排版核心引擎 (严格计算卡片高度，超出即自动分页，确保不切断卡片，绝不落单标题)
+ */
+function buildPaginatedPdfDOM(mountPoint, data, config) {
+    const {
+        docTitle = '学习数据',
+        dateRangeLabel = '今天',
+        paperSize = 'a4',
+        themePreset = 'blue',
+        isToy = false,
+        toyQrBase64 = '',
+        showWords = true,
+        showPhrases = true,
+        showShici = true,
+        showMistakes = true,
+        fieldWordsPhone = true,
+        fieldWordsPos = true,
+        fieldWordsMeaning = true,
+        fieldWordsExample = true,
+        fieldPhrasesMeaning = true,
+        fieldShiciMeaning = true,
+        fieldShiciExample = true,
+        fieldMistakesWrong = true,
+        fieldMistakesCorrect = true
+    } = config;
+
+    const paperDimensions = {
+        'a4': { width: '210mm', height: '296.5mm' },
+        'a5': { width: '148mm', height: '209.5mm' },
+        'b5': { width: '176mm', height: '249.5mm' },
+        'letter': { width: '216mm', height: '278.5mm' }
+    };
+
+    const themeColors = {
+        'blue': { primary: '#0061a4', accent: '#0284c7', cardBg: '#f8fafc', cardBorder: '#e2e8f0' },
+        'minimal': { primary: '#0f172a', accent: '#334155', cardBg: '#ffffff', cardBorder: '#cbd5e1' },
+        'green': { primary: '#0f766e', accent: '#059669', cardBg: '#f0fdf4', cardBorder: '#bbf7d0' },
+        'warm': { primary: '#9a3412', accent: '#ea580c', cardBg: '#fffbeb', cardBorder: '#fed7aa' }
+    };
+
+    const dim = paperDimensions[paperSize] || paperDimensions['a4'];
+    const theme = themeColors[themePreset] || themeColors['blue'];
+
+    const root = document.createElement('div');
+    root.className = 'export-pdf-render-root';
+    root.style.cssText = 'background: #ffffff;';
+    mountPoint.appendChild(root);
+
+    const watermarkLeftHtml = isToy ? `
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-weight:700; font-size:10.5px; color:#1e293b;">词迹</span>
+            <span style="font-size:8.5px; color:#64748b;">让背词更有趣</span>
+        </div>
+    ` : `
+        <div style="display:flex; align-items:center; gap:7px;">
+            <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:18px; height:18px; border-radius:3px; object-fit:contain; display:block;">
+            <div style="display:flex; flex-direction:column; line-height:1.2;">
+                <span style="font-weight:700; font-size:10px; color:#1e293b;">词迹</span>
+                <span style="font-size:8px; color:#64748b;">让背词更有趣</span>
+            </div>
+        </div>
+    `;
+
+    const watermarkRightHtml = isToy ? `
+        <div class="pdf-toy-watermark-card" style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="${toyQrBase64 || FALLBACK_TOY_QR_DATA_URL}" alt="Toy QR" style="width:24px; height:24px; border-radius:2px; object-fit:contain; display:block; flex-shrink:0;">
+            <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
+                <span style="font-weight:800; font-size:10px; color:#1e293b;">词迹</span>
+                <span style="font-size:8px; color:#64748b;">让背词更有趣</span>
+            </div>
+        </div>
+    ` : `
+        <span style="font-size:8.5px; color:#475569; padding:2px 7px; border:1px solid #cbd5e1; border-radius:4px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:rgba(255,255,255,0.9); font-weight:500; white-space:nowrap; letter-spacing:normal; word-break:keep-all;">https://www.bilibili.com/toy/cyr</span>
+    `;
+
+    let currentPageEl = null;
+    let currentContentEl = null;
+    let currentFooterEl = null;
+    let pageCount = 0;
+
+    function createNewPage() {
+        pageCount++;
+        const page = document.createElement('div');
+        page.className = `pdf-page-container theme-${themePreset}`;
+        page.style.cssText = `
+            width: ${dim.width};
+            height: ${dim.height};
+            max-height: ${dim.height};
+            padding: 13mm 15mm 10mm 15mm;
+            box-sizing: border-box;
+            background: #ffffff;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            position: relative;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.5;
+            page-break-after: always;
+            break-after: page;
+        `;
+        page.innerHTML = `
+            <div class="pdf-page-content" style="flex:1 1 auto; display:flex; flex-direction:column; min-height:0;"></div>
+            <div class="pdf-page-footer" style="flex:0 0 auto; height:26px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:4px; margin-top:6px; box-sizing:border-box;">
+                ${watermarkLeftHtml}
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="pdf-page-num-label" style="font-size:8.5px; color:#94a3b8; font-weight:500;">第 ${pageCount} 页</span>
+                    ${watermarkRightHtml}
+                </div>
+            </div>
+        `;
+        root.appendChild(page);
+        currentPageEl = page;
+        currentContentEl = page.querySelector('.pdf-page-content');
+        currentFooterEl = page.querySelector('.pdf-page-footer');
+        return currentContentEl;
+    }
+
+    // Page 1 初始化与顶部大标题
+    createNewPage();
+    const docHeader = document.createElement('div');
+    docHeader.className = 'pdf-doc-header';
+    docHeader.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        border-bottom: 2px solid ${theme.primary};
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+        flex-shrink: 0;
+    `;
+    docHeader.innerHTML = `
+        <h2 style="margin:0; font-size:1.45rem; font-weight:800; color:${theme.primary}; letter-spacing:-0.5px;">
+            ${escapePdfHtml(docTitle)}
+        </h2>
+        <div style="font-size:0.84rem; color:#64748b; font-weight:500;">
+            <span>${escapePdfHtml(dateRangeLabel)}</span>
+        </div>
+    `;
+    currentContentEl.appendChild(docHeader);
+
+    function isOverflowing(element) {
+        const elRect = element.getBoundingClientRect();
+        const footerRect = currentFooterEl.getBoundingClientRect();
+        return (elRect.bottom > footerRect.top - 6);
+    }
+
+    function addSection(title, count, titleColor, cardElements) {
+        if (!cardElements || cardElements.length === 0) return;
+
+        function createTitleEl() {
+            const t = document.createElement('div');
+            t.className = 'pdf-section-title';
+            t.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 6px;
+                margin-bottom: 10px;
+                font-size: 1.02rem;
+                font-weight: 700;
+                color: ${titleColor};
+                flex-shrink: 0;
+            `;
+            t.innerHTML = `
+                <span style="display:inline-block; width:4px; height:15px; background:${titleColor}; border-radius:2px;"></span>
+                <span>${escapePdfHtml(title)} (${count})</span>
+            `;
+            return t;
+        }
+
+        let titleEl = createTitleEl();
+        currentContentEl.appendChild(titleEl);
+
+        const firstCard = cardElements[0];
+        currentContentEl.appendChild(firstCard);
+
+        // 检测标题与第一张卡片整体是否溢出（若溢出且当前页已有其他内容，则整体移至新页，杜绝标题落单）
+        if ((isOverflowing(firstCard) || isOverflowing(titleEl)) && currentContentEl.childElementCount > 2) {
+            currentContentEl.removeChild(firstCard);
+            currentContentEl.removeChild(titleEl);
+            createNewPage();
+            titleEl = createTitleEl();
+            currentContentEl.appendChild(titleEl);
+            currentContentEl.appendChild(firstCard);
+        }
+
+        // 其余卡片依次加入，溢出时自动创建新页
+        for (let i = 1; i < cardElements.length; i++) {
+            const card = cardElements[i];
+            currentContentEl.appendChild(card);
+            if (isOverflowing(card) && currentContentEl.childElementCount > 1) {
+                currentContentEl.removeChild(card);
+                createNewPage();
+                currentContentEl.appendChild(card);
+            }
+        }
+    }
+
+    // 1. 单词列表卡片构建
+    if (showWords && data.words && data.words.length > 0) {
+        const wordCards = data.words.map((item, idx) => {
+            const cleanPhraseMeaning = String(item.relatedPhraseMeaning || '').replace(/^\s*[\(（](.*)[\)）]\s*$/, '$1').trim();
+            const card = document.createElement('div');
+            card.className = 'pdf-card-item';
+            card.style.cssText = `
+                background: ${theme.cardBg};
+                border: 1px solid ${theme.cardBorder};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 0.88rem;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                flex-shrink: 0;
+            `;
+            card.innerHTML = `
+                <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                    <span style="font-weight:700; font-size:0.98rem; color:#0f172a;">${idx + 1}. ${escapePdfHtml(item.word)}</span>
+                    ${fieldWordsPhone && item.phone ? `<span style="font-size:0.82rem; color:#64748b; font-family:'Segoe UI', Arial, sans-serif;">${escapePdfHtml(item.phone)}</span>` : ''}
+                    ${fieldWordsPos && item.pos ? `<span style="font-size:0.75rem; font-weight:600; color:${theme.accent}; background:rgba(2,132,199,0.08); padding:1px 5px; border-radius:3px;">${escapePdfHtml(item.pos)}</span>` : ''}
+                </div>
+                ${fieldWordsMeaning && item.meaning ? `<div style="color:#334155; margin-top:3px; line-height:1.45;">${escapePdfHtml(item.meaning)}</div>` : ''}
+                ${fieldWordsExample ? (
+                    item.relatedPhrase ? `
+                        <div style="color:#64748b; font-size:0.82rem; margin-top:3px; padding-left:8px; border-left:2px solid ${theme.primary};">
+                            <div>
+                                <strong style="color:${theme.primary}; font-weight:600;">相关词组：</strong>
+                                <span style="font-weight:600; color:#334155;">${escapePdfHtml(item.relatedPhrase)}</span>
+                            </div>
+                            <strong style="color:${theme.primary}; font-weight:600;">释义：</strong>
+                            ${cleanPhraseMeaning ? `<span style="color:#64748b; margin-top:2px;">${escapePdfHtml(cleanPhraseMeaning)}</span>` : ''}
+                        </div>
+                    ` : (item.example ? `
+                        <div style="color:#64748b; font-size:0.82rem; font-style:italic; margin-top:3px; padding-left:8px; border-left:2px solid #cbd5e1;">
+                            ${escapePdfHtml(item.example)}
+                        </div>
+                    ` : '')
+                ) : ''}
+            `;
+            return card;
+        });
+        addSection('单词列表', data.words.length, theme.primary, wordCards);
+    }
+
+    // 2. 词组与搭配卡片构建
+    if (showPhrases && data.phrases && data.phrases.length > 0) {
+        const phraseCards = data.phrases.map((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'pdf-card-item';
+            card.style.cssText = `
+                background: ${theme.cardBg};
+                border: 1px solid ${theme.cardBorder};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 0.88rem;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                flex-shrink: 0;
+            `;
+            card.innerHTML = `
+                <div style="font-weight:700; font-size:0.96rem; color:#0f172a;">${idx + 1}. ${escapePdfHtml(item.word)}</div>
+                ${fieldPhrasesMeaning && item.meaning ? `<div style="color:#334155; margin-top:2px;">${escapePdfHtml(item.meaning)}</div>` : ''}
+            `;
+            return card;
+        });
+        addSection('词组与搭配', data.phrases.length, theme.primary, phraseCards);
+    }
+
+    // 3. 文言实词卡片构建
+    if (showShici && data.shici && data.shici.length > 0) {
+        const shiciCards = data.shici.map((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'pdf-card-item';
+            card.style.cssText = `
+                background: ${theme.cardBg};
+                border: 1px solid ${theme.cardBorder};
+                border-radius: 6px;
+                padding: 9px 12px;
+                font-size: 0.88rem;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                flex-shrink: 0;
+            `;
+            card.innerHTML = `
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span style="font-weight:700; font-size:1.02rem; color:${theme.primary};">${idx + 1}. ${escapePdfHtml(item.word)}</span>
+                    ${item.phone ? `<span style="font-size:0.82rem; color:#64748b;">[${escapePdfHtml(item.phone)}]</span>` : ''}
+                </div>
+                ${fieldShiciMeaning && item.meaning ? `<div style="color:#334155; margin-top:3px; line-height:1.45;"><strong>释义：</strong>${escapePdfHtml(item.meaning)}</div>` : ''}
+                ${fieldShiciExample && item.example ? `<div style="color:#475569; font-size:0.84rem; margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.02); border-radius:4px;">“${escapePdfHtml(item.example)}” ${item.source ? `<span style="color:#94a3b8; font-size:0.78rem;">   —${escapePdfHtml(item.source)}</span>` : ''}</div>` : ''}
+            `;
+            return card;
+        });
+        addSection('文言实词', data.shici.length, theme.primary, shiciCards);
+    }
+
+    // 4. 错题归纳卡片构建
+    if (showMistakes && data.mistakes && data.mistakes.length > 0) {
+        const mistakeCards = data.mistakes.map((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'pdf-card-item';
+            card.style.cssText = `
+                background: ${theme.cardBg};
+                border: 1px solid ${theme.cardBorder};
+                border-left: 3px solid #ba1a1a;
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 0.88rem;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                flex-shrink: 0;
+            `;
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <span style="font-weight:700; font-size:0.96rem; color:#0f172a; flex:1; min-width:0; word-break:break-word;">${idx + 1}. ${escapePdfHtml(item.word)}</span>
+                    ${fieldMistakesWrong && item.count ? `<span style="font-size:0.75rem; color:#ba1a1a; font-weight:600; background:rgba(239,68,68,0.08); padding:2px 8px; border-radius:9999px; white-space:nowrap; flex-shrink:0;">错 ${item.count} 次</span>` : ''}
+                </div>
+                <div style="display:flex; flex-direction:column; gap:3px; margin-top:4px;">
+                    ${fieldMistakesCorrect ? `<div style="font-size:0.82rem; color:#15803d;"><strong style="font-weight:600;">正确答案：</strong>${escapePdfHtml(item.correctAnswer || item.meaning || '---')}</div>` : ''}
+                    ${item.example ? `
+                        <div style="color:#475569; font-size:0.82rem; margin-top:3px; padding:4px 8px; background:rgba(0,0,0,0.02); border-radius:4px;">
+                            “${escapePdfHtml(item.example)}” ${item.source ? `<span style="color:#94a3b8; font-size:0.78rem;">   —${escapePdfHtml(item.source)}</span>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            return card;
+        });
+        addSection('错题归纳', data.mistakes.length, '#ba1a1a', mistakeCards);
+    }
+
+    // 动态回填所有页面的页码（第 X 页 / 共 Y 页）
+    const allNumLabels = root.querySelectorAll('.pdf-page-num-label');
+    allNumLabels.forEach((lbl, i) => {
+        lbl.textContent = `第 ${i + 1} 页 / 共 ${allNumLabels.length} 页`;
+    });
+
+    // 移除最后一页的 CSS 分页标记以防止尾部多余空白页
+    const allPages = root.querySelectorAll('.pdf-page-container');
+    if (allPages.length > 0) {
+        allPages[allPages.length - 1].style.pageBreakAfter = 'auto';
+        allPages[allPages.length - 1].style.breakAfter = 'auto';
+    }
+
+    return { root, totalPages: allNumLabels.length };
+}
+
+/**
+ * 导出 PDF / 启动高保真打印 (自动分页防截断，免弹打印对话框)
  */
 async function exportStudyDataPDF() {
-    await renderExportPreview();
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
+    const paperSize = document.getElementById('export-paper-size-select')?.value || 'a4';
+    const themePreset = document.getElementById('export-theme-preset-select')?.value || 'blue';
+    const dateRangeLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据报告';
 
-    const paperEl = document.getElementById('export-preview-paper');
-    if (!paperEl) return;
+    const showWords = document.getElementById('export-check-words')?.checked !== false;
+    const showPhrases = document.getElementById('export-check-phrases')?.checked !== false;
+    const showShici = document.getElementById('export-check-shici')?.checked !== false;
+    const showMistakes = document.getElementById('export-check-mistakes')?.checked !== false;
+    const totalItems =
+        (showWords ? exportFilteredData.words.length : 0) +
+        (showPhrases ? exportFilteredData.phrases.length : 0) +
+        (showShici ? exportFilteredData.shici.length : 0) +
+        (showMistakes ? exportFilteredData.mistakes.length : 0);
 
-    const paperSize = document.getElementById('export-paper-size')?.value || 'a4';
-    const themePreset = document.getElementById('export-theme-preset')?.value || 'blue';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
+    if (totalItems === 0) {
+        if (typeof showToast === 'function') showToast('所选时间段暂无匹配的学习数据，导出失败');
+        return;
+    }
 
+    const fieldWordsPhone = document.getElementById('field-words-phone')?.checked !== false;
+    const fieldWordsPos = document.getElementById('field-words-pos')?.checked !== false;
+    const fieldWordsMeaning = document.getElementById('field-words-meaning')?.checked !== false;
+    const fieldWordsExample = document.getElementById('field-words-example')?.checked !== false;
+    const fieldPhrasesMeaning = document.getElementById('field-phrases-meaning')?.checked !== false;
+    const fieldShiciMeaning = document.getElementById('field-shici-meaning')?.checked !== false;
+    const fieldShiciExample = document.getElementById('field-shici-example')?.checked !== false;
+    const fieldMistakesWrong = document.getElementById('field-mistakes-wrong')?.checked !== false;
+    const fieldMistakesCorrect = document.getElementById('field-mistakes-correct')?.checked !== false;
+
+    // 确保异步关联短语加载完成
+    if (showWords && fieldWordsExample && exportFilteredData.words.length > 0) {
+        const needsLookup = exportFilteredData.words.filter(w => w.relatedPhrase === undefined);
+        if (needsLookup.length > 0) {
+            await Promise.all(needsLookup.slice(0, 60).map(async (w) => {
+                const p = await findRelatedPhraseForWord(w.word);
+                w.relatedPhrase = p ? p.phrase : null;
+                w.relatedPhraseMeaning = p ? p.meaning : null;
+            }));
+        }
+    }
+
+    // 检测 Toy 平台或水印配置
     const isToy = (typeof isToyPlatform === 'function' ? isToyPlatform() : (typeof isBilibiliToy !== 'undefined' && isBilibiliToy));
-    let watermarkCornerHtml = '';
-
+    let toyQrBase64 = '';
     if (isToy) {
-        let toyQrBase64 = '';
         if (typeof getToyQrCodeData === 'function') {
             try {
                 const qrRes = await getToyQrCodeData();
                 if (qrRes && qrRes.base64) toyQrBase64 = qrRes.base64;
             } catch (e) { }
         }
-        watermarkCornerHtml = `
-            <div class="print-page-watermark toy-watermark">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="display:flex; flex-direction:column; line-height:1.2; text-align:right;">
-                        <span style="font-weight:700; font-size:11px; color:#1e293b;">词迹</span>
-                        <span style="font-size:9px; color:#64748b;">让背词更有趣</span>
-                    </div>
-                    ${toyQrBase64 ? `<img src="${toyQrBase64}" alt="Toy QR" style="width:34px; height:34px; border-radius:4px; border:1px solid #cbd5e1; background:#ffffff; padding:1px;">` : `<span style="font-size:9px; color:#0061a4; font-weight:600; padding:2px 6px; border:1px solid #0061a4; border-radius:4px;">Toy</span>`}
-                </div>
-            </div>
-        `;
-    } else {
-        watermarkCornerHtml = `
-            <div class="print-page-watermark standard-watermark">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="./assets/images/icon-web.png" alt="App Icon" style="width:22px; height:22px; border-radius:5px; object-fit:contain;">
-                    <div style="display:flex; flex-direction:column; line-height:1.2;">
-                        <span style="font-weight:700; font-size:11px; color:#1e293b;">词迹</span>
-                        <span style="font-size:9px; color:#64748b;">让背词更有趣</span>
-                    </div>
-                </div>
-                <span style="font-size:9px; color:#475569; padding:2px 6px; border:1px solid #cbd5e1; border-radius:4px; font-family:monospace; background:rgba(255,255,255,0.85);">https://www.bilibili.com/toy/cyr</span>
-            </div>
-        `;
-    }
-
-    // 克隆纸张内容作为打印体
-    const printContentHtml = paperEl.innerHTML;
-
-    // 创建隔离打印 iframe
-    let printIframe = document.getElementById('export-print-hidden-frame');
-    if (!printIframe) {
-        printIframe = document.createElement('iframe');
-        printIframe.id = 'export-print-hidden-frame';
-        printIframe.style.cssText = 'position:fixed; top:-9999px; left:-9999px; width:0; height:0; border:none;';
-        document.body.appendChild(printIframe);
-    }
-
-    const doc = printIframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>${escapeHtml(docTitle)}</title>
-            <style>
-                @page {
-                    size: ${paperSize} portrait;
-                    margin: 12mm 15mm 16mm 15mm;
-                }
-                * {
-                    box-sizing: border-box;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background: #ffffff;
-                    color: #1e293b;
-                    font-family: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-                    line-height: 1.5;
-                }
-                .theme-blue {
-                    --paper-primary: #0061a4;
-                    --paper-accent: #0284c7;
-                    --paper-card-bg: #f8fafc;
-                    --paper-card-border: #e2e8f0;
-                }
-                .theme-minimal {
-                    --paper-primary: #0f172a;
-                    --paper-accent: #334155;
-                    --paper-card-bg: #ffffff;
-                    --paper-card-border: #cbd5e1;
-                }
-                .theme-green {
-                    --paper-primary: #0f766e;
-                    --paper-accent: #059669;
-                    --paper-card-bg: #f0fdf4;
-                    --paper-card-border: #bbf7d0;
-                }
-                .theme-warm {
-                    --paper-primary: #9a3412;
-                    --paper-accent: #ea580c;
-                    --paper-card-bg: #fffbeb;
-                    --paper-card-border: #fed7aa;
-                }
-                .pdf-section {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-                .print-page-watermark {
-                    position: fixed;
-                    bottom: 4mm;
-                    left: 15mm;
-                    right: 15mm;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    pointer-events: none;
-                    user-select: none;
-                }
-                .print-page-watermark.toy-watermark {
-                    justify-content: flex-end;
-                }
-                .pdf-watermark-bar {
-                    display: none !important;
-                }
-            </style>
-        </head>
-        <body class="theme-${themePreset}">
-            <div style="padding: 10px 0;">
-                ${printContentHtml}
-            </div>
-            ${watermarkCornerHtml}
-        </body>
-        </html>
-    `);
-    doc.close();
-
-    setTimeout(() => {
-        try {
-            printIframe.contentWindow.focus();
-            printIframe.contentWindow.print();
-        } catch (e) {
-            console.warn('[exportStudyDataPDF print error]', e);
-            window.print();
+        if (!toyQrBase64 && typeof window !== 'undefined' && window.getToyQrCodeData) {
+            try {
+                const qrRes = await window.getToyQrCodeData();
+                if (qrRes && qrRes.base64) toyQrBase64 = qrRes.base64;
+            } catch (e) { }
         }
-    }, 400);
+        if (!toyQrBase64) {
+            toyQrBase64 = FALLBACK_TOY_QR_DATA_URL;
+        }
+    }
+
+    if (typeof showToast === 'function') showToast('正在排版并生成 PDF 文件...');
+
+    const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
+    const dateStr = getTodayDateString();
+    const fileName = `${safeTitle}_${dateStr}.pdf`;
+
+    // 挂载用于精确测量的不可见容器（必须挂载到 DOM 中，否则 getBoundingClientRect 为 0）
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; z-index:-99999; opacity:0; pointer-events:none; background:#ffffff; overflow:hidden;';
+    document.body.appendChild(wrapper);
+
+    try {
+        const { root, totalPages } = buildPaginatedPdfDOM(wrapper, exportFilteredData, {
+            docTitle,
+            dateRangeLabel,
+            paperSize,
+            themePreset,
+            isToy,
+            toyQrBase64,
+            showWords,
+            showPhrases,
+            showShici,
+            showMistakes,
+            fieldWordsPhone,
+            fieldWordsPos,
+            fieldWordsMeaning,
+            fieldWordsExample,
+            fieldPhrasesMeaning,
+            fieldShiciMeaning,
+            fieldShiciExample,
+            fieldMistakesWrong,
+            fieldMistakesCorrect
+        });
+
+        // 优先尝试 Electron 原生导出（高保真矢量打印，直接保存并调用系统 PDF 阅读器打开）
+        if (window.electronAPI && typeof window.electronAPI.saveAndOpenExportFile === 'function') {
+            try {
+                const fullHtml = `<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${escapePdfHtml(docTitle)}</title>
+                    <style>
+                        @page {
+                            size: ${paperSize.toUpperCase()} portrait;
+                            margin: 0;
+                        }
+                        * {
+                            box-sizing: border-box;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            background: #ffffff;
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                        }
+                        .pdf-page-container {
+                            page-break-after: always;
+                            break-after: page;
+                        }
+                        .pdf-page-container:last-child {
+                            page-break-after: auto;
+                            break-after: auto;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${root.innerHTML}
+                </body>
+                </html>`;
+
+                const res = await window.electronAPI.saveAndOpenExportFile({
+                    fileName,
+                    format: 'pdf',
+                    htmlContent: fullHtml,
+                    printOptions: {
+                        pageSize: paperSize ? paperSize.toUpperCase() : 'A4'
+                    }
+                });
+
+                if (res && res.success) {
+                    if (typeof showToast === 'function') showToast('PDF 文件已在系统阅读器中打开');
+                    return;
+                } else if (res && res.error) {
+                    console.warn('[Electron PDF export returned error, falling back to html2pdf]', res.error);
+                }
+            } catch (electronErr) {
+                console.warn('[Electron saveAndOpenExportFile error, fallback to html2pdf]', electronErr);
+            }
+        }
+
+        // 纯网页环境或降级：调用 html2pdf.js 生成精确分页 PDF 并触发浏览器直接下载 (免弹打印对话框)
+        await ensureHtml2PdfLoaded();
+
+        const opt = {
+            margin: 0,
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                letterRendering: false,
+                backgroundColor: '#ffffff',
+                scrollX: 0,
+                scrollY: 0
+            },
+            jsPDF: {
+                unit: 'mm',
+                format: paperSize || 'a4',
+                orientation: 'portrait'
+            },
+            pagebreak: { mode: [] }
+        };
+
+        const pdfBlob = await (window.html2pdf || (typeof html2pdf !== 'undefined' ? html2pdf : null))().set(opt).from(root).output('blob');
+        if (pdfBlob && pdfBlob.size > 2000) {
+            downloadFileBlob(pdfBlob, fileName, 'application/pdf');
+        } else {
+            if (typeof showToast === 'function') showToast('PDF 生成失败，请重试');
+        }
+    } catch (err) {
+        console.error('[exportStudyDataPDF error]', err);
+        if (typeof showToast === 'function') showToast('PDF 生成失败: ' + (err.message || '请重试'));
+    } finally {
+        if (document.body.contains(wrapper)) {
+            document.body.removeChild(wrapper);
+        }
+    }
 }
 
 /**
@@ -36103,7 +39838,7 @@ async function exportStudyDataPDF() {
  */
 function exportStudyDataMarkdown() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
     const dateStr = getTodayDateString();
     const md = generateMarkdownExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
@@ -36115,7 +39850,7 @@ function exportStudyDataMarkdown() {
  */
 function exportStudyDataTxt() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
-    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '词迹 · 学习数据';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
     const dateStr = getTodayDateString();
     const txt = generateTxtExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
@@ -36137,7 +39872,7 @@ function handleExportDownloadClick() {
 }
 
 function downloadFileBlob(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -36151,6 +39886,54 @@ function downloadFileBlob(content, filename, mimeType) {
     showToast(`已开始下载 ${filename}`);
 }
 
+/**
+ * 复制到剪贴板 (仅限 Markdown 与 TXT 格式)
+ */
+async function handleExportCopyClick() {
+    const fmt = document.getElementById('export-format-select')?.value || 'pdf';
+    const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
+    const dateRangeLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据报告';
+
+    let contentToCopy = '';
+    if (fmt === 'md') {
+        contentToCopy = generateMarkdownExportContent(docTitle, dateRangeLabel);
+    } else if (fmt === 'txt') {
+        contentToCopy = generateTxtExportContent(docTitle, dateRangeLabel);
+    } else {
+        if (typeof showToast === 'function') showToast('当前格式不支持复制纯文本');
+        return;
+    }
+
+    if (!contentToCopy) {
+        if (typeof showToast === 'function') showToast('复制内容为空');
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(contentToCopy);
+            if (typeof showToast === 'function') showToast('已成功复制到剪贴板！');
+            return;
+        }
+    } catch (e) {
+        console.warn('[handleExportCopyClick] clipboard API failed, trying fallback', e);
+    }
+
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = contentToCopy;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (typeof showToast === 'function') showToast('已成功复制到剪贴板！');
+    } catch (err) {
+        if (typeof showToast === 'function') showToast('复制失败，请手动选择复制');
+    }
+}
+
 // 全局暴露
 window.openExportStudyDataView = openExportStudyDataView;
 window.selectExportDatePreset = selectExportDatePreset;
@@ -36158,11 +39941,13 @@ window.onExportDateRangeChanged = onExportDateRangeChanged;
 window.toggleExportContentSection = toggleExportContentSection;
 window.onExportFormatChanged = onExportFormatChanged;
 window.renderExportPreview = renderExportPreview;
+window.buildPaginatedPdfDOM = buildPaginatedPdfDOM;
 window.exportStudyDataPDF = exportStudyDataPDF;
 window.handleStartExportPDF = exportStudyDataPDF;
 window.exportStudyDataMarkdown = exportStudyDataMarkdown;
 window.exportStudyDataTxt = exportStudyDataTxt;
 window.handleExportDownloadClick = handleExportDownloadClick;
+window.handleExportCopyClick = handleExportCopyClick;
 window.findRelatedPhraseForWord = findRelatedPhraseForWord;
 
 
@@ -36345,34 +40130,26 @@ async function bootstrapApp() {
     initGlobalVirtualKeyboard();
 
     // 清理 Toy 云储存中的所有词书残留数据
-    if (typeof cleanToyLegacyBookStorage === 'function') {
-        cleanToyLegacyBookStorage().catch(() => {});
-    }
+    // if (typeof cleanToyLegacyBookStorage === 'function') {
+    //     cleanToyLegacyBookStorage().catch(() => {});
+    // }
 
     if (typeof BookManager !== 'undefined' && typeof BookManager.init === 'function') {
-        BookManager.init().then(() => {
-            checkOfflineBooksGuide();
-        }).catch(e => console.warn('[BookManager] init error:', e));
+        BookManager.init().catch(e => console.warn('[BookManager] init error:', e));
+    }
+
+    if (typeof ItemManager !== 'undefined' && typeof ItemManager.fetchUserItems === 'function') {
+        ItemManager.fetchUserItems(true).catch(e => console.warn('[ItemManager] init error:', e));
+    }
+
+    if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.init === 'function') {
+        ActivityManager.init().catch(e => console.warn('[ActivityManager] init error:', e));
+    }
+
+    if (typeof MailManager !== 'undefined' && typeof MailManager.init === 'function') {
+        MailManager.init().catch(e => console.warn('[MailManager] init error:', e));
     }
 }
-
-function checkOfflineBooksGuide() {
-    const isLocalOffline = (typeof window !== 'undefined') && (window.location.protocol === 'file:' || !navigator.onLine);
-    if (!isLocalOffline) return;
-
-    const hasCustom = window.customBooks && window.customBooks.length > 0;
-    const hasDownloaded = BookManager && BookManager.availableBooks && BookManager.availableBooks.some(b => 
-        b.id !== 'builtin_default' && ((b.words && b.words.length > 0) || (BookManager.bookCache && BookManager.bookCache[b.id] && BookManager.bookCache[b.id].length > 0))
-    );
-
-    if (!hasCustom && !hasDownloaded) {
-        setTimeout(() => {
-            const modal = document.getElementById('modal-offline-guide');
-            if (modal) modal.classList.add('active');
-        }, 600);
-    }
-}
-window.checkOfflineBooksGuide = checkOfflineBooksGuide;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrapApp);

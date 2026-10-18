@@ -60,8 +60,9 @@
         #btn-poster-change-bg:disabled { pointer-events: none; }
         /* 仅在 Electron 桌面端显示的专属按钮 */
         body:not(.is-electron) .electron-only-btn { display: none !important; }
-        /* 离线模式下隐藏在线专属元素：远程联机按钮、在线玩家列表、Wordle排行榜、对战卡片状态徽标等 */
+        /* 离线模式下隐藏在线专属元素：远程联机按钮、在线玩家列表、今日Wordle、Wordle排行榜、对战卡片状态徽标等 */
         body.is-offline-mode #btn-enter-online,
+        body.is-offline-mode #btn-hub-daily-wordle,
         body.is-offline-mode #hub-online-players-card,
         body.is-offline-mode #tab-lb-wordle,
         body.is-offline-mode #lb-wordle-section,
@@ -69,7 +70,10 @@
             display: none !important;
         }
         body.is-offline-mode #auth-web-container,
-        body.is-offline-mode #auth-toy-container {
+        body.is-offline-mode #auth-toy-container,
+        body.is-offline-mode #btn-hub-mailbox,
+        body.is-offline-mode #hub-activity-entry-card,
+        body.is-offline-mode .offline-hide {
             display: none !important;
         }
         body:not(.is-offline-mode) #auth-offline-container {
@@ -98,6 +102,7 @@
     </script>
     <!-- Supabase JS Client (本地直接加载，零延迟秒开且离线无网环境下不卡顿) -->
     <script src="./assets/js/core/supabase.client.js"></script>
+    <script src="./assets/lib/html2pdf.bundle.min.js"></script>
     <!-- 引入主样式表 -->
     <link rel="stylesheet" href="./assets/css/style.css">
     <!-- 核心基础设施 (Core Infrastructure) -->
@@ -114,6 +119,9 @@
     <script src="./assets/js/managers/tracker.js"></script>
     <script src="./assets/js/managers/ebbinghaus.js"></script>
     <script src="./assets/js/managers/level-manager.js"></script>
+    <script src="./assets/js/managers/item-manager.js"></script>
+    <script src="./assets/js/managers/activity-manager.js"></script>
+    <script src="./assets/js/managers/mail-manager.js"></script>
 
     <!-- 共享交互组件 (Shared Components) -->
     <script src="./assets/js/components/virtual-keyboard.js"></script>
@@ -768,6 +776,11 @@
                     <div id="hub-user-level-badge" class="user-level-badge" style="display:none; font-weight:800; font-size:0.8rem; padding:3px 10px; border-radius:9999px;">
                         Lv. 1
                     </div>
+                    <!-- 邮箱入口按钮 (移到段位与用户胶囊之间，统一胶囊圆角与高度样式，离线模式隐藏) -->
+                    <button type="button" class="hub-mailbox-btn offline-hide" id="btn-hub-mailbox" onclick="openMailboxView()" title="系统邮箱">
+                        <span class="material-symbols-rounded">mail</span>
+                        <span id="hub-mailbox-unread-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:#dc2626; color:#ffffff; font-size:0.68rem; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; line-height:14px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.25); border:2px solid var(--md-sys-color-surface, #ffffff); box-sizing:border-box;">0</span>
+                    </button>
                     <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号与状态菜单" style="cursor: pointer; position: relative;">
                         <div style="position: relative; width: 28px; height: 28px; flex-shrink: 0; display: inline-flex;">
                             <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="width: 100%; height: 100%;">
@@ -785,20 +798,22 @@
                             <div style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);" id="hub-dd-username">用户</div>
                             <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="hub-dd-level-text">Lv.1</div>
                         </div>
-                        <div style="padding: 6px 16px 2px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-outline);">
-                            状态设置
+                        <div id="hub-dd-presence-section">
+                            <div style="padding: 6px 16px 2px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-outline);">
+                                状态设置
+                            </div>
+                            <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('online')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                                <span style="width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
+                                <span style="flex:1;">在线</span>
+                                <span class="material-symbols-rounded" id="hub-dd-status-check-online" style="font-size:18px; color:var(--md-sys-color-primary);">check</span>
+                            </button>
+                            <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('invisible')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
+                                <span style="width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
+                                <span style="flex:1;">隐身</span>
+                                <span class="material-symbols-rounded" id="hub-dd-status-check-invisible" style="font-size:18px; color:var(--md-sys-color-primary); display:none;">check</span>
+                            </button>
+                            <div style="height: 1px; background: var(--md-sys-color-outline-variant, #e2e8f0); margin: 6px 0;"></div>
                         </div>
-                        <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('online')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
-                            <span style="flex:1;">在线</span>
-                            <span class="material-symbols-rounded" id="hub-dd-status-check-online" style="font-size:18px; color:var(--md-sys-color-primary);">check</span>
-                        </button>
-                        <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('invisible')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
-                            <span style="flex:1;">隐身</span>
-                            <span class="material-symbols-rounded" id="hub-dd-status-check-invisible" style="font-size:18px; color:var(--md-sys-color-primary); display:none;">check</span>
-                        </button>
-                        <div style="height: 1px; background: var(--md-sys-color-outline-variant, #e2e8f0); margin: 6px 0;"></div>
                         <button type="button" class="hub-dd-item" onclick="switchView('view-me'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
                             <span class="material-symbols-rounded" style="font-size:18px;">person</span>
                             <span>个人中心</span>
@@ -965,7 +980,7 @@
                             <span class="material-symbols-rounded">play_arrow</span>
                             <span class="btn-label-text" id="btn-hub-riddle-text">开始解谜</span>
                         </button>
-                        <button class="btn btn-tonal" style="color: #6750A4; background: #E8DEF8;" onclick="startDailyWordleGame();">
+                        <button class="btn btn-tonal" id="btn-hub-daily-wordle" style="color: #6750A4; background: #E8DEF8;" onclick="startDailyWordleGame();">
                             <span class="material-symbols-rounded">today</span>
                             <span class="btn-label-text">今日Wordle</span>
                         </button>
@@ -1032,19 +1047,41 @@
                 </div>
             </div>
 
-            <!-- 排行榜入口卡片 (MD3规范) -->
-            <div class="card leaderboard-entry-card" onclick="openLeaderboardView()" style="margin-top: 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
-                        <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
+            <!-- 活动与排行榜入口并排区域 (离线模式下活动卡片隐藏，排行榜自适应占满整行) -->
+            <div class="hub-extra-row" id="hub-activity-leaderboard-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 14px;">
+                <!-- 活动入口卡片 (离线模式不显示) -->
+                <div class="card hub-activity-entry-card offline-hide" id="hub-activity-entry-card" onclick="openActivityView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; position: relative;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="position: relative; width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                            <span class="material-symbols-rounded" style="font-size: 26px;">campaign</span>
+                            <span id="hub-activity-unread-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:#dc2626; color:#ffffff; font-size:0.68rem; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; line-height:14px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.25); border:2px solid var(--md-sys-color-surface, #ffffff); box-sizing:border-box;">0</span>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">活动</h4>
+                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="hub-activity-status-text">参与活动获得奖励</div>
+                        </div>
                     </div>
-                    <div>
-                        <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">排行榜</h4>
+                    <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
+                        <span>查看</span>
+                        <span class="material-symbols-rounded entry-card-arrow" style="font-size: 18px;">arrow_forward</span>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
-                    <span>查看</span>
-                    <span class="material-symbols-rounded" style="font-size: 18px;">arrow_forward</span>
+
+                <!-- 排行榜入口卡片 -->
+                <div class="card leaderboard-entry-card" id="hub-leaderboard-entry-card" onclick="openLeaderboardView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                            <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">排行榜</h4>
+                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">全服段位+等级分排行</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
+                        <span>查看</span>
+                        <span class="material-symbols-rounded entry-card-arrow" style="font-size: 18px;">arrow_forward</span>
+                    </div>
                 </div>
             </div>
 
@@ -1058,12 +1095,12 @@
         <div id="view-leaderboard" class="view">
             <div class="leaderboard-wrapper" style="max-width: 820px; margin: 0 auto; width: 100%; padding: 12px 16px 40px;">
                 <!-- 顶部栏：返回按钮与标题 -->
-                <div class="app-bar" style="padding: 12px 0 16px; margin-bottom: 8px;">
-                    <div style="display:flex; align-items:center; gap:10px;">
+                <div class="subview-header">
+                    <div>
                         <button type="button" class="nav-back-btn" onclick="exitLeaderboardView()" title="返回">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
-                        <h2 style="margin:0; font-size:1.35rem; font-weight:700;">排行榜</h2>
+                        <h3>排行榜</h3>
                     </div>
                 </div>
 
@@ -1119,6 +1156,84 @@
 
                     <!-- Wordle 排行榜列表 -->
                     <div id="lb-wordle-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: 活动中心 (Activity) -->
+        <div id="view-activity" class="view">
+            <div class="activity-view-wrapper" style="max-width: 820px; margin: 0 auto; width: 100%; padding: 12px 16px 40px;">
+                <!-- 顶部栏 -->
+                <div class="subview-header">
+                    <div>
+                        <button type="button" class="nav-back-btn" onclick="exitActivityView()" title="返回首页">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <h3>活动</h3>
+                    </div>
+                </div>
+
+                <!-- 活动列表容器 -->
+                <div id="activity-list-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+            </div>
+        </div>
+
+        <!-- 活动详情模态弹窗 (MD3规范) -->
+        <div id="modal-activity-detail" class="modal-overlay">
+            <div class="modal-card" style="max-width: 540px; width: 92%;">
+                <div class="modal-header">
+                    <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded modal-title-icon" style="color: #d97706;">campaign</span>
+                        <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;">活动详情</h3>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="ActivityManager.closeDetailModal()">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="activity-detail-content" style="padding: 16px 20px; max-height: 480px; overflow-y: auto;"></div>
+                <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:10px 20px;">
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="ActivityManager.closeDetailModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: 邮箱系统 (Mailbox) -->
+        <div id="view-mailbox" class="view">
+            <div class="mailbox-view-wrapper" style="max-width: 820px; margin: 0 auto; width: 100%; padding: 12px 16px 40px;">
+                <!-- 顶部栏 -->
+                <div class="subview-header">
+                    <div>
+                        <button type="button" class="nav-back-btn" onclick="exitMailboxView()" title="返回首页">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <h3>系统邮箱</h3>
+                    </div>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="MailManager.fetchMails()" title="刷新邮件">
+                        <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
+                        <span class="btn-label-text">刷新</span>
+                    </button>
+                </div>
+
+                <!-- 邮件列表容器 -->
+                <div id="mailbox-list-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+            </div>
+        </div>
+
+        <!-- 邮件详情模态弹窗 (MD3规范) -->
+        <div id="modal-mail-detail" class="modal-overlay">
+            <div class="modal-card" style="max-width: 540px; width: 92%;">
+                <div class="modal-header">
+                    <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded modal-title-icon" style="color: var(--md-sys-color-primary);">mail</span>
+                        <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;">邮件详情</h3>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="MailManager.closeMailDetail()">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="mail-detail-content" style="padding: 16px 20px; max-height: 480px; overflow-y: auto;"></div>
+                <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:10px 20px;">
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="MailManager.closeMailDetail()">关闭</button>
                 </div>
             </div>
         </div>
@@ -1181,7 +1296,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div class="me-account-top-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <button id="btn-sync-cloud-data" type="button" class="btn btn-outlined btn-sm" onclick="handleManualSyncUserData()" style="padding: 3px 12px; font-size: 0.82rem; height: 32px; border-radius: 999px; display: none; align-items: center; gap: 4px;">
                                     <span class="material-symbols-rounded" style="font-size: 16px;">sync</span>
                                     <span class="btn-label-text">同步数据</span>
@@ -1207,6 +1322,26 @@
 
                         <!-- 移到下方的账号操作列表 (非按钮形式展示) -->
                         <div id="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
+                            <div id="me-row-my-items" class="settings-row me-account-action-row clickable offline-hide" onclick="openMyItemsPage()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">backpack</span>
+                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">我的道具</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span id="me-items-badge" class="badge" style="display: none; font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); font-weight: 600;">0个可用</span>
+                                    <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                                </div>
+                            </div>
+                            <div id="me-row-sync-data" class="settings-row me-account-action-row clickable" onclick="handleManualSyncUserData()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
+                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">云端数据同步</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
+                                    <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                                </div>
+                            </div>
                             <div id="me-row-edit-username" class="settings-row me-account-action-row clickable" onclick="openEditUsernameModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
                                 <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">edit</span>
@@ -1232,6 +1367,13 @@
                                 <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-error, #ba1a1a); font-size: 20px;">person_remove</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-error, #ba1a1a);">删除账号</span>
+                                </div>
+                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                            </div>
+                            <div id="me-row-logout" class="settings-row me-account-action-row danger clickable me-row-mobile-only" onclick="handleAuthLogout()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-error, #ba1a1a); font-size: 20px;">logout</span>
+                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-error, #ba1a1a);">退出登录</span>
                                 </div>
                                 <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                             </div>
@@ -1516,17 +1658,17 @@
                                 <button type="button" class="settings-cat-tab" data-range="yesterday" onclick="selectExportDatePreset('yesterday')">昨天</button>
                                 <button type="button" class="settings-cat-tab" data-range="week" onclick="selectExportDatePreset('week')">本周</button>
                                 <button type="button" class="settings-cat-tab" data-range="month" onclick="selectExportDatePreset('month')">本月</button>
-                                <button type="button" class="settings-cat-tab" data-range="all" onclick="selectExportDatePreset('all')">全部数据</button>
-                                <button type="button" class="settings-cat-tab" data-range="custom" onclick="selectExportDatePreset('custom')">指定日期段</button>
+                                <button type="button" class="settings-cat-tab" data-range="all" onclick="selectExportDatePreset('all')">全部</button>
+                                <button type="button" class="settings-cat-tab" data-range="custom" onclick="selectExportDatePreset('custom')">自定义</button>
                             </div>
                             <div id="export-custom-date-row" style="display:none; gap:10px; align-items:center; margin-top:10px; padding:10px 12px; background:var(--md-sys-color-surface-container); border-radius:var(--md-shape-m); flex-wrap:wrap;">
                                 <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:140px;">
-                                    <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">起始日期：</span>
+                                    <!-- <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">起始日期：</span> -->
                                     <input type="date" id="export-date-start" class="input-field" style="height:34px; padding:0 8px; font-size:0.85rem;" onchange="onExportDateRangeChanged()">
                                 </div>
-                                <span style="color:var(--md-sys-color-outline);">至</span>
+                                <span style="font-size:0.82rem; color:var(--md-sys-color-outline);">至</span>
                                 <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:140px;">
-                                    <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">结束日期：</span>
+                                    <!-- <span style="font-size:0.82rem; color:var(--md-sys-color-outline); white-space:nowrap;">结束日期：</span> -->
                                     <input type="date" id="export-date-end" class="input-field" style="height:34px; padding:0 8px; font-size:0.85rem;" onchange="onExportDateRangeChanged()">
                                 </div>
                             </div>
@@ -1544,9 +1686,9 @@
                                 <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
                                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                                         <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
-                                            <input type="checkbox" id="export-check-words" checked onchange="toggleExportContentSection('words', this.checked)">
+                                            <input type="checkbox" class="md3-checkbox" id="export-check-words" checked onchange="toggleExportContentSection('words', this.checked)">
                                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:18px;">spellcheck</span>
-                                            <span>单词 (Words)</span>
+                                            <span>单词</span>
                                         </label>
                                         <span id="export-count-words" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
                                     </div>
@@ -1554,7 +1696,7 @@
                                         <label class="export-field-chk"><input type="checkbox" id="field-words-phone" checked onchange="renderExportPreview()"><span>音标</span></label>
                                         <label class="export-field-chk"><input type="checkbox" id="field-words-pos" checked onchange="renderExportPreview()"><span>词性</span></label>
                                         <label class="export-field-chk"><input type="checkbox" id="field-words-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
-                                        <label class="export-field-chk"><input type="checkbox" id="field-words-example" checked onchange="renderExportPreview()"><span>例句</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-words-example" checked onchange="renderExportPreview()"><span>相关词组</span></label>
                                     </div>
                                 </div>
 
@@ -1562,9 +1704,9 @@
                                 <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
                                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                                         <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
-                                            <input type="checkbox" id="export-check-phrases" checked onchange="toggleExportContentSection('phrases', this.checked)">
+                                            <input type="checkbox" class="md3-checkbox" id="export-check-phrases" checked onchange="toggleExportContentSection('phrases', this.checked)">
                                             <span class="material-symbols-rounded" style="color:#0284c7; font-size:18px;">format_quote</span>
-                                            <span>词组 (Phrases)</span>
+                                            <span>词组</span>
                                         </label>
                                         <span id="export-count-phrases" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
                                     </div>
@@ -1577,15 +1719,15 @@
                                 <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
                                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                                         <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
-                                            <input type="checkbox" id="export-check-shici" checked onchange="toggleExportContentSection('shici', this.checked)">
+                                            <input type="checkbox" class="md3-checkbox" id="export-check-shici" checked onchange="toggleExportContentSection('shici', this.checked)">
                                             <span class="material-symbols-rounded" style="color:#d97706; font-size:18px;">history_edu</span>
-                                            <span>实词 (文言)</span>
+                                            <span>实词</span>
                                         </label>
                                         <span id="export-count-shici" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
                                     </div>
                                     <div id="export-subfields-shici" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
                                         <label class="export-field-chk"><input type="checkbox" id="field-shici-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
-                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>出处</span></label>
+                                        <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>例句</span></label>
                                     </div>
                                 </div>
 
@@ -1593,9 +1735,9 @@
                                 <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
-                                            <input type="checkbox" id="export-check-mistakes" checked onchange="toggleExportContentSection('mistakes', this.checked)">
+                                            <input type="checkbox" class="md3-checkbox" id="export-check-mistakes" checked onchange="toggleExportContentSection('mistakes', this.checked)">
                                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-error); font-size:18px;">error_outline</span>
-                                            <span>错题 (Mistakes)</span>
+                                            <span>错题</span>
                                         </label>
                                         <span id="export-count-mistakes" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
                                     </div>
@@ -1607,55 +1749,105 @@
                         <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface-container-low);">
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary); font-size:20px;">palette</span>
-                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">导出格式与排版风格</h4>
+                                <h4 style="margin:0; font-size:0.98rem; font-weight:700;">导出设置</h4>
                             </div>
 
                             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px;">
                                 <!-- 文档大标题修改 -->
                                 <div style="grid-column: 1 / -1;">
-                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">文档大标题：</label>
-                                    <input type="text" id="export-custom-title-input" class="input-field" value="词迹 · 学习数据" placeholder="请输入自定义标题..." style="width:100%; height:40px; border-radius:var(--md-shape-m); font-size:0.88rem; padding:0 12px; box-sizing:border-box;" oninput="renderExportPreview()">
+                                    <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">文档标题：</label>
+                                    <input type="text" id="export-custom-title-input" class="input-field" value="学习数据" placeholder="请输入自定义标题..." style="width:100%; height:40px; border-radius:var(--md-shape-m); font-size:0.88rem; padding:0 12px; box-sizing:border-box;" oninput="renderExportPreview()">
                                 </div>
 
                                 <!-- 导出格式 (仅支持 PDF / MD / TXT) -->
                                 <div>
                                     <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">导出格式：</label>
-                                    <select id="export-format-select" class="md3-select" style="width:100%; height:40px;" onchange="onExportFormatChanged(this.value)">
-                                        <option value="pdf" selected>PDF 文档 (.pdf)</option>
-                                        <option value="md">Markdown 文件 (.md)</option>
-                                        <option value="txt">纯文本文件 (.txt)</option>
-                                    </select>
+                                    <div class="md3-custom-select" id="export-format-select-wrapper" style="width:100%;">
+                                        <input type="hidden" id="export-format-select" value="pdf">
+                                        <button type="button" class="md3-custom-select-trigger" id="export-format-select-trigger" onclick="toggleMd3Select('export-format-select', event)" style="width:100%; height:40px;">
+                                            <span id="export-format-select-label">PDF 文档 (.pdf)</span>
+                                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline);">arrow_drop_down</span>
+                                        </button>
+                                        <div class="md3-custom-select-menu" id="export-format-select-menu" onclick="event.stopPropagation()">
+                                            <div class="md3-custom-select-option selected" data-value="pdf" onclick="selectMd3Option('export-format-select', 'pdf', 'PDF 文档 (.pdf)', 'onExportFormatChanged')">
+                                                <span>PDF 文档 (.pdf)</span>
+                                                <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="md" onclick="selectMd3Option('export-format-select', 'md', 'Markdown 文件 (.md)', 'onExportFormatChanged')">
+                                                <span>Markdown 文件 (.md)</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="txt" onclick="selectMd3Option('export-format-select', 'txt', '纯文本文件 (.txt)', 'onExportFormatChanged')">
+                                                <span>纯文本文件 (.txt)</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 尺寸选择 (A4, A5, B5, Letter) -->
                                 <div id="export-size-select-col">
                                     <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">纸张尺寸：</label>
-                                    <select id="export-paper-size" class="md3-select" style="width:100%; height:40px;" onchange="renderExportPreview()">
-                                        <option value="a4" selected>A4 标准纸 (210 × 297 mm)</option>
-                                        <option value="a5">A5 便携手账 (148 × 210 mm)</option>
-                                        <option value="b5">B5 习题本 (176 × 250 mm)</option>
-                                        <option value="letter">Letter 信纸 (216 × 279 mm)</option>
-                                    </select>
+                                    <div class="md3-custom-select" id="export-paper-size-wrapper" style="width:100%;">
+                                        <input type="hidden" id="export-paper-size" value="a4">
+                                        <button type="button" class="md3-custom-select-trigger" id="export-paper-size-trigger" onclick="toggleMd3Select('export-paper-size', event)" style="width:100%; height:40px;">
+                                            <span id="export-paper-size-label">A4 (210 × 297 mm)</span>
+                                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline);">arrow_drop_down</span>
+                                        </button>
+                                        <div class="md3-custom-select-menu" id="export-paper-size-menu" onclick="event.stopPropagation()">
+                                            <div class="md3-custom-select-option selected" data-value="a4" onclick="selectMd3Option('export-paper-size', 'a4', 'A4 (210 × 297 mm)', 'renderExportPreview')">
+                                                <span>A4 (210 × 297 mm)</span>
+                                                <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="a5" onclick="selectMd3Option('export-paper-size', 'a5', 'A5 (148 × 210 mm)', 'renderExportPreview')">
+                                                <span>A5 (148 × 210 mm)</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="b5" onclick="selectMd3Option('export-paper-size', 'b5', 'B5 (176 × 250 mm)', 'renderExportPreview')">
+                                                <span>B5 (176 × 250 mm)</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="letter" onclick="selectMd3Option('export-paper-size', 'letter', '信纸 (216 × 279 mm)', 'renderExportPreview')">
+                                                <span>信纸 (216 × 279 mm)</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 主题外观预设 -->
                                 <div id="export-theme-select-col">
                                     <label style="display:block; font-size:0.84rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant);">主题外观：</label>
-                                    <select id="export-theme-preset" class="md3-select" style="width:100%; height:40px;" onchange="renderExportPreview()">
-                                        <option value="blue" selected>词迹蓝韵</option>
-                                        <option value="minimal">典雅极简</option>
-                                        <option value="green">晨曦森林</option>
-                                        <option value="warm">暮光温润</option>
-                                    </select>
+                                    <div class="md3-custom-select" id="export-theme-preset-wrapper" style="width:100%;">
+                                        <input type="hidden" id="export-theme-preset" value="blue">
+                                        <button type="button" class="md3-custom-select-trigger" id="export-theme-preset-trigger" onclick="toggleMd3Select('export-theme-preset', event)" style="width:100%; height:40px;">
+                                            <span id="export-theme-preset-label">词迹蓝韵</span>
+                                            <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline);">arrow_drop_down</span>
+                                        </button>
+                                        <div class="md3-custom-select-menu" id="export-theme-preset-menu" onclick="event.stopPropagation()">
+                                            <div class="md3-custom-select-option selected" data-value="blue" onclick="selectMd3Option('export-theme-preset', 'blue', '词迹蓝韵', 'renderExportPreview')">
+                                                <span>词迹蓝韵</span>
+                                                <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="minimal" onclick="selectMd3Option('export-theme-preset', 'minimal', '典雅极简', 'renderExportPreview')">
+                                                <span>典雅极简</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="green" onclick="selectMd3Option('export-theme-preset', 'green', '晨曦森林', 'renderExportPreview')">
+                                                <span>晨曦森林</span>
+                                            </div>
+                                            <div class="md3-custom-select-option" data-value="warm" onclick="selectMd3Option('export-theme-preset', 'warm', '暮光温润', 'renderExportPreview')">
+                                                <span>暮光温润</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 唯一的下载按钮（根据选中的格式下载） -->
-                        <div class="export-action-row" style="margin-top: 4px; margin-bottom: 24px;">
+                        <!-- 操作按钮栏 (支持下载文件与复制到剪贴板) -->
+                        <div class="export-action-row">
                             <button type="button" class="btn btn-filled" id="btn-export-download-file" onclick="handleExportDownloadClick()" style="width:100%; height:46px; font-size:0.95rem; font-weight:700; border-radius:var(--md-shape-full); box-shadow: 0 3px 10px rgba(0, 97, 164, 0.28); display:flex; align-items:center; justify-content:center; gap:8px;">
                                 <span class="material-symbols-rounded" style="font-size:20px;">download</span>
                                 <span id="export-download-btn-label">下载文件</span>
+                            </button>
+                            <button type="button" class="btn btn-outlined" id="btn-export-copy-clipboard" onclick="handleExportCopyClick()" style="display:none; width:100%; height:42px; font-size:0.92rem; font-weight:600; border-radius:var(--md-shape-full); align-items:center; justify-content:center; gap:8px;">
+                                <span class="material-symbols-rounded" style="font-size:18px;">content_copy</span>
+                                <span>复制到剪贴板</span>
                             </button>
                         </div>
                     </div>
@@ -1670,20 +1862,35 @@
                                 </div>
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <span id="export-live-total-badge" class="badge" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-size:0.8rem; font-weight:600;">共 0 项</span>
-                                    <button type="button" class="btn btn-outlined btn-sm" onclick="renderExportPreview()" title="刷新预览">
-                                        <span class="material-symbols-rounded" style="font-size:16px;">refresh</span>
-                                    </button>
                                 </div>
                             </div>
 
                             <!-- 模拟纸张与文本预览容器 -->
-                            <div class="export-preview-viewport" style="background:#334155; padding:24px 12px; border-radius:var(--md-shape-m); overflow-x:auto; display:flex; justify-content:center; min-height:500px;">
+                            <div class="export-preview-viewport" style="background:#334155; padding:24px 12px; border-radius:var(--md-shape-m); overflow-x:auto; display:flex; justify-content:center; align-items:flex-start;">
                                 <div id="export-preview-paper" class="export-preview-paper">
                                     <!-- 动态插入预览内容 -->
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 子页面 5: 我的道具 -->
+            <div id="settings-subview-items" class="me-subview settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">我的道具</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-subview-items-content" style="padding: 10px 0 30px 0;">
+                    <!-- 动态由 ItemManager.renderItemsView() 渲染 -->
                 </div>
             </div>
         </div>
@@ -1964,7 +2171,7 @@
                     <div class="single-top-header-row">
                         <div class="single-top-header-left">
                             <span id="single-progress-text" class="card-progress-counter">1/10</span>
-                            <span class="single-book-badge" id="single-book-badge" style="cursor:pointer;" onclick="openBookSelectorPage('single')" title="点击更换词书">高中考纲词汇</span>
+                            <span class="single-book-badge" id="single-book-badge">高中考纲词汇</span>
                             <span id="single-retest-tag" style="display:none;" class="retest-banner">
                                 <span class="btn-label-text">错题</span>
                             </span>
@@ -2130,12 +2337,12 @@
 
         <!-- VIEW 5: 错题本 -->
         <div id="view-mistakes" class="view">
-            <div class="app-bar">
-                <div style="display:flex; align-items:center; gap:10px;">
+            <div class="subview-header">
+                <div>
                     <button type="button" class="nav-back-btn" onclick="exitMistakesView()" title="返回">
                         <span class="material-symbols-rounded">arrow_back</span>
                     </button>
-                    <h2 style="margin:0;">错题本</h2>
+                    <h3>错题本</h3>
                 </div>
             </div>
             <div class="card">
@@ -2512,7 +2719,7 @@
                     <div class="single-top-header-row">
                         <div class="single-top-header-left">
                             <span id="dictation-progress-text" class="card-progress-counter">1 / 20</span>
-                            <span class="single-book-badge" id="dictation-book-badge" style="cursor:pointer;" onclick="openBookSelectorPage('dictation')" title="点击更换词书">高中考纲词汇</span>
+                            <span class="single-book-badge" id="dictation-book-badge">高中考纲词汇</span>
                             <span class="badge badge-tag-secondary" id="dictation-type-badge">听音写词</span>
                         </div>
 
@@ -2611,7 +2818,7 @@
                     <div class="shici-top-header-row single-top-header-row">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="card-progress-counter" id="shici-progress-text">1/15</span>
-                            <span class="single-book-badge" id="shici-book-badge" style="background-color:#E0F7FA; color:#006874; cursor:pointer;" onclick="openBookSelectorPage('shici')" title="点击更换词书">文言实词</span>
+                            <span class="single-book-badge" id="shici-book-badge" style="background-color:#E0F7FA; color:#006874;">文言实词</span>
                             <span class="shici-word-badge" id="shici-word-badge">
                                 <span id="shici-current-word-title">哀 āi</span>
                             </span>
@@ -2644,7 +2851,7 @@
                         <div class="shici-sentence-text" id="shici-sentence-display">
                             有妇人哭于墓者而<strong class="shici-word-highlight">哀</strong>
                         </div>
-                        <div class="shici-source-tag" id="shici-source-display">—— 《礼记》</div>
+                        <div class="shici-source-tag" id="shici-source-display"> —《礼记》</div>
                     </div>
 
                     <!-- 4 个义项选项（抽取自该词其他释义） -->
@@ -2701,19 +2908,16 @@
                     <span>显示</span>
                 </div>
                 <div class="settings-card">
-                    <div class="settings-row desktop-only-setting" style="flex-direction:column; align-items:flex-start;">
-                        <div class="settings-row-left" style="width:100%; justify-content:space-between;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <div class="settings-icon-box">
-                                    <span class="material-symbols-rounded">fit_screen</span>
-                                </div>
-                                <div class="settings-row-text">
-                                    <h4>页面宽度</h4>
-                                    <p>调整界面元素的最大宽度 (仅电脑端生效)</p>
-                                </div>
+                    <div class="settings-row desktop-only-setting" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">fit_screen</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>页面宽度</h4>
                             </div>
                         </div>
-                        <div class="chip-group" id="chips-page-width" style="margin-top:10px; width:100%;">
+                        <div class="chip-group" id="chips-page-width" style="margin:0; flex-shrink:0;">
                             <div class="md3-chip" data-width="720px" onclick="setPageMaxWidth('720px')">紧凑 (720px)</div>
                             <div class="md3-chip selected" data-width="960px" onclick="setPageMaxWidth('960px')">标准 (960px)</div>
                             <div class="md3-chip" data-width="1200px" onclick="setPageMaxWidth('1200px')">宽屏 (1200px)</div>
@@ -2756,19 +2960,17 @@
                     <span>声音与发音</span>
                 </div>
                 <div class="settings-card">
-                    <div class="settings-row" style="flex-direction:column; align-items:flex-start;">
-                        <div class="settings-row-left" style="width:100%; justify-content:space-between;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <div class="settings-icon-box">
-                                    <span class="material-symbols-rounded">record_voice_over</span>
-                                </div>
-                                <div class="settings-row-text">
-                                    <h4>默认发音</h4>
-                                    <p>发音按钮播放英音或美音</p>
-                                </div>
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">record_voice_over</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>默认发音</h4>
+                                <p>发音按钮播放英音或美音</p>
                             </div>
                         </div>
-                        <div class="chip-group" id="chips-default-pronunciation" style="margin-top:10px; width:100%;">
+                        <div class="chip-group" id="chips-default-pronunciation" style="margin:0; flex-shrink:0;">
                             <div class="md3-chip selected" data-accent="1" onclick="setDefaultPronunciationAccent(1)">英音</div>
                             <div class="md3-chip" data-accent="2" onclick="setDefaultPronunciationAccent(2)">美音</div>
                         </div>
@@ -3015,8 +3217,8 @@
                     <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对战词书</label>
                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="flex:1; min-width:0; padding-right:8px;">
-                            <div id="ai-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲词汇</div>
-                            <div id="ai-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书 (排位赛仅支持云端词书)</div>
+                            <div id="ai-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">未选择词书</div>
+                            <div id="ai-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">未选择词书</div>
                         </div>
                         <button type="button" class="btn btn-outlined btn-sm" onclick="openAiDuelBookSelector()">
                             <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
@@ -3103,7 +3305,7 @@
                     <span class="btn-label-text">取消</span>
                 </button>
                 <button class="btn btn-filled btn-touch-large" id="btn-start-ai-duel"
-                    style="flex:1; background:#006874;" onclick="startAiDuelFromModal()">
+                    style="flex:1; background:#006874;" onclick="startAiDuelFromModal()" disabled>
                     <span class="material-symbols-rounded">smart_toy</span>
                     <span class="btn-label-text">开始人机PK</span>
                 </button>
@@ -3841,8 +4043,8 @@
                     <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对决词书</label>
                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="flex:1; min-width:0; padding-right:8px;">
-                            <div id="local-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲词汇</div>
-                            <div id="local-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书</div>
+                            <div id="local-duel-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">未选择词书</div>
+                            <div id="local-duel-books-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">未选择词书</div>
                         </div>
                         <button type="button" class="btn btn-outlined btn-sm" onclick="openLocalDuelBookSelector()">
                             <span class="material-symbols-rounded" style="font-size:16px;">menu_book</span>
@@ -3909,7 +4111,7 @@
                     <span class="btn-label-text">取消</span>
                 </button>
                 <button class="btn btn-filled btn-touch-large" id="btn-start-local-duel"
-                    style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()">
+                    style="flex:1; background:#006874;" onclick="startLocalDuelFromModal()" disabled>
                     <span class="material-symbols-rounded">play_arrow</span>
                     <span class="btn-label-text">开始对决</span>
                 </button>
@@ -4368,18 +4570,18 @@
 
     <!-- 全局输入弹窗 (替代不支持的系统 prompt，完美兼容 Electron 与所有浏览器) -->
     <div id="modal-app-prompt" class="modal-overlay" style="z-index: 10002;">
-        <div class="modal-card" style="max-width: 400px; width: 92%; border-radius: var(--md-shape-xl, 24px); padding: 22px;">
+        <div class="modal-card" style="max-width: 400px; width: 92%; border-radius: var(--md-shape-xl, 24px); padding: 22px; overflow: visible;">
             <div class="modal-header" style="margin-bottom: 12px; padding: 0;">
                 <h3 id="app-prompt-title" style="margin:0; font-size:1.15rem; font-weight:700; color:var(--md-sys-color-on-surface);">请输入</h3>
                 <button type="button" class="modal-close-btn" onclick="resolveAppPrompt(null)">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 0; margin-bottom: 0;">
+            <div class="modal-body" style="padding: 4px 4px 6px; margin: -4px -4px 0; overflow: visible;">
                 <p id="app-prompt-message" style="margin: 0 0 12px; font-size: 0.92rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5;"></p>
-                <input type="text" id="app-prompt-input" class="input-text" style="width: 100%; box-sizing: border-box; font-size: 0.95rem; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--md-sys-color-outline-variant);" onkeydown="if(event.key==='Enter') resolveAppPrompt(this.value)">
+                <input type="text" id="app-prompt-input" class="input-field" style="width: 100%; box-sizing: border-box;" onkeydown="if(event.key==='Enter') resolveAppPrompt(this.value)">
             </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:14px 0 0 0; margin-top:14px; border-top:1px solid var(--md-sys-color-outline-variant);">
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:16px 0 0 0; margin-top:8px; border-top:none;">
                 <button type="button" class="btn btn-outlined btn-sm" id="app-prompt-btn-cancel" onclick="resolveAppPrompt(null)">取消</button>
                 <button type="button" class="btn btn-filled btn-sm" id="app-prompt-btn-ok" onclick="resolveAppPrompt(document.getElementById('app-prompt-input').value)">确认</button>
             </div>
@@ -4439,10 +4641,11 @@
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 16px 0; overflow-y: auto; text-align: center; flex: 1; display:flex; justify-content:center; align-items:center;">
+            <div class="modal-body" style="padding: 16px 0; overflow-y: auto; text-align: center; flex: 1; display:flex; flex-direction: column; justify-content:center; align-items:center;">
                 <div id="poster-preview-img-wrap" style="position:relative; max-width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: 1px solid var(--md-sys-color-outline-variant, #e0e0e0); line-height: 0;">
                     <img id="poster-preview-image" src="" alt="海报预览" style="max-width: 100%; max-height: 56vh; object-fit: contain; display: block; border-radius: 16px;">
                 </div>
+                <p id="poster-mobile-share-tip" style="display:none; font-size:0.82rem; color:var(--md-sys-color-outline); margin:10px 0 0; text-align:center;">长按图片保存或分享</p>
             </div>
             <div class="modal-footer" style="padding: 12px 0 0; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -4460,7 +4663,7 @@
                     <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
                         <span>取消</span>
                     </button>
-                    <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none;">
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none !important;">
                         <span class="material-symbols-rounded" style="font-size:18px;">share</span>
                         <span>分享</span>
                     </button>
@@ -4529,29 +4732,6 @@
     <!-- 闭合 .container -->
     </div>
 
-    <!-- 本地离线环境未导入词书引导弹窗 -->
-    <div id="modal-offline-guide" class="modal-overlay">
-        <div class="modal-card" style="max-width: 440px; text-align: center; border-radius: var(--md-shape-xl, 28px); padding: 28px 24px;">
-            <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--md-sys-color-primary-container, #dbeafe); color: var(--md-sys-color-primary, #0061a4); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                <span class="material-symbols-rounded" style="font-size: 32px;">cloud_off</span>
-            </div>
-            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: var(--md-sys-color-on-surface);">检测到处于本地离线环境</h3>
-            <p style="font-size: 0.9rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.6; margin-bottom: 24px;">
-                当前处于本地离线环境。受浏览器安全策略限制，无法直接跨域自动读取本地磁盘文件，请点击下方按钮选择并导入词书（词书通常存放在本项目同级目录的 <strong>books</strong> 文件夹中）。
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button type="button" class="btn btn-filled btn-touch-large" onclick="document.getElementById('offline-guide-file-input').click()">
-                    <span class="material-symbols-rounded">upload_file</span>
-                    <span>选择并导入本地词书</span>
-                </button>
-                <input type="file" id="offline-guide-file-input" accept=".json" multiple style="display:none;" onchange="loadCustomBook(event)">
-                <button type="button" class="btn btn-text" onclick="document.getElementById('modal-offline-guide').classList.remove('active')">
-                    <span>稍后再说</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Doris 内部词书访问密钥验证弹窗 -->
     <div id="modal-doris-unlock" class="modal-overlay">
         <div class="modal-card" style="max-width: 400px; border-radius: var(--md-shape-xl, 28px); padding: 24px;">
@@ -4560,7 +4740,7 @@
                     <span class="material-symbols-rounded" style="font-size: 24px;">vpn_key</span>
                 </div>
                 <div>
-                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--md-sys-color-on-surface);">解锁 Doris 内部词书</h3>
+                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--md-sys-color-on-surface);">解锁内部词书</h3>
                     <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">输入授权密钥后将永久解锁内部资源</div>
                 </div>
             </div>
@@ -4572,7 +4752,7 @@
                 <button type="button" class="btn btn-text" onclick="closeDorisPasswordModal()">取消</button>
                 <button type="button" class="btn btn-filled" onclick="submitDorisPassword()">
                     <span class="material-symbols-rounded" style="font-size: 18px;">key</span>
-                    <span>验证并解锁</span>
+                    <span>验证</span>
                 </button>
             </div>
         </div>

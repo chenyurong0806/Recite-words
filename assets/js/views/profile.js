@@ -1404,6 +1404,21 @@ function renderMeView() {
                     }
                 }
             }
+
+            // 渲染我的道具入口与徽标 (离线模式或未登录账号不显示)
+            const myItemsRow = document.getElementById('me-row-my-items');
+            if (myItemsRow) {
+                const isOnlineAccount = currentUserProfile && currentUserProfile.isLoggedIn && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili');
+                const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+                if (isOnlineAccount && !isOffline) {
+                    myItemsRow.style.display = 'flex';
+                    if (typeof ItemManager !== 'undefined') {
+                        ItemManager.updateBadge();
+                    }
+                } else {
+                    myItemsRow.style.display = 'none';
+                }
+            }
         }
     }
 
@@ -1469,21 +1484,27 @@ let isUserDataSynced = false;
 
 function updateSyncButtonStatus(isSynced) {
     const btn = document.getElementById('btn-sync-cloud-data');
-    if (!btn) return;
-    const label = btn.querySelector('.btn-label-text');
-    const icon = btn.querySelector('.material-symbols-rounded');
+    const row = document.getElementById('me-row-sync-data');
+    const rowBadge = document.getElementById('me-sync-row-badge');
+    const rowIcon = document.getElementById('me-sync-row-icon');
+    if (!btn && !row) return;
 
-    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮
+    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮/行
     const autoSync = (typeof isAutoSyncEnabled === 'function')
         ? isAutoSyncEnabled()
         : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
 
     if (autoSync) {
-        btn.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+        if (row) row.style.display = 'none';
         return;
     } else {
-        btn.style.display = 'inline-flex';
+        if (btn) btn.style.display = 'inline-flex';
+        if (row) row.style.display = 'flex';
     }
+
+    const label = btn ? btn.querySelector('.btn-label-text') : null;
+    const icon = btn ? btn.querySelector('.material-symbols-rounded') : null;
 
     // 2. 检查是否正在同步中
     if (window.SyncManager && window.SyncManager.isSyncing) {
@@ -1492,13 +1513,25 @@ function updateSyncButtonStatus(isSynced) {
             icon.style.animation = 'spin 1s linear infinite';
         }
         if (label) label.innerText = '同步中...';
-        btn.disabled = true;
-        btn.style.borderColor = 'var(--md-sys-color-outline)';
-        btn.style.color = 'var(--md-sys-color-outline)';
+        if (btn) {
+            btn.disabled = true;
+            btn.style.borderColor = 'var(--md-sys-color-outline)';
+            btn.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (rowIcon) {
+            rowIcon.innerText = 'sync';
+            rowIcon.style.animation = 'spin 1s linear infinite';
+        }
+        if (rowBadge) {
+            rowBadge.innerText = '同步中...';
+            rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
+            rowBadge.style.color = 'var(--md-sys-color-outline)';
+        }
         return;
     }
 
     if (icon) icon.style.animation = '';
+    if (rowIcon) rowIcon.style.animation = '';
 
     // 3. 统计本地待同步队列数据
     const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
@@ -1509,16 +1542,32 @@ function updateSyncButtonStatus(isSynced) {
         isUserDataSynced = true;
         if (icon) icon.innerText = 'check';
         if (label) label.innerText = '已是最新';
-        btn.disabled = false;
-        btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
-        btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+        if (btn) {
+            btn.disabled = false;
+            btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
+            btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
+        }
+        if (rowIcon) rowIcon.innerText = 'cloud_done';
+        if (rowBadge) {
+            rowBadge.innerText = '已是最新';
+            rowBadge.style.background = '#dcfce7';
+            rowBadge.style.color = '#15803d';
+        }
     } else {
         isUserDataSynced = false;
         if (icon) icon.innerText = 'sync';
         if (label) label.innerText = pendingCount > 0 ? `同步数据 (${pendingCount})` : '同步数据';
-        btn.disabled = false;
-        btn.style.borderColor = 'var(--md-sys-color-primary)';
-        btn.style.color = 'var(--md-sys-color-primary)';
+        if (btn) {
+            btn.disabled = false;
+            btn.style.borderColor = 'var(--md-sys-color-primary)';
+            btn.style.color = 'var(--md-sys-color-primary)';
+        }
+        if (rowIcon) rowIcon.innerText = 'sync';
+        if (rowBadge) {
+            rowBadge.innerText = pendingCount > 0 ? `待同步 (${pendingCount})` : '点击同步';
+            rowBadge.style.background = 'var(--md-sys-color-primary-container)';
+            rowBadge.style.color = 'var(--md-sys-color-primary)';
+        }
     }
 }
 window.updateSyncButtonStatus = updateSyncButtonStatus;
@@ -1542,6 +1591,14 @@ async function handleManualSyncUserData() {
         if (icon) icon.style.animation = 'spin 1s linear infinite';
         if (label) label.innerText = '同步中...';
         btn.disabled = true;
+    }
+    const rowIcon = document.getElementById('me-sync-row-icon');
+    const rowBadge = document.getElementById('me-sync-row-badge');
+    if (rowIcon) rowIcon.style.animation = 'spin 1s linear infinite';
+    if (rowBadge) {
+        rowBadge.innerText = '同步中...';
+        rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
+        rowBadge.style.color = 'var(--md-sys-color-outline)';
     }
 
     try {
@@ -1786,7 +1843,42 @@ async function confirmDeleteAccount() {
             await supabaseDeleteAccount(targetUser, null);
         }
 
-        // 本地清理
+        // 本地彻底清理
+        try {
+            const userSuffix = `_${targetUser}`;
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (
+                    key.endsWith(userSuffix) ||
+                    key.includes(`_${targetUser}_`) ||
+                    key === `vocab_mails_${targetUser}` ||
+                    key === `vocab_mail_status_${targetUser}` ||
+                    key === `vocab_claimed_mails_${targetUser}` ||
+                    key === `vocab_deleted_mails_${targetUser}` ||
+                    key === `vocab_user_items_${targetUser}` ||
+                    key === `vocab_item_active_${targetUser}` ||
+                    key === `vocab_stats_${targetUser}` ||
+                    key === `vocab_ebbinghaus_db_${targetUser}` ||
+                    key === `vocab_user_avatar_${targetUser}` ||
+                    key === `vocab_riddle_history_${targetUser}` ||
+                    key === `vocab_riddle_streak_${targetUser}` ||
+                    key === `vocab_wordle_records_${targetUser}` ||
+                    key === `vocab_rank_data_${targetUser}` ||
+                    key === `vocab_sync_queue_${targetUser}` ||
+                    key === `shici_config_${targetUser}` ||
+                    key === `shici_progress_${targetUser}` ||
+                    key === `vocab_review_filter_${targetUser}`
+                )) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(k => {
+                try { localStorage.removeItem(k); } catch (e) {}
+                try { SafeStorage.removeItem(k); } catch (e) {}
+            });
+        } catch (e) {}
+
         if (typeof removeSavedDeviceAccount === 'function') {
             removeSavedDeviceAccount(targetUser);
         }
@@ -1797,10 +1889,26 @@ async function confirmDeleteAccount() {
         SafeStorage.removeItem('vocab_auth_session');
         SafeStorage.removeItem('vocab_pk_user');
         SafeStorage.removeItem('vocab_guest_name');
+        SafeStorage.removeItem('vocab_registered_account');
+        SafeStorage.removeItem('vocab_device_has_registered');
+        try { localStorage.removeItem('vocab_registered_account'); } catch (e) {}
+        try { localStorage.removeItem('vocab_device_has_registered'); } catch (e) {}
+
+        // 清空内存管理器状态
+        if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+            MailManager.resetForUser('');
+        }
+        if (typeof ItemManager !== 'undefined') {
+            ItemManager._itemsCache = [];
+            ItemManager._itemsCacheUser = '';
+            ItemManager.updateBadge();
+        }
 
         closeDeleteAccountModal();
         showToast(`账号 “${targetUser}” 已成功删除`);
-        if (typeof handleLogout === 'function') {
+        if (typeof handleAuthLogout === 'function') {
+            handleAuthLogout(false);
+        } else if (typeof handleLogout === 'function') {
             handleLogout(false);
         } else {
             location.reload();

@@ -2170,7 +2170,7 @@ async function submitDorisPassword() {
     }
 
     closeDorisPasswordModal();
-    showToast('密钥验证成功，已永久解锁 Doris 内部词书！');
+    showToast('已永久解锁内部词书！');
 
     // 永久解锁成功后，自动将活跃分类切换至 Doris
     bookSelectorActiveCategory = 'Doris';
@@ -2354,12 +2354,7 @@ async function handleBookSelectorToggle(bookId) {
         if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.includes(bookId);
         if (isSel) {
-            if (aiDuelConfig.selectedBooks.length > 1) {
-                aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.filter(id => id !== bookId);
-            } else {
-                showToast('至少需保留一本词书');
-                return;
-            }
+            aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : aiDuelConfig.selectedBooks.filter(id => id !== bookId);
         } else {
             aiDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(aiDuelConfig.selectedBooks, bookId) : [...aiDuelConfig.selectedBooks, bookId];
         }
@@ -2370,12 +2365,7 @@ async function handleBookSelectorToggle(bookId) {
         if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
         const isSel = typeof isBookIdSelected === 'function' ? isBookIdSelected(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.includes(bookId);
         if (isSel) {
-            if (localDuelConfig.selectedBooks.length > 1) {
-                localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.filter(id => id !== bookId);
-            } else {
-                showToast('至少需保留一本词书');
-                return;
-            }
+            localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : localDuelConfig.selectedBooks.filter(id => id !== bookId);
         } else {
             localDuelConfig.selectedBooks = typeof toggleBookIdInList === 'function' ? toggleBookIdInList(localDuelConfig.selectedBooks, bookId) : [...localDuelConfig.selectedBooks, bookId];
         }

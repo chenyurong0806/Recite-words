@@ -42,7 +42,7 @@ function toggleMd3Select(selectId, event) {
 
 function selectMd3Option(selectId, val, label, onChangeFnName) {
     const triggerLabel = document.getElementById(selectId + '-label');
-    const hiddenInput = document.getElementById(selectId + '-input');
+    const hiddenInput = document.getElementById(selectId + '-input') || document.getElementById(selectId);
     const menu = document.getElementById(selectId + '-menu');
     if (triggerLabel) triggerLabel.textContent = label;
     if (hiddenInput) {

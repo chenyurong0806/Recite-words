@@ -356,11 +356,13 @@
         }
     }
 
+    const FALLBACK_TOY_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgAQMAAACxAfVuAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABd0lEQVRIib2WQc6FIAyEa1yw5AjcRC9m1MSL6U04AksXxv4zVRP/5C0tJO9FPhaUYdoi8mtMqnpKx098ZbWpBxwwG+MZz6Ahh3xw6gOTllF6XYPussth07oQIW2KkMQbSlOwP0WuDU35rYj0vOb3dXwLzUuAXVj3FN4GqwGfAS/vovl/6nwJsXvhr98FbkptHuJcDw5pKQyoQUCAqrPl0fdwwnZI10h1c9D77B5QaR9Y1ryU9D57JTgkLJQOCbuGvDMcSOEBsSH+G94mZT4SRa4GL+W5AMyzMyQPyMrQXC2FudnqTJFrwVYPBNSzAFL51kLygJMupUFuSkBL4VjKWA8OcNSILLqbqebWlHeAMI/ENa6WqelW3gNatRP2zesVstg7pBK0Ea3Soi5leNkJPp3LCvrVoKUetK6NhOlYetHOrDK4QHsF6fUOCY/ydeFWrJ2hMuTJFdqbVu2C2TnrQSqPhLU84sIQfeDtJRy4twKoL4P5w1/jD54/YSK5eWNtAAAAAElFTkSuQmCC';
+
     /**
      * 获取或预加载 Toy 平台二维码
      */
     async function getToyQrCodeData() {
-        if (_cachedToyQrData) return _cachedToyQrData;
+        if (_cachedToyQrData && _cachedToyQrData.base64) return _cachedToyQrData;
         let base64 = '';
         let url = (typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:'))
             ? window.location.href
@@ -368,7 +370,10 @@
 
         if (typeof window !== 'undefined' && window.toy && typeof window.toy.getQrCode === 'function') {
             try {
-                const res = await window.toy.getQrCode({ path: '' });
+                let res = await window.toy.getQrCode({ path: '' });
+                if (!res) {
+                    res = await window.toy.getQrCode();
+                }
                 if (res) {
                     if (res.base64) base64 = res.base64;
                     if (res.url) url = res.url;
@@ -376,6 +381,13 @@
             } catch (e) {
                 console.warn('[Toy] getQrCode error:', e);
             }
+        }
+        if (base64) {
+            if (!base64.startsWith('data:')) {
+                base64 = 'data:image/png;base64,' + base64;
+            }
+        } else {
+            base64 = FALLBACK_TOY_QR_DATA_URL;
         }
         _cachedToyQrData = { base64, url };
         return _cachedToyQrData;
@@ -1562,11 +1574,18 @@
         if (titleEl) titleEl.innerText = title;
         if (img) img.src = dataUrl;
 
-        // 根据平台环境动态决定功能按钮：B站 App 内展示“直接分享”与“保存到相册”，普通网页展示“下载海报”
+        // 根据平台环境动态决定功能按钮：已移除B站分享功能。B站 App 展示“保存到相册”，普通网页展示“下载海报”
         const isBiliApp = await checkIsBilibiliApp();
-        if (btnShare) btnShare.style.display = isBiliApp ? 'inline-flex' : 'none';
+        if (btnShare) btnShare.style.display = 'none';
         if (btnSaveAlbum) btnSaveAlbum.style.display = isBiliApp ? 'inline-flex' : 'none';
         if (btnDownload) btnDownload.style.display = isBiliApp ? 'none' : 'inline-flex';
+
+        // 如果是手机端，在海报下方提示长按图片来分享
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        const mobileTip = document.getElementById('poster-mobile-share-tip');
+        if (mobileTip) {
+            mobileTip.style.display = isMobile ? 'block' : 'none';
+        }
 
         // 换背景按钮：仅在无法联网的情况下删除，可联网时显示并检查冷却状态
         const btnChangeBg = document.getElementById('btn-poster-change-bg');
@@ -1834,6 +1853,7 @@
         window.checkIsBilibiliApp = checkIsBilibiliApp;
         window.isBilibiliAppSync = isBilibiliAppSync;
         window.isToyPlatform = isToyPlatform;
+        window.getToyQrCodeData = getToyQrCodeData;
         window.downloadPosterImage = downloadPosterImage;
         window.showPosterPreviewModal = showPosterPreviewModal;
         window.closePosterPreviewModal = closePosterPreviewModal;

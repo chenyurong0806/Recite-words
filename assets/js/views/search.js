@@ -1941,7 +1941,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                                         <div class="chinese-result-main">
                                             <div class="chinese-result-word-row">
                                                 <span class="chinese-result-word">${escapeHtml(item.word)}</span>
-                                                ${item.phone ? `<span class="chinese-result-phone">/${escapeHtml(item.phone)}/</span>` : ''}
+                                                ${item.phone ? `<span class="chinese-result-phone">${escapeHtml(item.phone)}</span>` : ''}
                                                 <span class="badge" style="font-size:0.75rem;">${escapeHtml(item.source)}</span>
                                             </div>
                                             <div class="chinese-result-meaning">${escapeHtml(item.meaning)}</div>

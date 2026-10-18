@@ -192,7 +192,7 @@ function openChangelogInSettings() {
  * ============================================================ */
 function handleDownloadLatestZip(downloadUrl, version) {
     const data = cachedLatestVersionData || {};
-    const finalVersion = version || data.version || APP_VERSION || '2.8.0';
+    const finalVersion = version || data.version || APP_VERSION || '2.9.0';
     const rawTag = normalizeTag(finalVersion);
 
     let targetUrl = downloadUrl || data.downloadUrl || data.mirrorDownloadUrl;

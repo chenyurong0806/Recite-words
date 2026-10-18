@@ -151,7 +151,7 @@ if (result.status === 'ok') {
 
 ```js
 const result = await toy.getAuthorVideos({
-  videos: [{ aid: 170001 }, { bvid: 'BV17x411w7KC' }]
+  videos: [{ aid: 170001 }, { bvid: 'BV1ieH96NERu' }]
 })
 ```
 
@@ -183,7 +183,7 @@ if (result.status === 'ok') {
 const result = await toy.getVideoUserActions({ aids: [170001, 455017605] })
 // 或传 bvid（与 getAuthorVideos 同口径，可混传）
 const byBvid = await toy.getVideoUserActions({
-  videos: [{ bvid: 'BV17x411w7KC' }, { aid: 455017605 }]
+  videos: [{ bvid: 'BV1ieH96NERu' }, { aid: 455017605 }]
 })
 result.items.forEach(item => {
   // item.aid / item.bvid 恒有；传 videos 时 item.ref 回显你传的那一项

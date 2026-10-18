@@ -36,6 +36,14 @@ const DailyStudyTracker = {
         logs[todayStr][type] = (logs[todayStr][type] || 0) + count;
         this.saveLogs(logs);
         this.renderWeekCalendar(currentCalendarWeekOffset);
+
+        if (typeof ItemManager !== 'undefined') {
+            if (type === 'learned' || type === 'reviewed') {
+                ItemManager.recordTaskProgress('task_learn_words', count);
+            } else if (type === 'riddle') {
+                ItemManager.recordTaskProgress('task_wordle', count);
+            }
+        }
     },
     getDaysOfWeek(offset = 0) {
         const now = new Date();

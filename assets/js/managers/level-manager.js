@@ -160,16 +160,45 @@ const LevelManager = {
         userRank = 1,
         userRating = 0,
         oppoRank = 1,
-        oppoRating = 50
+        oppoRating = 50,
+        username = ''
     } = {}) {
+        const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+
         // 0. 游客禁止参与排位赛
-        if (typeof currentUser !== 'undefined' && this.isGuestUser(currentUser)) {
+        if (this.isGuestUser(u)) {
             isRanked = false;
         }
 
-        // 人机等级分固定在每段中间（例如 1段为50分，2段为150分），不受输赢影响
+        // 参数安全校验与清洗 (防止 NaN、undefined 或极端脏数据破坏段位与等级分)
+        userRank = Math.max(1, Math.min(this.MAX_RANK, parseInt(userRank) || 1));
+        oppoRank = Math.max(1, Math.min(this.MAX_RANK, parseInt(oppoRank) || 1));
+
+        userRating = parseInt(userRating);
+        if (isNaN(userRating) || userRating < 0) {
+            userRating = this.getRankMidpointRating(userRank);
+        }
+        oppoRating = parseInt(oppoRating);
+        if (isNaN(oppoRating) || oppoRating < 0) {
+            oppoRating = this.getRankMidpointRating(oppoRank);
+        }
+
+        // 确保等级分与传入的段位在合理的区间内，纠正陈旧或异常等级分
+        const expectedUserMin = (userRank - 1) * 100;
+        const expectedUserMax = userRank >= this.MAX_RANK ? Infinity : userRank * 100;
+        if (userRating < expectedUserMin || (userRank < this.MAX_RANK && userRating > expectedUserMax + 50)) {
+            userRating = this.getRankMidpointRating(userRank);
+        }
+
+        // 人机等级分固定在每段中间
         if (isAi) {
             oppoRating = this.getRankMidpointRating(oppoRank);
+        } else {
+            const expectedOppoMin = (oppoRank - 1) * 100;
+            const expectedOppoMax = oppoRank >= this.MAX_RANK ? Infinity : oppoRank * 100;
+            if (oppoRating < expectedOppoMin || (oppoRank < this.MAX_RANK && oppoRating > expectedOppoMax + 50)) {
+                oppoRating = this.getRankMidpointRating(oppoRank);
+            }
         }
 
         // 1. 友谊赛模式不增减积分
@@ -245,18 +274,33 @@ const LevelManager = {
             };
         }
 
-        // 双方分差
-        const ratingDiff = oppoRating - userRating;
+        // 双方分差（限制在 [-300, 300] 内，避免段位悬殊时产生极端分值）
+        const rawDiff = oppoRating - userRating;
+        const ratingDiff = Math.max(-300, Math.min(300, rawDiff));
 
         if (playerWin) {
             // 基础加分：根据双方分差自适应浮动 [12, 36]
             const baseGain = Math.max(12, Math.min(36, Math.round(20 + ratingDiff * 0.08)));
             // 随段位提升放慢加分速度 (1段 100% 速度，逐步递减至 9段 40% 速度)
             const rankSlowdownFactor = Math.max(0.40, 1.0 - (userRank - 1) * 0.075);
-            const winGain = Math.max(3, Math.round(baseGain * rankSlowdownFactor));
+            // 最终单局胜场加分严格限制在 [5, 40]
+            let winGain = Math.max(5, Math.min(40, Math.round(baseGain * rankSlowdownFactor)));
 
-            const newRating = userRating + winGain;
-            const newRank = this.getRankFromRating(newRating);
+            // 检查排位翻倍卡：使用后下一次排位赛赢了获取的等级分翻倍
+            let usedCard = null;
+            const hasRankDouble = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('rank_double', u);
+            if (hasRankDouble) {
+                winGain *= 2;
+                usedCard = 'rank_double';
+            }
+
+            let newRating = userRating + winGain;
+            let newRank = this.getRankFromRating(newRating);
+            // 单局胜利最多提升 1 段，杜绝连跳多段
+            newRank = Math.min(userRank + 1, Math.min(this.MAX_RANK, newRank));
+            if (newRank < this.MAX_RANK) {
+                newRating = Math.min(newRating, newRank * 100);
+            }
             const isPromoted = (newRank > userRank);
 
             return {
@@ -271,24 +315,85 @@ const LevelManager = {
                 isPromoted: isPromoted,
                 isDemoted: false,
                 isPromotionMatch: false,
-                reason: isPromoted
-                    ? `排位胜利！成功升至 ${newRank}段`
-                    : `排位胜利，获得 +${winGain} 分！`
+                usedProtectionCard: usedCard,
+                reason: usedCard === 'rank_double'
+                    ? (isPromoted
+                        ? `排位胜利，触发【排位翻倍卡】等级分翻倍！成功升至 ${newRank}段 (+${winGain}分)`
+                        : `排位胜利，触发【排位翻倍卡】等级分翻倍，获得 +${winGain} 分！`)
+                    : (isPromoted
+                        ? `排位胜利！成功升至 ${newRank}段 (+${winGain}分)`
+                        : `排位胜利，获得 +${winGain} 分！`)
             };
         } else {
+            // 战败处理：检查排位保护道具（优先级：排位保护卡 ＞ 段位保护卡）
+            // 1. 最高优先级：排位保护卡（输了直接不扣分，段位也不会降低）
+            const hasRankProtect = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('rank_protect', u);
+            if (hasRankProtect) {
+                return {
+                    isRanked: true,
+                    playerWin: false,
+                    isDraw: false,
+                    deltaPoints: 0,
+                    oldRank: userRank,
+                    oldRating: userRating,
+                    newRank: userRank,
+                    newRating: userRating,
+                    isPromoted: false,
+                    isDemoted: false,
+                    isPromotionMatch: false,
+                    usedProtectionCard: 'rank_protect',
+                    reason: '排位战败，触发【排位保护卡】免除扣分！(-0分)'
+                };
+            }
+
             // 战败扣分：根据双方分差自适应浮动 [6, 26]
             const baseLoss = Math.max(6, Math.min(26, Math.round(15 - ratingDiff * 0.08)));
-            const lossDeduct = Math.min(userRating, baseLoss);
+            // 最终单局败场扣分严格限制在 [4, 30]
+            const lossDeduct = Math.max(4, Math.min(30, Math.min(userRating, baseLoss)));
 
-            const newRating = Math.max(0, userRating - lossDeduct);
-            const newRank = this.getRankFromRating(newRating);
-            const isDemoted = (newRank < userRank);
+            let newRating = Math.max(0, userRating - lossDeduct);
+            let newRank = this.getRankFromRating(newRating);
+            // 单局战败最多降 1 段，绝对不可直接暴跌回 1 段
+            newRank = Math.max(Math.max(1, userRank - 1), newRank);
+            if (newRank > 1) {
+                newRating = Math.max((newRank - 1) * 100 + 1, newRating);
+            }
+            let isDemoted = (newRank < userRank);
 
+            // 2. 次优先级：段位保护卡（仅在将发生掉段时触发保护，免受一次掉段）
+            if (isDemoted) {
+                const hasTierProtect = (typeof ItemManager !== 'undefined') && ItemManager.hasActiveCard('tier_protect', u);
+                if (hasTierProtect) {
+                    newRank = userRank; // 保持当前段位！
+                    newRating = Math.max((userRank - 1) * 100 + 1, newRating); // 保存在当前段位最低分
+                    isDemoted = false;
+                    const actualDelta = newRating - userRating;
+                    return {
+                        isRanked: true,
+                        playerWin: false,
+                        isDraw: false,
+                        deltaPoints: actualDelta,
+                        oldRank: userRank,
+                        oldRating: userRating,
+                        newRank: newRank,
+                        newRating: newRating,
+                        isPromoted: false,
+                        isDemoted: false,
+                        isPromotionMatch: false,
+                        usedProtectionCard: 'tier_protect',
+                        reason: actualDelta === 0
+                            ? `排位战败，触发【段位保护卡】不掉段！(当前：${newRank}段 ${newRating}分)`
+                            : `排位战败，触发【段位保护卡】不掉段！-${Math.abs(actualDelta)} 分(当前：${newRank}段 ${newRating}分)`
+                    };
+                }
+            }
+
+            const actualLoss = userRating - newRating;
             return {
                 isRanked: true,
                 playerWin: false,
                 isDraw: false,
-                deltaPoints: -lossDeduct,
+                deltaPoints: -actualLoss,
                 oldRank: userRank,
                 oldRating: userRating,
                 newRank: newRank,
@@ -297,8 +402,8 @@ const LevelManager = {
                 isDemoted: isDemoted,
                 isPromotionMatch: false,
                 reason: isDemoted
-                    ? `排位战败，降至 ${newRank}段 (-${lossDeduct}分)`
-                    : `排位战败，扣除 ${lossDeduct} 分`
+                    ? `排位战败，降至 ${newRank}段 (-${actualLoss}分)`
+                    : `排位战败，扣除 ${actualLoss} 分`
             };
         }
     },
@@ -307,6 +412,19 @@ const LevelManager = {
     async applyMatchResult(username, matchResult) {
         const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
         if (!u || this.isGuestUser(u)) return matchResult;
+
+        // 消耗触发的保护卡道具
+        if (matchResult && matchResult.usedProtectionCard && typeof ItemManager !== 'undefined') {
+            await ItemManager.consumeProtectionCard(matchResult.usedProtectionCard, u);
+        }
+
+        // 记录每日排位活动任务进度
+        if (matchResult && matchResult.isRanked && typeof ItemManager !== 'undefined') {
+            ItemManager.recordTaskProgress('task_daily_ranked', 1);
+            if (matchResult.playerWin) {
+                ItemManager.recordTaskProgress('task_win_ranked', 1);
+            }
+        }
 
         const current = this.getUserRankData(u);
         const battles = current.battles || { total: 0, wins: 0, losses: 0, draws: 0 };

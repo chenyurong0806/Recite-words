@@ -30,7 +30,7 @@ function openMeSubview(subviewKey) {
         switchView('view-me');
     }
     const performSwitch = () => {
-        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data'];
+        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
                 ? document.getElementById('me-subview-main')
@@ -40,6 +40,9 @@ function openMeSubview(subviewKey) {
                 else el.classList.remove('active');
             }
         });
+        if (subviewKey === 'items' && typeof ItemManager !== 'undefined') {
+            ItemManager.renderItemsView();
+        }
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
@@ -135,15 +138,9 @@ function handleToggleOfflineMode(checked) {
             return;
         }
         if (checked) {
-            showToast('已开启离线模式，正在切回登录页...');
-            setTimeout(() => {
-                if (typeof switchView === 'function') switchView('view-auth');
-            }, 300);
+            showToast('已开启离线模式');
         } else {
-            showToast('已关闭离线模式，正在切回在线登录页...');
-            setTimeout(() => {
-                if (typeof switchView === 'function') switchView('view-auth');
-            }, 300);
+            showToast('已关闭离线模式');
         }
     }
 }
@@ -431,11 +428,47 @@ function handleDeleteCurrentAccount() {
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.endsWith(userSuffix) || key === `shici_config_${targetUser}` || key === `shici_progress_${targetUser}` || key === `vocab_review_filter_${targetUser}`)) {
+        if (key && (
+            key.endsWith(userSuffix) ||
+            key.includes(`_${targetUser}_`) ||
+            key === `vocab_mails_${targetUser}` ||
+            key === `vocab_mail_status_${targetUser}` ||
+            key === `vocab_claimed_mails_${targetUser}` ||
+            key === `vocab_deleted_mails_${targetUser}` ||
+            key === `vocab_user_items_${targetUser}` ||
+            key === `vocab_item_active_${targetUser}` ||
+            key === `vocab_stats_${targetUser}` ||
+            key === `vocab_ebbinghaus_db_${targetUser}` ||
+            key === `vocab_user_avatar_${targetUser}` ||
+            key === `vocab_riddle_history_${targetUser}` ||
+            key === `vocab_riddle_streak_${targetUser}` ||
+            key === `vocab_wordle_records_${targetUser}` ||
+            key === `vocab_rank_data_${targetUser}` ||
+            key === `vocab_sync_queue_${targetUser}` ||
+            key === `shici_config_${targetUser}` ||
+            key === `shici_progress_${targetUser}` ||
+            key === `vocab_review_filter_${targetUser}`
+        )) {
             keysToRemove.push(key);
         }
     }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) {}
+        try { SafeStorage.removeItem(k); } catch (e) {}
+    });
+
+    if (typeof isOfflineMode === 'function' && !isOfflineMode() && typeof supabaseDeleteAccount === 'function' && typeof sbClient !== 'undefined' && sbClient) {
+        supabaseDeleteAccount(targetUser, null).catch(e => console.warn('[Settings] Supabase delete account error:', e));
+    }
+
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
+    if (typeof ItemManager !== 'undefined') {
+        ItemManager._itemsCache = [];
+        ItemManager._itemsCacheUser = '';
+        ItemManager.updateBadge();
+    }
 
     // 从用户列表中移除
     allUsersList = allUsersList.filter(u => u !== targetUser);
@@ -699,7 +732,7 @@ function exportUserConfigAndProgress() {
     try {
         const isCurrentLocal = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') || (typeof isOfflineMode === 'function' && isOfflineMode());
         const backupObj = {
-            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.8.0',
+            version: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.9.0',
             exportedAt: new Date().toISOString(),
             user: currentUser,
             accountType: isCurrentLocal ? 'local' : 'online',
@@ -1544,12 +1577,28 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.9.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.9.0',
+        date: '2026-10-18',
+        badge: '当前版本',
+        items: [
+            '添加“活动”系统。',
+            '添加“道具”系统。',
+            '添加“邮箱”系统。',
+            '优化底部栏显示。',
+            '优化下载学习数据功能。',
+            '优化UI。',
+            '修复账号解封后仍无法登录的bug。',
+            '修复排位赛等级分计算问题。',
+            '修复若干bug。'
+        ]
+    },
     {
         version: 'v2.8.0',
         date: '2026-10-16',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '加入下载学习数据功能。',
             '优化离线模式的词书分类系统。',
@@ -1891,7 +1940,7 @@ async function fetchAndRenderCloudChangelog(forceRefresh = false) {
             if (Array.isArray(releases) && releases.length > 0) {
                 cachedCloudChangelog = releases.map((rel, idx) => {
                     const version = rel.tag_name || `v${rel.name || ''}`;
-                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.8.0'));
+                    const currentVer = (typeof APP_VERSION !== 'undefined' ? APP_VERSION : (window.APP_VERSION || '2.9.0'));
                     const compareFn = typeof semverCompare === 'function' ? semverCompare : (typeof window !== 'undefined' && window.semverCompare ? window.semverCompare : null);
                     const cmp = compareFn ? compareFn(version, currentVer) : 0;
                     const isCurrent = cmp === 0;

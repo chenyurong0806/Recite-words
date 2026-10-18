@@ -3,11 +3,20 @@
  * Module: assets/js/views/hub.js
  */
 
-function showToast(text) {
+let toastTimer = null;
+function showToast(text, duration = 2600) {
     const snackbar = document.getElementById('snackbar');
+    if (!snackbar) return;
+    if (toastTimer) {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+    }
     snackbar.innerText = text;
     snackbar.classList.add('show');
-    setTimeout(() => snackbar.classList.remove('show'), 2600);
+    toastTimer = setTimeout(() => {
+        snackbar.classList.remove('show');
+        toastTimer = null;
+    }, duration);
 }
 
 let currentView = 'view-auth';
@@ -35,12 +44,12 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
 
     const performSwitch = () => {
         currentView = viewId;
         window.currentView = viewId;
-        const shouldHideNav = hideNavViews.includes(viewId) || !currentUser;
+        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
 
         // 纯类名控制，触发 CSS 3D 平滑移出/移入动画
         if (shouldHideNav) {
@@ -319,6 +328,16 @@ function updateHub() {
     checkNetworkStatus();
     updateHubResumeButtons();
 
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+    const btnDailyWordle = document.getElementById('btn-hub-daily-wordle');
+    if (btnDailyWordle) {
+        btnDailyWordle.style.display = isOffline ? 'none' : '';
+    }
+    const presenceSec = document.getElementById('hub-dd-presence-section');
+    if (presenceSec) {
+        presenceSec.style.display = isOffline ? 'none' : 'block';
+    }
+
     if (window.EbbinghausEngine) {
         window.EbbinghausEngine.updateDueBadge();
     }
@@ -330,6 +349,12 @@ function updateHub() {
     }
     if (typeof initSearchTabs === 'function') {
         initSearchTabs();
+    }
+    if (typeof ActivityManager !== 'undefined') {
+        ActivityManager.updateBadge();
+    }
+    if (typeof MailManager !== 'undefined') {
+        MailManager.updateBadge();
     }
 }
 
@@ -512,10 +537,6 @@ async function loadCustomBook(e) {
     else if (typeof updateAiDuelBookSummaryUI === 'function') updateAiDuelBookSummaryUI();
     if (typeof renderManageLocalBooksInSettings === 'function') renderManageLocalBooksInSettings();
     if (typeof renderSettingsBooksSummary === 'function') renderSettingsBooksSummary();
-
-    // 如果处于离线引导弹窗中，自动关闭弹窗
-    const offlineGuide = document.getElementById('modal-offline-guide');
-    if (offlineGuide) offlineGuide.classList.remove('active');
 
     if (successCount > 0) {
         if (successCount === 1 && skippedCount === 0) {

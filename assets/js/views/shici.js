@@ -1510,6 +1510,9 @@ function endShiCiGame() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
+    if (typeof ItemManager !== 'undefined') {
+        ItemManager.recordTaskProgress('task_shici', 1);
+    }
     renderResult();
     switchView('view-result');
 }

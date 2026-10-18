@@ -494,12 +494,7 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     const cleanName = username.trim();
     const deviceId = (typeof getDeviceId === 'function') ? getDeviceId() : 'dev_unknown';
 
-    // 1. 检查本地是否被封禁
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        throw new Error('当前设备已被管理员封禁，禁止注册新账号');
-    }
-
-    // 2. 检查云端：当前设备是否存在被封禁的账号
+    // 1. 检查云端：当前设备是否存在处于封禁状态的账号 (以云端实时数据为准)
     try {
         const { data: bannedDevAccounts } = await sbClient
             .from('user_accounts')
@@ -513,6 +508,11 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
                 markDeviceBanned(bannedDevAccounts[0].username, deviceId);
             }
             throw new Error(`当前设备绑定的账号（${bannedDevAccounts[0].username}）已被管理员封禁，禁止注册新账号`);
+        } else {
+            // 云端该设备已无被封禁的账号（已解封），清理本地可能残留的封禁标记
+            if (typeof unmarkDeviceBanned === 'function') {
+                unmarkDeviceBanned();
+            }
         }
     } catch (e) {
         if (e.message && e.message.includes('封禁')) throw e;
@@ -531,8 +531,18 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
             try {
                 localStorage.setItem('vocab_registered_account', regName);
                 localStorage.setItem('vocab_device_has_registered', 'true');
+                SafeStorage.setItem('vocab_registered_account', regName);
+                SafeStorage.setItem('vocab_device_has_registered', 'true');
             } catch (e) { }
             throw new Error(`当前设备已绑定注册过账号“${regName}”，一台设备仅限注册一个账号`);
+        } else if (!devQueryErr && existingDevAccounts && existingDevAccounts.length === 0) {
+            // 云端该设备无注册账号（说明之前的账号已被注销或删除），清理本地过期的绑定标记
+            try {
+                localStorage.removeItem('vocab_registered_account');
+                localStorage.removeItem('vocab_device_has_registered');
+                SafeStorage.removeItem('vocab_registered_account');
+                SafeStorage.removeItem('vocab_device_has_registered');
+            } catch (e) { }
         }
     } catch (e) {
         if (e.message && e.message.includes('一台设备')) throw e;
@@ -618,6 +628,11 @@ async function supabaseLoginUser(arg1, arg2) {
             markDeviceBanned(cleanName, data.device_id);
         }
         throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    } else {
+        // 账号正常可用（未被封禁或已被解封）：清除可能残留的本地设备封禁标记
+        if (typeof unmarkDeviceBanned === 'function') {
+            unmarkDeviceBanned(cleanName);
+        }
     }
 
     // 自动补全设备绑定 (老账号初次登录时无 device_id)
@@ -650,6 +665,11 @@ async function supabaseLoginWithHash(username, hashedPassword) {
             markDeviceBanned(cleanName, data.device_id);
         }
         throw new Error(`账号“${cleanName}”已被管理员封禁，禁止登录！`);
+    } else {
+        // 账号正常可用（未被封禁或已被解封）：清除可能残留的本地设备封禁标记
+        if (typeof unmarkDeviceBanned === 'function') {
+            unmarkDeviceBanned(cleanName);
+        }
     }
 
     // 自动补全设备绑定
@@ -766,6 +786,66 @@ async function supabaseDeleteAccount(username, password = null) {
             throw new Error('密码错误，无法注销账号');
         }
     }
+
+    // 1. 清除邮件状态记录 (user_mail_status)
+    try {
+        await sbClient
+            .from('user_mail_status')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 user_mail_status 异常:', e);
+    }
+
+    // 2. 清除用户道具 (user_items)
+    try {
+        await sbClient
+            .from('user_items')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 user_items 异常:', e);
+    }
+
+    // 3. 清除对战房间 (rooms)
+    try {
+        await sbClient
+            .from('rooms')
+            .delete()
+            .eq('host', username);
+
+        let roomCode = '';
+        if (typeof getUserRoomCode === 'function') {
+            roomCode = getUserRoomCode(username);
+        } else {
+            let hash = 5381;
+            for (let i = 0; i < username.length; i++) {
+                hash = ((hash << 5) + hash) + username.charCodeAt(i);
+                hash |= 0;
+            }
+            roomCode = Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(-6);
+        }
+        if (roomCode) {
+            await sbClient
+                .from('rooms')
+                .delete()
+                .in('code', [roomCode, `ONL_${roomCode}`, `USR_${roomCode}`]);
+        }
+    } catch (e) {
+        console.warn('[Supabase] 清理 rooms 异常:', e);
+    }
+
+    // 4. 清除 Wordle 排行榜与打卡记录 (daily_wordle_records)
+    try {
+        await sbClient
+            .from('daily_wordle_records')
+            .delete()
+            .eq('username', username);
+    } catch (e) {
+        console.warn('[Supabase] 清理 daily_wordle_records 异常:', e);
+    }
+
+    // 5. 删除账号主体记录 (user_accounts)
     const { error } = await sbClient
         .from('user_accounts')
         .delete()

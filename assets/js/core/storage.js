@@ -434,25 +434,25 @@ const VocabOfflineDB = {
 /**
  * 清理目前储存在 Toy 云储存中的所有词书残留数据
  */
-async function cleanToyLegacyBookStorage() {
-    if (typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && typeof window.toy.removeCloudStorage === 'function') {
-        try {
-            const allKeys = await window.toy.getCloudStorage();
-            if (allKeys && typeof allKeys === 'object') {
-                const legacyKeys = Object.keys(allKeys).filter(k => {
-                    const lk = k.toLowerCase();
-                    return lk.includes('book') || lk.includes('doris') || lk.includes('word') || lk.startsWith('books_') || lk === 'cached_cloud_books';
-                });
-                if (legacyKeys.length > 0) {
-                    await window.toy.removeCloudStorage(legacyKeys);
-                    console.log('[Toy Storage] 已成功删除储存于 Toy 云储存中的词书残留数据:', legacyKeys);
-                }
-            }
-        } catch (e) {
-            console.warn('[Toy Storage] 清理云端词书残留异常:', e);
-        }
-    }
-}
-window.cleanToyLegacyBookStorage = cleanToyLegacyBookStorage;
+// async function cleanToyLegacyBookStorage() {
+//     if (typeof window !== 'undefined' && window.toy && typeof window.toy.getCloudStorage === 'function' && typeof window.toy.removeCloudStorage === 'function') {
+//         try {
+//             const allKeys = await window.toy.getCloudStorage();
+//             if (allKeys && typeof allKeys === 'object') {
+//                 const legacyKeys = Object.keys(allKeys).filter(k => {
+//                     const lk = k.toLowerCase();
+//                     return lk.includes('book') || lk.includes('doris') || lk.includes('word') || lk.startsWith('books_') || lk === 'cached_cloud_books';
+//                 });
+//                 if (legacyKeys.length > 0) {
+//                     await window.toy.removeCloudStorage(legacyKeys);
+//                     console.log('[Toy Storage] 已成功删除储存于 Toy 云储存中的词书残留数据:', legacyKeys);
+//                 }
+//             }
+//         } catch (e) {
+//             console.warn('[Toy Storage] 清理云端词书残留异常:', e);
+//         }
+//     }
+// }
+// window.cleanToyLegacyBookStorage = cleanToyLegacyBookStorage;
 
 

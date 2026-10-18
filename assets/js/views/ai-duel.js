@@ -7,7 +7,7 @@
    7. 人机对战核心引擎 (AI DUEL WITH TUG-OF-WAR & RANK MATCHING)
    ========================================================================== */
 let aiDuelConfig = {
-    selectedBooks: ['books/经典/高中考纲词汇.json'],
+    selectedBooks: [],
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     aiRank: 1, // 1段 ~ 9段
     speedMode: 'smart',
@@ -21,12 +21,12 @@ try {
     if (savedAi) {
         Object.assign(aiDuelConfig, savedAi);
         if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
-        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
-        if (aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
-            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
+        if (!Array.isArray(aiDuelConfig.selectedBooks)) {
+            aiDuelConfig.selectedBooks = [];
         }
-        if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+        // 仅在排位赛时过滤掉本地自定义词书，友谊赛允许使用
+        if (aiDuelConfig.matchType === 'ranked') {
+            aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
         }
         if (typeof aiDuelConfig.aiRank !== 'number') {
             aiDuelConfig.aiRank = 1;
@@ -75,9 +75,6 @@ function selectAiMatchType(type) {
         if (!isOffline && Array.isArray(aiDuelConfig.selectedBooks)) {
             const beforeCount = aiDuelConfig.selectedBooks.length;
             aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-            if (aiDuelConfig.selectedBooks.length === 0) {
-                aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-            }
             if (aiDuelConfig.selectedBooks.length !== beforeCount) {
                 showToast('排位赛仅支持云端词书，已自动移除本地词书');
             }
@@ -142,8 +139,8 @@ function openAiDuelSettings() {
     if (!isOffline && aiDuelConfig.matchType === 'ranked' && Array.isArray(aiDuelConfig.selectedBooks)) {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
     }
-    if (!aiDuelConfig.selectedBooks || aiDuelConfig.selectedBooks.length === 0) {
-        aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+    if (!Array.isArray(aiDuelConfig.selectedBooks)) {
+        aiDuelConfig.selectedBooks = [];
     }
 
     // 初始化段位：如果在排位赛，限制在玩家段位 ±1 段以内
@@ -169,22 +166,28 @@ function closeAiDuelSettings() {
 function updateAiDuelBookSummaryUI() {
     const titleEl = document.getElementById('ai-duel-selected-book-title');
     const summaryEl = document.getElementById('ai-duel-books-summary');
-    if (!aiDuelConfig || !Array.isArray(aiDuelConfig.selectedBooks)) return;
+    if (!aiDuelConfig) return;
+    if (!Array.isArray(aiDuelConfig.selectedBooks)) aiDuelConfig.selectedBooks = [];
+    
     // 仅排位赛过滤本地词书
     if (aiDuelConfig.matchType === 'ranked') {
         aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
-        if (aiDuelConfig.selectedBooks.length === 0) {
-            aiDuelConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-        }
     }
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    if (allBooks && allBooks.length > 0) {
+        aiDuelConfig.selectedBooks = aiDuelConfig.selectedBooks.filter(id => allBooks.some(b => b.id === id || (typeof isBookIdSelected === 'function' && isBookIdSelected([id], b.id))));
+    }
     const count = aiDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
-            ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
-            : `已选 ${count} 本词书`;
+        if (count === 0) {
+            summaryEl.innerText = '未选择词书';
+        } else {
+            summaryEl.innerText = (aiDuelConfig.matchType === 'ranked')
+                ? `已选 ${count} 本词书 (排位赛仅支持云端词书)`
+                : `已选 ${count} 本词书`;
+        }
     }
     if (titleEl) {
         if (count === 0) {

@@ -317,6 +317,16 @@ function loadUserData(username, profile = null) {
             }
         }).catch(() => { });
     }
+
+    if (typeof ItemManager !== 'undefined' && ItemManager.isAvailable()) {
+        ItemManager.fetchUserItems();
+    }
+    if (typeof ActivityManager !== 'undefined' && ActivityManager.isAvailable()) {
+        ActivityManager.init();
+    }
+    if (typeof MailManager !== 'undefined' && MailManager.isAvailable()) {
+        MailManager.fetchMails();
+    }
 }
 
 function saveCurrentUserData(options = { immediate: false }) {

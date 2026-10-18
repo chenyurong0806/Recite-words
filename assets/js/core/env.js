@@ -4,9 +4,9 @@
  */
 
 if (typeof window !== 'undefined') {
-    window.APP_VERSION = '2.8.0';
+    window.APP_VERSION = '2.9.0';
 }
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.8.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.9.0';
 
 /* ==========================================================================
 环境检测：判断是否运行在 B 站 Toy 容器内
@@ -111,6 +111,11 @@ function markDeviceBanned(username = '', deviceId = '') {
         if (username) localStorage.setItem(`vocab_banned_user_${username}`, 'true');
         const dev = deviceId || getDeviceId();
         if (dev) localStorage.setItem('vocab_banned_device_id', dev);
+        if (typeof SafeStorage !== 'undefined') {
+            SafeStorage.setItem('vocab_is_banned', 'true');
+            if (username) SafeStorage.setItem(`vocab_banned_user_${username}`, 'true');
+            if (dev) SafeStorage.setItem('vocab_banned_device_id', dev);
+        }
     } catch (e) { }
 }
 
@@ -119,6 +124,11 @@ function unmarkDeviceBanned(username = '') {
         localStorage.removeItem('vocab_is_banned');
         localStorage.removeItem('vocab_banned_device_id');
         if (username) localStorage.removeItem(`vocab_banned_user_${username}`);
+        if (typeof SafeStorage !== 'undefined') {
+            SafeStorage.removeItem('vocab_is_banned');
+            SafeStorage.removeItem('vocab_banned_device_id');
+            if (username) SafeStorage.removeItem(`vocab_banned_user_${username}`);
+        }
     } catch (e) { }
 }
 
@@ -150,12 +160,19 @@ async function checkDeviceNetworkOnline() {
     }
 }
 
+function isElectronApp() {
+    return Boolean(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron);
+}
+
 function isOfflineMode() {
-    if (window._isDeviceOfflineForce) {
-        return true;
-    }
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return true;
+    // 仅在 Electron 应用中支持强制断网离线检测；网页版永远不自动切换离线模式
+    if (isElectronApp()) {
+        if (window._isDeviceOfflineForce) {
+            return true;
+        }
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            return true;
+        }
     }
     try {
         return localStorage.getItem('vocab_offline_mode') === 'true';
@@ -165,7 +182,7 @@ function isOfflineMode() {
 }
 
 function setOfflineMode(enabled, force = false) {
-    if (!enabled && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
+    if (!enabled && isElectronApp() && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
         if (typeof showToast === 'function') {
             showToast('当前设备未连接网络，强制保持离线模式');
         }
@@ -265,7 +282,9 @@ function handleOfflineModeChange(enabled) {
     } else {
         // 关闭离线模式：退出本地账号，清理本地会话，并切回在线登录页
         if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') {
-            if (typeof handleLogout === 'function') {
+            if (typeof handleAuthLogout === 'function') {
+                handleAuthLogout(false);
+            } else if (typeof handleLogout === 'function') {
                 handleLogout();
             } else {
                 try { localStorage.removeItem('vocab_user_token'); } catch (e) {}
@@ -291,16 +310,32 @@ function handleOfflineModeChange(enabled) {
     if (typeof renderManageLocalBooksInSettings === 'function' && typeof currentView !== 'undefined' && currentView === 'view-settings') {
         renderManageLocalBooksInSettings();
     }
+
+    // 道具系统与徽标状态联动更新
+    if (typeof ItemManager !== 'undefined') {
+        try {
+            ItemManager.updateBadge();
+            if (document.getElementById('settings-subview-items-content')) {
+                ItemManager.renderItemsView();
+            }
+        } catch (e) { }
+    }
 }
 
-// 启动时检测设备联网状态，若未联网强制开启离线模式，并在无法联网时删除换背景按钮
+// 仅在 Electron 环境下启动时检测设备联网状态，若未联网强制开启离线模式，网页版不要自动切换离线模式
 if (typeof window !== 'undefined') {
+    window.isElectronApp = isElectronApp;
     window.isOfflineMode = isOfflineMode;
     window.setOfflineMode = setOfflineMode;
     window.handleOfflineModeChange = handleOfflineModeChange;
     window.checkDeviceNetworkOnline = checkDeviceNetworkOnline;
 
     const enforceDeviceNetworkCheck = async () => {
+        // 仅在 Electron 应用中做启动离线检测
+        if (!isElectronApp()) {
+            window._isDeviceOfflineForce = false;
+            return;
+        }
         const isOnline = await checkDeviceNetworkOnline();
         if (!isOnline) {
             window._isDeviceOfflineForce = true;
@@ -318,13 +353,16 @@ if (typeof window !== 'undefined') {
     enforceDeviceNetworkCheck();
 
     window.addEventListener('DOMContentLoaded', () => {
-        enforceDeviceNetworkCheck();
+        if (isElectronApp()) {
+            enforceDeviceNetworkCheck();
+        }
         if (isOfflineMode()) {
             handleOfflineModeChange(true);
         }
     });
 
     window.addEventListener('offline', () => {
+        if (!isElectronApp()) return;
         window._isDeviceOfflineForce = true;
         setOfflineMode(true, true);
         const btnPosterBg = document.getElementById('btn-poster-change-bg');
@@ -332,6 +370,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.addEventListener('online', async () => {
+        if (!isElectronApp()) return;
         await enforceDeviceNetworkCheck();
         const toggle = document.getElementById('toggle-offline-mode');
         if (toggle) toggle.disabled = false;

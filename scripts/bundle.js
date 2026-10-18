@@ -26,6 +26,9 @@ const loadOrder = [
   'managers/tracker.js',
   'managers/ebbinghaus.js',
   'managers/level-manager.js',
+  'managers/item-manager.js',
+  'managers/activity-manager.js',
+  'managers/mail-manager.js',
 
   // 3. Components
   'components/virtual-keyboard.js',

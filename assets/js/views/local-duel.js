@@ -7,7 +7,7 @@
    10. 希沃同屏多触控对决
    ========================================================================== */
 let localDuelConfig = {
-    selectedBooks: ['GaoKao3500'],
+    selectedBooks: [],
     opponentName: '挑战者',
     matchType: 'ranked', // 'ranked' (排位赛) | 'friendly' (友谊赛)
     mode: 'lead',
@@ -21,6 +21,7 @@ try {
     if (saved) {
         if (saved.bookId && !saved.selectedBooks) saved.selectedBooks = [saved.bookId];
         Object.assign(localDuelConfig, saved);
+        if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
         if (!localDuelConfig.matchType) localDuelConfig.matchType = 'ranked';
     }
 } catch (e) { }
@@ -164,13 +165,17 @@ function closeLocalDuelSettings() {
 function updateLocalDuelBookSummaryUI() {
     const titleEl = document.getElementById('local-duel-selected-book-title');
     const summaryEl = document.getElementById('local-duel-books-summary');
-    if (!localDuelConfig || !Array.isArray(localDuelConfig.selectedBooks)) return;
+    if (!localDuelConfig) return;
+    if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
     const allBooks = (typeof getAllUniqueBooks === 'function')
         ? getAllUniqueBooks()
         : ((BookManager.availableBooks && BookManager.availableBooks.length > 0) ? BookManager.availableBooks : (BookManager.fallbackBooks || []));
+    if (allBooks && allBooks.length > 0) {
+        localDuelConfig.selectedBooks = localDuelConfig.selectedBooks.filter(id => allBooks.some(b => b.id === id || (typeof isBookIdSelected === 'function' && isBookIdSelected([id], b.id))));
+    }
     const count = localDuelConfig.selectedBooks.length;
     if (summaryEl) {
-        summaryEl.innerText = `已选 ${count} 本词书`;
+        summaryEl.innerText = count > 0 ? `已选 ${count} 本词书` : '未选择词书';
     }
     if (titleEl) {
         if (count === 0) {
@@ -1173,7 +1178,8 @@ function endLocalDuel(winner, detailText) {
                 userRank: p1Data.rank,
                 userRating: p1Data.rating,
                 oppoRank: p2Data.rank,
-                oppoRating: p2Data.rating
+                oppoRating: p2Data.rating,
+                username: p1Name
             });
             rankOutcomeP2 = LevelManager.calculateMatchResult({
                 isRanked: true,
@@ -1183,7 +1189,8 @@ function endLocalDuel(winner, detailText) {
                 userRank: p2Data.rank,
                 userRating: p2Data.rating,
                 oppoRank: p1Data.rank,
-                oppoRating: p1Data.rating
+                oppoRating: p1Data.rating,
+                username: p2Name
             });
         }
 

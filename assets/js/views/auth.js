@@ -159,6 +159,9 @@ async function clickSavedLocalAccountToLogin(username) {
 window.clickSavedLocalAccountToLogin = clickSavedLocalAccountToLogin;
 
 function loginLocalAccount(acc) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser(acc.username);
+    }
     const accounts = getLocalAccounts();
     acc.lastLoginTime = Date.now();
     const idx = accounts.findIndex(a => a.username === acc.username);
@@ -404,6 +407,9 @@ function showManualLoginForm(prefUsername = '') {
 }
 
 async function prepareUserSwitch(newUser) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser(newUser);
+    }
     const prevUser = currentUser;
     if (prevUser && prevUser !== newUser) {
         if (typeof cleanAccountSwitchPresence === 'function') {
@@ -430,10 +436,6 @@ function withAuthTimeout(promise, ms = 5000, timeoutMsg = '登录请求超时（
 }
 
 async function selectSavedAccountToLogin(username) {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止登录');
-        return;
-    }
     const list = getSavedDeviceAccounts();
     const acc = list.find(a => a.username === username);
     if (!acc) return;
@@ -469,7 +471,7 @@ async function selectSavedAccountToLogin(username) {
         }
         loadUserData(user.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         showToast(`欢迎回来 ${user.username}！`);
         switchView('view-hub');
@@ -539,11 +541,6 @@ function handleRegAvatarChange(event) {
 }
 
 async function handleCloudLogin() {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止登录');
-        return;
-    }
-
     const usernameInput = document.getElementById('auth-login-username');
     const passwordInput = document.getElementById('auth-login-password');
     const loginBtn = document.getElementById('btn-auth-cloud-login');
@@ -591,7 +588,7 @@ async function handleCloudLogin() {
 
         loadUserData(user.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         showToast(`欢迎回来 ${user.username}！`);
 
@@ -608,17 +605,6 @@ async function handleCloudLogin() {
 }
 
 async function handleCloudRegister() {
-    if (typeof isDeviceBannedLocally === 'function' && isDeviceBannedLocally()) {
-        showToast('当前设备已被管理员封禁，禁止注册新账号');
-        return;
-    }
-
-    const localReg = SafeStorage.getItem('vocab_registered_account');
-    if (localReg) {
-        showToast(`当前设备已绑定注册过账号“${localReg}”，一台设备仅限注册一个账号`);
-        return;
-    }
-
     const usernameInput = document.getElementById('auth-reg-username');
     const passwordInput = document.getElementById('auth-reg-password');
     const password2Input = document.getElementById('auth-reg-password2');
@@ -675,9 +661,9 @@ async function handleCloudRegister() {
 
         loadUserData(newUser.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
-        showToast(`注册成功！已为您登录云端账号`);
+        showToast(`注册成功！已为您送上一封礼包邮件～`);
 
         if (passwordInput) passwordInput.value = '';
         if (password2Input) password2Input.value = '';
@@ -728,7 +714,7 @@ async function handleBiliToyLogin() {
 
         loadUserData(biliProfile.username, profile);
         if (typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
+            try { initGlobalPresence(); } catch (e) { console.warn('[Auth] Presence init warning:', e); }
         }
         if (typeof syncAllUserDataToCloud === 'function') {
             syncAllUserDataToCloud(biliProfile.username);
@@ -747,6 +733,9 @@ async function handleBiliToyLogin() {
 
 function continueAsGuest() {
     const guestName = getUniqueGuestName();
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
     currentUserProfile = {
         isLoggedIn: false,
         type: 'guest',
@@ -769,6 +758,9 @@ function handleAuthBack() {
 window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
+    if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
+        MailManager.resetForUser('');
+    }
     if (typeof isOfflineMode === 'function' && isOfflineMode()) {
         currentUser = null;
         currentUserProfile = null;
