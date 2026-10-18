@@ -11,7 +11,7 @@ const ElectronManager = {
 
     updateState: {
         checking: false,
-        updateAvailable: false,
+        hasUpdate: false,
         versionInfo: null,
         downloading: false,
         downloadProgress: 0,
@@ -62,11 +62,23 @@ const ElectronManager = {
             }
         });
 
-        // 4. 启动静默检查更新 (延迟 3 秒，且仅在非离线模式下检查)
-        setTimeout(() => {
+        // 4. 启动自动检测更新：如果有网自动检测更新 (仅在非离线模式下检查)
+        setTimeout(async () => {
             if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
-            this.checkForUpdates(false);
-        }, 3000);
+            let online = true;
+            if (window.electronAPI && typeof window.electronAPI.isNetworkOnline === 'function') {
+                try {
+                    online = await window.electronAPI.isNetworkOnline();
+                } catch (e) {
+                    online = navigator.onLine;
+                }
+            } else {
+                online = navigator.onLine;
+            }
+            if (online) {
+                this.checkForUpdates(false);
+            }
+        }, 1500);
 
         // 5. 注册自动备份机制 (每 15 分钟或学习数据变更时静默备份)
         this.setupAutoBackupSchedule();
@@ -624,10 +636,11 @@ const ElectronManager = {
                 this.updateState.checking = true;
             } else if (status === 'available') {
                 this.updateState.checking = false;
-                this.updateState.updateAvailable = true;
+                this.updateState.hasUpdate = true;
                 this.updateState.versionInfo = msg;
-                showToast(`发现新版本 v${msg.version}，正在自动获取并启动更新程序...`);
-                this.showUpdateDialog(msg, true);
+                this.syncSettingsUpdateButton();
+                // 在electron环境下打开app，如果有网自动检测更新，如果有更新则弹出更新窗口，用户可以点击”下载更新“或”稍后“
+                this.showUpdateAvailableDialog(msg);
             } else if (status === 'not-available') {
                 this.updateState.checking = false;
                 if (this._manualChecking) {
@@ -643,11 +656,9 @@ const ElectronManager = {
             } else if (status === 'downloaded') {
                 this.updateState.downloading = false;
                 this.updateState.downloaded = true;
+                this.syncSettingsUpdateButton();
+                // 下载更新完后，弹出确认安装窗口，用户可以点击”立即安装“或”稍后“
                 this.showUpdateDownloadedDialog(msg);
-                showToast('新版本下载完毕，正在自动启动更新安装程序...');
-                setTimeout(() => {
-                    this.quitAndInstall();
-                }, 2000);
             } else if (status === 'error') {
                 this.updateState.checking = false;
                 this.updateState.downloading = false;
@@ -657,6 +668,57 @@ const ElectronManager = {
                 }
             }
         });
+    },
+
+    /**
+     * 同步设置-关于-当前版本 中的更新按钮状态
+     * 如果有更新未下载则替换为”下载更新“；如果有更新未安装，则替换为”立即安装“
+     */
+    syncSettingsUpdateButton() {
+        const btn = document.getElementById('btn-settings-check-update');
+        if (!btn) return;
+        const iconSpan = btn.querySelector('.material-symbols-rounded');
+        const textSpan = btn.querySelector('.btn-label-text');
+
+        if (this.updateState.downloaded) {
+            btn.className = 'btn btn-filled btn-sm';
+            btn.style.backgroundColor = '#16a34a';
+            btn.style.color = '#ffffff';
+            if (iconSpan) iconSpan.innerText = 'restart_alt';
+            if (textSpan) textSpan.innerText = '立即安装';
+        } else if (this.updateState.hasUpdate) {
+            btn.className = 'btn btn-filled btn-sm';
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            if (iconSpan) iconSpan.innerText = 'download';
+            if (textSpan) textSpan.innerText = '下载更新';
+        } else {
+            btn.className = 'btn btn-tonal btn-sm';
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            if (iconSpan) iconSpan.innerText = 'cloud_sync';
+            if (textSpan) textSpan.innerText = '检查更新';
+        }
+    },
+
+    /**
+     * 点击设置-关于-当前版本 中的更新按钮
+     */
+    handleSettingsUpdateButtonClick() {
+        if (!this.isAvailable()) {
+            if (typeof checkCloudVersion === 'function') checkCloudVersion(true);
+            return;
+        }
+
+        if (this.updateState.downloaded) {
+            // 如果有更新未安装，点击后立刻启动更新程序
+            this.quitAndInstall();
+        } else if (this.updateState.hasUpdate) {
+            // 如果有更新未下载，点击后弹出更新窗口并开始下载更新
+            this.startDownloadAndUpdateUI();
+        } else {
+            this.checkForUpdates(true);
+        }
     },
 
     /**
@@ -692,6 +754,173 @@ const ElectronManager = {
     },
 
     /**
+     * 弹出发现新版本窗口：用户可点击”下载更新“或”稍后“
+     */
+    showUpdateAvailableDialog(info) {
+        let modal = document.getElementById('modal-electron-update');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-electron-update';
+            modal.className = 'modal-overlay';
+            document.body.appendChild(modal);
+        }
+
+        const rawNotes = info.releaseNotes || '常规更新与性能优化提升';
+        const notesHtml = (typeof renderMarkdownChangelog === 'function')
+            ? renderMarkdownChangelog(rawNotes)
+            : `<div style="white-space:pre-wrap;">${escapeHtml(rawNotes)}</div>`;
+
+        modal.innerHTML = `
+            <div class="modal-card" style="max-width: 520px; width:92%; border-radius: var(--md-shape-xl, 28px); padding: 26px; box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                    <div style="width:48px; height:48px; border-radius:50%; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-symbols-rounded" style="font-size:26px;">system_update</span>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.2rem; font-weight:700;">发现新版本 v${info.version}</h3>
+                        <div style="font-size:0.8rem; color:var(--md-sys-color-outline);">发布时间：${info.releaseDate ? info.releaseDate.substring(0, 10) : '近期'}</div>
+                    </div>
+                </div>
+
+                <div style="margin: 14px 0; max-height: 220px; overflow-y: auto; background: var(--md-sys-color-surface-container-low); padding: 12px 14px; border-radius: 14px; font-size: 0.88rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);">
+                    <strong style="display:block; margin-bottom:6px; color:var(--md-sys-color-on-surface);">更新日志：</strong>
+                    ${notesHtml}
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-text" onclick="document.getElementById('modal-electron-update').classList.remove('active')">稍后</button>
+                    <button type="button" class="btn btn-filled" onclick="ElectronManager.startDownloadAndUpdateUI()">
+                        <span class="material-symbols-rounded" style="font-size:18px;">download</span>
+                        <span>下载更新</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.add('active');
+    },
+
+    /**
+     * 点击“下载更新”弹出更新窗口并开始下载更新，显示md格式更新日志、下载进度与下载速度，可点击“稍后提醒”关闭窗口
+     */
+    startDownloadAndUpdateUI() {
+        const info = this.updateState.versionInfo || { version: APP_VERSION || '' };
+        let modal = document.getElementById('modal-electron-update');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-electron-update';
+            modal.className = 'modal-overlay';
+            document.body.appendChild(modal);
+        }
+
+        const rawNotes = info.releaseNotes || '常规更新与性能优化提升';
+        const notesHtml = (typeof renderMarkdownChangelog === 'function')
+            ? renderMarkdownChangelog(rawNotes)
+            : `<div style="white-space:pre-wrap;">${escapeHtml(rawNotes)}</div>`;
+
+        const curPercent = this.updateState.downloadProgress || 0;
+        const curSpeed = this.updateState.downloadSpeed || '0 MB/s';
+
+        modal.innerHTML = `
+            <div class="modal-card" style="max-width: 520px; width:92%; border-radius: var(--md-shape-xl, 28px); padding: 26px; box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                    <div style="width:48px; height:48px; border-radius:50%; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-symbols-rounded" style="font-size:26px;">cloud_download</span>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.2rem; font-weight:700;">正在下载更新 v${info.version || ''}</h3>
+                        <div style="font-size:0.8rem; color:var(--md-sys-color-outline);">发布时间：${info.releaseDate ? info.releaseDate.substring(0, 10) : '近期'}</div>
+                    </div>
+                </div>
+
+                <div style="margin: 14px 0; max-height: 200px; overflow-y: auto; background: var(--md-sys-color-surface-container-low); padding: 12px 14px; border-radius: 14px; font-size: 0.88rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);">
+                    <strong style="display:block; margin-bottom:6px; color:var(--md-sys-color-on-surface);">更新日志：</strong>
+                    ${notesHtml}
+                </div>
+
+                <div id="electron-update-progress-area" style="margin: 16px 0;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.84rem; margin-bottom:6px; color:var(--md-sys-color-on-surface-variant); font-weight:500;">
+                        <span id="electron-update-progress-text">正在下载更新... ${curPercent}%</span>
+                        <span id="electron-update-speed-text">${curSpeed}</span>
+                    </div>
+                    <div style="height: 8px; background: var(--md-sys-color-surface-container-high); border-radius: 9999px; overflow: hidden;">
+                        <div id="electron-update-progress-bar" style="width: ${curPercent}%; height: 100%; background: var(--md-sys-color-primary); transition: width 0.2s;"></div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button type="button" class="btn btn-outlined" onclick="document.getElementById('modal-electron-update').classList.remove('active')">稍后提醒</button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.add('active');
+
+        if (!this.updateState.downloading && !this.updateState.downloaded) {
+            this.startDownload();
+        }
+    },
+
+    /**
+     * 刷新下载进度与速度 UI
+     */
+    updateDownloadProgressUI(msg) {
+        const bar = document.getElementById('electron-update-progress-bar');
+        const progressText = document.getElementById('electron-update-progress-text');
+        const speedText = document.getElementById('electron-update-speed-text');
+
+        if (bar) bar.style.width = `${msg.percent}%`;
+        if (progressText) progressText.innerText = `正在下载更新... ${msg.percent}%`;
+        if (speedText && msg.bytesPerSecond !== undefined) {
+            const speed = (msg.bytesPerSecond / (1024 * 1024)).toFixed(2);
+            speedText.innerText = `${speed} MB/s`;
+        }
+    },
+
+    /**
+     * 弹出确认安装窗口：用户可点击”立即安装“或”稍后“
+     */
+    showUpdateDownloadedDialog(info) {
+        let modal = document.getElementById('modal-electron-update');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-electron-update';
+            modal.className = 'modal-overlay';
+            document.body.appendChild(modal);
+        }
+
+        const ver = (info && info.version) || (this.updateState.versionInfo && this.updateState.versionInfo.version) || '';
+
+        modal.innerHTML = `
+            <div class="modal-card" style="max-width: 480px; width:92%; border-radius: var(--md-shape-xl, 28px); padding: 26px; box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                    <div style="width:48px; height:48px; border-radius:50%; background:#dcfce7; color:#15803d; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-symbols-rounded" style="font-size:26px;">check_circle</span>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.2rem; font-weight:700;">更新下载完成</h3>
+                        <div style="font-size:0.82rem; color:var(--md-sys-color-outline);">版本 v${ver} 已就绪</div>
+                    </div>
+                </div>
+
+                <div style="margin: 16px 0; font-size: 0.92rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);">
+                    新版本安装包已下载完成，点击“立即安装”将立刻关闭应用并启动更新程序。
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:22px;">
+                    <button type="button" class="btn btn-text" onclick="document.getElementById('modal-electron-update').classList.remove('active')">稍后</button>
+                    <button type="button" class="btn btn-filled" onclick="ElectronManager.quitAndInstall()" style="background:#16a34a; color:#fff;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">restart_alt</span>
+                        <span>立即安装</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.add('active');
+    },
+
+    /**
      * 开始下载更新
      */
     async startDownload() {
@@ -705,124 +934,16 @@ const ElectronManager = {
     },
 
     /**
-     * 重启并安装更新
+     * 重启并安装更新 (立刻启动更新程序)
      */
     quitAndInstall() {
         if (!this.isAvailable()) return;
-        window.electronAPI.quitAndInstall();
-    },
-
-    /**
-     * 弹出发现新版本的模态框
-     */
-    showUpdateDialog(info, autoDownloading = false) {
-        let modal = document.getElementById('modal-electron-update');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modal-electron-update';
-            modal.className = 'modal-overlay';
-            document.body.appendChild(modal);
-        }
-
-        const rawNotes = info.releaseNotes || '性能提升及常规问题修复';
-        const notes = Array.isArray(rawNotes)
-            ? rawNotes.map(n => `<li>${escapeHtml(n)}</li>`).join('')
-            : `<p>${escapeHtml(rawNotes).replace(/\n/g, '<br>')}</p>`;
-
-        modal.innerHTML = `
-            <div class="modal-card" style="max-width: 480px; width:92%; border-radius: var(--md-shape-xl, 28px); padding: 26px; box-sizing:border-box;">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-                    <div style="width:48px; height:48px; border-radius:50%; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <span class="material-symbols-rounded" style="font-size:26px;">system_update</span>
-                    </div>
-                    <div>
-                        <h3 style="margin:0; font-size:1.2rem; font-weight:700;">发现新版本 v${info.version}</h3>
-                        <div style="font-size:0.8rem; color:var(--md-sys-color-outline);">发布时间：${info.releaseDate ? info.releaseDate.substring(0, 10) : '刚刚'}</div>
-                    </div>
-                </div>
-
-                <div style="margin: 14px 0; max-height: 180px; overflow-y: auto; background: var(--md-sys-color-surface-container-low); padding: 12px 14px; border-radius: 14px; font-size: 0.88rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);">
-                    <strong style="display:block; margin-bottom:6px; color:var(--md-sys-color-on-surface);">更新日志：</strong>
-                    ${notes}
-                </div>
-
-                <!-- 下载进度条容器 (检测到更新时自动激活) -->
-                <div id="electron-update-progress-area" style="display:${autoDownloading ? 'block' : 'none'}; margin: 16px 0;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:6px; color:var(--md-sys-color-outline);">
-                        <span id="electron-update-progress-text">正在自动获取更新... 0%</span>
-                        <span id="electron-update-speed-text">0 MB/s</span>
-                    </div>
-                    <div style="height: 8px; background: var(--md-sys-color-surface-container-high); border-radius: 9999px; overflow: hidden;">
-                        <div id="electron-update-progress-bar" style="width: 0%; height: 100%; background: var(--md-sys-color-primary); transition: width 0.2s;"></div>
-                    </div>
-                </div>
-
-                <div id="electron-update-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                    <button type="button" class="btn btn-text" onclick="document.getElementById('modal-electron-update').classList.remove('active')">稍后提醒</button>
-                    <button type="button" class="btn btn-filled" id="btn-electron-start-download" ${autoDownloading ? 'disabled' : ''} onclick="ElectronManager.onUserClickStartDownload()">
-                        <span class="material-symbols-rounded" style="font-size:18px;">${autoDownloading ? 'hourglass_top' : 'cloud_download'}</span>
-                        <span>${autoDownloading ? '正在自动更新...' : '立即更新'}</span>
-                    </button>
-                </div>
-            </div>
-        `;
-
-        modal.classList.add('active');
-    },
-
-    onUserClickStartDownload() {
-        const btn = document.getElementById('btn-electron-start-download');
-        const progressArea = document.getElementById('electron-update-progress-area');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">hourglass_top</span><span>下载中...</span>';
-        }
-        if (progressArea) {
-            progressArea.style.display = 'block';
-        }
-        this.startDownload();
-    },
-
-    updateDownloadProgressUI(msg) {
-        const bar = document.getElementById('electron-update-progress-bar');
-        const progressText = document.getElementById('electron-update-progress-text');
-        const speedText = document.getElementById('electron-update-speed-text');
-        const progressArea = document.getElementById('electron-update-progress-area');
-
-        if (progressArea && progressArea.style.display === 'none') {
-            progressArea.style.display = 'block';
-        }
-        if (bar) bar.style.width = `${msg.percent}%`;
-        if (progressText) progressText.innerText = `正在下载更新... ${msg.percent}%`;
-        if (speedText && msg.bytesPerSecond) {
-            const speed = (msg.bytesPerSecond / (1024 * 1024)).toFixed(2);
-            speedText.innerText = `${speed} MB/s`;
-        }
-    },
-
-    showUpdateDownloadedDialog(info) {
-        let modal = document.getElementById('modal-electron-update');
-        if (!modal) {
-            this.showUpdateDialog(info);
-            modal = document.getElementById('modal-electron-update');
-        }
-
-        const actions = document.getElementById('electron-update-actions');
-        const progressArea = document.getElementById('electron-update-progress-area');
-        if (progressArea) progressArea.style.display = 'none';
-
-        if (actions) {
-            actions.innerHTML = `
-                <button type="button" class="btn btn-text" onclick="document.getElementById('modal-electron-update').classList.remove('active')">稍后重启</button>
-                <button type="button" class="btn btn-filled" onclick="ElectronManager.quitAndInstall()" style="background:#16a34a;">
-                    <span class="material-symbols-rounded" style="font-size:18px;">restart_alt</span>
-                    <span>立即重启并安装更新</span>
-                </button>
-            `;
-        }
-
-        modal.classList.add('active');
-        showToast('新版本已下载完毕，重启即可完成安装！');
+        const modal = document.getElementById('modal-electron-update');
+        if (modal) modal.classList.remove('active');
+        showToast('正在启动更新程序，即将重启应用...');
+        setTimeout(() => {
+            window.electronAPI.quitAndInstall();
+        }, 300);
     },
 
     /**

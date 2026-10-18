@@ -202,36 +202,6 @@
         </button>
     </nav>
 
-    <!-- 右上角版本更新浮动提示卡片 -->
-    <div id="version-update-card" class="version-update-card" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="material-symbols-rounded"
-                    style="color: var(--md-sys-color-primary); font-size: 24px;">system_update</span>
-                <div>
-                    <h4 style="font-size: 0.95rem; font-weight: 700; margin:0;" id="version-card-title">发现新版本</h4>
-                    <span style="font-size: 0.74rem; color: var(--md-sys-color-outline);"
-                        id="version-card-date">云端最新</span>
-                </div>
-            </div>
-            <button class="modal-close-btn" onclick="dismissVersionUpdateCard()"
-                style="width: 28px; height: 28px; border:none; background:transparent; cursor:pointer;">
-                <span class="material-symbols-rounded" style="font-size: 18px;">close</span>
-            </button>
-        </div>
-        <div id="version-card-desc"
-            style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); max-height: 120px; overflow-y: auto; line-height: 1.45; padding: 4px 0;">
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
-            <button type="button" class="btn btn-outlined btn-sm" onclick="openChangelogInSettings()">
-                <span class="btn-label-text">查看日志</span>
-            </button>
-            <button type="button" class="btn btn-filled btn-sm" id="btn-version-card-action">
-                <span class="btn-label-text" id="btn-version-action-text">下载最新版本</span>
-            </button>
-        </div>
-    </div>
-
     <!-- 实时对战邀请弹窗 (MD3 规范) -->
     <div id="modal-match-invite" class="modal-overlay">
         <div class="modal-card" style="max-width: 420px; text-align: center;">
@@ -1180,18 +1150,18 @@
 
         <!-- 活动详情模态弹窗 (MD3规范) -->
         <div id="modal-activity-detail" class="modal-overlay">
-            <div class="modal-card" style="max-width: 540px; width: 92%;">
+            <div class="modal-card activity-detail-modal-card" style="max-width: 520px; width: 92%;">
                 <div class="modal-header">
                     <div class="modal-title-group" style="display:flex; align-items:center; gap:8px;">
-                        <span class="material-symbols-rounded modal-title-icon" style="color: #d97706;">campaign</span>
+                        <span class="material-symbols-rounded modal-title-icon" style="color: #d97706; font-size:22px;">campaign</span>
                         <h3 class="modal-title" style="margin:0; font-size:1.15rem; font-weight:700;">活动详情</h3>
                     </div>
                     <button type="button" class="modal-close-btn" onclick="ActivityManager.closeDetailModal()">
                         <span class="material-symbols-rounded">close</span>
                     </button>
                 </div>
-                <div class="modal-body" id="activity-detail-content" style="padding: 16px 20px; max-height: 480px; overflow-y: auto;"></div>
-                <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:10px 20px;">
+                <div class="modal-body" id="activity-detail-content" style="padding: 10px 0 12px; max-height: min(500px, 68vh); overflow-y: auto;"></div>
+                <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:10px 0 0; border-top: 1px solid var(--md-sys-color-outline-variant);">
                     <button type="button" class="btn btn-outlined btn-sm" onclick="ActivityManager.closeDetailModal()">关闭</button>
                 </div>
             </div>
@@ -1842,7 +1812,7 @@
                         <!-- 操作按钮栏 (支持下载文件与复制到剪贴板) -->
                         <div class="export-action-row">
                             <button type="button" class="btn btn-filled" id="btn-export-download-file" onclick="handleExportDownloadClick()" style="width:100%; height:46px; font-size:0.95rem; font-weight:700; border-radius:var(--md-shape-full); box-shadow: 0 3px 10px rgba(0, 97, 164, 0.28); display:flex; align-items:center; justify-content:center; gap:8px;">
-                                <span class="material-symbols-rounded" style="font-size:20px;">download</span>
+                                <span class="material-symbols-rounded" id="export-download-btn-icon" style="font-size:20px;">download</span>
                                 <span id="export-download-btn-label">下载文件</span>
                             </button>
                             <button type="button" class="btn btn-outlined" id="btn-export-copy-clipboard" onclick="handleExportCopyClick()" style="display:none; width:100%; height:42px; font-size:0.92rem; font-weight:600; border-radius:var(--md-shape-full); align-items:center; justify-content:center; gap:8px;">
@@ -3011,7 +2981,7 @@
                                 <p id="settings-version-label"></p>
                             </div>
                         </div>
-                        <button class="btn btn-tonal btn-sm" onclick="ElectronManager.isAvailable() ? ElectronManager.checkForUpdates(true) : checkCloudVersion(true)">
+                        <button class="btn btn-tonal btn-sm" id="btn-settings-check-update" onclick="ElectronManager.isAvailable() ? ElectronManager.handleSettingsUpdateButtonClick() : checkCloudVersion(true)">
                             <span class="material-symbols-rounded" style="font-size:16px;">cloud_sync</span>
                             <span class="btn-label-text">检查更新</span>
                         </button>

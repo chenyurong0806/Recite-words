@@ -289,14 +289,17 @@ window.handleLocalRegister = handleLocalRegister;
 function getSavedDeviceAccounts() {
     try {
         const raw = SafeStorage.getItem('vocab_device_accounts');
-        return raw ? JSON.parse(raw) : [];
+        const list = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list)) return [];
+        // B站账号不要在登录过的账号中显示
+        return list.filter(a => a && a.type !== 'bilibili');
     } catch (e) {
         return [];
     }
 }
 
 function recordDeviceAccount(username, avatar, type, hashedPassword) {
-    if (!username || username.startsWith('游客')) return;
+    if (!username || username.startsWith('游客') || type === 'bilibili') return;
     if (avatar) {
         SafeStorage.setItem(`vocab_user_avatar_${username}`, avatar);
     }

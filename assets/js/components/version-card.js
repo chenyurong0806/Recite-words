@@ -120,128 +120,18 @@ async function checkCloudVersion(manual = false) {
         const hasNewer = semverCompare(data.version, APP_VERSION) > 0;
 
         if (hasNewer) {
-            showVersionUpdateCard(data, isLocal);
+            if (manual) {
+                showToast(`发现新版本 v${data.version}，可在设置-更新日志中查阅详情`);
+            }
         } else if (manual) {
             showToast(`当前已是最新版本 v${APP_VERSION}`);
         }
     } else if (manual) {
-        showToast(`当前已是最新离线版本 v${APP_VERSION}`);
+        showToast(`当前已是最新版本 v${APP_VERSION}`);
     }
-}
-
-/* ============================================================
- * 更新卡片 UI
- * ============================================================ */
-function showVersionUpdateCard(data, isLocal) {
-    cachedLatestVersionData = data;
-    const card = document.getElementById('version-update-card');
-    if (!card) return;
-
-    const titleEl   = document.getElementById('version-card-title');
-    const dateEl    = document.getElementById('version-card-date');
-    const descEl    = document.getElementById('version-card-desc');
-    const actionBtn = document.getElementById('btn-version-card-action');
-
-    if (titleEl) titleEl.innerText = `发现新版本 v${data.version}`;
-    if (dateEl)  dateEl.innerText  = `发布日期：${data.releaseDate || '近期'}`;
-
-    if (descEl && Array.isArray(data.changelog)) {
-        if (typeof renderMarkdownChangelog === 'function') {
-            descEl.innerHTML = `
-                <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
-                ${renderMarkdownChangelog(data.changelog.slice(0, 4))}
-            `;
-        } else {
-            const escape = typeof escapeHtml === 'function'
-                ? escapeHtml
-                : (s) => String(s).replace(/[&<>"']/g, c => (
-                    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-                ));
-            descEl.innerHTML = `
-                <div style="font-weight:600; margin-bottom:4px;">主要更新内容：</div>
-                <ul style="padding-left:16px; margin:0; line-height:1.5;">
-                    ${data.changelog.slice(0, 4)
-                        .map(it => `<li>${escape(it.replace(/^[>*\-•\s]+/, ''))}</li>`)
-                        .join('')}
-                </ul>
-            `;
-        }
-    }
-
-    if (actionBtn) {
-        actionBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;">download</span><span>下载最新版本</span>';
-        actionBtn.onclick = () => handleDownloadLatestZip(data.downloadUrl, data.version);
-    }
-
-    card.style.display = 'block';
-}
-
-function dismissVersionUpdateCard() {
-    const card = document.getElementById('version-update-card');
-    if (card) card.style.display = 'none';
-}
-
-function openChangelogInSettings() {
-    dismissVersionUpdateCard();
-    switchView('view-settings');
-    switchSettingsSubview('changelog');
-}
-
-/* ============================================================
- * 下载
- * ============================================================ */
-function handleDownloadLatestZip(downloadUrl, version) {
-    const data = cachedLatestVersionData || {};
-    const finalVersion = version || data.version || APP_VERSION || '2.9.0';
-    const rawTag = normalizeTag(finalVersion);
-
-    let targetUrl = downloadUrl || data.downloadUrl || data.mirrorDownloadUrl;
-    if (isBadDownloadUrl(targetUrl)) {
-        targetUrl = buildZipUrl(rawTag);
-    }
-
-    showToast(`正在启动下载 v${rawTag} 的 assets.zip，请稍候...`);
-
-    // 主路径：动态 a 标签
-    try {
-        const a = document.createElement('a');
-        a.href = targetUrl;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.download = `Recite-words-v${rawTag}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-            if (a.parentNode) a.parentNode.removeChild(a);
-        }, 300);
-    } catch (e) {
-        console.warn('Direct a.click failed:', e);
-    }
-
-    // 兜底：window.open
-    setTimeout(() => {
-        try {
-            window.open(targetUrl, '_blank', 'noopener,noreferrer');
-        } catch (e) {
-            window.location.href = targetUrl;
-        }
-    }, 450);
-}
-
-// 兼容旧方法名
-function handleDownloadLatestHtml(downloadUrl) {
-    handleDownloadLatestZip(downloadUrl);
-}
-
-function handleVersionUpdateAction() {
-    handleDownloadLatestZip();
 }
 
 /* ============================================================
  * 导出到 window
  * ============================================================ */
-window.checkCloudVersion          = checkCloudVersion;
-window.showVersionUpdateCard      = showVersionUpdateCard;
-window.dismissVersionUpdateCard   = dismissVersionUpdateCard;
-window.handleDownloadLatestZip    = handleDownloadLatestZip;
-window.handleVersionUpdateAction  = handleVersionUpdateAction;
+window.checkCloudVersion = checkCloudVersion;

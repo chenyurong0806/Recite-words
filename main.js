@@ -144,8 +144,8 @@ function createWindow() {
 // 自动更新逻辑配置 (对接 GitHub Releases)
 // ----------------------------------------------------
 function setupAutoUpdater(win) {
-    autoUpdater.autoDownload = true; // 自动获取最新安装包
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoDownload = false; // 用户确认后再下载
+    autoUpdater.autoInstallOnAppQuit = false; // 用户确认后再安装
 
     const notifyRenderer = (status, payload = {}) => {
         if (win && !win.isDestroyed()) {
@@ -163,12 +163,6 @@ function setupAutoUpdater(win) {
             releaseDate: info.releaseDate,
             releaseNotes: info.releaseNotes || '性能优化与体验升级'
         });
-        // 自动开始下载更新
-        try {
-            autoUpdater.downloadUpdate();
-        } catch (e) {
-            console.warn('[AutoUpdater] auto downloadUpdate error:', e);
-        }
     });
 
     autoUpdater.on('update-not-available', (info) => {
@@ -197,15 +191,6 @@ function setupAutoUpdater(win) {
         notifyRenderer('downloaded', {
             version: info.version
         });
-        // 检测到新版本并下载完成后，自动启动更新安装程序
-        console.log('[AutoUpdater] 新版本下载完成，即将自动启动更新安装程序...');
-        setTimeout(() => {
-            try {
-                autoUpdater.quitAndInstall(false, true);
-            } catch (err) {
-                console.error('[AutoUpdater] quitAndInstall error:', err);
-            }
-        }, 1500);
     });
 }
 
@@ -668,13 +653,20 @@ ipcMain.handle('read-book-file', async (_event, { filePath }) => {
 });
 
 // 保存并调用系统工具直接打开导出文件（PDF、Markdown、TXT）
-ipcMain.handle('save-and-open-export-file', async (_event, { fileName, content, format, htmlContent, printOptions }) => {
+ipcMain.handle('save-and-open-export-file', async (_event, { fileName, content, format, htmlContent, printOptions, base64Data }) => {
     try {
         const downloadsDir = app.getPath('downloads');
         const safeName = (fileName || `export_${Date.now()}`).replace(/[/\\?%*:|"<>]/g, '_');
         const targetPath = path.join(downloadsDir, safeName);
 
         if (format === 'pdf') {
+            if (base64Data) {
+                const cleanBase64 = base64Data.replace(/^data:application\/pdf;base64,/, '');
+                await fs.promises.writeFile(targetPath, Buffer.from(cleanBase64, 'base64'));
+            } else {
+                const tempHtmlPath = path.join(app.getPath('temp'), `export_pdf_${Date.now()}_${Math.random().toString(36).slice(2)}.html`);
+                await fs.promises.writeFile(tempHtmlPath, htmlContent || '', 'utf8');
+
             const printWin = new BrowserWindow({
                 show: false,
                 webPreferences: {
@@ -682,14 +674,34 @@ ipcMain.handle('save-and-open-export-file', async (_event, { fileName, content, 
                     contextIsolation: true
                 }
             });
-            await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent || '')}`);
-            const pdfBuffer = await printWin.webContents.printToPDF({
-                pageSize: printOptions?.pageSize || 'A4',
-                printBackground: true,
-                preferCSSPageSize: true
-            });
-            try { printWin.destroy(); } catch (e) { }
-            await fs.promises.writeFile(targetPath, pdfBuffer);
+
+            try {
+                await printWin.loadFile(tempHtmlPath);
+                // 等待页面完全解析渲染并完成图片排版与字体渲染
+                await printWin.webContents.executeJavaScript(`
+                    new Promise(resolve => {
+                        if (document.readyState === 'complete') {
+                            resolve();
+                        } else {
+                            window.addEventListener('load', resolve, { once: true });
+                        }
+                    })
+                `);
+                // 给予短暂延时确保页面重排与矢量字体绘制完成
+                await new Promise(resolve => setTimeout(resolve, 250));
+
+                const pdfBuffer = await printWin.webContents.printToPDF({
+                    pageSize: printOptions?.pageSize || 'A4',
+                    printBackground: true,
+                    preferCSSPageSize: true
+                });
+
+                await fs.promises.writeFile(targetPath, pdfBuffer);
+            } finally {
+                try { printWin.destroy(); } catch (e) { }
+                try { await fs.promises.unlink(tempHtmlPath); } catch (e) { }
+            }
+        }
         } else {
             await fs.promises.writeFile(targetPath, content || '', 'utf8');
         }
@@ -860,7 +872,11 @@ ipcMain.handle('start-download-update', async () => {
 });
 
 ipcMain.handle('quit-and-install', () => {
-    autoUpdater.quitAndInstall();
+    try {
+        autoUpdater.quitAndInstall(false, true);
+    } catch (e) {
+        console.error('[AutoUpdater quitAndInstall error]:', e);
+    }
 });
 
 // ----------------------------------------------------

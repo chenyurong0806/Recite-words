@@ -138,6 +138,43 @@ function getYesterdayDateString() {
 }
 
 /**
+ * 根据用户选择的日期范围生成文件后缀（不再固定使用今天）
+ */
+function getExportDateRangeFilenameSuffix() {
+    const now = new Date();
+    const formatDate = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    if (exportCurrentDatePreset === 'today') {
+        return formatDate(now);
+    } else if (exportCurrentDatePreset === 'yesterday') {
+        const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        return formatDate(yest);
+    } else if (exportCurrentDatePreset === 'week') {
+        const dayOfWeek = now.getDay();
+        const distToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + distToMonday);
+        const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+        return `${formatDate(monday)}至${formatDate(sunday)}`;
+    } else if (exportCurrentDatePreset === 'month') {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return `${formatDate(firstDay)}至${formatDate(lastDay)}`;
+    } else if (exportCurrentDatePreset === 'all') {
+        return '历史全部';
+    } else if (exportCurrentDatePreset === 'custom') {
+        const s = document.getElementById('export-date-start')?.value || exportCustomStartDate || formatDate(now);
+        const e = document.getElementById('export-date-end')?.value || exportCustomEndDate || formatDate(now);
+        return (s === e) ? s : `${s}至${e}`;
+    }
+    return formatDate(now);
+}
+
+/**
  * 切换日期范围预设
  */
 function selectExportDatePreset(preset) {
@@ -197,6 +234,30 @@ function toggleExportContentSection(type, checked) {
     renderExportPreview();
 }
 
+/**
+ * 检测是否处于哔哩哔哩 App (包括移动端 WebView 与 Toy 容器)
+ */
+function isBilibiliAppEnvironment() {
+    try {
+        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : '';
+        const isMobileDevice = /android|iphone|ipad|ipod|mobile/i.test(ua);
+        if (!isMobileDevice) {
+            // 电脑端（PC/Mac 桌面浏览器及 Electron）拥有完整下载支持，绝不作为受限移动 App 拦截！
+            return false;
+        }
+
+        if (typeof isBilibiliToy !== 'undefined' && isBilibiliToy) return true;
+        if (typeof window !== 'undefined' && (window.isBilibiliToy || window.toy || window.__cachedToyGuestId)) return true;
+        if (ua.includes('bili')) return true;
+        if (typeof window !== 'undefined' && window.location) {
+            const h = (window.location.hostname || '').toLowerCase();
+            const p = (window.location.pathname || '').toLowerCase();
+            if (h.includes('bilibili.com') || h.includes('hdslb.com') || p.includes('/toy/')) return true;
+        }
+    } catch (e) { }
+    return false;
+}
+
 function onExportFormatChanged(fmt) {
     const sizeCol = document.getElementById('export-size-select-col');
     const themeCol = document.getElementById('export-theme-select-col');
@@ -206,12 +267,18 @@ function onExportFormatChanged(fmt) {
     if (themeCol) {
         themeCol.style.display = (fmt === 'pdf') ? 'block' : 'none';
     }
+    const isBiliApp = isBilibiliAppEnvironment();
+    const actionVerb = isBiliApp ? '分享 / 保存' : '下载';
     const labelEl = document.getElementById('export-download-btn-label');
     if (labelEl) {
-        if (fmt === 'pdf') labelEl.textContent = '下载 PDF 文件';
-        else if (fmt === 'md') labelEl.textContent = '下载 Markdown 文件';
-        else if (fmt === 'txt') labelEl.textContent = '下载纯文本文件';
-        else labelEl.textContent = '下载文件';
+        if (fmt === 'pdf') labelEl.textContent = `${actionVerb} PDF 文件`;
+        else if (fmt === 'md') labelEl.textContent = `${actionVerb} Markdown 文件`;
+        else if (fmt === 'txt') labelEl.textContent = `${actionVerb} 纯文本文件`;
+        else labelEl.textContent = `${actionVerb}文件`;
+    }
+    const iconEl = document.getElementById('export-download-btn-icon');
+    if (iconEl && isBiliApp) {
+        iconEl.textContent = 'share';
     }
     const copyBtn = document.getElementById('btn-export-copy-clipboard');
     if (copyBtn) {
@@ -933,7 +1000,8 @@ async function renderExportPreview() {
             toyQrBase64 = FALLBACK_TOY_QR_DATA_URL;
         }
         watermarkHtml = `
-            <div class="pdf-watermark-bar toy-watermark">
+            <div class="pdf-watermark-bar toy-watermark" style="border-top:none; display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:12px;">
+                <span style="font-size:8.5px; color:#94a3b8; font-weight:500;">第 1 页 / 共 1 页</span>
                 <div class="pdf-toy-watermark-card" style="display:inline-flex; align-items:center; gap:7px;">
                     <img src="${toyQrBase64}" alt="Toy QR" style="width:28px; height:28px; border-radius:2px; object-fit:contain; display:block; flex-shrink:0;">
                     <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
@@ -945,15 +1013,15 @@ async function renderExportPreview() {
         `;
     } else {
         watermarkHtml = `
-            <div class="pdf-watermark-bar standard-watermark">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:22px; height:22px; border-radius:5px; object-fit:contain;">
-                    <div style="display:flex; flex-direction:column; line-height:1.2;">
-                        <span style="font-weight:700; font-size:11px; color:#1e293b;">词迹</span>
-                        <span style="font-size:9px; color:#64748b;">让背词更有趣</span>
+            <div class="pdf-watermark-bar standard-watermark" style="border-top:none; display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:12px;">
+                <span style="font-size:8.5px; color:#94a3b8; font-weight:500;">第 1 页 / 共 1 页</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:18px; height:18px; border-radius:3px; object-fit:contain; display:block;">
+                    <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
+                        <span style="font-weight:700; font-size:10px; color:#1e293b;">词迹</span>
+                        <span style="font-size:8px; color:#64748b;">让背词更有趣</span>
                     </div>
                 </div>
-                <span style="font-size:8.5px; color:#475569; padding:2px 7px; border:1px solid #cbd5e1; border-radius:4px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:rgba(255,255,255,0.9); font-weight:500; white-space:nowrap; letter-spacing:normal; word-break:keep-all;">https://www.bilibili.com/toy/cyr</span>
             </div>
         `;
     }
@@ -1381,10 +1449,10 @@ function buildPaginatedPdfDOM(mountPoint, data, config) {
     } = config;
 
     const paperDimensions = {
-        'a4': { width: '210mm', height: '296.5mm' },
-        'a5': { width: '148mm', height: '209.5mm' },
-        'b5': { width: '176mm', height: '249.5mm' },
-        'letter': { width: '216mm', height: '278.5mm' }
+        'a4': { width: '210mm', height: '297mm' },
+        'a5': { width: '148mm', height: '210mm' },
+        'b5': { width: '176mm', height: '250mm' },
+        'letter': { width: '216mm', height: '279mm' }
     };
 
     const themeColors = {
@@ -1402,21 +1470,6 @@ function buildPaginatedPdfDOM(mountPoint, data, config) {
     root.style.cssText = 'background: #ffffff;';
     mountPoint.appendChild(root);
 
-    const watermarkLeftHtml = isToy ? `
-        <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-weight:700; font-size:10.5px; color:#1e293b;">词迹</span>
-            <span style="font-size:8.5px; color:#64748b;">让背词更有趣</span>
-        </div>
-    ` : `
-        <div style="display:flex; align-items:center; gap:7px;">
-            <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:18px; height:18px; border-radius:3px; object-fit:contain; display:block;">
-            <div style="display:flex; flex-direction:column; line-height:1.2;">
-                <span style="font-weight:700; font-size:10px; color:#1e293b;">词迹</span>
-                <span style="font-size:8px; color:#64748b;">让背词更有趣</span>
-            </div>
-        </div>
-    `;
-
     const watermarkRightHtml = isToy ? `
         <div class="pdf-toy-watermark-card" style="display:inline-flex; align-items:center; gap:6px;">
             <img src="${toyQrBase64 || FALLBACK_TOY_QR_DATA_URL}" alt="Toy QR" style="width:24px; height:24px; border-radius:2px; object-fit:contain; display:block; flex-shrink:0;">
@@ -1426,7 +1479,13 @@ function buildPaginatedPdfDOM(mountPoint, data, config) {
             </div>
         </div>
     ` : `
-        <span style="font-size:8.5px; color:#475569; padding:2px 7px; border:1px solid #cbd5e1; border-radius:4px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:rgba(255,255,255,0.9); font-weight:500; white-space:nowrap; letter-spacing:normal; word-break:keep-all;">https://www.bilibili.com/toy/cyr</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+            <img src="${APP_ICON_DATA_URL}" alt="App Icon" style="width:18px; height:18px; border-radius:3px; object-fit:contain; display:block;">
+            <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
+                <span style="font-weight:700; font-size:10px; color:#1e293b;">词迹</span>
+                <span style="font-size:8px; color:#64748b;">让背词更有趣</span>
+            </div>
+        </div>
     `;
 
     let currentPageEl = null;
@@ -1455,15 +1514,16 @@ function buildPaginatedPdfDOM(mountPoint, data, config) {
             line-height: 1.5;
             page-break-after: always;
             break-after: page;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            font-feature-settings: "kern" 1;
         `;
         page.innerHTML = `
             <div class="pdf-page-content" style="flex:1 1 auto; display:flex; flex-direction:column; min-height:0;"></div>
-            <div class="pdf-page-footer" style="flex:0 0 auto; height:26px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:4px; margin-top:6px; box-sizing:border-box;">
-                ${watermarkLeftHtml}
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span class="pdf-page-num-label" style="font-size:8.5px; color:#94a3b8; font-weight:500;">第 ${pageCount} 页</span>
-                    ${watermarkRightHtml}
-                </div>
+            <div class="pdf-page-footer" style="flex:0 0 auto; height:24px; display:flex; align-items:center; justify-content:space-between; margin-top:6px; box-sizing:border-box;">
+                <span class="pdf-page-num-label" style="font-size:8.5px; color:#94a3b8; font-weight:500;">第 ${pageCount} 页</span>
+                ${watermarkRightHtml}
             </div>
         `;
         root.appendChild(page);
@@ -1499,7 +1559,7 @@ function buildPaginatedPdfDOM(mountPoint, data, config) {
     function isOverflowing(element) {
         const elRect = element.getBoundingClientRect();
         const footerRect = currentFooterEl.getBoundingClientRect();
-        return (elRect.bottom > footerRect.top - 6);
+        return (elRect.bottom > footerRect.top - 8);
     }
 
     function addSection(title, count, titleColor, cardElements) {
@@ -1772,12 +1832,20 @@ async function exportStudyDataPDF() {
     if (typeof showToast === 'function') showToast('正在排版并生成 PDF 文件...');
 
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
-    const dateStr = getTodayDateString();
-    const fileName = `${safeTitle}_${dateStr}.pdf`;
+    const dateRangeStr = getExportDateRangeFilenameSuffix();
+    const fileName = `${safeTitle}_${dateRangeStr}.pdf`;
+
+    const paperDimensions = {
+        'a4': { width: '210mm', height: '297mm' },
+        'a5': { width: '148mm', height: '210mm' },
+        'b5': { width: '176mm', height: '250mm' },
+        'letter': { width: '216mm', height: '279mm' }
+    };
+    const targetDim = paperDimensions[paperSize] || paperDimensions['a4'];
 
     // 挂载用于精确测量的不可见容器（必须挂载到 DOM 中，否则 getBoundingClientRect 为 0）
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; z-index:-99999; opacity:0; pointer-events:none; background:#ffffff; overflow:hidden;';
+    wrapper.style.cssText = `position:fixed; top:0; left:0; width:${targetDim.width}; z-index:-99999; opacity:1; pointer-events:none; background:#ffffff; overflow:visible;`;
     document.body.appendChild(wrapper);
 
     try {
@@ -1803,65 +1871,6 @@ async function exportStudyDataPDF() {
             fieldMistakesCorrect
         });
 
-        // 优先尝试 Electron 原生导出（高保真矢量打印，直接保存并调用系统 PDF 阅读器打开）
-        if (window.electronAPI && typeof window.electronAPI.saveAndOpenExportFile === 'function') {
-            try {
-                const fullHtml = `<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${escapePdfHtml(docTitle)}</title>
-                    <style>
-                        @page {
-                            size: ${paperSize.toUpperCase()} portrait;
-                            margin: 0;
-                        }
-                        * {
-                            box-sizing: border-box;
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                            background: #ffffff;
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                        }
-                        .pdf-page-container {
-                            page-break-after: always;
-                            break-after: page;
-                        }
-                        .pdf-page-container:last-child {
-                            page-break-after: auto;
-                            break-after: auto;
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${root.innerHTML}
-                </body>
-                </html>`;
-
-                const res = await window.electronAPI.saveAndOpenExportFile({
-                    fileName,
-                    format: 'pdf',
-                    htmlContent: fullHtml,
-                    printOptions: {
-                        pageSize: paperSize ? paperSize.toUpperCase() : 'A4'
-                    }
-                });
-
-                if (res && res.success) {
-                    if (typeof showToast === 'function') showToast('PDF 文件已在系统阅读器中打开');
-                    return;
-                } else if (res && res.error) {
-                    console.warn('[Electron PDF export returned error, falling back to html2pdf]', res.error);
-                }
-            } catch (electronErr) {
-                console.warn('[Electron saveAndOpenExportFile error, fallback to html2pdf]', electronErr);
-            }
-        }
-
         // 纯网页环境或降级：调用 html2pdf.js 生成精确分页 PDF 并触发浏览器直接下载 (免弹打印对话框)
         await ensureHtml2PdfLoaded();
 
@@ -1870,24 +1879,123 @@ async function exportStudyDataPDF() {
             filename: fileName,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
-                scale: 2,
+                scale: 2.8, // 高清 ~270 DPI 打印分辨率，极大提升文字放大清晰度
                 useCORS: true,
-                letterRendering: false,
+                letterRendering: true,
                 backgroundColor: '#ffffff',
                 scrollX: 0,
-                scrollY: 0
+                scrollY: 0,
+                logging: false
             },
             jsPDF: {
                 unit: 'mm',
                 format: paperSize || 'a4',
                 orientation: 'portrait'
             },
-            pagebreak: { mode: [] }
+            pagebreak: { mode: [] } // 彻底禁用 pagebreak 插件，杜绝跨页插入 spacer 和节点回流卡顿
         };
 
-        const pdfBlob = await (window.html2pdf || (typeof html2pdf !== 'undefined' ? html2pdf : null))().set(opt).from(root).output('blob');
+        const html2pdfLib = (window.html2pdf || (typeof html2pdf !== 'undefined' ? html2pdf : null));
+        if (!html2pdfLib) {
+            throw new Error('PDF 渲染组件加载失败');
+        }
+
+        const pageElements = Array.from(root.querySelectorAll('.pdf-page-container'));
+        const totalP = pageElements.length;
+        const pageImages = [];
+
+        // 全局拦截 HTMLCanvasElement.prototype.getContext 注入 willReadFrequently: true
+        // 彻底消除 Chrome 控制台 getImageData 读取警告，并将 Canvas 像素读取速度提升 3~5 倍
+        const origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function(type, attributes) {
+            if (type === '2d') {
+                attributes = Object.assign({}, attributes, { willReadFrequently: true });
+            }
+            return origGetContext.call(this, type, attributes);
+        };
+
+        let pdfBlob = null;
+        try {
+            if (typeof showToast === 'function') {
+                showToast(`正在高清排版渲染 PDF (共 ${totalP} 页)...`, 1500);
+            }
+
+            // 1. 初始化 jsPDF 实例（通过 100x100 dummy canvas 安全构造纯净的 jsPDF 实例）
+            const dummyCanvas = document.createElement('canvas');
+            dummyCanvas.width = 100;
+            dummyCanvas.height = 100;
+            const initWorker = html2pdfLib().set(opt).set({ canvas: dummyCanvas });
+            await initWorker.toPdf();
+            const seedPdf = await initWorker.get('pdf');
+            const pageSize = await initWorker.get('pageSize');
+            const pWidth = (pageSize && pageSize.inner && pageSize.inner.width) || 210;
+            const pHeight = (pageSize && pageSize.inner && pageSize.inner.height) || 297;
+
+            // 2. 严格 1:1 单页独立栅格化合流，每一页单独生成 Canvas 并加入 jsPDF，杜绝跨页切片断词与空白
+            for (let i = 0; i < totalP; i++) {
+                if (typeof showToast === 'function' && totalP > 2 && (i % 2 === 0 || i === totalP - 1)) {
+                    showToast(`正在排版渲染 PDF (第 ${i + 1}/${totalP} 页)...`, 1000);
+                }
+
+                const pageWorker = html2pdfLib().set(opt).from(pageElements[i]);
+                const pageCanvas = await pageWorker.toCanvas().get('canvas');
+                const imgData = pageCanvas.toDataURL('image/jpeg', 0.98);
+
+                if (pageImages.length < 15) {
+                    pageImages.push(imgData);
+                }
+
+                seedPdf.addPage();
+                seedPdf.addImage(imgData, 'JPEG', 0, 0, pWidth, pHeight);
+
+                // 立即释放 Canvas 显存，防止长文档内存溢出
+                pageCanvas.width = 1;
+                pageCanvas.height = 1;
+            }
+
+            // 3. 删除第 1 个 dummy 页面，剩余页面恰好为真实的 1 ~ totalP 页
+            seedPdf.deletePage(1);
+
+            // 4. 获取生成的标准 PDF Blob
+            const res = seedPdf.output('blob');
+            pdfBlob = (res instanceof Promise) ? await res : res;
+        } finally {
+            HTMLCanvasElement.prototype.getContext = origGetContext;
+        }
+
         if (pdfBlob && pdfBlob.size > 2000) {
-            downloadFileBlob(pdfBlob, fileName, 'application/pdf');
+            // Electron 原生环境：直接传递 PDF Base64 二进制，实现秒级落盘并自动调用系统阅读器打开
+            if (window.electronAPI && typeof window.electronAPI.saveAndOpenExportFile === 'function') {
+                try {
+                    const reader = new FileReader();
+                    const base64Promise = new Promise((resolve) => {
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(pdfBlob);
+                    });
+                    const base64Data = await base64Promise;
+
+                    const res = await window.electronAPI.saveAndOpenExportFile({
+                        fileName,
+                        format: 'pdf',
+                        base64Data
+                    });
+
+                    if (res && res.success) {
+                        if (typeof showToast === 'function') showToast('PDF 文件已在系统阅读器中打开');
+                        return;
+                    }
+                } catch (electronErr) {
+                    console.warn('[Electron saveAndOpenExportFile error, fallback to downloadFileBlob]', electronErr);
+                }
+            }
+
+            // 网页端直接下载
+            await downloadFileBlob(pdfBlob, fileName, 'application/pdf', {
+                pageImages,
+                docTitle,
+                dateRangeLabel,
+                totalPages: totalP
+            });
         } else {
             if (typeof showToast === 'function') showToast('PDF 生成失败，请重试');
         }
@@ -1904,54 +2012,401 @@ async function exportStudyDataPDF() {
 /**
  * 导出 Markdown 文件
  */
-function exportStudyDataMarkdown() {
+async function exportStudyDataMarkdown() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
     const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
-    const dateStr = getTodayDateString();
+    const dateRangeStr = getExportDateRangeFilenameSuffix();
     const md = generateMarkdownExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
-    downloadFileBlob(md, `${safeTitle}_${dateStr}.md`, 'text/markdown;charset=utf-8');
+    const fileName = `${safeTitle}_${dateRangeStr}.md`;
+
+    if (window.electronAPI && typeof window.electronAPI.saveAndOpenExportFile === 'function') {
+        try {
+            const res = await window.electronAPI.saveAndOpenExportFile({
+                fileName,
+                format: 'md',
+                content: md
+            });
+            if (res && res.success) {
+                if (typeof showToast === 'function') showToast('Markdown 文件已在系统编辑器中打开');
+                return;
+            }
+        } catch (e) { }
+    }
+    await downloadFileBlob(md, fileName, 'text/markdown;charset=utf-8');
 }
 
 /**
  * 导出纯文本 TXT 文件
  */
-function exportStudyDataTxt() {
+async function exportStudyDataTxt() {
     const dateLabel = document.getElementById('export-selected-date-desc')?.textContent || '学习数据';
     const docTitle = (document.getElementById('export-custom-title-input')?.value || '').trim() || '学习数据';
-    const dateStr = getTodayDateString();
+    const dateRangeStr = getExportDateRangeFilenameSuffix();
     const txt = generateTxtExportContent(docTitle, dateLabel);
     const safeTitle = docTitle.replace(/[/\\?%*:|"<>]/g, '_');
-    downloadFileBlob(txt, `${safeTitle}_${dateStr}.txt`, 'text/plain;charset=utf-8');
+    const fileName = `${safeTitle}_${dateRangeStr}.txt`;
+
+    if (window.electronAPI && typeof window.electronAPI.saveAndOpenExportFile === 'function') {
+        try {
+            const res = await window.electronAPI.saveAndOpenExportFile({
+                fileName,
+                format: 'txt',
+                content: txt
+            });
+            if (res && res.success) {
+                if (typeof showToast === 'function') showToast('TXT 文本已在系统记事本中打开');
+                return;
+            }
+        } catch (e) { }
+    }
+    await downloadFileBlob(txt, fileName, 'text/plain;charset=utf-8');
 }
 
 /**
  * 根据当前选择的格式（PDF / MD / TXT）一键下载对应文件
  */
-function handleExportDownloadClick() {
+async function handleExportDownloadClick() {
     const fmt = document.getElementById('export-format-select')?.value || 'pdf';
     if (fmt === 'pdf') {
-        exportStudyDataPDF();
+        await exportStudyDataPDF();
     } else if (fmt === 'md') {
-        exportStudyDataMarkdown();
+        await exportStudyDataMarkdown();
     } else if (fmt === 'txt') {
-        exportStudyDataTxt();
+        await exportStudyDataTxt();
     }
 }
 
-function downloadFileBlob(content, filename, mimeType) {
+async function downloadFileBlob(content, filename, mimeType, extra = {}) {
     const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 150);
-    showToast(`已开始下载 ${filename}`);
+
+    // 1. 如果在 B 站 App 内运行，客户端 WebView 点击 a.download 会拦截并直接在内嵌页打开纯文本/嵌入全屏预览
+    //    根据需求彻底避免触发内嵌页预览，改为弹出专为移动端定制的导出引导对话框（保存图片至相册、手机浏览器打开下载等）
+    const isBiliApp = isBilibiliAppEnvironment();
+    if (isBiliApp) {
+        if (mimeType === 'application/pdf') {
+            showBiliPdfExportDialog(blob, filename, extra);
+            return;
+        }
+
+        let sharedSuccess = false;
+
+        // 优先尝试基于 Web Share API 的系统文件分享（调出原生分享面板：保存到文件/微信/QQ等）
+        try {
+            if (typeof File !== 'undefined' && navigator.share) {
+                const file = new File([blob], filename, { type: mimeType });
+                if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: filename,
+                        text: `词迹学习数据导出: ${filename}`,
+                        files: [file]
+                    });
+                    sharedSuccess = true;
+                    if (typeof showToast === 'function') {
+                        showToast(`已调用系统分享：${filename}`);
+                    }
+                    return;
+                }
+            }
+        } catch (shareErr) {
+            // 用户主动点击取消系统分享面板，无需报错
+            if (shareErr && (shareErr.name === 'AbortError' || String(shareErr).includes('AbortError'))) {
+                return;
+            }
+            console.warn('[downloadFileBlob] navigator.share with files failed, attempting fallback', shareErr);
+        }
+
+        // 若直接分享文件不受支持，但支持文本类分享（如 TXT 或 Markdown）
+        if (!sharedSuccess && navigator.share && mimeType && mimeType.startsWith('text/')) {
+            try {
+                const textContent = await blob.text();
+                await navigator.share({
+                    title: filename,
+                    text: textContent
+                });
+                sharedSuccess = true;
+                if (typeof showToast === 'function') {
+                    showToast(`已调起系统分享`);
+                }
+                return;
+            } catch (textShareErr) {
+                if (textShareErr && (textShareErr.name === 'AbortError' || String(textShareErr).includes('AbortError'))) {
+                    return;
+                }
+                console.warn('[downloadFileBlob] navigator.share with text failed', textShareErr);
+            }
+        }
+
+        // 若当前 WebView 环境完全不支持系统分享，对文本格式自动写入剪贴板作为贴心降级
+        if (!sharedSuccess && mimeType && mimeType.startsWith('text/')) {
+            try {
+                const textContent = await blob.text();
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    await navigator.clipboard.writeText(textContent);
+                    if (typeof showToast === 'function') {
+                        showToast('系统分享暂不可用，已将文档内容复制到剪贴板，可直接粘贴！', 3500);
+                    }
+                    return;
+                }
+            } catch (clipErr) { }
+        }
+    }
+
+    // 2. 常规浏览器环境（或 PC/桌面端）：标准 <a> 标签下载
+    try {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (document.body.contains(a)) {
+                document.body.removeChild(a);
+            }
+            URL.revokeObjectURL(url);
+        }, 60000); // 留足 60 秒，保证大体积 PDF 文件（多页）在浏览器下载线程完整缓存与保存
+        if (typeof showToast === 'function') {
+            showToast(`已开始下载 ${filename}`);
+        }
+    } catch (e) {
+        console.error('[downloadFileBlob] fallback download failed', e);
+        if (typeof showToast === 'function') {
+            showToast(`下载失败: ${e.message || '请重试'}`);
+        }
+    }
+}
+
+/**
+ * B 站 App 内专属 PDF 导出引导弹窗 (避免自动跳转到内嵌 WebView 预览，提供相册保存、外链下载、文本复制等方案)
+ */
+function showBiliPdfExportDialog(blob, filename, extra = {}) {
+    const {
+        pageImages = [],
+        docTitle = '学习数据',
+        dateRangeLabel = '学习数据报告',
+        totalPages = 1
+    } = extra;
+
+    // 移除已存在的弹窗
+    const existing = document.getElementById('modal-bili-pdf-export');
+    if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-bili-pdf-export';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box; animation:fadeIn 0.2s ease-out;';
+
+    const hasAlbumSupport = typeof window !== 'undefined' && window.toy && typeof window.toy.saveImageToAlbum === 'function' && pageImages.length > 0;
+    const hasNativeShare = typeof navigator !== 'undefined' && Boolean(navigator.share);
+
+    modal.innerHTML = `
+        <div class="modal-card" style="max-width:440px; width:100%; max-height:90vh; overflow-y:auto; border-radius:24px; background:var(--md-sys-color-surface, #ffffff); color:var(--md-sys-color-on-surface, #1e293b); box-shadow:0 16px 40px rgba(0,0,0,0.22); padding:22px 20px; box-sizing:border-box; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary, #0061a4); font-size:24px;">picture_as_pdf</span>
+                    <h3 style="margin:0; font-size:1.12rem; font-weight:700;">导出 PDF 提示</h3>
+                </div>
+                <button type="button" id="btn-close-bili-pdf-dialog" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:4px; display:flex; align-items:center; border-radius:50%;">
+                    <span class="material-symbols-rounded" style="font-size:20px;">close</span>
+                </button>
+            </div>
+
+            <div style="background:#f0f7ff; border:1px solid #bfdbfe; border-radius:12px; padding:10px 12px; font-size:0.83rem; line-height:1.45; color:#1e40af;">
+                <strong>温馨提示：</strong>B 站 App 限制了在内嵌页中直接保存本地文件。为避免屏幕被强制全屏预览拦截，请选择以下推荐方式：
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                ${hasAlbumSupport ? `
+                <button type="button" id="btn-bili-save-album" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #93c5fd; background:#eff6ff; border-radius:14px; cursor:pointer; text-align:left; transition:background 0.15s;">
+                    <span class="material-symbols-rounded" style="color:#0284c7; font-size:28px; flex-shrink:0;">photo_album</span>
+                    <div style="flex:1;">
+                        <div style="font-size:0.92rem; font-weight:700; color:#0f172a; margin-bottom:2px;">保存排版长图至手机相册 (推荐)</div>
+                        <div style="font-size:0.78rem; color:#475569; line-height:1.3;">将排版好的报告（共 ${pageImages.length} 页）保存至系统相册，随时查看或打印</div>
+                    </div>
+                </button>
+                ` : ''}
+
+                <button type="button" id="btn-bili-copy-browser-url" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--md-sys-color-primary, #0061a4); background:var(--md-sys-color-primary, #0061a4); color:#ffffff; border-radius:14px; cursor:pointer; text-align:left; transition:opacity 0.15s;">
+                    <span class="material-symbols-rounded" style="color:#ffffff; font-size:28px; flex-shrink:0;">open_in_browser</span>
+                    <div style="flex:1;">
+                        <div style="font-size:0.92rem; font-weight:700; margin-bottom:2px;">复制链接并在手机浏览器打开 (直接下载 PDF)</div>
+                        <div style="font-size:0.78rem; opacity:0.9; line-height:1.3;">在手机自带浏览器（如 Safari/Chrome）中打开，可一键完整下载 PDF 文件</div>
+                    </div>
+                </button>
+
+                ${hasNativeShare ? `
+                <button type="button" id="btn-bili-native-share" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:14px; cursor:pointer; text-align:left; transition:background 0.15s;">
+                    <span class="material-symbols-rounded" style="color:#475569; font-size:28px; flex-shrink:0;">share</span>
+                    <div style="flex:1;">
+                        <div style="font-size:0.92rem; font-weight:700; color:#0f172a; margin-bottom:2px;">调用系统原生分享 / 隔空投送</div>
+                        <div style="font-size:0.78rem; color:#475569; line-height:1.3;">调起系统分享菜单，可发送至微信、隔空投送或存储到文件</div>
+                    </div>
+                </button>
+                ` : ''}
+
+                <button type="button" id="btn-bili-copy-text" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:14px; cursor:pointer; text-align:left; transition:background 0.15s;">
+                    <span class="material-symbols-rounded" style="color:#475569; font-size:28px; flex-shrink:0;">content_copy</span>
+                    <div style="flex:1;">
+                        <div style="font-size:0.92rem; font-weight:700; color:#0f172a; margin-bottom:2px;">复制 Markdown / 纯文本报告</div>
+                        <div style="font-size:0.78rem; color:#475569; line-height:1.3;">一键复制本次全部词汇与错题排版文本，可粘贴至微信或备忘录</div>
+                    </div>
+                </button>
+            </div>
+
+            <div style="display:flex; justify-content:center; align-items:center; margin-top:4px;">
+                <button type="button" id="btn-bili-force-preview" style="background:transparent; border:none; cursor:pointer; font-size:0.78rem; color:#94a3b8; text-decoration:underline; padding:4px 8px;">
+                    仍要在应用内预览 PDF
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    function closeModal() {
+        if (document.body.contains(modal)) {
+            document.body.removeChild(modal);
+        }
+    }
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    modal.querySelector('#btn-close-bili-pdf-dialog')?.addEventListener('click', closeModal);
+
+    // 1. 保存到手机相册
+    modal.querySelector('#btn-bili-save-album')?.addEventListener('click', async () => {
+        if (!window.toy || typeof window.toy.saveImageToAlbum !== 'function' || pageImages.length === 0) {
+            if (typeof showToast === 'function') showToast('当前环境不支持直接保存相册');
+            return;
+        }
+        try {
+            if (typeof showToast === 'function') showToast('正在保存报告至系统相册...');
+            const toSave = pageImages.slice(0, 5); // 最多连续保存前5页，防止连续唤起相册授权引起卡顿
+            for (let i = 0; i < toSave.length; i++) {
+                await window.toy.saveImageToAlbum({
+                    base64Data: toSave[i],
+                    hintMsg: `保存第 ${i + 1}/${toSave.length} 页学习报告`
+                });
+            }
+            if (typeof showToast === 'function') {
+                showToast(`✅ 已成功保存 ${toSave.length} 页报告至手机相册！`, 3500);
+            }
+            closeModal();
+        } catch (albumErr) {
+            console.error('[Toy saveImageToAlbum error]', albumErr);
+            const msg = albumErr && albumErr.message ? albumErr.message : '请检查相册写入权限';
+            if (typeof showToast === 'function') showToast(`保存相册失败: ${msg}`, 3500);
+        }
+    });
+
+    // 2. 复制浏览器链接
+    modal.querySelector('#btn-bili-copy-browser-url')?.addEventListener('click', async () => {
+        const urlToCopy = window.location.href;
+        let copied = false;
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(urlToCopy);
+                copied = true;
+            }
+        } catch (e) { }
+
+        if (!copied) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = urlToCopy;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                copied = true;
+            } catch (e) { }
+        }
+
+        if (typeof showToast === 'function') {
+            showToast('✅ 链接已复制！请打开手机自带浏览器（如 Safari / Chrome）粘贴访问，即可直接下载 PDF 文件！', 4500);
+        }
+        closeModal();
+    });
+
+    // 3. 系统原生分享
+    modal.querySelector('#btn-bili-native-share')?.addEventListener('click', async () => {
+        if (!navigator.share || typeof File === 'undefined') {
+            if (typeof showToast === 'function') showToast('当前系统不支持文件分享，建议复制链接在浏览器打开');
+            return;
+        }
+        try {
+            const file = new File([blob], filename, { type: 'application/pdf' });
+            await navigator.share({
+                title: filename,
+                text: `词迹学习数据导出: ${filename}`,
+                files: [file]
+            });
+            if (typeof showToast === 'function') showToast('已成功调起系统分享');
+            closeModal();
+        } catch (err) {
+            if (err && (err.name === 'AbortError' || String(err).includes('AbortError'))) {
+                return;
+            }
+            console.warn('[native share error]', err);
+            if (typeof showToast === 'function') {
+                showToast('分享不可用，请点击上方“复制链接在手机浏览器打开”');
+            }
+        }
+    });
+
+    // 4. 复制文本 / Markdown
+    modal.querySelector('#btn-bili-copy-text')?.addEventListener('click', async () => {
+        const md = generateMarkdownExportContent(docTitle, dateRangeLabel);
+        let copied = false;
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(md);
+                copied = true;
+            }
+        } catch (e) { }
+        if (!copied) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = md;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                copied = true;
+            } catch (e) { }
+        }
+        if (typeof showToast === 'function') showToast('✅ 学习报告文本已复制到剪贴板！');
+        closeModal();
+    });
+
+    // 5. 仍要在应用内预览
+    modal.querySelector('#btn-bili-force-preview')?.addEventListener('click', () => {
+        closeModal();
+        try {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                if (document.body.contains(a)) document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 500);
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('打开预览失败: ' + (e.message || '未知错误'));
+        }
+    });
 }
 
 /**

@@ -142,7 +142,7 @@ function refreshCurrentUserProfileFromStorage() {
         if (rawAccounts) {
             const list = JSON.parse(rawAccounts);
             if (Array.isArray(list) && list.length > 0) {
-                const latestAcc = list.find(a => a && a.username && !a.username.startsWith('游客'));
+                const latestAcc = list.find(a => a && a.username && !a.username.startsWith('游客') && a.type !== 'bilibili');
                 if (latestAcc) {
                     currentUser = latestAcc.username;
                     currentUserProfile = {

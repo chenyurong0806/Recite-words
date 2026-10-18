@@ -57,7 +57,9 @@
        图片资源预加载与 localStorage 持久缓存 (彻底解决 CORS / 404 / 连续生成失败)
        ========================================================================== */
     const _POSTER_BG_STORAGE_KEY = 'poster_bg_cached_base64';
-    const APP_ICON_URL = './assets/images/icon-web.png';
+    const APP_ICON_URL = (typeof window !== 'undefined' && window.APP_ICON_DATA_URL)
+        ? window.APP_ICON_DATA_URL
+        : './assets/images/icon-web.png';
 
     let _cachedBgImage = null;
     let _bgPreloadPromise = null;
@@ -82,7 +84,10 @@
         return new Promise((resolve) => {
             if (!src || typeof src !== 'string') return resolve(null);
             const img = new Image();
-            img.crossOrigin = 'anonymous';
+            // 仅对明确跨域的外部 http/https 资源设置 crossOrigin = 'anonymous'，本地路径、file:// 协议和 data: URL 绝不设置，避免触发 CORS policy 拦截报错
+            if (/^https?:\/\//i.test(src)) {
+                img.crossOrigin = 'anonymous';
+            }
             let timer = null;
             let finished = false;
 
@@ -334,25 +339,59 @@
     }
 
     let _lastPosterHighlightWord = null;
+    let _recentPosterWords = [];
+    let _isChangingWord = false;
 
     /**
-     * 换词：重新随机抽取展示单词并重新生成当前海报
+     * 换词：重新随机抽取展示单词并重新生成当前海报 (确保不重复刚展示的词，带平滑防抖与动画)
      */
     async function changePosterWord() {
         if (!_currentPosterGenerator || typeof _currentPosterGenerator !== 'function') return;
+        if (_isChangingWord) return;
+        _isChangingWord = true;
+
+        const btn = document.getElementById('btn-poster-change-word');
+        const iconSpan = btn ? btn.querySelector('.material-symbols-rounded') : null;
+        if (iconSpan) {
+            iconSpan.style.transition = 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)';
+            iconSpan.style.transform = 'rotate(360deg)';
+        }
+        if (btn) btn.style.pointerEvents = 'none';
+
         if (typeof showToast === 'function') showToast('正在更换展示单词...');
         try {
-            if (_currentPosterOptions) {
-                delete _currentPosterOptions.fixedHighlightWord;
+            const currentWord = _lastPosterHighlightWord ? (_lastPosterHighlightWord.word || '') : '';
+            if (currentWord) {
+                _recentPosterWords.push(currentWord.trim().toLowerCase());
+                if (_recentPosterWords.length > 25) _recentPosterWords.shift();
             }
-            _lastPosterHighlightWord = null;
-            const dataUrl = await _currentPosterGenerator(_currentPosterOptions || {});
+
+            const opts = { ...(_currentPosterOptions || {}) };
+            delete opts.fixedHighlightWord;
+            opts.excludeWord = currentWord;
+            opts.recentWords = _recentPosterWords;
+
+            const dataUrl = await _currentPosterGenerator(opts);
             currentPosterBase64 = dataUrl;
             const imgEl = document.getElementById('poster-preview-image');
             if (imgEl) imgEl.src = dataUrl;
-            if (typeof showToast === 'function') showToast('已更换展示单词');
+
+            const newWord = _lastPosterHighlightWord ? (_lastPosterHighlightWord.word || '') : '';
+            if (typeof showToast === 'function') {
+                showToast(newWord ? `已更换为: ${newWord}` : '已更换展示单词');
+            }
         } catch (e) {
             console.error('[changePosterWord] error:', e);
+            if (typeof showToast === 'function') showToast('换词失败，请重试');
+        } finally {
+            _isChangingWord = false;
+            if (btn) btn.style.pointerEvents = 'auto';
+            if (iconSpan) {
+                setTimeout(() => {
+                    iconSpan.style.transition = 'none';
+                    iconSpan.style.transform = 'none';
+                }, 450);
+            }
         }
     }
 
@@ -876,11 +915,45 @@
     }
 
     /**
-     * 随机抽取一个词展示
-     * 严格优先级：今日错词 > 本次学习词库 > 生涯高频错词 > 学过的单词 > 默认词库
+     * 随机抽取一个词展示 (多级智能候选池，防重复抽取，支持换词轮转)
+     * 严格优先级：今日错词 > 本次学习词库 > 生涯高频错词 > 学过的单词 > 当前词书 > 默认词库 > 经典常备文库
      */
     function pickPosterHighlightWord(options = {}) {
         const isShiCi = (options.sessionType === 'shici');
+        const excludeWord = (options.excludeWord || '').trim().toLowerCase();
+        const recentWords = Array.isArray(options.recentWords) ? options.recentWords.map(w => String(w || '').trim().toLowerCase()) : [];
+
+        function isExcluded(wStr) {
+            if (!wStr) return true;
+            const clean = String(wStr).trim().toLowerCase();
+            if (excludeWord && clean === excludeWord) return true;
+            if (recentWords.includes(clean)) return true;
+            return false;
+        }
+
+        function pickFromList(list) {
+            if (!Array.isArray(list) || list.length === 0) return null;
+            // 1. 优先从既不等于当前词，又不在近期出现过的集合中随机抽取
+            let filtered = list.filter(item => {
+                const w = item?.word || (Array.isArray(item) ? item[0] : item);
+                return !isExcluded(w);
+            });
+            // 2. 若被近期集合排空，则只严格排除当前刚展示的词
+            if (filtered.length === 0 && excludeWord) {
+                filtered = list.filter(item => {
+                    const w = item?.word || (Array.isArray(item) ? item[0] : item);
+                    return String(w || '').trim().toLowerCase() !== excludeWord;
+                });
+            }
+            if (filtered.length === 0) {
+                filtered = list;
+            }
+            if (filtered.length > 0) {
+                const chosen = filtered[Math.floor(Math.random() * filtered.length)];
+                return normalizeWordCandidate(chosen);
+            }
+            return null;
+        }
 
         // 优先级 1: 本次学习小结中的错词
         const candidatesP1 = [];
@@ -897,16 +970,14 @@
             });
         }
         if (candidatesP1.length > 0) {
-            const picked = candidatesP1[Math.floor(Math.random() * candidatesP1.length)];
-            const norm = normalizeWordCandidate(picked);
-            if (norm && norm.word) return norm;
+            const picked = pickFromList(candidatesP1);
+            if (picked && picked.word) return picked;
         }
 
         // 优先级 2: 如果是本次学习小结 (isSession)，优先从本次实际学习的词库 pool 中抽取一个词
         if (options.isSession && options.pool && Array.isArray(options.pool) && options.pool.length > 0) {
-            const picked = options.pool[Math.floor(Math.random() * options.pool.length)];
-            const norm = normalizeWordCandidate(picked);
-            if (norm && norm.word) return norm;
+            const picked = pickFromList(options.pool);
+            if (picked && picked.word) return picked;
         }
 
         // 优先级 3: 生涯高频错词 (若为实词模式则避免抽取英文历史错词)
@@ -914,18 +985,14 @@
             const mistakes = (typeof userStats !== 'undefined' && userStats.mistakes) ? userStats.mistakes : {};
             const mistakeEntries = Object.entries(mistakes).filter(([k, v]) => v && (v.count || 0) >= 1);
             if (mistakeEntries.length > 0) {
-                let maxCount = 0;
-                mistakeEntries.forEach(([k, v]) => {
-                    if ((v.count || 0) > maxCount) maxCount = v.count;
-                });
-                const topTierMistakes = mistakeEntries.filter(([k, v]) => (v.count || 0) >= Math.max(1, maxCount - 1));
-                const chosenMistake = topTierMistakes[Math.floor(Math.random() * topTierMistakes.length)];
-                const norm = normalizeWordCandidate({
-                    word: chosenMistake[0],
-                    phone: chosenMistake[1].phone || chosenMistake[1].pinyin || '',
-                    meaning: chosenMistake[1].meaning || ''
-                });
-                if (norm && norm.word) return norm;
+                const mistakeList = mistakeEntries.map(([w, v]) => ({
+                    word: w,
+                    phone: v.phone || v.pinyin || '',
+                    meaning: v.meaning || '',
+                    count: v.count || 1
+                }));
+                const picked = pickFromList(mistakeList);
+                if (picked && picked.word) return picked;
             }
         }
 
@@ -941,38 +1008,68 @@
             candidatesP4.push(...options.pool);
         }
         if (candidatesP4.length > 0) {
-            const picked = candidatesP4[Math.floor(Math.random() * candidatesP4.length)];
-            const norm = normalizeWordCandidate(picked);
-            if (norm && norm.word) return norm;
+            const picked = pickFromList(candidatesP4);
+            if (picked && picked.word) return picked;
         }
 
-        // 优先级 5: 默认词库
-        if (!isShiCi) {
-            const candidatesP5 = [];
-            if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS) && DEFAULT_WORDS.length > 0) {
-                candidatesP5.push(...DEFAULT_WORDS);
-            }
-            if (candidatesP5.length > 0) {
-                const picked = candidatesP5[Math.floor(Math.random() * candidatesP5.length)];
-                const norm = normalizeWordCandidate(picked);
-                if (norm && norm.word) return norm;
-            }
+        // 优先级 5: 当前词书中的所有单词
+        if (typeof BookManager !== 'undefined' && typeof BookManager.getCurrentBook === 'function') {
+            try {
+                const curBook = BookManager.getCurrentBook();
+                if (curBook && Array.isArray(curBook.words) && curBook.words.length > 0) {
+                    const picked = pickFromList(curBook.words);
+                    if (picked && picked.word) return picked;
+                }
+            } catch (e) { }
         }
 
-        // 最终兜底 (实词与英文各自专用兜底)
+        // 优先级 6: 默认词库 / 实词全局词库
         if (isShiCi) {
-            return {
-                word: '按',
-                phone: '',
-                meaning: '[动词] 巡行，巡视',
-                sentence: '项王按剑而跽曰：“客何为者？” 《鸿门宴》'
-            };
+            if (typeof ShiCiManager !== 'undefined' && Array.isArray(ShiCiManager.data) && ShiCiManager.data.length > 0) {
+                const picked = pickFromList(ShiCiManager.data);
+                if (picked && picked.word) return picked;
+            }
+        } else {
+            const candidatesP6 = [];
+            if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS) && DEFAULT_WORDS.length > 0) {
+                candidatesP6.push(...DEFAULT_WORDS);
+            }
+            if (candidatesP6.length > 0) {
+                const picked = pickFromList(candidatesP6);
+                if (picked && picked.word) return picked;
+            }
         }
-        return {
-            word: 'adept',
-            phone: "/əˈdept/",
-            meaning: 'adj. 熟练的，内行的'
-        };
+
+        // 优先级 7: 经典常备文库轮换兜底 (即使离线也确保每次换词都不相同)
+        if (isShiCi) {
+            const shiciFallbacks = [
+                { word: '按', phone: '', meaning: '[动词] 巡行，巡视', sentence: '项王按剑而跽曰：“客何为者？” 《鸿门宴》' },
+                { word: '拔', phone: '', meaning: '[动词] 攻取，攻克', sentence: '其后秦伐赵，拔石城。 《廉颇蔺相如列传》' },
+                { word: '拜', phone: '', meaning: '[动词] 授予官职', sentence: '拜为上卿，位在廉颇之右。 《廉颇蔺相如列传》' },
+                { word: '暴', phone: '', meaning: '[动词] 显露，暴露', sentence: '暴霜露，斩荆棘，以有尺寸之地。 《六国论》' },
+                { word: '倍', phone: '', meaning: '[动词] 违背，背叛', sentence: '愿伯具言臣之不敢倍德也。 《鸿门宴》' },
+                { word: '本', phone: '', meaning: '[名词] 草木的根或茎干；基础', sentence: '求木之长者，必固其根本。 《谏太宗十思疏》' },
+                { word: '鄙', phone: '', meaning: '[形容词] 见识浅陋', sentence: '肉食者鄙，未能远谋。 《曹刿论战》' },
+                { word: '兵', phone: '', meaning: '[名词] 兵器，武器', sentence: '斩木为兵，揭竿为旗。 《过秦论》' },
+                { word: '病', phone: '', meaning: '[动词] 担心，忧虑', sentence: '向吾不为斯役，则久已病矣。 《捕蛇者说》' },
+                { word: '策', phone: '', meaning: '[动词] 驱使，用鞭子打', sentence: '执策而临之，曰：“天下无马！” 《马说》' }
+            ];
+            return pickFromList(shiciFallbacks) || shiciFallbacks[0];
+        }
+
+        const englishFallbacks = [
+            { word: 'adept', phone: '/əˈdept/', meaning: 'adj. 熟练的，内行的' },
+            { word: 'serendipity', phone: '/ˌserənˈdɪpəti/', meaning: 'n. 意外惊喜，机缘巧合' },
+            { word: 'epiphany', phone: '/ɪˈpɪfəni/', meaning: 'n. 顿悟，深刻领悟' },
+            { word: 'resilience', phone: '/rɪˈzɪliəns/', meaning: 'n. 韧性，复原力' },
+            { word: 'lucid', phone: '/ˈluːsɪd/', meaning: 'adj. 清晰的，明白易懂的' },
+            { word: 'perseverance', phone: '/ˌpɜːsəˈvɪərəns/', meaning: 'n. 坚持不懈，百折不挠' },
+            { word: 'quintessence', phone: '/kwɪnˈtesns/', meaning: 'n. 典范，精髓' },
+            { word: 'luminous', phone: '/ˈluːmɪnəs/', meaning: 'adj. 发光的，明亮的' },
+            { word: 'mellifluous', phone: '/məˈlɪfluəs/', meaning: 'adj. 悦耳动听的' },
+            { word: 'catalyst', phone: '/ˈkætəlɪst/', meaning: 'n. 催化剂，推动因素' }
+        ];
+        return pickFromList(englishFallbacks) || englishFallbacks[0];
     }
 
     /**

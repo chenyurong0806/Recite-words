@@ -167,7 +167,6 @@ async function bootstrapApp() {
     }
 
     // 6. 后台异步执行其他初始化任务（不阻塞主线程，不触发 switchView）
-    checkCloudVersion(false);
     checkFirstOpenWelcome();
     checkIosSafariPwa();
     checkLocalIconFontAvailability();

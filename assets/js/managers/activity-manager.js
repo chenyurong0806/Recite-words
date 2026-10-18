@@ -8,7 +8,7 @@
  * 3. 简化活动详情弹窗 UI，打开后自动更新任务完成情况
  * 4. 简化任务列表：未完成显示“前往”或当前进度，完成显示“领取奖励”，领完显示“已领取”
  * 5. 活动 1: 关注作者 B 站账号 (Toy平台，一次性，通过 toy.getAuthorRelation() 检测，奖励段位保护卡)
- * 6. 活动 2: 给关联视频互动 (Toy平台，周期任务，点赞收藏奖排位保护卡，投币奖排位保护卡，关联视频变化时动态更新)
+ * 6. 活动 2: 给最新视频互动 (Toy平台，周期任务，点赞收藏奖排位保护卡，投币奖排位保护卡，最新视频变化时动态更新)
  */
 
 (function (window) {
@@ -47,12 +47,20 @@
             return u.startsWith('游客') || u === 'guest';
         },
 
-        // 谨慎检测是否真正运行在 B 站 App 容器内（避免普通网页触发 SDK 强行弹出“请在哔哩哔哩App中使用”弹窗）
-        isBiliAppEnv() {
+        // 判断当前环境是否支持任务核验（支持 Toy App 与 Toy 浏览器网页端）
+        canDetectTasks() {
+            if (this.isGuest()) return false;
             if (typeof window === 'undefined') return false;
-            if (typeof window.toy === 'undefined') return false;
-            const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : '';
-            return /bili/i.test(ua) || Boolean(window.toy && window.toy.platform === 'app');
+            return Boolean(
+                window.toy && (
+                    typeof window.toy.getAuthorRelation === 'function' ||
+                    typeof window.toy.getVideoUserActions === 'function'
+                )
+            );
+        },
+
+        isBiliAppEnv() {
+            return this.canDetectTasks();
         },
 
         isToyBiliUser() {
@@ -156,7 +164,7 @@
                             taskId: 'task_follow_author',
                             title: '关注 up 主',
                             rewardType: 'tier_protect',
-                            rewardDesc: '段位保护卡 x1 (1个月有效)'
+                            rewardDesc: '段位保护卡 ×1 (1个月有效)'
                         }
                     ]
                 },
@@ -171,21 +179,21 @@
                     tasks: [
                         {
                             taskId: 'task_video_like',
-                            title: '给关联视频点赞',
+                            title: '给最新视频点赞',
                             rewardType: 'rank_double',
-                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                            rewardDesc: '排位翻倍卡 ×1 (1个月有效)'
                         },
                         {
                             taskId: 'task_video_fav',
-                            title: '给关联视频收藏',
+                            title: '给最新视频收藏',
                             rewardType: 'rank_double',
-                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                            rewardDesc: '排位翻倍卡 ×1 (1个月有效)'
                         },
                         {
                             taskId: 'task_video_coin',
-                            title: '给关联视频投币',
+                            title: '给最新视频投币',
                             rewardType: 'rank_double',
-                            rewardDesc: '排位翻倍卡 x1 (1个月有效)'
+                            rewardDesc: '排位翻倍卡 ×1 (1个月有效)'
                         }
                     ]
                 }
@@ -215,16 +223,16 @@
                 this._records.lastCheckedBvid = bvid;
                 this.saveState();
 
-                // 关联视频变化时，仅在真实处于 B 站 App 环境且非游客时静默更新检测
-                if (this.isBiliAppEnv() && !this.isGuest()) {
+                // 关联视频变化时，在 Toy 环境且非游客时静默更新检测
+                if (this.canDetectTasks()) {
                     await this.detectVideoInteractionTasks(bvid, true);
                 }
             }
         },
 
-        // 检测关注作者任务完成情况（仅在 B 站 App 内有效）
+        // 检测关注作者任务完成情况（支持 B 站 App 与 Toy 浏览器网页端）
         async detectFollowTask() {
-            if (!this.isBiliAppEnv() || this.isGuest()) return false;
+            if (!this.canDetectTasks()) return false;
 
             const record = this._records.act_bili_follow || { completed: false, claimed: false };
             if (record.claimed) return true;
@@ -232,7 +240,32 @@
             try {
                 if (typeof window.toy !== 'undefined' && typeof window.toy.getAuthorRelation === 'function') {
                     const res = await window.toy.getAuthorRelation();
-                    const isFollowing = Boolean(res && res.status === 'ok' && res.data && (res.data.isFollowing || res.data.is_following));
+                    // 兼容 Toy App 与 Toy 浏览器网页端多种返回格式
+                    let isFollowing = false;
+                    if (res) {
+                        if (res === true) {
+                            isFollowing = true;
+                        } else {
+                            const d = (typeof res === 'object' && res.data !== undefined) ? res.data : res;
+                            if (d === true) {
+                                isFollowing = true;
+                            } else if (d && typeof d === 'object') {
+                                isFollowing = Boolean(
+                                    d.isFollowing ||
+                                    d.is_following ||
+                                    d.following ||
+                                    d.relation === 2 ||
+                                    d.relation === 6 ||
+                                    d.attribute === 2 ||
+                                    d.attribute === 6
+                                );
+                            }
+                            if (!isFollowing && (res.isFollowing || res.is_following)) {
+                                isFollowing = true;
+                            }
+                        }
+                    }
+
                     if (isFollowing && !record.completed) {
                         record.completed = true;
                         this._records.act_bili_follow = record;
@@ -248,9 +281,9 @@
             return false;
         },
 
-        // 检测关联视频互动任务完成情况（仅在 B 站 App 内有效）
+        // 检测关联视频互动任务完成情况（支持 B 站 App 与 Toy 浏览器网页端）
         async detectVideoInteractionTasks(targetBvid = null, notifyOnUpdate = false) {
-            if (!this.isBiliAppEnv() || this.isGuest()) return;
+            if (!this.canDetectTasks()) return;
 
             const bvid = targetBvid || this.getAssociatedVideoBvid();
             if (!this._records.videoTasks) this._records.videoTasks = {};
@@ -276,51 +309,57 @@
                         videos: [{ bvid: bvid }]
                     });
 
-                    if (res && Array.isArray(res.items) && res.items.length > 0) {
-                        const item = res.items[0];
-                        if (item.status === 'ok') {
-                            const isLiked = Boolean(item.liked);
-                            const isFavorited = Boolean(item.favorited);
-                            const coinCount = parseInt(item.coinCount || item.coin_count || 0);
+                    // 兼容 Toy App 与 Toy 浏览器网页端多种 items 结构
+                    const items = (res && Array.isArray(res.items))
+                        ? res.items
+                        : (res && res.data && Array.isArray(res.data.items)
+                            ? res.data.items
+                            : (res && Array.isArray(res.data) ? res.data : null));
 
-                            videoRec.isLiked = isLiked;
-                            videoRec.isFavorited = isFavorited;
-                            videoRec.coinCount = coinCount;
+                    if (items && items.length > 0) {
+                        const item = items[0];
+                        const isLiked = Boolean(item.liked || item.isLiked || item.is_liked);
+                        const isFavorited = Boolean(item.favorited || item.isFavorited || item.is_favorited);
+                        const coinCount = parseInt(item.coinCount || item.coin_count || item.coins || 0) || 0;
 
-                            let stateChanged = false;
+                        videoRec.isLiked = isLiked;
+                        videoRec.isFavorited = isFavorited;
+                        videoRec.coinCount = coinCount;
 
-                            // 任务1: 点赞
-                            if (isLiked) {
-                                if (!videoRec.likeCompleted) {
-                                    videoRec.likeCompleted = true;
-                                    stateChanged = true;
-                                    if (notifyOnUpdate && !videoRec.likeClaimed) {
-                                        this.notifyTaskStatusChange('给关联视频点赞');
-                                    }
+                        let stateChanged = false;
+
+                        // 任务1: 点赞
+                        if (isLiked) {
+                            if (!videoRec.likeCompleted) {
+                                videoRec.likeCompleted = true;
+                                stateChanged = true;
+                                if (notifyOnUpdate && !videoRec.likeClaimed) {
+                                    this.notifyTaskStatusChange('给最新视频点赞');
                                 }
                             }
+                        }
 
-                            // 任务2: 收藏
-                            if (isFavorited) {
-                                if (!videoRec.favCompleted) {
-                                    videoRec.favCompleted = true;
-                                    stateChanged = true;
-                                    if (notifyOnUpdate && !videoRec.favClaimed) {
-                                        this.notifyTaskStatusChange('给关联视频收藏');
-                                    }
+                        // 任务2: 收藏
+                        if (isFavorited) {
+                            if (!videoRec.favCompleted) {
+                                videoRec.favCompleted = true;
+                                stateChanged = true;
+                                if (notifyOnUpdate && !videoRec.favClaimed) {
+                                    this.notifyTaskStatusChange('给最新视频收藏');
                                 }
                             }
+                        }
 
-                            // 任务3: 投币
-                            if (coinCount > 0) {
-                                if (!videoRec.coinCompleted) {
-                                    videoRec.coinCompleted = true;
-                                    stateChanged = true;
-                                    if (notifyOnUpdate && !videoRec.coinClaimed) {
-                                        this.notifyTaskStatusChange('给关联视频投币');
-                                    }
+                        // 任务3: 投币
+                        if (coinCount > 0) {
+                            if (!videoRec.coinCompleted) {
+                                videoRec.coinCompleted = true;
+                                stateChanged = true;
+                                if (notifyOnUpdate && !videoRec.coinClaimed) {
+                                    this.notifyTaskStatusChange('给最新视频投币');
                                 }
                             }
+                        }
 
                             this.saveState();
                             if (stateChanged) {
@@ -331,10 +370,9 @@
                             }
                         }
                     }
+                } catch (e) {
+                    console.warn('[ActivityManager] detectVideoInteractionTasks error:', e);
                 }
-            } catch (e) {
-                console.warn('[ActivityManager] detectVideoInteractionTasks error:', e);
-            }
         },
 
         // 任务状态发生更新时的醒目提醒
@@ -721,7 +759,7 @@
                         </div>
 
                         <div style="display:flex; align-items:center; gap:4px; font-size:0.85rem; font-weight:700; color:var(--md-sys-color-primary); flex-shrink:0;">
-                            <span>查看详情</span>
+                            <span></span>
                             <span class="material-symbols-rounded entry-card-arrow" style="font-size:16px;">arrow_forward</span>
                         </div>
                     </div>
@@ -744,8 +782,8 @@
                 modal.classList.add('active');
             }
 
-            // 仅在真正的 B 站 App 且非游客环境下自动触发检测，普通网页端严禁调用，防止强行弹出 App 弹窗
-            if (this.isBiliAppEnv() && !this.isGuest()) {
+            // 打开详情时，如果在 Toy 环境且非游客环境下自动触发检测并刷新
+            if (this.canDetectTasks()) {
                 if (activityId === 'act_bili_follow') {
                     this.detectFollowTask().then(() => {
                         this.renderActivityDetail(activityId);
@@ -766,7 +804,7 @@
             }
         },
 
-        // 渲染简化的活动详情内容
+        // 渲染优化的活动详情内容 (自适应手机端与宽屏)
         renderActivityDetail(activityId) {
             const container = document.getElementById('activity-detail-content');
             if (!container) return;
@@ -776,24 +814,93 @@
 
             const bvid = this.getAssociatedVideoBvid();
             const isGuestUser = this.isGuest();
-            const isBiliApp = this.isBiliAppEnv();
 
             let guestNoticeHtml = '';
             if (isGuestUser) {
                 guestNoticeHtml = `
-                    <div style="margin-bottom:12px; padding:10px 14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:var(--md-shape-m); font-size:0.83rem; color:#c2410c; display:flex; align-items:center; gap:8px;">
-                        <span class="material-symbols-rounded" style="font-size:18px;">lock</span>
+                    <div style="margin-bottom:12px; padding:10px 14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:var(--md-shape-m); font-size:0.82rem; color:#c2410c; display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-rounded" style="font-size:18px; flex-shrink:0;">lock</span>
                         <span>当前为游客模式，仅支持浏览活动。请登录账号后参与任务并领取奖励！</span>
                     </div>
                 `;
-            } else if (!isBiliApp) {
-                guestNoticeHtml = `
-                    <div style="margin-bottom:12px; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); font-size:0.82rem; color:var(--md-sys-color-outline); display:flex; align-items:center; gap:8px;">
-                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary);">info</span>
-                        <span>提示：该任务需要在哔哩哔哩 App 内完成</span>
+            }
+
+            // 单个任务卡片自适应渲染器（上下层结构，解决移动端文字挤压换行问题）
+            const renderTaskCard = ({
+                title,
+                rewardType, // 'rank_double' | 'tier_protect'
+                rewardName,
+                rewardCount,
+                progressText,
+                isCompleted,
+                isClaimed,
+                onClaimCode,
+                onActionCode,
+                hintText
+            }) => {
+                const isPurple = (rewardType === 'rank_double');
+                const rewardColor = isPurple ? '#7e22ce' : '#b45309';
+                const rewardBg = isPurple ? 'rgba(126, 34, 206, 0.08)' : 'rgba(180, 83, 9, 0.08)';
+                const rewardBorder = isPurple ? 'rgba(126, 34, 206, 0.18)' : 'rgba(180, 83, 9, 0.18)';
+
+                let tagHtml = '';
+                let buttonHtml = '';
+                let statusHint = hintText || '';
+
+                if (isClaimed) {
+                    tagHtml = `<span style="font-size:0.72rem; font-weight:700; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high); padding:2px 8px; border-radius:99px; white-space:nowrap; flex-shrink:0;">已完成</span>`;
+                    statusHint = `<span style="color:var(--md-sys-color-outline);">奖励已发放至背包</span>`;
+                    buttonHtml = `
+                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.65; height:32px; padding:0 14px; cursor:default; border-radius:var(--md-shape-full);">
+                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
+                            <span>已领取</span>
+                        </button>
+                    `;
+                } else if (isCompleted) {
+                    tagHtml = `<span style="font-size:0.72rem; font-weight:700; color:#15803d; background:#dcfce7; padding:2px 8px; border-radius:99px; white-space:nowrap; flex-shrink:0;">可领取</span>`;
+                    statusHint = `<span style="color:#15803d; font-weight:600;">已达成！快领取奖励吧</span>`;
+                    buttonHtml = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="${onClaimCode}" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 14px; border-radius:var(--md-shape-full); box-shadow:0 2px 8px rgba(22,163,74,0.3); display:inline-flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
+                            <span>领取奖励</span>
+                        </button>
+                    `;
+                } else {
+                    if (progressText) {
+                        tagHtml = `<span style="font-size:0.72rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:2px 8px; border-radius:99px; white-space:nowrap; flex-shrink:0;">进度 ${progressText}</span>`;
+                    } else {
+                        tagHtml = `<span style="font-size:0.72rem; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:99px; white-space:nowrap; flex-shrink:0;">一次性</span>`;
+                    }
+                    if (!statusHint) {
+                        statusHint = `<span style="color:var(--md-sys-color-outline);">需要前往B站完成</span>`;
+                    }
+                    buttonHtml = `
+                        <button type="button" class="btn btn-filled btn-sm" onclick="${onActionCode}" style="height:32px; padding:0 14px; border-radius:var(--md-shape-full); display:inline-flex; align-items:center; gap:4px;">
+                            <span>前往</span>
+                            <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="activity-task-card">
+                        <div class="activity-task-card-header">
+                            <div class="activity-task-card-title">${title}</div>
+                            ${tagHtml}
+                        </div>
+                        <div>
+                            <div class="activity-task-reward-pill" style="color:${rewardColor}; background:${rewardBg}; border:1px solid ${rewardBorder};">
+                                <span class="material-symbols-rounded" style="font-size:15px; flex-shrink:0;">featured_seasonal_and_gifts</span>
+                                <span style="font-weight:600; line-height:1.2;">奖励：${rewardName} ×${rewardCount}</span>
+                            </div>
+                        </div>
+                        <div class="activity-task-card-footer">
+                            <div class="activity-task-hint-text">${statusHint}</div>
+                            <div style="flex-shrink:0;">${buttonHtml}</div>
+                        </div>
                     </div>
                 `;
-            }
+            };
 
             let tasksHtml = '';
 
@@ -802,42 +909,18 @@
                 const isCompleted = Boolean(r.completed);
                 const isClaimed = Boolean(r.claimed);
 
-                let rightActionHtml = '';
-                if (isClaimed) {
-                    rightActionHtml = `
-                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
-                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
-                            <span>已领取</span>
-                        </button>
-                    `;
-                } else if (isCompleted) {
-                    rightActionHtml = `
-                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_follow', 'task_follow_author')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
-                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
-                            <span>领取奖励</span>
-                        </button>
-                    `;
-                } else {
-                    rightActionHtml = `
-                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('follow_author')" style="height:32px; padding:0 14px;">
-                            <span>前往</span>
-                            <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
-                        </button>
-                    `;
-                }
-
-                tasksHtml = `
-                    <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                        <div style="min-width:0; flex:1;">
-                            <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">关注作者 B 站官方账号</div>
-                            <div style="font-size:0.78rem; color:#b45309; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
-                                <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
-                                <span>奖励：段位保护卡 x1 (1个月有效)</span>
-                            </div>
-                        </div>
-                        <div style="flex-shrink:0;">${rightActionHtml}</div>
-                    </div>
-                `;
+                tasksHtml = renderTaskCard({
+                    title: '关注作者 B 站官方账号',
+                    rewardType: 'tier_protect',
+                    rewardName: '段位保护卡',
+                    rewardCount: 1,
+                    progressText: '',
+                    isCompleted: isCompleted,
+                    isClaimed: isClaimed,
+                    onClaimCode: `ActivityManager.claimActivityTaskReward('act_bili_follow', 'task_follow_author')`,
+                    onActionCode: `ActivityManager.doActivityAction('follow_author')`,
+                    hintText: isCompleted ? '' : '<span style="color:var(--md-sys-color-outline);">需要前往B站完成</span>'
+                });
             } else if (act.id === 'act_bili_video_interaction') {
                 const vt = (this._records.videoTasks && this._records.videoTasks[bvid]) || {};
 
@@ -846,140 +929,60 @@
                 const isLikeCompleted = vt.likeCompleted || vt.isLiked;
                 const isLikeClaimed = Boolean(vt.likeClaimed);
 
-                let rightAction1 = '';
-                if (isLikeClaimed) {
-                    rightAction1 = `
-                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
-                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
-                            <span>已领取</span>
-                        </button>
-                    `;
-                } else if (isLikeCompleted) {
-                    rightAction1 = `
-                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_like')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
-                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
-                            <span>领取奖励</span>
-                        </button>
-                    `;
-                } else {
-                    rightAction1 = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
-                                进度 ${likeProgress}/1
-                            </span>
-                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
-                                <span>前往</span>
-                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
-                            </button>
-                        </div>
-                    `;
-                }
+                const task1Html = renderTaskCard({
+                    title: '给最新视频点赞',
+                    rewardType: 'rank_double',
+                    rewardName: '排位翻倍卡',
+                    rewardCount: 1,
+                    progressText: `${likeProgress}/1`,
+                    isCompleted: isLikeCompleted,
+                    isClaimed: isLikeClaimed,
+                    onClaimCode: `ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_like')`,
+                    onActionCode: `ActivityManager.doActivityAction('open_video')`,
+                    hintText: isLikeCompleted ? '' : '<span style="color:var(--md-sys-color-outline);">需要前往B站完成</span>'
+                });
 
                 // 任务2：收藏（进度类，target: 1）
                 const favProgress = (vt.favCompleted || vt.isFavorited) ? 1 : 0;
                 const isFavCompleted = vt.favCompleted || vt.isFavorited;
                 const isFavClaimed = Boolean(vt.favClaimed);
 
-                let rightAction2 = '';
-                if (isFavClaimed) {
-                    rightAction2 = `
-                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
-                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
-                            <span>已领取</span>
-                        </button>
-                    `;
-                } else if (isFavCompleted) {
-                    rightAction2 = `
-                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_fav')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
-                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
-                            <span>领取奖励</span>
-                        </button>
-                    `;
-                } else {
-                    rightAction2 = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
-                                进度 ${favProgress}/1
-                            </span>
-                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
-                                <span>前往</span>
-                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
-                            </button>
-                        </div>
-                    `;
-                }
+                const task2Html = renderTaskCard({
+                    title: '给最新视频收藏',
+                    rewardType: 'rank_double',
+                    rewardName: '排位翻倍卡',
+                    rewardCount: 1,
+                    progressText: `${favProgress}/1`,
+                    isCompleted: isFavCompleted,
+                    isClaimed: isFavClaimed,
+                    onClaimCode: `ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_fav')`,
+                    onActionCode: `ActivityManager.doActivityAction('open_video')`,
+                    hintText: isFavCompleted ? '' : '<span style="color:var(--md-sys-color-outline);">需要前往B站完成</span>'
+                });
 
                 // 任务3：投币（进度类，target: 1）
                 const coinProgress = (vt.coinCount && vt.coinCount > 0) ? 1 : 0;
                 const isTask3Completed = vt.coinCompleted || coinProgress >= 1;
                 const isTask3Claimed = Boolean(vt.coinClaimed);
 
-                let rightAction3 = '';
-                if (isTask3Claimed) {
-                    rightAction3 = `
-                        <button type="button" class="btn btn-tonal btn-sm" disabled style="opacity:0.6; height:32px; padding:0 12px; cursor:default;">
-                            <span class="material-symbols-rounded" style="font-size:15px;">check</span>
-                            <span>已领取</span>
-                        </button>
-                    `;
-                } else if (isTask3Completed) {
-                    rightAction3 = `
-                        <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_coin')" style="background:#16a34a; color:#fff; font-weight:700; height:32px; padding:0 12px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
-                            <span class="material-symbols-rounded" style="font-size:15px;">redeem</span>
-                            <span>领取奖励</span>
-                        </button>
-                    `;
-                } else {
-                    rightAction3 = `
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.78rem; font-weight:700; color:var(--md-sys-color-primary); background:var(--md-sys-color-primary-container); padding:3px 8px; border-radius:99px; white-space:nowrap;">
-                                进度 ${coinProgress}/1
-                            </span>
-                            <button type="button" class="btn btn-filled btn-sm" onclick="ActivityManager.doActivityAction('open_video')" style="height:32px; padding:0 12px;">
-                                <span>前往</span>
-                                <span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>
-                            </button>
-                        </div>
-                    `;
-                }
+                const task3Html = renderTaskCard({
+                    title: '给最新视频投币',
+                    rewardType: 'rank_double',
+                    rewardName: '排位翻倍卡',
+                    rewardCount: 1,
+                    progressText: `${coinProgress}/1`,
+                    isCompleted: isTask3Completed,
+                    isClaimed: isTask3Claimed,
+                    onClaimCode: `ActivityManager.claimActivityTaskReward('act_bili_video_interaction', 'task_video_coin')`,
+                    onActionCode: `ActivityManager.doActivityAction('open_video')`,
+                    hintText: isTask3Completed ? '' : '<span style="color:var(--md-sys-color-outline);">需要前往B站完成</span>'
+                });
 
                 tasksHtml = `
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <!-- 任务1：点赞 -->
-                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                            <div style="min-width:0; flex:1;">
-                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频点赞</div>
-                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
-                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
-                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
-                                </div>
-                            </div>
-                            <div style="flex-shrink:0;">${rightAction1}</div>
-                        </div>
-
-                        <!-- 任务2：收藏 -->
-                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                            <div style="min-width:0; flex:1;">
-                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频收藏</div>
-                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
-                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
-                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
-                                </div>
-                            </div>
-                            <div style="flex-shrink:0;">${rightAction2}</div>
-                        </div>
-
-                        <!-- 任务3：投币 -->
-                        <div class="card" style="padding:14px 16px; border-radius:var(--md-shape-m); background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                            <div style="min-width:0; flex:1;">
-                                <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface);">给关联视频投币</div>
-                                <div style="font-size:0.78rem; color:#7e22ce; font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px;">
-                                    <span class="material-symbols-rounded" style="font-size:14px;">featured_seasonal_and_gifts</span>
-                                    <span>奖励：排位翻倍卡 x1 (1个月有效)</span>
-                                </div>
-                            </div>
-                            <div style="flex-shrink:0;">${rightAction3}</div>
-                        </div>
+                        ${task1Html}
+                        ${task2Html}
+                        ${task3Html}
                     </div>
                 `;
             }
@@ -1001,6 +1004,26 @@
             `;
         },
 
+        // 手动或点击触发重新核验并刷新详情
+        async detectAndRefresh(activityId) {
+            if (!this.canDetectTasks()) {
+                if (typeof showToast === 'function') {
+                    if (this.isGuest()) showToast('游客模式无法核验任务');
+                    else showToast('当前环境不支持任务自动核验');
+                }
+                return;
+            }
+            if (typeof showToast === 'function') {
+                showToast('正在核验任务完成状态...');
+            }
+            if (activityId === 'act_bili_follow') {
+                await this.detectFollowTask();
+            } else if (activityId === 'act_bili_video_interaction') {
+                await this.detectVideoInteractionTasks(null, true);
+            }
+            this.renderActivityDetail(activityId);
+        },
+
         // 手动测试或切换关联视频
         promptChangeVideo() {
             const current = this.getAssociatedVideoBvid();
@@ -1017,19 +1040,26 @@
 
     window.ActivityManager = ActivityManager;
 
-    // 窗口聚焦时若详情弹窗处于打开状态，自动触发状态刷新（仅在 B 站 App 环境且非游客）
+    // 窗口聚焦或切回前台时若详情弹窗处于打开状态，自动触发状态刷新（Toy 环境且非游客）
     if (typeof window !== 'undefined') {
-        window.addEventListener('focus', () => {
+        const handleAutoDetect = () => {
             const modal = document.getElementById('modal-activity-detail');
             if (modal && modal.classList.contains('active') && modal.dataset.activityId) {
                 const actId = modal.dataset.activityId;
-                if (ActivityManager.isBiliAppEnv() && !ActivityManager.isGuest()) {
+                if (ActivityManager.canDetectTasks()) {
                     if (actId === 'act_bili_follow') {
                         ActivityManager.detectFollowTask().then(() => ActivityManager.renderActivityDetail(actId));
                     } else if (actId === 'act_bili_video_interaction') {
                         ActivityManager.detectVideoInteractionTasks().then(() => ActivityManager.renderActivityDetail(actId));
                     }
                 }
+            }
+        };
+
+        window.addEventListener('focus', handleAutoDetect);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                handleAutoDetect();
             }
         });
     }

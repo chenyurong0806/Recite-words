@@ -211,6 +211,9 @@ function renderSettingsMain() {
     const statEl = document.getElementById('settings-current-user-stat');
     const verLabel = document.getElementById('settings-version-label');
     if (verLabel) verLabel.innerText = `v${APP_VERSION}`;
+    if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
+        ElectronManager.syncSettingsUpdateButton();
+    }
     if (nameEl) nameEl.innerText = `当前登录：${currentUser || '未登录'}`;
     if (statEl) {
         const acc = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) : 0;
