@@ -551,7 +551,7 @@ ipcMain.handle('move-book-file', async (_event, { bookId, filePath, fileName, ta
             sourcePath = findInDir(localBooksDir) || findInDir(cloudBooksDir);
         }
 
-        if (!sourcePath || !fs.existsSync(sourcePath)) {
+        if (!sourcePath || typeof sourcePath !== 'string' || !fs.existsSync(sourcePath)) {
             throw new Error('未找到要移动的词书文件');
         }
 
@@ -638,15 +638,50 @@ ipcMain.handle('delete-book-file', async (_event, { filePath, fileName, isCloud,
 });
 
 // 读取本地词书文件内容
-ipcMain.handle('read-book-file', async (_event, { filePath }) => {
+ipcMain.handle('read-book-file', async (_event, params = {}) => {
     try {
-        if (!filePath || !fs.existsSync(filePath)) throw new Error('词书文件不存在');
-        const content = fs.readFileSync(filePath, 'utf8');
+        ensureAppDirectories();
+        let targetPath = null;
+        if (typeof params === 'string') {
+            targetPath = params;
+        } else if (params && typeof params === 'object') {
+            if (typeof params.filePath === 'string') {
+                targetPath = params.filePath;
+            } else if (params.fileName || params.relPath) {
+                const cleanName = (params.fileName || '').replace(/[\\/:*?"<>|]/g, '').trim();
+                const rel = (params.relPath || '').replace(/\\/g, '/');
+                const cat = (params.category || '').replace(/[\\:*?"<>|]/g, '').trim();
+
+                const candidates = [];
+                if (cleanName) {
+                    if (cat) candidates.push(path.join(cloudBooksDir, cat, cleanName));
+                    candidates.push(path.join(cloudBooksDir, cleanName));
+                    candidates.push(path.join(localBooksDir, cleanName));
+                    candidates.push(path.join(booksDir, cleanName));
+                }
+                if (rel) {
+                    candidates.push(path.join(booksDir, rel));
+                    candidates.push(path.join(cloudBooksDir, rel));
+                    candidates.push(path.join(localBooksDir, rel));
+                }
+                for (const c of candidates) {
+                    if (typeof c === 'string' && fs.existsSync(c)) {
+                        targetPath = c;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!targetPath || typeof targetPath !== 'string' || !fs.existsSync(targetPath)) {
+            throw new Error('词书文件不存在');
+        }
+        const content = fs.readFileSync(targetPath, 'utf8');
         const data = JSON.parse(content);
         let words = [];
         if (Array.isArray(data)) words = data;
         else if (data && Array.isArray(data.words)) words = data.words;
-        return { success: true, words };
+        return { success: true, words, data };
     } catch (err) {
         return { success: false, error: err.message };
     }
@@ -834,9 +869,10 @@ ipcMain.handle('list-local-backups', async () => {
 ipcMain.handle('read-local-backup', async (_event, fileName) => {
     try {
         ensureAppDirectories();
+        if (!fileName || typeof fileName !== 'string') throw new Error('文件名无效');
         const safeName = path.basename(fileName);
         const targetPath = path.join(backupsDir, safeName);
-        if (!fs.existsSync(targetPath)) throw new Error('备份文件不存在');
+        if (typeof targetPath !== 'string' || !fs.existsSync(targetPath)) throw new Error('备份文件不存在');
 
         const content = fs.readFileSync(targetPath, 'utf8');
         const parsed = JSON.parse(content);

@@ -87,7 +87,7 @@ function updateMd3SliderUI(sliderInput, formatFn) {
 // 辅助获取各类型滑块对应的默认文本格式化函数
 function getSliderFormatter(id) {
     if (id === 'slider-riddle-len') {
-        return v => `${v} 字母`;
+        return v => Number(v) >= 11 ? '任意长度' : `${v} 字母`;
     } else if (id === 'slider-riddle-att') {
         return v => `${v} 次`;
     } else if (id === 'slider-single-learn-batch' || id === 'slider-dictation-batch') {

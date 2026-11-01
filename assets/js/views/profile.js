@@ -432,7 +432,7 @@ function renderSingleQuestion() {
     singleState.answered = false;
     singleState.selectedIdx = -1;
 
-    const isPhrase = !!(q.word && q.word.trim().includes(' '));
+    const isPhrase = Boolean(q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0) && (!q.options || q.options.length === 0 || (q.phraseChips && q.phraseChips.length > 0))));
 
     if (singleConfig.autoPlayAudio && navigator.onLine && q && q.word && !isPhrase) {
         playWordAudio(q.word);
@@ -816,7 +816,7 @@ function revealSingleAnswer() {
     EbbinghausEngine.recordWord(q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone, false, currentBookId);
     renderCardMasteryDiamonds(q.word, 'loss');
 
-    const isPhrase = q.word && q.word.trim().includes(' ');
+    const isPhrase = Boolean(q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0) && (!q.options || q.options.length === 0 || (q.phraseChips && q.phraseChips.length > 0))));
     if (isPhrase) {
         q.isPhrase = true;
         q.targetWords = singlePhraseState.targetWords;
@@ -910,6 +910,7 @@ function handleSingleAnswer(idx) {
     const isRight = (idx === q.correctIdx);
     q.userAnswerIdx = idx;
     q.isCorrect = isRight;
+    if (!isRight) q.wrongAnswerIdx = idx;
     q.answered = true;
 
     userStats.total++;
@@ -1054,6 +1055,13 @@ function getAllKnownMeaningsOfTargetWord(targetWord) {
                         }
                         if (Array.isArray(w.trans)) {
                             w.trans.forEach(t => addClean(t));
+                        }
+                        if (Array.isArray(w.senses)) {
+                            w.senses.forEach(s => {
+                                const pos = s.part_of_speech || s.pos || '';
+                                const mText = Array.isArray(s.trans) ? s.trans.join('；') : (s.meaning || s.trans || '');
+                                if (mText) addClean((pos ? pos + ' ' : '') + mText);
+                            });
                         }
                     }
                 });
@@ -1249,7 +1257,13 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
         let options = [];
         let correctIdx = 0;
 
-        if (w.senses && Array.isArray(w.senses) && w.senses.length > 0) {
+        const isShiCiItem = Boolean(
+            w.isShiCi ||
+            (w.bookName && (String(w.bookName).includes('实词') || String(w.bookName).includes('文言'))) ||
+            (w.bookId && (String(w.bookId).includes('实词') || String(w.bookId).includes('文言'))) ||
+            (!/[a-zA-Z]/.test(w.word || '') && Array.isArray(w.senses) && w.senses.length > 0)
+        );
+        if (isShiCiItem && w.senses && Array.isArray(w.senses) && w.senses.length > 0) {
             const sq = typeof generateShiCiQuestion === 'function' ? generateShiCiQuestion(w, list) : null;
             if (sq) {
                 const cleanMeaning = sq.sense ? `[${sq.sense.part_of_speech || ''}] ${(sq.sense.meaning || '').replace(/★/g, '').trim()}` : '';
@@ -1283,7 +1297,7 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
         options = optData.options;
         correctIdx = optData.correctIdx;
 
-        const isPhrase = w.word && w.word.trim().includes(' ') && !w.senses;
+        const isPhrase = Boolean(w.word && w.word.trim().includes(' ') && (!w.senses || w.senses.length === 0));
         const phraseChips = isPhrase ? generatePhraseDistractors(extractPhraseTargetWords(w.word), list, w) : null;
         return {
             word: w.word,
@@ -1294,6 +1308,7 @@ function generateShuffledPoolFromWords(wordsList, count = 70) {
             meaning: fullMeaning,
             options: options,
             correctIdx: correctIdx,
+            isPhrase: isPhrase,
             phraseChips: phraseChips,
             isShiCi: false,
             mistake: w.mistake || null

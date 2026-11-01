@@ -26,7 +26,17 @@ function scan(dir, cat) {
       let count = 0;
       try {
         const d = JSON.parse(content);
-        count = Array.isArray(d) ? d.length : 0;
+        if (Array.isArray(d)) {
+          count = d.length;
+        } else if (d && typeof d === 'object') {
+          if (Array.isArray(d.words)) {
+            count = d.words.length;
+          } else if (Array.isArray(d.list)) {
+            count = d.list.length;
+          } else if (Object.values(d).some(Array.isArray)) {
+            count = Object.values(d).filter(Array.isArray).reduce((sum, arr) => sum + arr.length, 0);
+          }
+        }
       } catch (e) {}
       const rel = path.relative(rootDir, full).replace(/\\/g, '/');
       books.push({
@@ -46,8 +56,14 @@ for (const cat of categories) {
   scan(path.join(booksDir, cat), cat);
 }
 
+books.sort((a, b) => {
+  if (a.id === 'books/高中/高中考纲.json') return -1;
+  if (b.id === 'books/高中/高中考纲.json') return 1;
+  return 0;
+});
+
 const indexData = {
-  version: '2.9.0',
+  version: '2.10.0',
   generatedAt: Date.now(),
   categories: categories,
   books: books

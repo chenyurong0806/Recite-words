@@ -146,7 +146,7 @@ function getDefaultRoomPreset(user) {
     const name = user ? `${user}的房间` : '对战房间';
     const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
-        : ['books/经典/高中考纲词汇.json'];
+        : ['books/高中/高中考纲.json'];
     return {
         name: name,
         capacity: 2,
@@ -301,7 +301,7 @@ function selectPresetMatchType(val) {
             const beforeCount = activeEditingPreset.selectedBooks.length;
             activeEditingPreset.selectedBooks = activeEditingPreset.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
             if (activeEditingPreset.selectedBooks.length === 0) {
-                activeEditingPreset.selectedBooks = ['books/经典/高中考纲词汇.json'];
+                activeEditingPreset.selectedBooks = ['books/高中/高中考纲.json'];
             }
             if (activeEditingPreset.selectedBooks.length !== beforeCount) {
                 showToast('排位赛仅支持云端词书，已自动移除本地词书');
@@ -762,7 +762,7 @@ function changeRuleMatchType(type) {
             const beforeCount = roomConfig.selectedBooks.length;
             roomConfig.selectedBooks = roomConfig.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
             if (roomConfig.selectedBooks.length === 0) {
-                roomConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+                roomConfig.selectedBooks = ['books/高中/高中考纲.json'];
             }
             if (roomConfig.selectedBooks.length !== beforeCount) {
                 showToast('排位赛仅支持云端词书，已自动移除本地词书');
@@ -1915,8 +1915,8 @@ function renderQuestion(state) {
         arenaBookBadge.innerText = q.bookName || '对决词库';
     }
 
-    const isShiCi = Boolean(q.isShiCi || q.senses || q.highlightedSentence);
-    const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
+    const isShiCi = Boolean(q.isShiCi || q.highlightedSentence || (q.senses && !/[a-zA-Z]/.test(q.word || '')));
+    const isPhrase = Boolean(!isShiCi && (q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0))));
     if (isPhrase) {
         const shiciBadge = document.getElementById('arena-shici-badge');
         const shiciBox = document.getElementById('p1-shici-box');
@@ -3834,8 +3834,8 @@ async function syncGlobalPresenceState() {
     window.lastFusedOnlineUsers = onlineUsers;
 
     const cardsHtml = onlineUsers.length === 0 ? `
-                <div style="text-align:center; padding:24px 10px; color:var(--md-sys-color-outline); width:100%; grid-column:1/-1;">
-                    <p style="margin-top:6px; font-size:0.88rem;">当前暂无其他在线玩家</p>
+                <div style="grid-column: 1 / -1; text-align: center; padding: 18px; color: var(--md-sys-color-outline); font-size: 0.85rem;">
+                    当前暂无其他在线玩家
                 </div>
             ` : onlineUsers.map(u => {
                 const isBusy = (u.status === 'playing');
@@ -4181,7 +4181,7 @@ function selectInviteRuleMatchType(val) {
             const beforeCount = activeInviteRules.selectedBooks.length;
             activeInviteRules.selectedBooks = activeInviteRules.selectedBooks.filter(id => !String(id).startsWith('custom_') && id !== 'builtin_default');
             if (activeInviteRules.selectedBooks.length === 0) {
-                activeInviteRules.selectedBooks = ['books/经典/高中考纲词汇.json'];
+                activeInviteRules.selectedBooks = ['books/高中/高中考纲.json'];
             }
             if (activeInviteRules.selectedBooks.length !== beforeCount) {
                 showToast('排位赛仅支持云端词书，已自动移除本地词书');
@@ -4280,7 +4280,7 @@ async function confirmAndSendMatchInvite() {
         gaugeStyle: activeInviteRules.gaugeStyle || 'tug',
         matchType: effectiveMatchType,
         targetUser: activeInviteTarget,
-        selectedBooks: activeInviteRules.selectedBooks || ['GaoKao3500']
+        selectedBooks: activeInviteRules.selectedBooks || ['books/高中/高中考纲.json']
     };
 
     // 保存到 Supabase 房间表
@@ -5020,7 +5020,7 @@ async function fetchOnlineRoomsList(manual = false) {
         const modeTxt = (cfg.matchType === 'friendly') ? '友谊赛' : '排位赛';
         const ruleTxt = (cfg.mode === 'timed') ? `${Math.round((cfg.duration || 120) / 60)}分钟` : `领先${cfg.winLead || 6}题`;
         const gaugeText = cfg.gaugeStyle === 'snake' ? '盘龙' : '拔河';
-        const bookText = getBookNamesSummary(cfg.selectedBooks || ['GaoKao3500']);
+        const bookText = getBookNamesSummary(cfg.selectedBooks || ['books/高中/高中考纲.json']);
 
         return `
             <div class="online-room-card ${isMine ? 'my-exclusive-room-card' : ''}" style="${isMine ? 'border: 2px solid var(--md-sys-color-primary); background: var(--md-sys-color-surface-container-low);' : ''}">

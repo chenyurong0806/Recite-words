@@ -66,6 +66,7 @@
         body.is-offline-mode #hub-online-players-card,
         body.is-offline-mode #tab-lb-wordle,
         body.is-offline-mode #lb-wordle-section,
+        body.is-offline-mode #btn-poster-change-bg,
         body.is-offline-mode #hub-online-offline-badge {
             display: none !important;
         }
@@ -171,6 +172,8 @@
                 </div>
                 <span class="md3-nav-label">我</span>
             </button>
+        </div>
+        <div class="md3-nav-rail-bottom" style="margin-top:auto; width:100%; display:flex; flex-direction:column; align-items:center;">
             <button type="button" class="md3-nav-item" id="nav-rail-settings" onclick="handleNavClick('settings')">
                 <div class="md3-nav-pill">
                     <span class="material-symbols-rounded">settings</span>
@@ -232,7 +235,7 @@
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:var(--md-sys-color-outline);">对决词书:</span>
-                    <span id="invite-rule-book" style="font-weight:600; color:var(--md-sys-color-on-surface); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲词汇</span>
+                    <span id="invite-rule-book" style="font-weight:600; color:var(--md-sys-color-on-surface); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲</span>
                 </div>
             </div>
             <div style="font-size: 0.85rem; color: var(--md-sys-color-error); font-weight: 600; margin-bottom: 16px;">
@@ -320,7 +323,7 @@
                     <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对决词书</label>
                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="flex:1; min-width:0; padding-right:8px;">
-                            <div id="preset-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲词汇</div>
+                            <div id="preset-selected-book-title" style="font-size:0.9rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲</div>
                             <div id="preset-selected-book-summary" style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;">已选 1 本词书</div>
                         </div>
                         <button type="button" class="btn btn-outlined btn-sm" onclick="openRoomBookSelector('preset')">
@@ -400,7 +403,7 @@
                             <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-primary); flex-shrink:0;">menu_book</span>
                             <div style="min-width:0; flex:1;">
                                 <div style="font-size:0.72rem; color:var(--md-sys-color-outline);">对决词书</div>
-                                <div id="create-invite-summary-book" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">高中考纲词汇</div>
+                                <div id="create-invite-summary-book" style="font-size:0.86rem; font-weight:600; color:var(--md-sys-color-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">高中考纲</div>
                             </div>
                         </div>
                     </div>
@@ -459,7 +462,7 @@
                         <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">对决词书</label>
                         <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:8px 12px; border-radius:var(--md-shape-s); border:1px solid var(--md-sys-color-outline-variant);">
                             <div style="flex:1; min-width:0; padding-right:8px;">
-                                <div id="invite-selected-book-title" style="font-size:0.88rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲词汇</div>
+                                <div id="invite-selected-book-title" style="font-size:0.88rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">高中考纲</div>
                                 <div id="invite-selected-book-summary" style="font-size:0.76rem; color:var(--md-sys-color-outline);">已选 1 本词书</div>
                             </div>
                             <button type="button" class="btn btn-outlined btn-sm" onclick="openRoomBookSelector('invite')">
@@ -991,7 +994,7 @@
             </div>
 
             <!-- 实时在线玩家卡片 (MD3 规范，彻底修复文字竖排/挤压问题) -->
-            <div class="card" id="hub-online-players-card" style="margin-top: 14px;">
+            <div class="card" id="hub-online-players-card" style="margin-top: 14px; margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <div style="display: flex; align-items: center; gap: 14px;">
                         <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
@@ -1018,9 +1021,9 @@
             </div>
 
             <!-- 活动与排行榜入口并排区域 (离线模式下活动卡片隐藏，排行榜自适应占满整行) -->
-            <div class="hub-extra-row" id="hub-activity-leaderboard-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 14px;">
+            <div class="hub-extra-row" id="hub-activity-leaderboard-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 0;">
                 <!-- 活动入口卡片 (离线模式不显示) -->
-                <div class="card hub-activity-entry-card offline-hide" id="hub-activity-entry-card" onclick="openActivityView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; position: relative;">
+                <div class="card hub-activity-entry-card offline-hide" id="hub-activity-entry-card" onclick="openActivityView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; position: relative; margin-bottom: 0;">
                     <div style="display: flex; align-items: center; gap: 14px;">
                         <div style="position: relative; width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                             <span class="material-symbols-rounded" style="font-size: 26px;">campaign</span>
@@ -1038,7 +1041,7 @@
                 </div>
 
                 <!-- 排行榜入口卡片 -->
-                <div class="card leaderboard-entry-card" id="hub-leaderboard-entry-card" onclick="openLeaderboardView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease;">
+                <div class="card leaderboard-entry-card" id="hub-leaderboard-entry-card" onclick="openLeaderboardView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; margin-bottom: 0;">
                     <div style="display: flex; align-items: center; gap: 14px;">
                         <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                             <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
@@ -1524,6 +1527,9 @@
                         style="height:42px; border-radius:var(--md-shape-full);"
                         oninput="filterSettingsBookWordsDisplay()">
                 </div>
+
+                <!-- 词书板块与类型快速筛选栏 (适配《高中考纲》等分类词书) -->
+                <div id="settings-view-book-filter-bar" style="display:none; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
 
                 <div class="card words-list-outer-card">
                     <div id="settings-view-book-words-container" class="words-list-scroll-inner"></div>
@@ -2047,7 +2053,7 @@
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
                                 <div style="flex:1; min-width:0; padding-right:10px;">
-                                    <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="room-selected-books-title">高中考纲词汇</div>
+                                    <div style="font-size:0.92rem; font-weight:700; color:var(--md-sys-color-on-surface); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="room-selected-books-title">高中考纲</div>
                                     <div style="font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:2px;" id="room-selected-books-summary">已选 1 本词书</div>
                                 </div>
                                 <button type="button" class="btn btn-outlined btn-sm" id="btn-room-select-books" onclick="openRoomBookSelector()">
@@ -2141,7 +2147,7 @@
                     <div class="single-top-header-row">
                         <div class="single-top-header-left">
                             <span id="single-progress-text" class="card-progress-counter">1/10</span>
-                            <span class="single-book-badge" id="single-book-badge">高中考纲词汇</span>
+                            <span class="single-book-badge" id="single-book-badge">高中考纲</span>
                             <span id="single-retest-tag" style="display:none;" class="retest-banner">
                                 <span class="btn-label-text">错题</span>
                             </span>
@@ -2349,18 +2355,20 @@
                 <div id="result-details" style="margin: 16px 0;"></div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-tonal btn-touch-large" id="btn-result-share-poster" style="display:none;" onclick="handleShareResultPosterClick()">
-                        <span class="material-symbols-rounded" style="font-size:20px;">share</span>
-                        <span class="btn-label-text" id="btn-result-share-poster-text">晒成绩</span>
-                    </button>
                     <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">
                         <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
                         <span class="btn-label-text">再来一局</span>
                     </button>
-                    <button class="btn btn-outlined" id="btn-result-hub" onclick="handleResultBackToHub()">
-                        <span class="material-symbols-rounded" style="font-size:20px;">home</span>
-                        <span class="btn-label-text">返回主页</span>
-                    </button>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" class="btn btn-tonal result-share-circle-btn" id="btn-result-share-poster" style="display:none;" onclick="handleShareResultPosterClick()" title="晒成绩" aria-label="晒成绩">
+                            <span class="material-symbols-rounded" style="font-size:20px;">share</span>
+                            <span class="btn-label-text" id="btn-result-share-poster-text" style="display:none;">晒成绩</span>
+                        </button>
+                        <button class="btn btn-outlined btn-touch-large" id="btn-result-hub" onclick="handleResultBackToHub()" style="flex:1; height:50px; min-height:50px;">
+                            <span class="material-symbols-rounded" style="font-size:20px;">home</span>
+                            <span class="btn-label-text">返回主页</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2385,7 +2393,7 @@
                         </div>
                         <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-select-book" onclick="openBookSelectorPage('riddle')" title="选择词书">
                             <span class="material-symbols-rounded" style="font-size:18px;">auto_stories</span>
-                            <span class="btn-label-text" id="riddle-top-book-name">高中考纲词汇</span>
+                            <span class="btn-label-text" id="riddle-top-book-name">高中考纲</span>
                         </button>
                         <button type="button" class="btn btn-outlined btn-sm" id="btn-riddle-leaderboard" onclick="openLeaderboardView('wordle')" title="查看排行榜">
                             <span class="material-symbols-rounded" style="font-size:18px;">leaderboard</span>
@@ -2689,7 +2697,7 @@
                     <div class="single-top-header-row">
                         <div class="single-top-header-left">
                             <span id="dictation-progress-text" class="card-progress-counter">1 / 20</span>
-                            <span class="single-book-badge" id="dictation-book-badge">高中考纲词汇</span>
+                            <span class="single-book-badge" id="dictation-book-badge">高中考纲</span>
                             <span class="badge badge-tag-secondary" id="dictation-type-badge">听音写词</span>
                         </div>
 
@@ -2922,6 +2930,24 @@
                             </div>
                             <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline); font-size:24px;">text_fields</span>
                         </div>
+                    </div>
+
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">motion_mode</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>减弱动画效果</h4>
+                                <p>关闭界面过渡动效，减少性能消耗</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" id="toggle-reduce-motion" onchange="handleToggleReduceMotion(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -3167,6 +3193,46 @@
 
                 <!-- 词书卡片容器 -->
                 <div id="manage-books-content-list" class="book-selector-content-list"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 17: 独立词书内容浏览页面 (自适应不同词书结构：详尽词典 / 双音标词汇 / 短语搭配 / 翻译句式 / 文言实词 / 精简词表) -->
+        <div id="view-book-content" class="view">
+            <div class="book-content-page-container">
+                <div class="book-content-top-bar">
+                    <button type="button" class="nav-back-btn" onclick="exitBookContentPage()" title="返回">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+                    <div class="book-content-title-wrap">
+                        <div class="book-content-title-row">
+                            <h2 class="book-content-title" id="book-content-page-title">词书内容</h2>
+                        </div>
+                        <div class="book-content-subtitle" id="book-content-page-subtitle">共 0 词</div>
+                    </div>
+                    <div class="book-content-top-actions">
+                        <button type="button" class="btn btn-filled btn-sm" id="btn-book-content-add-word" onclick="openManualAddWordModal()" style="display:none;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                            <span class="btn-label-text">添加词汇</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 搜索栏（只保留搜索框） -->
+                <div class="book-content-search-card">
+                    <div class="book-content-search-box">
+                        <span class="material-symbols-rounded book-content-search-icon">search</span>
+                        <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)">
+                        <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch()" style="display:none;" aria-label="清空搜索">
+                            <span class="material-symbols-rounded" style="font-size:17px;">close</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 词条统一列表容器（所有词条放在一起，不用独立卡片分隔） -->
+                <div class="book-content-unified-wrapper">
+                    <div id="book-content-list" class="book-content-unified-card"></div>
+                </div>
+                <div id="book-content-load-more" class="book-content-load-more"></div>
             </div>
         </div>
 
@@ -3764,7 +3830,7 @@
 
                 <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <span class="rule-label" style="margin:0;">展示相关词组</span>
+                        <span class="rule-label" style="margin:0;">显示相关词组</span>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-phrases-label">
                         <input type="checkbox" id="switch-search-enable-phrases" onchange="updateSearchSetting('enablePhrases', this.checked)">
@@ -3774,12 +3840,48 @@
                     </label>
                 </div>
 
-                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <span class="rule-label" style="margin:0;">展示相关链接</span>
+                        <span class="rule-label" style="margin:0;">显示相关链接</span>
                     </div>
                     <label class="md3-switch" id="switch-search-enable-related-label">
                         <input type="checkbox" id="switch-search-enable-related" onchange="updateSearchSetting('enableRelatedLinks', this.checked)">
+                        <span class="md3-switch-track">
+                            <span class="md3-switch-thumb"></span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span class="rule-label" style="margin:0;">显示例句</span>
+                    </div>
+                    <label class="md3-switch" id="switch-search-enable-examples-label">
+                        <input type="checkbox" id="switch-search-enable-examples" onchange="updateSearchSetting('enableExamples', this.checked)">
+                        <span class="md3-switch-track">
+                            <span class="md3-switch-thumb"></span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span class="rule-label" style="margin:0;">显示反义词</span>
+                    </div>
+                    <label class="md3-switch" id="switch-search-enable-antonyms-label">
+                        <input type="checkbox" id="switch-search-enable-antonyms" onchange="updateSearchSetting('enableAntonyms', this.checked)">
+                        <span class="md3-switch-track">
+                            <span class="md3-switch-thumb"></span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+                    <div>
+                        <span class="rule-label" style="margin:0;">显示辨析</span>
+                    </div>
+                    <label class="md3-switch" id="switch-search-enable-discriminations-label">
+                        <input type="checkbox" id="switch-search-enable-discriminations" onchange="updateSearchSetting('enableDiscriminations', this.checked)">
                         <span class="md3-switch-track">
                             <span class="md3-switch-thumb"></span>
                         </span>
@@ -3920,7 +4022,7 @@
                         <span class="md3-slider-value-badge" id="badge-riddle-len">5 字母</span>
                     </div>
                     <div class="md3-slider-component">
-                        <input type="range" class="md3-slider-native-input" id="slider-riddle-len" min="4" max="9" step="1" value="5" oninput="handleRiddleLengthSlider(this.value)">
+                        <input type="range" class="md3-slider-native-input" id="slider-riddle-len" min="3" max="11" step="1" value="5" oninput="handleRiddleLengthSlider(this.value)">
                         <div class="md3-slider-visual-track">
                             <div class="md3-slider-active-bar"></div>
                             <div class="md3-slider-thumb-handle"></div>
@@ -4236,6 +4338,28 @@
                 <button class="btn btn-filled" onclick="confirmReviewBooksFilter()">确定</button>
             </div>
         </div>
+    </div>
+
+    <!-- 词书分类筛选下拉菜单（锚定下拉列表形式，每行一个分类） -->
+    <div id="menu-book-section-dropdown" class="book-anchored-dropdown book-section-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">
+        <div class="book-dd-header">
+            <span class="book-dd-title" id="sf-sec-dropdown-title">选择分类</span>
+            <div class="book-dd-quick-actions">
+                <button type="button" class="book-dd-link-btn" onclick="toggleAllDropdownSections(true)">全选</button>
+                <span class="book-dd-dot">·</span>
+                <button type="button" class="book-dd-link-btn muted" onclick="toggleAllDropdownSections(false)">清空</button>
+            </div>
+        </div>
+        <div id="sf-dropdown-sections-grid" class="book-dd-list"></div>
+        <div class="book-dd-footer">
+            <span id="sf-sec-dropdown-matched" class="book-dd-summary">共 0 词</span>
+            <button type="button" class="book-dd-apply-btn" onclick="applyBookSectionDropdown()">确定</button>
+        </div>
+    </div>
+
+    <!-- 词书内容类型筛选下拉菜单（锚定下拉列表形式，每行一个类型） -->
+    <div id="menu-book-type-dropdown" class="book-anchored-dropdown book-type-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">
+        <div id="sf-dropdown-types-list" class="book-dd-list"></div>
     </div>
 
     <!-- 创建自定义词书弹窗 -->
@@ -4728,29 +4852,25 @@
         </div>
     </div>
 
-    <!-- 词书卡片更多操作菜单 (查看内容、重学词书、删除词书) -->
-    <div id="modal-book-actions-menu" class="modal-overlay" onclick="closeBookActionMenu()">
-        <div class="modal-card book-action-menu-sheet" onclick="event.stopPropagation()" style="max-width: 320px; border-radius: var(--md-shape-xl, 24px); padding: 18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                <h4 id="book-action-menu-title" style="margin:0; font-size:1.02rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;">词书操作</h4>
-                <button type="button" class="modal-close-btn" onclick="closeBookActionMenu()">
-                    <span class="material-symbols-rounded" style="font-size:20px;">close</span>
-                </button>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <button type="button" class="md3-menu-item" onclick="actionViewBookContent()">
-                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">menu_book</span>
-                    <span>查看内容</span>
-                </button>
-                <button type="button" class="md3-menu-item" onclick="actionResetBookProgress()">
-                    <span class="material-symbols-rounded" style="color:#d97706;">restart_alt</span>
-                    <span>重学词书</span>
-                </button>
-                <button type="button" class="md3-menu-item danger" onclick="actionDeleteBook()">
-                    <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
-                    <span>删除词书</span>
-                </button>
-            </div>
+    <!-- 词书卡片更多操作下拉菜单 (锚定至卡片右上角按钮) -->
+    <div id="modal-book-actions-menu" class="book-anchored-dropdown book-actions-dropdown" style="display:none;" onclick="event.stopPropagation()">
+        <div class="book-dd-list">
+            <button type="button" class="book-dd-action-item" onclick="actionViewBookContent()">
+                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">menu_book</span>
+                <span>查看内容</span>
+            </button>
+            <button type="button" class="book-dd-action-item" id="btn-action-move-book" onclick="actionMoveBook()" style="display:none;">
+                <span class="material-symbols-rounded" style="color:var(--md-sys-color-secondary, #475569);">drive_file_move</span>
+                <span>移动分类</span>
+            </button>
+            <button type="button" class="book-dd-action-item" onclick="actionResetBookProgress()">
+                <span class="material-symbols-rounded" style="color:#d97706;">restart_alt</span>
+                <span>重学词书</span>
+            </button>
+            <button type="button" class="book-dd-action-item danger" onclick="actionDeleteBook()">
+                <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
+                <span>删除词书</span>
+            </button>
         </div>
     </div>
 

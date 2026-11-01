@@ -10,7 +10,7 @@ let dictationConfig = {
     type: 'listen',
     batchSize: 20,
     autoPlay: true,
-    selectedBooks: ['books/经典/高中考纲词汇.json']
+    selectedBooks: ['books/高中/高中考纲.json']
 };
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_dictation_config') || '{}');
@@ -19,9 +19,9 @@ try {
         if (saved.batchSize) dictationConfig.batchSize = saved.batchSize;
         if (saved.autoPlay !== undefined) dictationConfig.autoPlay = saved.autoPlay;
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            dictationConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
+            dictationConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json' || b === 'books/经典/高中考纲词汇.json' || b === 'books/高中/高中考纲词汇.json') ? 'books/高中/高中考纲.json' : b);
         } else {
-            dictationConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            dictationConfig.selectedBooks = ['books/高中/高中考纲.json'];
         }
     }
 } catch (e) { }
@@ -54,7 +54,7 @@ function renderDictationBookChips() {
     const container = document.getElementById('chips-dictation-books');
     if (!container) return;
     if (!Array.isArray(dictationConfig.selectedBooks) || dictationConfig.selectedBooks.length === 0) {
-        dictationConfig.selectedBooks = [(BookManager.availableBooks[0]?.id || 'GaoKao3500')];
+        dictationConfig.selectedBooks = [(BookManager.availableBooks[0]?.id || 'books/高中/高中考纲.json')];
     }
     renderBookFolderTree('chips-dictation-books', {
         selectedIds: dictationConfig.selectedBooks,
@@ -174,7 +174,7 @@ async function startDictationPractice() {
     if (!bookIds || bookIds.length === 0) {
         bookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0)
             ? singleSelectedBookIds
-            : [(BookManager.availableBooks[0]?.id || 'GaoKao3500')];
+            : [(BookManager.availableBooks[0]?.id || 'books/高中/高中考纲.json')];
     }
     const words = await BookManager.loadMultipleBooks(bookIds);
     if (!words || words.length === 0) {
@@ -190,10 +190,15 @@ async function startDictationPractice() {
         const meaning = (w.meanings && w.meanings.length > 0)
             ? w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + m.meaning).join('；')
             : (w.meaning || '---');
-        const isPhrase = (w.word || '').trim().includes(' ');
-        const targetTokens = isPhrase ? extractPhraseTargetWords(w.word) : [w.word.trim()];
+        const rawW = (w.word || '').trim();
+        const parenMatch = rawW.match(/^([^\s()]+)\s*\(([^()]+)\)$/);
+        const primaryWord = parenMatch ? parenMatch[1].trim() : rawW;
+        const altWord = parenMatch ? parenMatch[2].trim() : '';
+        const isPhrase = primaryWord.includes(' ') && (!w.senses || w.senses.length === 0);
+        const targetTokens = isPhrase ? extractPhraseTargetWords(rawW) : [primaryWord];
         return {
-            word: w.word.trim(),
+            word: isPhrase ? rawW : primaryWord,
+            altWord: altWord,
             meaning: meaning,
             phone: w.phone || '',
             bookName: w.bookName || '默写词库',
@@ -483,7 +488,7 @@ function submitDictationAnswer() {
     if (!q.isPhrase) {
         const input = document.getElementById('dictation-word-input');
         const userVal = (input ? input.value : '').trim();
-        isCorrect = (userVal.toLowerCase() === q.word.toLowerCase());
+        isCorrect = (userVal.toLowerCase() === q.word.toLowerCase()) || (Boolean(q.altWord) && userVal.toLowerCase() === q.altWord.toLowerCase());
         if (input) {
             input.classList.toggle('correct', isCorrect);
             input.classList.toggle('wrong', !isCorrect);

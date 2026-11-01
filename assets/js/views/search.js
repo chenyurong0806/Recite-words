@@ -350,7 +350,14 @@ function renderSearchTabsRow() {
         el.style.display = 'flex';
         el.classList.toggle('first-tab-active', isFirstActive);
         el.classList.toggle('has-results', hasResults);
-        el.innerHTML = `<div class="hub-search-tabs-list">${tabsHtml}</div>`;
+        el.innerHTML = `<div class="hub-search-tabs-list" onwheel="if (event.deltaY) { this.scrollLeft += event.deltaY; event.preventDefault(); }">${tabsHtml}</div>`;
+        el.onwheel = (e) => {
+            const list = el.querySelector('.hub-search-tabs-list');
+            if (list && e.deltaY) {
+                list.scrollLeft += e.deltaY;
+                e.preventDefault();
+            }
+        };
     });
     updateSearchTabsCardBorderRadius();
 }
@@ -491,7 +498,7 @@ function parseMeaningPosSegments(text) {
         const normPos = normalizePos(rawPos);
         const start = m.index + m[0].length;
         const end = (i + 1 < matches.length) ? matches[i + 1].index : cleanText.length;
-        const segMeaning = cleanText.substring(start, end).replace(/^[:：\\s；;,，]+|[:：\\s；;,，]+$/g, '').trim();
+        const segMeaning = cleanText.substring(start, end).replace(/^[:：\s；;,，]+|[:：\s；;,，]+$/g, '').trim();
         if (segMeaning) {
             parts.push({ pos: normPos, meaning: segMeaning });
         }
@@ -792,7 +799,10 @@ function getSearchConfig() {
     let cfg = {
         enableTabs: true,
         enablePhrases: true,
-        enableRelatedLinks: true
+        enableRelatedLinks: true,
+        enableExamples: true,
+        enableAntonyms: true,
+        enableDiscriminations: true
     };
     try {
         const saved = localStorage.getItem(key);
@@ -811,8 +821,8 @@ function saveSearchConfig(cfg) {
 }
 
 function isSearchBookDownloaded(bookId, bookName) {
-    if (!bookId) return false;
-    if (bookId === 'builtin_default' || String(bookId).startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(bookId))) {
+    if (!bookId && !bookName) return false;
+    if (bookId === 'builtin_default' || bookId === 'books/高中/高中考纲.json' || bookName === '高中考纲' || String(bookId).startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(bookId))) {
         return true;
     }
     if (typeof BookManager !== 'undefined' && BookManager) {
@@ -862,11 +872,11 @@ function isSearchSourceEnabled(src) {
     if (visibility[bookId] !== undefined) return !!visibility[bookId];
     if (visibility[rawName] !== undefined) return !!visibility[rawName];
 
-    // 默认展示的词书：高考考纲词汇、考研红宝书（前提是已下载）
+    // 默认展示的词书：高中考纲、高考考纲词汇、考研红宝书（前提是已下载）
     if (rawName.includes('考研红宝书') || bookId.includes('考研红宝书')) {
         return true;
     }
-    if (rawName.includes('高中考纲词汇') || rawName.includes('高考考纲词汇') || rawName.includes('高考3500') || rawName.includes('默认词书') || bookId.includes('高中考纲词汇') || bookId === 'builtin_default' || bookId === 'GaoKao3500') {
+    if (rawName === '高中考纲' || rawName.includes('高中考纲') || rawName.includes('高考考纲词汇') || rawName.includes('高考3500') || rawName.includes('默认词书') || bookId === 'books/高中/高中考纲.json' || bookId.includes('高中考纲') || bookId === 'builtin_default' || bookId === 'GaoKao3500') {
         return true;
     }
 
@@ -946,7 +956,7 @@ function renderSearchSettingsSourcesList() {
 
     presetItems.forEach(item => {
         const isDownloaded = isSearchBookDownloaded(item.id, item.name);
-        const isHighlight = isDownloaded && (item.name.includes('考研红宝书') || item.name.includes('高中考纲词汇') || item.name.includes('高考3500'));
+        const isHighlight = isDownloaded && (item.name === '高中考纲' || item.name.includes('高中考纲') || item.name.includes('考研红宝书') || item.name.includes('高考3500'));
         if (isDownloaded) {
             html += `
                 <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--md-sys-color-surface-container-low); border-radius:10px; cursor:pointer;">
@@ -980,10 +990,16 @@ function openSearchSettingsModal() {
     const swTabs = document.getElementById('switch-search-enable-tabs');
     const swPhrases = document.getElementById('switch-search-enable-phrases');
     const swRelated = document.getElementById('switch-search-enable-related');
+    const swExamples = document.getElementById('switch-search-enable-examples');
+    const swAntonyms = document.getElementById('switch-search-enable-antonyms');
+    const swDiscrim = document.getElementById('switch-search-enable-discriminations');
     const swKeyboard = document.getElementById('switch-search-enable-keyboard');
     if (swTabs) swTabs.checked = cfg.enableTabs !== false;
     if (swPhrases) swPhrases.checked = cfg.enablePhrases !== false;
     if (swRelated) swRelated.checked = cfg.enableRelatedLinks !== false;
+    if (swExamples) swExamples.checked = cfg.enableExamples !== false;
+    if (swAntonyms) swAntonyms.checked = cfg.enableAntonyms !== false;
+    if (swDiscrim) swDiscrim.checked = cfg.enableDiscriminations !== false;
     if (swKeyboard) swKeyboard.checked = !!cfg.enableVirtualKeyboard;
     renderSearchSettingsSourcesList();
     const modal = document.getElementById('modal-search-settings');
@@ -1015,11 +1031,26 @@ function updateSearchSetting(key, val) {
     }
     const phrasesBlock = document.getElementById('search-phrases-block');
     if (phrasesBlock) {
-        phrasesBlock.style.display = cfg.enablePhrases ? 'block' : 'none';
+        phrasesBlock.style.display = cfg.enablePhrases !== false ? 'block' : 'none';
     }
     const relatedBlock = document.getElementById('search-related-block');
     if (relatedBlock) {
-        relatedBlock.style.display = cfg.enableRelatedLinks ? 'block' : 'none';
+        relatedBlock.style.display = cfg.enableRelatedLinks !== false ? 'block' : 'none';
+    }
+    const examplesBlock = document.getElementById('search-gaokao-examples-block');
+    if (examplesBlock) {
+        examplesBlock.style.display = cfg.enableExamples !== false ? 'block' : 'none';
+    }
+    const antonymsBlock = document.getElementById('search-gaokao-antonyms-block');
+    if (antonymsBlock) {
+        antonymsBlock.style.display = cfg.enableAntonyms !== false ? 'block' : 'none';
+    }
+    const discrimBlock = document.getElementById('search-gaokao-discriminations-block');
+    if (discrimBlock) {
+        discrimBlock.style.display = cfg.enableDiscriminations !== false ? 'block' : 'none';
+    }
+    if (typeof renderSearchExplainsList === 'function' && window._lastActiveSearchSource) {
+        renderSearchExplainsList();
     }
 }
 
@@ -1162,6 +1193,7 @@ window.openSearchPageFromHub = openSearchPageFromHub;
 let searchPreviousView = null;
 let searchPreviousSettingsBookId = null;
 
+window.jumpToSearch = jumpToSearch;
 function jumpToSearch(word) {
     if (!word) return;
     searchPreviousView = (typeof currentView !== 'undefined' && currentView) ? currentView : 'view-hub';
@@ -1364,9 +1396,37 @@ function extractWordMeaning(w, overrides = {}, bookId = '') {
         return w.trans.trim();
     }
     if (Array.isArray(w.senses) && w.senses.length > 0) {
-        return w.senses.map(s => (s.part_of_speech ? s.part_of_speech + ' ' : '') + (s.meaning || '')).join('； ').trim();
+        const posGroups = [];
+        w.senses.forEach(s => {
+            if (!s) return;
+            const pos = s.pos || s.part_of_speech || '';
+            const mText = Array.isArray(s.trans) ? s.trans.filter(Boolean).join('；') : (s.meaning || s.trans || '');
+            const cleanText = String(mText || '').replace(/★/g, '').trim();
+            if (!cleanText) return;
+            const lastGroup = posGroups[posGroups.length - 1];
+            if (lastGroup && lastGroup.pos === pos) {
+                lastGroup.texts.push(cleanText);
+            } else {
+                posGroups.push({ pos, texts: [cleanText] });
+            }
+        });
+        return posGroups.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('； ').trim();
     }
     return '';
+}
+
+function doesWordMatchHeadword(wordStr, queryLower) {
+    if (!wordStr || !queryLower) return false;
+    const wLower = String(wordStr).trim().toLowerCase();
+    const qLower = String(queryLower).trim().toLowerCase();
+    if (wLower === qLower) return true;
+    const parenMatch = wLower.match(/^(.+?)\s*\(([^()]+)\)$/);
+    if (parenMatch) {
+        const primary = parenMatch[1].trim();
+        const alt = parenMatch[2].trim();
+        if (primary === qLower || alt === qLower) return true;
+    }
+    return false;
 }
 
 function fetchYoudaoSuggestJsonp(query, num = 8) {
@@ -1463,13 +1523,14 @@ function searchLocalBooks(query) {
             const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
             if (aliasKey) words = BookManager.bookCache[aliasKey];
         }
-        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
-            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        if (!words && (b.id === 'books/高中/高中考纲.json' || b.id === 'GaoKao3500' || normId === '高中/高中考纲' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && (BookManager.bookCache['books/高中/高中考纲.json'] || BookManager.bookCache['builtin_default'])) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
         }
         if (!words && b.id && typeof BookManager !== 'undefined' && typeof BookManager.loadBookData === 'function' && !b._isPreloading) {
             b._isPreloading = true;
             BookManager.loadBookData(b.id).catch(() => {});
         }
+        const isGaoKaoBook = b.id === 'books/高中/高中考纲.json' || bookName === '高中考纲';
         words = words || [];
         words.forEach(w => {
             if (!w) return;
@@ -1478,19 +1539,23 @@ function searchLocalBooks(query) {
             const wordLower = wordRaw.toLowerCase();
             const meaning = extractWordMeaning(w, overrides, b.id);
             const meaningLower = String(meaning).toLowerCase();
+            const isHeadwordMatch = doesWordMatchHeadword(wordRaw, clean);
 
-            if (wordLower === clean || wordLower.includes(clean) || meaningLower.includes(clean)) {
+            if (isHeadwordMatch || wordLower.includes(clean) || meaningLower.includes(clean)) {
                 const pairKey = `${b.id}::${wordLower}`;
                 if (!seenBookWord.has(pairKey)) {
                     seenBookWord.add(pairKey);
                     results.push({
                         bookId: b.id,
                         bookName: bookName,
+                        isGaoKao: isGaoKaoBook,
                         isCustom: String(b.id).startsWith('custom_') || (window.customBooks && window.customBooks.some(cb => cb.id === b.id)),
                         word: wordRaw,
                         phone: w.phone || w.pinyin || '',
                         meaning: meaning,
-                        exact: wordLower === clean || meaningLower === clean
+                        rawWord: w,
+                        isHeadwordMatch: isHeadwordMatch,
+                        exact: isHeadwordMatch || meaningLower === clean
                     });
                 }
             }
@@ -1498,8 +1563,12 @@ function searchLocalBooks(query) {
     });
 
     results.sort((a, b) => {
+        if (a.isHeadwordMatch && !b.isHeadwordMatch) return -1;
+        if (!a.isHeadwordMatch && b.isHeadwordMatch) return 1;
         if (a.exact && !b.exact) return -1;
         if (!a.exact && b.exact) return 1;
+        if (a.isGaoKao && !b.isGaoKao) return -1;
+        if (!a.isGaoKao && b.isGaoKao) return 1;
         return 0;
     });
 
@@ -1509,7 +1578,7 @@ function searchLocalBooks(query) {
 function findPhrasesContainingWord(searchWord) {
     if (!searchWord) return [];
     const cleanWord = searchWord.trim().toLowerCase();
-    const wholeWordRegex = new RegExp('(?:^|[;\\s,，；.。!?;:\'\"\\(\\[{])' + escapeRegExp(cleanWord) + '(?:$|[;\\s,，；.。!?;:\'\"\\)\\]}])', 'i');
+    const wholeWordRegex = new RegExp('(?:^|[;\\s,，；.。!?;:\'\"\\(\\[{/])' + escapeRegExp(cleanWord) + '(?:$|[;\\s,，；.。!?;:\'\"\\)\\]}/])', 'i');
 
     const allTargetBooks = getAllUniqueBooks();
     const phrases = [];
@@ -1532,15 +1601,18 @@ function findPhrasesContainingWord(searchWord) {
             const aliasKey = Object.keys(BookManager.bookCache).find(k => String(k).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
             if (aliasKey) words = BookManager.bookCache[aliasKey];
         }
-        if (!words && (b.id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
-            words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+        if (!words && (b.id === 'books/高中/高中考纲.json' || b.id === 'GaoKao3500' || normId === '高中/高中考纲' || normId === '考纲/高考3500' || normId === '高考3500' || b.id === 'builtin_default')) {
+            words = (BookManager.bookCache && (BookManager.bookCache['books/高中/高中考纲.json'] || BookManager.bookCache['builtin_default'])) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
         }
+        const isGaoKaoBook = b.id === 'books/高中/高中考纲.json' || bookName === '高中考纲';
         words = words || [];
         words.forEach(w => {
             if (!w) return;
             const wName = (w.word || w.name || '').trim();
             if (!wName) return;
-            const isMultiWord = wName.includes(' ') || wName.includes('-');
+            if (doesWordMatchHeadword(wName, cleanWord)) return;
+            const wNoParens = wName.replace(/\s*\([^)]*\)/g, '').trim();
+            const isMultiWord = wNoParens.includes(' ') || (wNoParens.includes('-') && (!w.senses || w.senses.length === 0));
             if (!isMultiWord) return;
 
             if (wholeWordRegex.test(wName)) {
@@ -1552,11 +1624,19 @@ function findPhrasesContainingWord(searchWord) {
                         phrase: wName,
                         meaning: meaning,
                         bookId: b.id,
-                        bookName: bookName
+                        bookName: bookName,
+                        isGaoKao: isGaoKaoBook,
+                        rawWord: w
                     });
                 }
             }
         });
+    });
+
+    phrases.sort((a, b) => {
+        if (a.isGaoKao && !b.isGaoKao) return -1;
+        if (!a.isGaoKao && b.isGaoKao) return 1;
+        return 0;
     });
 
     return phrases.slice(0, 30);
@@ -1745,18 +1825,39 @@ function playWordVoice(word, type = null) {
 }
 
 // ----------------- 释义清洗与精准过滤 -----------------
+function hasUnbalancedBrackets(str) {
+    if (!str) return false;
+    const countChar = (ch) => {
+        let c = 0;
+        for (let i = 0; i < str.length; i++) {
+            if (str[i] === ch) c++;
+        }
+        return c;
+    };
+    if (countChar('（') !== countChar('）')) return true;
+    if (countChar('(') !== countChar(')')) return true;
+    if (countChar('[') !== countChar(']')) return true;
+    if (countChar('【') !== countChar('】')) return true;
+    return false;
+}
+
 function cleanMeaningText(meaning, word) {
     if (!meaning) return '';
-    const parts = meaning.split(/[；;]\s*/);
+    const POS_ONLY_REGEX = /^(?:adj|adv|prep|conj|pron|interj|abbr|art|num|aux|vi|vt|modal|ad|int|[avndc])\.?(?:\s*\[[^\]]*\])?$/i;
+    const HAS_POS_PREFIX_REGEX = /^((?:adj|adv|prep|conj|pron|interj|abbr|art|num|aux|vi|vt|modal|ad|int|[avndc])\.(?:\s*\[[^\]]*\])?\s*)(.*)$/i;
+    const parts = String(meaning).split(/[；;]\s*/);
     const cleanedParts = [];
     const lowerWord = (word || '').toLowerCase();
     let justSawPersonName = false;
 
-    for (let part of parts) {
-        let p = part.trim().replace(/[.\s…]+$/, '');
+    for (let i = 0; i < parts.length; i++) {
+        const rawPart = (parts[i] || '').trim();
+        if (!rawPart) continue;
+        const wasTruncated = /(?:\.{2,}|…)\s*$/.test(rawPart);
+        let p = rawPart.replace(/(?:\.{2,}|…|\s)+$/, '');
         if (!p) continue;
         // 过滤人名条目
-        if (/人名/.test(p)) {
+        if (/人名|^【名】/.test(p)) {
             justSawPersonName = true;
             continue;
         }
@@ -1774,8 +1875,43 @@ function cleanMeaningText(meaning, word) {
         if (lowerWord === 'wind' && /^(有风的日子|大风天)$/.test(p)) {
             continue;
         }
-        // 过滤无意义省略号
-        if (p === '...' || p === '…') continue;
+        // 过滤无意义省略号或孤立词性标签
+        if (p === '...' || p === '…' || POS_ONLY_REGEX.test(p)) continue;
+
+        // 修复有道 suggest 接口末尾截断导致释义残缺的 bug
+        if (wasTruncated) {
+            const posMatch = p.match(HAS_POS_PREFIX_REGEX);
+            if (cleanedParts.length > 0 && !posMatch) {
+                // 已有完整释义分项，且当前被截断的分项不带新词性前缀，直接舍弃该残缺尾项
+                continue;
+            }
+            const posPrefix = posMatch ? posMatch[1] : '';
+            const body = posMatch ? posMatch[2] : p;
+            const commaSegs = body.split(/[，,、]\s*/).map(s => s.trim()).filter(Boolean);
+            if (commaSegs.length > 1) {
+                // 丢弃最后一个被省略号截断的逗号子项，保留前面完整的子项
+                commaSegs.pop();
+                const validSegs = commaSegs.filter(s => s && !POS_ONLY_REGEX.test(s) && !hasUnbalancedBrackets(s));
+                if (validSegs.length > 0) {
+                    p = posPrefix + validSegs.join('，');
+                } else if (cleanedParts.length > 0) {
+                    continue;
+                }
+            } else {
+                // 仅单个子项即被截断：若括号不闭合或仅剩词性/极短残片且已有前项，则丢弃
+                if (hasUnbalancedBrackets(p) || !body.trim() || POS_ONLY_REGEX.test(body.trim())) {
+                    if (cleanedParts.length > 0) continue;
+                }
+            }
+        }
+
+        // 若某分项括号未闭合且前面已有有效释义，丢弃该残缺分项
+        if (hasUnbalancedBrackets(p) && cleanedParts.length > 0) {
+            continue;
+        }
+
+        p = p.replace(/[，,、；;：:\s]+$/, '').trim();
+        if (!p || POS_ONLY_REGEX.test(p)) continue;
 
         cleanedParts.push(p);
     }
@@ -1801,6 +1937,9 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
 
     const isSearchPageActive = (typeof currentView !== 'undefined' && currentView === 'view-search') || (document.getElementById('view-search') && document.getElementById('view-search').classList.contains('active'));
     if (!isSearchPageActive) {
+        if (!searchPreviousView) {
+            searchPreviousView = (typeof currentView !== 'undefined' && currentView) ? currentView : 'view-hub';
+        }
         switchView('view-search');
     }
 
@@ -1842,6 +1981,13 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                         <p style="margin-top:10px; font-size:0.95rem;">正在检索“${escapeHtml(clean)}”...</p>
                     </div>
                 `;
+    }
+
+    // 确保默认词书《高中考纲》已加载至缓存以供检索
+    if (typeof BookManager !== 'undefined' && BookManager && (!BookManager.bookCache || !BookManager.bookCache['books/高中/高中考纲.json']) && typeof BookManager.loadBookData === 'function') {
+        try {
+            await BookManager.loadBookData('books/高中/高中考纲.json');
+        } catch (e) { }
     }
 
     // 并行检索：有道词典 + 本地词库 + 相关词组
@@ -1975,10 +2121,16 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         return;
     }
 
+    const exactLocalMatches = localResults.filter(r => doesWordMatchHeadword(r.word, cleanLower));
+    const gaoKaoExactMatch = exactLocalMatches.find(r => r.isGaoKao || r.bookId === 'books/高中/高中考纲.json' || r.bookName === '高中考纲');
+
     // 提取音标并严格去除首尾斜杠与多余符号，杜绝 // 双斜杠
     let phonetic = '';
-    if (localResults.length > 0 && localResults[0].phone) {
-        phonetic = (localResults[0].phone || '')
+    const phoneSource = (gaoKaoExactMatch && gaoKaoExactMatch.phone)
+        ? gaoKaoExactMatch.phone
+        : ((exactLocalMatches.length > 0 && exactLocalMatches[0].phone) ? exactLocalMatches[0].phone : (localResults.length > 0 ? localResults[0].phone : ''));
+    if (phoneSource) {
+        phonetic = String(phoneSource)
             .replace(/^[\s/\[]+|[\s/\]]+$/g, '')
             .replace(/\/+/g, '/')
             .trim();
@@ -2005,7 +2157,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                     });
                 }
             } else if (entryTrimmed.includes(' ') || entryTrimmed.includes('-')) {
-                const wholeWordRegex = new RegExp('(?:^|[;\\s,，；.。!?;:\'\"\\(\\[{])' + escapeRegExp(cleanLower) + '(?:$|[;\\s,，；.。!?;:\'\"\\)\\]}])', 'i');
+                const wholeWordRegex = new RegExp('(?:^|[;\\s,，；.。!?;:\'\"\\(\\[{/])' + escapeRegExp(cleanLower) + '(?:$|[;\\s,，；.。!?;:\'\"\\)\\]}/])', 'i');
                 if (wholeWordRegex.test(entryTrimmed)) {
                     const cleanedExplain = cleanMeaningText(e.explain || '', entryTrimmed);
                     if (cleanedExplain) {
@@ -2033,7 +2185,8 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         }
     }
 
-    const searchWordDisplay = (exactYoudaoEntries.length > 0 ? exactYoudaoEntries[0].entry : null) || clean;
+    const searchWordDisplay = (gaoKaoExactMatch ? gaoKaoExactMatch.word : null) || (exactYoudaoEntries.length > 0 ? exactYoudaoEntries[0].entry : null) || (exactLocalMatches.length > 0 ? exactLocalMatches[0].word : null) || clean;
+    const searchWordAudioTarget = searchWordDisplay.replace(/\s*\([^)]*\)/g, '').trim() || searchWordDisplay;
     lastYoudaoSearchResult = {
         word: searchWordDisplay,
         entries: exactYoudaoEntries.length > 0 ? exactYoudaoEntries : localResults.map(r => ({ entry: r.word, explain: cleanMeaningText(r.meaning, r.word) }))
@@ -2042,6 +2195,11 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     // ----------------- 聚合释义数据结构 -----------------
     const sourcesList = [];
     let chipCounter = 0;
+
+    let overridesMap = {};
+    try {
+        overridesMap = JSON.parse(localStorage.getItem('vocab_word_meaning_overrides') || '{}');
+    } catch (e) { }
 
     // 1. 有道词典
     if (exactYoudaoEntries.length > 0) {
@@ -2074,28 +2232,104 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     }
 
     // 2. 本地词库
-    const exactLocalMatches = localResults.filter(r => r.word.toLowerCase() === cleanLower);
     const seenBookNames = new Set();
     exactLocalMatches.forEach(r => {
         if (seenBookNames.has(r.bookName)) return;
         seenBookNames.add(r.bookName);
 
-        const parsed = parseMeaningPosSegments(r.meaning || '');
         const segs = [];
-        parsed.forEach(s => {
-            const pieces = s.meaning.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean);
-            if (pieces.length > 0) {
-                segs.push({
-                    pos: s.pos || '',
-                    pieces: pieces.map(p => ({
+        const rawW = r.rawWord || null;
+        const overrideKey = r.bookId ? `${r.bookId}::${String(r.word || '').toLowerCase()}` : '';
+        const hasOverride = Boolean(overrideKey && overridesMap[overrideKey]);
+
+        if (!hasOverride && rawW && Array.isArray(rawW.senses) && rawW.senses.length > 0) {
+            rawW.senses.forEach((s, sIdx) => {
+                if (!s) return;
+                const pos = s.pos || s.part_of_speech || '';
+                const rawTransList = Array.isArray(s.trans) ? s.trans : [s.meaning || s.trans || ''];
+                const pieces = [];
+                rawTransList.forEach(tItem => {
+                    String(tItem || '').replace(/★/g, '').split(/[；;]\s*/).map(p => p.trim()).filter(Boolean).forEach(p => {
+                        pieces.push({
+                            id: `chip_${++chipCounter}`,
+                            pos: pos,
+                            text: p
+                        });
+                    });
+                });
+                if (pieces.length === 0) return;
+
+                const senseExamples = Array.isArray(s.examples) ? s.examples.filter(ex => ex && (ex.en || ex.zh)) : [];
+                
+                // 每个词义单独作为项，以便精准判断例句归属与单独下划线（一句例句仅对应一个释义）
+                const itemsForSense = pieces.map(p => {
+                    let pieceExamples = [];
+                    if (senseExamples.length > 0) {
+                        if (pieces.length === 1) {
+                            pieceExamples = senseExamples;
+                        } else {
+                            const match = senseExamples.filter(ex => ex.zh && ex.zh.includes(p.text));
+                            if (match.length > 0) {
+                                pieceExamples = match;
+                            }
+                        }
+                    }
+                    return {
+                        senseIdx: sIdx,
+                        transText: p.text,
+                        pieces: [p],
+                        examples: pieceExamples,
+                        hasExamples: pieceExamples.length > 0
+                    };
+                });
+
+                if (senseExamples.length > 0 && !itemsForSense.some(it => it.hasExamples)) {
+                    itemsForSense[0].examples = senseExamples;
+                    itemsForSense[0].hasExamples = true;
+                }
+
+                const lastSeg = segs[segs.length - 1];
+                if (lastSeg && lastSeg.pos === pos) {
+                    lastSeg.items.push(...itemsForSense);
+                    lastSeg.pieces.push(...pieces);
+                } else {
+                    segs.push({
+                        pos: pos,
+                        senseIdx: sIdx,
+                        items: itemsForSense,
+                        pieces: [...pieces]
+                    });
+                }
+            });
+        } else {
+            const parsed = parseMeaningPosSegments(r.meaning || '');
+            parsed.forEach((s, sIdx) => {
+                const pieces = s.meaning.split(/[；;]\s*/).map(p => p.trim()).filter(Boolean);
+                if (pieces.length > 0) {
+                    const rawPieces = pieces.map(p => ({
                         id: `chip_${++chipCounter}`,
                         pos: s.pos || '',
                         text: p
-                    }))
-                });
-            }
-        });
+                    }));
+                    const senseExamples = (sIdx === 0 && rawW && Array.isArray(rawW.examples)) ? rawW.examples.filter(ex => ex && (ex.en || ex.zh)) : [];
+                    segs.push({
+                        pos: s.pos || '',
+                        senseIdx: sIdx,
+                        items: [{
+                            senseIdx: sIdx,
+                            transText: pieces.join('； '),
+                            pieces: rawPieces,
+                            examples: senseExamples,
+                            hasExamples: senseExamples.length > 0
+                        }],
+                        pieces: rawPieces
+                    });
+                }
+            });
+        }
+
         if (segs.length > 0) {
+            const isGaoKao = Boolean(r.isGaoKao || r.bookId === 'books/高中/高中考纲.json' || r.bookName === '高中考纲');
             sourcesList.push({
                 key: r.bookId || ('book_' + r.bookName),
                 name: `《${r.bookName}》`,
@@ -2103,10 +2337,19 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                 type: 'book',
                 bookId: r.bookId,
                 bookName: r.bookName,
+                isGaoKao: isGaoKao,
                 isCustom: r.isCustom,
+                rawWord: rawW,
                 segments: segs
             });
         }
+    });
+
+    // 将《高中考纲》选项卡排在最前面
+    sourcesList.sort((a, b) => {
+        if (a.isGaoKao && !b.isGaoKao) return -1;
+        if (!a.isGaoKao && b.isGaoKao) return 1;
+        return 0;
     });
 
     activeSearchExplainsTab = null;
@@ -2154,7 +2397,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     let pronHtml = '';
     if (isQueryPhrase) {
         pronHtml = `
-                    <button type="button" class="search-phrase-voice-btn" onclick="playWordVoice('${escapeHtml(searchWordDisplay)}', 2)" title="播放发音">
+                    <button type="button" class="search-phrase-voice-btn" onclick="playWordVoice('${escapeHtml(searchWordAudioTarget)}', 2)" title="播放发音">
                         <span class="material-symbols-rounded" style="font-size: 20px;">volume_up</span>
                     </button>
                 `;
@@ -2162,12 +2405,12 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
         const hasValidPhonetic = phonetic && phonetic.toLowerCase() !== cleanLower;
         pronHtml = `
                     <div class="search-word-pron-row">
-                        <button type="button" class="search-pron-btn" onclick="playWordVoice('${escapeHtml(searchWordDisplay)}', 1)" title="点击发音 (英音)">
+                        <button type="button" class="search-pron-btn" onclick="playWordVoice('${escapeHtml(searchWordAudioTarget)}', 1)" title="点击发音 (英音)">
                             <span style="font-weight:700;">英</span>
                             ${hasValidPhonetic ? `<span class="search-phonetic">/${escapeHtml(phonetic)}/</span>` : ''}
                             <span class="material-symbols-rounded" style="font-size:17px; color:#0284c7;">volume_up</span>
                         </button>
-                        <button type="button" class="search-pron-btn" onclick="playWordVoice('${escapeHtml(searchWordDisplay)}', 2)" title="点击发音 (美音)">
+                        <button type="button" class="search-pron-btn" onclick="playWordVoice('${escapeHtml(searchWordAudioTarget)}', 2)" title="点击发音 (美音)">
                             <span style="font-weight:700;">美</span>
                             ${hasValidPhonetic ? `<span class="search-phonetic">/${escapeHtml(phonetic)}/</span>` : ''}
                             <span class="material-symbols-rounded" style="font-size:17px; color:#0284c7;">volume_up</span>
@@ -2207,6 +2450,9 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                         <div id="search-explains-dynamic-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
                     </div>
 
+                    <!-- 《高中考纲》专属拓展区：例句、派生、辨析、反义 -->
+                    <div id="search-gaokao-extra-sections" class="search-gaokao-extra-container" style="display:none;"></div>
+
                     <!-- 3. 相关词组 (受设置开关控制，已去除个数) -->
                     <div class="search-section-block" id="search-phrases-block" style="${searchConfig.enablePhrases !== false ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-phrases-content', this)" style="cursor:pointer; user-select:none;">
@@ -2222,7 +2468,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                     </div>
 
                     <!-- 4. 相关链接 (受设置开关控制，已去除个数) -->
-                    <div class="search-section-block" id="search-related-block" style="${searchConfig.enableRelatedLinks !== false && relatedResults.length > 0 ? '' : 'display:none;'}">
+                    <div class="search-section-block" id="search-related-block" data-has-related="${relatedResults.length > 0 ? '1' : '0'}" style="${searchConfig.enableRelatedLinks !== false && relatedResults.length > 0 ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-related-content', this)" style="cursor:pointer; user-select:none;">
                             <div class="search-section-title">
                                 <span class="material-symbols-rounded" style="color:#0284c7; font-size:20px;">hub</span>
@@ -2391,10 +2637,32 @@ function switchSearchExplainsTab(tabKey) {
 }
 window.switchSearchExplainsTab = switchSearchExplainsTab;
 
+function escapeJsStr(str) {
+    return String(str || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/\r?\n/g, ' ');
+}
+
+function toggleGaoKaoSenseExamples(popupId, triggerEl) {
+    const el = document.getElementById(popupId);
+    if (!el) return;
+    const isHidden = el.style.display === 'none' || !el.style.display;
+    el.style.display = isHidden ? 'flex' : 'none';
+    const trg = triggerEl || document.querySelector(`[data-popup-id="${popupId}"]`);
+    if (trg) {
+        trg.classList.toggle('active', isHidden);
+    }
+}
+window.toggleGaoKaoSenseExamples = toggleGaoKaoSenseExamples;
+
 function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOptions) {
     const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
+    const isGaoKao = Boolean(src.isGaoKao || src.bookId === 'books/高中/高中考纲.json' || src.bookName === '高中考纲');
+    const wordNote = (isGaoKao && src.rawWord && src.rawWord.note) ? String(src.rawWord.note).trim() : '';
 
-    return src.segments.map((seg, segIdx) => {
+    const segmentsHtml = src.segments.map((seg, segIdx) => {
         const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
 
         if (isInlineAddToBookOpen) {
@@ -2416,7 +2684,7 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
                             }).join('')}
                             ${isLocal ? `
                                 <button type="button" class="btn btn-outlined btn-sm btn-add-meaning-block"
-                                    onclick="toggleSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})"
+                                    onclick="toggleSearchInlineAddBlock('${escapeJsStr(src.bookId)}', ${segIdx})"
                                     title="添加词块"
                                     style="height:28px; font-size:0.78rem; padding:0 8px; border-radius:14px; display:inline-flex; align-items:center; gap:3px; border-style:dashed; color:var(--md-sys-color-primary);">
                                     <span class="material-symbols-rounded" style="font-size:15px;">add</span>
@@ -2432,23 +2700,289 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
                                 options: posSelectOptions,
                                 defaultValue: seg.pos || 'adj.'
                             })}
-                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">
-                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeHtml(src.bookId)}', ${segIdx})">添加</button>
+                            <input type="text" id="search-inline-add-text-${escapeHtml(src.bookId)}-${segIdx}" class="input-field" placeholder="输入释义内容..." style="height:36px; font-size:0.86rem; border-radius:8px; flex:1; min-width:140px;" onkeydown="if(event.key==='Enter') confirmSearchInlineAddBlock('${escapeJsStr(src.bookId)}', ${segIdx})">
+                            <button type="button" class="btn btn-filled btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="confirmSearchInlineAddBlock('${escapeJsStr(src.bookId)}', ${segIdx})">添加</button>
                             <button type="button" class="btn btn-tonal btn-sm" style="white-space:nowrap; height:36px; flex-shrink:0;" onclick="cancelSearchInlineAddBlock()">取消</button>
                         </div>
                     ` : ''}
                 </div>
             `;
         } else {
-            const fluidText = seg.pieces.map(p => escapeHtml(p.text)).join('； ');
+            const items = Array.isArray(seg.items) ? seg.items : [{
+                transText: seg.pieces.map(p => p.text).join('； '),
+                hasExamples: (isGaoKao && Array.isArray(seg.examples) && seg.examples.length > 0),
+                examples: seg.examples || []
+            }];
+
+            const inlineItemsHtml = items.map((it, itIdx) => {
+                const popupId = `gaokao-sense-examples-popup-${segIdx}-${itIdx}`;
+                const hasEx = Boolean(isGaoKao && it.hasExamples && Array.isArray(it.examples) && it.examples.length > 0);
+                if (hasEx) {
+                    return `<span class="gaokao-sense-meaning-underlined" data-popup-id="${popupId}" onclick="toggleGaoKaoSenseExamples('${popupId}', this)" title="点击展开/收起【${escapeHtml(it.transText)}】的释义例句">${escapeHtml(it.transText)}</span>`;
+                }
+                return `<span>${escapeHtml(it.transText)}</span>`;
+            }).join('； ');
+
+            const popupsHtml = items.map((it, itIdx) => {
+                const hasEx = Boolean(isGaoKao && it.hasExamples && Array.isArray(it.examples) && it.examples.length > 0);
+                if (!hasEx) return '';
+                const popupId = `gaokao-sense-examples-popup-${segIdx}-${itIdx}`;
+                return `
+                    <div id="${popupId}" class="gaokao-sense-examples-popup" style="display:none;">
+                        ${it.examples.map(ex => `
+                            <div class="gaokao-sense-example-item">
+                                <div class="gaokao-sense-example-en-row">
+                                    <span class="gaokao-sense-example-en">${escapeHtml(ex.en || '')}</span>
+                                    <button type="button" class="gaokao-example-audio-btn" onclick="if(typeof playWordAudio==='function') playWordAudio('${escapeJsStr(ex.en || '')}')" title="播放例句发音">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
+                                    </button>
+                                </div>
+                                ${ex.zh ? `<div class="gaokao-sense-example-zh">${escapeHtml(ex.zh)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }).filter(Boolean).join('');
+
             return `
-                <div class="unified-explain-row" style="display:flex; align-items:baseline; gap:8px; padding:4px 0;">
-                    ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
-                    <div class="unified-explain-text" style="font-size:0.95rem; line-height:1.6; color:var(--md-sys-color-on-surface); flex:1;">${fluidText}</div>
+                <div class="unified-explain-row-wrap" style="display:flex; flex-direction:column; gap:6px; padding:4px 0;">
+                    <div class="unified-explain-row" style="display:flex; align-items:baseline; gap:8px;">
+                        ${seg.pos ? `<span class="unified-source-badge pos">${escapeHtml(seg.pos)}</span>` : ''}
+                        <div class="unified-explain-text" style="font-size:0.95rem; line-height:1.6; color:var(--md-sys-color-on-surface); flex:1;">
+                            ${inlineItemsHtml}
+                        </div>
+                    </div>
+                    ${popupsHtml}
                 </div>
             `;
         }
     }).join('');
+
+    const noteHtml = (!isInlineAddToBookOpen && wordNote) ? `
+        <div class="gaokao-word-note-bar">
+            <span class="material-symbols-rounded" style="font-size:16px; color:var(--md-sys-color-primary); flex-shrink:0;">info</span>
+            <span>${escapeHtml(wordNote)}</span>
+        </div>
+    ` : '';
+
+    return segmentsHtml + noteHtml;
+}
+
+function updateGaoKaoTabSpecificSections(gaoKaoSrc) {
+    const searchConfig = getSearchConfig();
+    const relatedBlock = document.getElementById('search-related-block');
+    const extraContainer = document.getElementById('search-gaokao-extra-sections');
+    const isGaoKaoActive = Boolean(gaoKaoSrc && (gaoKaoSrc.isGaoKao || gaoKaoSrc.bookId === 'books/高中/高中考纲.json' || gaoKaoSrc.bookName === '高中考纲'));
+
+    // 当处于《高中考纲》选项卡下，删除（隐藏）相关链接栏；切换到其他选项卡时恢复
+    if (relatedBlock) {
+        if (isGaoKaoActive) {
+            relatedBlock.style.display = 'none';
+        } else {
+            const hasRelated = relatedBlock.getAttribute('data-has-related') === '1';
+            relatedBlock.style.display = (searchConfig.enableRelatedLinks !== false && hasRelated) ? '' : 'none';
+        }
+    }
+
+    if (!extraContainer) return;
+    if (!isGaoKaoActive || !gaoKaoSrc.rawWord) {
+        extraContainer.style.display = 'none';
+        extraContainer.innerHTML = '';
+        return;
+    }
+
+    const rawWord = gaoKaoSrc.rawWord;
+    const blocksHtml = [];
+
+    // 1. “例句”（examples词条：优先顶层 examples，兼顾各义项 senses 下的 examples）
+    const collectedExamples = [];
+    const seenExampleEn = new Set();
+    if (Array.isArray(rawWord.examples)) {
+        rawWord.examples.forEach(ex => {
+            if (!ex || (!ex.en && !ex.zh)) return;
+            const key = String(ex.en || ex.zh).trim().toLowerCase();
+            if (!seenExampleEn.has(key)) {
+                seenExampleEn.add(key);
+                collectedExamples.push({ pos: '', trans: '', en: ex.en || '', zh: ex.zh || '' });
+            }
+        });
+    }
+    if (Array.isArray(rawWord.senses)) {
+        rawWord.senses.forEach(s => {
+            if (!s || !Array.isArray(s.examples)) return;
+            const pos = s.pos || s.part_of_speech || '';
+            const transText = Array.isArray(s.trans) ? s.trans.join('；') : (s.trans || s.meaning || '');
+            s.examples.forEach(ex => {
+                if (!ex || (!ex.en && !ex.zh)) return;
+                const key = String(ex.en || ex.zh).trim().toLowerCase();
+                if (!seenExampleEn.has(key)) {
+                    seenExampleEn.add(key);
+                    collectedExamples.push({ pos: pos, trans: transText, en: ex.en || '', zh: ex.zh || '' });
+                }
+            });
+        });
+    }
+
+    if (collectedExamples.length > 0 && searchConfig.enableExamples !== false) {
+        blocksHtml.push(`
+            <div class="search-section-block" id="search-gaokao-examples-block">
+                <div class="search-section-header" onclick="toggleSectionCollapse('search-gaokao-examples-content', this)" style="cursor:pointer; user-select:none;">
+                    <div class="search-section-title">
+                        <span class="material-symbols-rounded" style="color:#0284c7; font-size:20px;">notes</span>
+                        <span>例句</span>
+                    </div>
+                    <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
+                </div>
+                <div class="gaokao-extra-list" id="search-gaokao-examples-content">
+                    ${collectedExamples.map(ex => `
+                        <div class="gaokao-example-card">
+                            ${(ex.pos || ex.trans) ? `
+                                <div class="gaokao-example-head-row">
+                                    ${ex.pos ? `<span class="unified-source-badge pos">${escapeHtml(ex.pos)}</span>` : ''}
+                                    ${ex.trans ? `<span class="gaokao-example-trans-text">${escapeHtml(ex.trans)}</span>` : ''}
+                                </div>
+                            ` : ''}
+                            <div class="gaokao-example-body">
+                                <div class="gaokao-example-en-text">${escapeHtml(ex.en)}</div>
+                                ${ex.zh ? `<div class="gaokao-example-zh-text">${escapeHtml(ex.zh)}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+    }
+
+    // 2. “派生”（derivatives词条）
+    const derivatives = Array.isArray(rawWord.derivatives) ? rawWord.derivatives.filter(d => d && d.name) : [];
+    if (derivatives.length > 0) {
+        blocksHtml.push(`
+            <div class="search-section-block" id="search-gaokao-derivatives-block">
+                <div class="search-section-header" onclick="toggleSectionCollapse('search-gaokao-derivatives-content', this)" style="cursor:pointer; user-select:none;">
+                    <div class="search-section-title">
+                        <span class="material-symbols-rounded" style="color:#059669; font-size:20px;">account_tree</span>
+                        <span>派生</span>
+                    </div>
+                    <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
+                </div>
+                <div class="gaokao-extra-list" id="search-gaokao-derivatives-content">
+                    ${derivatives.map(d => {
+                        const dTrans = Array.isArray(d.trans) ? d.trans.join('；') : (d.trans || d.meaning || '');
+                        return `
+                            <div class="gaokao-word-rel-item" onclick="executeHubSearch('${escapeJsStr(d.name)}', true, true)">
+                                <div class="gaokao-word-rel-main">
+                                    <span class="gaokao-word-rel-name">${escapeHtml(d.name)}</span>
+                                    ${d.pos ? `<span class="unified-source-badge pos">${escapeHtml(d.pos)}</span>` : ''}
+                                    <span class="gaokao-word-rel-trans">${escapeHtml(dTrans)}</span>
+                                    ${d.antonym ? `
+                                        <span class="gaokao-antonym-inline-chip" onclick="event.stopPropagation(); executeHubSearch('${escapeJsStr(d.antonym)}', true, true)" title="点击查看反义词 ${escapeHtml(d.antonym)}">
+                                            反义: ${escapeHtml(d.antonym)}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                <button type="button" class="gaokao-example-voice-btn" onclick="event.stopPropagation(); playWordVoice('${escapeJsStr(d.name)}', 2)" title="播放发音">
+                                    <span class="material-symbols-rounded" style="font-size:17px;">volume_up</span>
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `);
+    }
+
+    // 3. “辨析”（discriminations词条）
+    const discriminations = Array.isArray(rawWord.discriminations) ? rawWord.discriminations.filter(disc => disc && (Array.isArray(disc.words) || Array.isArray(disc.items))) : [];
+    if (discriminations.length > 0 && searchConfig.enableDiscriminations !== false) {
+        blocksHtml.push(`
+            <div class="search-section-block" id="search-gaokao-discriminations-block">
+                <div class="search-section-header" onclick="toggleSectionCollapse('search-gaokao-discriminations-content', this)" style="cursor:pointer; user-select:none;">
+                    <div class="search-section-title">
+                        <span class="material-symbols-rounded" style="color:#d97706; font-size:20px;">compare_arrows</span>
+                        <span>辨析</span>
+                    </div>
+                    <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
+                </div>
+                <div class="gaokao-extra-list" id="search-gaokao-discriminations-content">
+                    ${discriminations.map(disc => `
+                        <div class="gaokao-disc-group">
+                            ${Array.isArray(disc.words) && disc.words.length > 0 ? `
+                                <div class="gaokao-disc-words-header">
+                                    ${disc.words.map(w => `
+                                        <span class="gaokao-disc-word-chip" onclick="executeHubSearch('${escapeJsStr(w)}', true, true)">${escapeHtml(w)}</span>
+                                    `).join('<span style="color:var(--md-sys-color-outline); font-weight:600;">/</span>')}
+                                </div>
+                            ` : ''}
+                            ${disc.intro ? `<div class="gaokao-disc-intro">${escapeHtml(disc.intro)}</div>` : ''}
+                            ${Array.isArray(disc.items) && disc.items.length > 0 ? `
+                                <div class="gaokao-disc-items-list">
+                                    ${disc.items.map(it => `
+                                        <div class="gaokao-disc-item">
+                                            <div class="gaokao-disc-item-head">
+                                                <span class="gaokao-disc-item-word" onclick="executeHubSearch('${escapeJsStr(it.word)}', true, true)">${escapeHtml(it.word || '')}</span>
+                                                <span class="gaokao-disc-item-exp">${escapeHtml(it.explanation || '')}</span>
+                                            </div>
+                                            ${Array.isArray(it.examples) && it.examples.length > 0 ? `
+                                                <div class="gaokao-disc-item-examples">
+                                                    ${it.examples.map(ex => `
+                                                        <div class="gaokao-disc-example-row">
+                                                            <div class="gaokao-example-en-text" style="font-size:0.86rem;">${escapeHtml(ex.en || '')}</div>
+                                                            ${ex.zh ? `<div class="gaokao-example-zh-text" style="font-size:0.82rem;">${escapeHtml(ex.zh)}</div>` : ''}
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+    }
+
+    // 4. “反义”（antonyms词条）
+    const antonyms = Array.isArray(rawWord.antonyms) ? rawWord.antonyms.filter(a => a && a.name) : [];
+    if (antonyms.length > 0 && searchConfig.enableAntonyms !== false) {
+        blocksHtml.push(`
+            <div class="search-section-block" id="search-gaokao-antonyms-block">
+                <div class="search-section-header" onclick="toggleSectionCollapse('search-gaokao-antonyms-content', this)" style="cursor:pointer; user-select:none;">
+                    <div class="search-section-title">
+                        <span class="material-symbols-rounded" style="color:#e11d48; font-size:20px;">swap_horiz</span>
+                        <span>反义</span>
+                    </div>
+                    <span class="material-symbols-rounded search-section-chevron" style="font-size:20px; color:var(--md-sys-color-outline); transition:transform 0.2s;">expand_more</span>
+                </div>
+                <div class="gaokao-extra-list" id="search-gaokao-antonyms-content">
+                    ${antonyms.map(a => {
+                        const aTrans = Array.isArray(a.trans) ? a.trans.join('；') : (a.trans || a.meaning || '');
+                        return `
+                            <div class="gaokao-word-rel-item" onclick="executeHubSearch('${escapeJsStr(a.name)}', true, true)">
+                                <div class="gaokao-word-rel-main">
+                                    <span class="gaokao-word-rel-name">${escapeHtml(a.name)}</span>
+                                    ${a.pos ? `<span class="unified-source-badge pos">${escapeHtml(a.pos)}</span>` : ''}
+                                    <span class="gaokao-word-rel-trans">${escapeHtml(aTrans)}</span>
+                                </div>
+                                <button type="button" class="gaokao-example-voice-btn" onclick="event.stopPropagation(); playWordVoice('${escapeJsStr(a.name)}', 2)" title="播放发音">
+                                    <span class="material-symbols-rounded" style="font-size:17px;">volume_up</span>
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `);
+    }
+
+    if (blocksHtml.length > 0) {
+        extraContainer.innerHTML = blocksHtml.join('');
+        extraContainer.style.display = 'flex';
+    } else {
+        extraContainer.innerHTML = '';
+        extraContainer.style.display = 'none';
+    }
 }
 
 function renderSearchExplainsList() {
@@ -2457,6 +2991,7 @@ function renderSearchExplainsList() {
 
     if (!currentSearchExplainsData || !currentSearchExplainsData.sources || currentSearchExplainsData.sources.length === 0) {
         container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:12px 16px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">有道词典与本地词书暂未收录该词具体释义</div>`;
+        updateGaoKaoTabSpecificSections(null);
         return;
     }
 
@@ -2478,6 +3013,7 @@ function renderSearchExplainsList() {
 
     if (enabledSources.length === 0 && otherSources.length === 0) {
         container.innerHTML = `<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:16px; background:var(--md-sys-color-surface-container-low); border-radius:12px; text-align:center;">当前勾选的词书与本地已下载词书暂未收录该词具体释义<br><span style="font-size:0.82rem; color:var(--md-sys-color-primary); cursor:pointer; margin-top:8px; display:inline-block; font-weight:600;" onclick="openSearchSettingsModal()">点击打开“搜索设置”勾选更多词书</span></div>`;
+        updateGaoKaoTabSpecificSections(null);
         return;
     }
 
@@ -2585,6 +3121,8 @@ function renderSearchExplainsList() {
             ${contentHtml}
         </div>
     `;
+
+    updateGaoKaoTabSpecificSections(activeSearchExplainsTab !== '__other__' ? curSrc : null);
 }
 
 function toggleInlineSelectChip(chipId) {

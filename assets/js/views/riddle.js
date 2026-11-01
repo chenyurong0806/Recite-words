@@ -179,6 +179,13 @@ function removeRiddleDraftRow(rowIndex) {
     renderRiddleDraftRows();
 }
 
+function getRiddleCompactClass(len) {
+    if (len >= 10) return 'compact-10';
+    if (len === 9) return 'compact-9';
+    if (len === 8) return 'compact-8';
+    return '';
+}
+
 function renderRiddleDraftRows() {
     const container = document.getElementById('riddle-draft-rows-container');
     if (!container) return;
@@ -187,7 +194,7 @@ function renderRiddleDraftRows() {
         return;
     }
     const len = (riddleState && riddleState.targetLength) ? riddleState.targetLength : 5;
-    const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
+    const compactClass = getRiddleCompactClass(len);
     const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
 
     let html = '';
@@ -361,8 +368,8 @@ function submitRiddleDraftRow(rowIndex) {
    9. Wordle 单词解谜 (退出免确认、断点恢复与进度保存)
    ========================================================================== */
 let riddleConfig = {
-    bookId: "books/经典/高中考纲词汇.json",
-    selectedBooks: ["books/经典/高中考纲词汇.json"],
+    bookId: "books/高中/高中考纲.json",
+    selectedBooks: ["books/高中/高中考纲.json"],
     wordLength: 5,
     maxAttempts: 6,
     letterCase: "lower",
@@ -372,13 +379,13 @@ let riddleConfig = {
 try {
     const saved = JSON.parse(localStorage.getItem('vocab_riddle_config') || '{}');
     if (saved && typeof saved === 'object') {
-        if (saved.bookId && saved.bookId !== 'GaoKao3500' && saved.bookId !== 'books/考纲/高考3500.json') {
+        if (saved.bookId && saved.bookId !== 'GaoKao3500' && saved.bookId !== 'books/考纲/高考3500.json' && saved.bookId !== 'books/经典/高中考纲词汇.json' && saved.bookId !== 'books/高中/高中考纲词汇.json') {
             riddleConfig.bookId = saved.bookId;
         } else {
-            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
+            riddleConfig.bookId = 'books/高中/高中考纲.json';
         }
         if (Array.isArray(saved.selectedBooks) && saved.selectedBooks.length > 0) {
-            riddleConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json') ? 'books/经典/高中考纲词汇.json' : b);
+            riddleConfig.selectedBooks = saved.selectedBooks.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json' || b === 'books/经典/高中考纲词汇.json' || b === 'books/高中/高中考纲词汇.json') ? 'books/高中/高中考纲.json' : b);
         } else if (riddleConfig.bookId) {
             riddleConfig.selectedBooks = [riddleConfig.bookId];
         }
@@ -439,6 +446,8 @@ function saveDailyWordleProgress() {
         currentInput: riddleState.currentInput,
         gameOver: riddleState.gameOver,
         isWon: riddleState.isWon,
+        resultTitle: riddleState.resultTitle || '',
+        resultColor: riddleState.resultColor || '',
         letterStatus: riddleState.letterStatus,
         elapsedSeconds: dailyWordleElapsedSeconds
     };
@@ -488,6 +497,8 @@ let riddleState = {
     currentInput: '',
     gameOver: false,
     isWon: false,
+    resultTitle: '',
+    resultColor: '',
     letterStatus: {},
     revealedPositions: new Set(),
     pendingHint: null,
@@ -495,16 +506,12 @@ let riddleState = {
 };
 
 function saveRiddleProgress() {
-    if (!currentUser) return;
+    const userKey = currentUser || 'guest';
     if (isDailyWordleMode) {
         saveDailyWordleProgress();
         return;
     }
-    if (riddleState.gameOver) {
-        localStorage.removeItem(`riddle_progress_${currentUser}`);
-        updateHubResumeButtons();
-        return;
-    }
+    if (!riddleState || !riddleState.targetWord) return;
     const dataToSave = {
         targetWord: riddleState.targetWord,
         clueMeaning: riddleState.clueMeaning,
@@ -514,8 +521,10 @@ function saveRiddleProgress() {
         maxAttempts: riddleState.maxAttempts,
         attempts: riddleState.attempts,
         currentInput: riddleState.currentInput,
-        gameOver: riddleState.gameOver,
-        isWon: riddleState.isWon,
+        gameOver: !!riddleState.gameOver,
+        isWon: !!riddleState.isWon,
+        resultTitle: riddleState.resultTitle || '',
+        resultColor: riddleState.resultColor || '',
         letterStatus: riddleState.letterStatus,
         revealedPositions: Array.from(riddleState.revealedPositions || []),
         pendingHint: riddleState.pendingHint,
@@ -523,7 +532,7 @@ function saveRiddleProgress() {
         hintLevel: riddleState.hintLevel || 0,
         elapsedSeconds: dailyWordleElapsedSeconds
     };
-    localStorage.setItem(`riddle_progress_${currentUser}`, JSON.stringify(dataToSave));
+    localStorage.setItem(`riddle_progress_${userKey}`, JSON.stringify(dataToSave));
     updateHubResumeButtons();
 }
 
@@ -721,7 +730,7 @@ function cancelRiddleSettings() {
         riddleConfig.enableTimer = riddleInitialSettings.enableTimer;
         riddleConfig.challengeMode = riddleInitialSettings.challengeMode;
         riddleConfig.selectedBooks = [...riddleInitialSettings.selectedBooks];
-        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
+        riddleConfig.bookId = riddleInitialSettings.bookId || riddleConfig.selectedBooks[0] || 'books/高中/高中考纲.json';
         updateRiddleSettingsChips();
         updateRiddleCaseUI();
         riddleInitialSettings = null;
@@ -740,7 +749,7 @@ function closeRiddleSettings() {
 
 function toggleRiddleBook(bookId) {
     if (!Array.isArray(riddleConfig.selectedBooks)) {
-        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/经典/高中考纲词汇.json'];
+        riddleConfig.selectedBooks = [riddleConfig.bookId || 'books/高中/高中考纲.json'];
     }
     const hasIt = isBookIdSelected(riddleConfig.selectedBooks, bookId);
     if (hasIt) {
@@ -752,7 +761,7 @@ function toggleRiddleBook(bookId) {
     } else {
         riddleConfig.selectedBooks.push(bookId);
     }
-    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/经典/高中考纲词汇.json';
+    riddleConfig.bookId = riddleConfig.selectedBooks[0] || 'books/高中/高中考纲.json';
     renderRiddleBookChips();
     updateRiddleSettingsFooterButtons();
 }
@@ -766,7 +775,7 @@ async function renderRiddleBookChips() {
             return isWordleSupportedBook(b);
         });
         if (riddleConfig.selectedBooks.length === 0) {
-            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
+            riddleConfig.selectedBooks = ['books/高中/高中考纲.json'];
         }
         riddleConfig.bookId = riddleConfig.selectedBooks[0];
     }
@@ -777,12 +786,19 @@ async function renderRiddleBookChips() {
     });
 }
 
+function formatRiddleLengthBadge(val) {
+    const n = Number(val);
+    return (n >= 11 || n === 0) ? '任意长度' : `${n} 字母`;
+}
+
 function updateRiddleSettingsChips() {
     const lenSlider = document.getElementById('slider-riddle-len');
     if (lenSlider) {
-        lenSlider.value = riddleConfig.wordLength || 5;
+        const curLen = riddleConfig.wordLength;
+        const sliderVal = (curLen === 0 || curLen >= 11) ? 11 : Math.max(3, Math.min(10, curLen || 5));
+        lenSlider.value = sliderVal;
         if (typeof updateMd3SliderUI === 'function') {
-            updateMd3SliderUI(lenSlider, val => `${val} 字母`);
+            updateMd3SliderUI(lenSlider, formatRiddleLengthBadge);
         }
     }
 
@@ -818,10 +834,16 @@ function updateRiddleSettingsChips() {
 }
 
 function handleRiddleLengthSlider(val) {
-    const len = parseInt(val) || 5;
-    riddleConfig.wordLength = len;
+    const raw = parseInt(val, 10);
+    if (isNaN(raw)) {
+        riddleConfig.wordLength = 5;
+    } else if (raw >= 11 || raw === 0) {
+        riddleConfig.wordLength = 0;
+    } else {
+        riddleConfig.wordLength = Math.max(3, Math.min(10, raw));
+    }
     if (typeof updateMd3SliderUI === 'function') {
-        updateMd3SliderUI('slider-riddle-len', v => `${v} 字母`);
+        updateMd3SliderUI('slider-riddle-len', formatRiddleLengthBadge);
     }
     updateRiddleSettingsFooterButtons();
 }
@@ -1024,14 +1046,17 @@ function viewNormalWordleHistoryDetail(id) {
             <div style="display:flex; flex-direction:column; gap:6px; align-items:center; margin-top:14px; background:var(--md-sys-color-surface-container); padding:16px; border-radius:12px;">
                 ${item.attemptDetails.map(att => {
                     const letters = (att.guess || '').split('');
+                    const tileSz = letters.length >= 10 ? 28 : (letters.length === 9 ? 31 : (letters.length === 8 ? 34 : 38));
+                    const gapSz = letters.length >= 9 ? 4 : 6;
+                    const fontSz = letters.length >= 9 ? '0.95rem' : '1.1rem';
                     return `
-                        <div style="display:flex; gap:6px;">
+                        <div style="display:flex; gap:${gapSz}px;">
                             ${letters.map((char, cIdx) => {
                                 const ev = (att.evaluation && att.evaluation[cIdx]) || 'absent';
                                 let bg = '#757575';
                                 if (ev === 'correct') bg = '#2e7d32';
                                 else if (ev === 'present') bg = '#f57f17';
-                                return `<div style="width:38px; height:38px; border-radius:6px; background:${bg}; color:#ffffff; font-weight:800; font-size:1.1rem; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">${formatRiddleCase(char)}</div>`;
+                                return `<div style="width:${tileSz}px; height:${tileSz}px; border-radius:6px; background:${bg}; color:#ffffff; font-weight:800; font-size:${fontSz}; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">${formatRiddleCase(char)}</div>`;
                             }).join('')}
                         </div>
                     `;
@@ -1269,15 +1294,17 @@ async function startWordRiddleGame(forceNew = false) {
 
     if (forceNew) {
         resetAllGameAlertsAndFeedback();
+        localStorage.removeItem(`riddle_progress_${userKey}`);
+        if (currentUser) localStorage.removeItem(`riddle_progress_${currentUser}`);
     }
-    if (!forceNew && currentUser) {
-        const saved = localStorage.getItem(`riddle_progress_${currentUser}`);
+    if (!forceNew) {
+        const saved = localStorage.getItem(`riddle_progress_${userKey}`) || (currentUser ? localStorage.getItem(`riddle_progress_${currentUser}`) : null);
         if (saved) {
             try {
                 const p = JSON.parse(saved);
-                if (p && !p.gameOver && p.targetWord) {
+                if (p && p.targetWord) {
                     const todayStr = (new Date()).toISOString().slice(0, 10);
-                    const savedDaily = localStorage.getItem(`vocab_daily_wordle_${currentUser || 'guest'}_${todayStr}`);
+                    const savedDaily = localStorage.getItem(`vocab_daily_wordle_${userKey}_${todayStr}`);
                     let isDailyLeak = !!(p.bookName && p.bookName.includes('今日Wordle'));
                     if (savedDaily) {
                         try {
@@ -1288,8 +1315,11 @@ async function startWordRiddleGame(forceNew = false) {
                         } catch (e) { }
                     }
                     if (isDailyLeak) {
-                        localStorage.removeItem(`riddle_progress_${currentUser}`);
+                        localStorage.removeItem(`riddle_progress_${userKey}`);
+                        if (currentUser) localStorage.removeItem(`riddle_progress_${currentUser}`);
                     } else {
+                        const restoredGameOver = !!p.gameOver;
+                        const restoredWon = !!p.isWon;
                         riddleState = {
                             targetWord: p.targetWord,
                             clueMeaning: p.clueMeaning,
@@ -1298,9 +1328,11 @@ async function startWordRiddleGame(forceNew = false) {
                             targetLength: p.targetLength || p.targetWord.length,
                             maxAttempts: p.maxAttempts || 6,
                             attempts: p.attempts || [],
-                            currentInput: p.currentInput || '',
-                            gameOver: false,
-                            isWon: false,
+                            currentInput: restoredGameOver ? '' : (p.currentInput || ''),
+                            gameOver: restoredGameOver,
+                            isWon: restoredWon,
+                            resultTitle: p.resultTitle || (restoredGameOver ? (restoredWon ? `🎉 恭喜猜中！${(p.attempts || []).length} 次尝试` : '揭晓答案') : ''),
+                            resultColor: p.resultColor || (restoredGameOver ? (restoredWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-primary)') : ''),
                             letterStatus: p.letterStatus || {},
                             hintLevel: p.hintLevel || 0,
                             isSubmitting: false,
@@ -1313,18 +1345,13 @@ async function startWordRiddleGame(forceNew = false) {
                         const topBookName = document.getElementById('riddle-top-book-name');
                         if (topBookName) topBookName.innerText = riddleState.bookName;
                         initRiddleDraftRows();
-                        const hintBox = document.getElementById('riddle-hint-box');
-                        if (hintBox) hintBox.style.display = riddleState.hintLevel > 0 ? 'block' : 'none';
-                        const resbox = document.getElementById('riddle-result-box');
-                        if (resbox) resbox.style.display = 'none';
 
                         renderRiddleBoard();
                         renderRiddleKeyboard();
-                        if (riddleState.hintLevel > 0) renderRiddleHintContent();
 
                         const timerText = document.getElementById('riddle-daily-timer-text');
                         if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
-                        if (riddleConfig.enableTimer) {
+                        if (!restoredGameOver && riddleConfig.enableTimer) {
                             startDailyTimer();
                         } else {
                             stopDailyTimer();
@@ -1332,6 +1359,7 @@ async function startWordRiddleGame(forceNew = false) {
                         updateRiddleModeUI();
 
                         switchView('view-riddle');
+                        restoreRiddleViewOverlays();
                         return;
                     }
                 }
@@ -1349,13 +1377,13 @@ async function startWordRiddleGame(forceNew = false) {
             riddleConfig.selectedBooks = supported;
             riddleConfig.bookId = supported[0];
         } else {
-            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
+            riddleConfig.selectedBooks = ['books/高中/高中考纲.json'];
+            riddleConfig.bookId = 'books/高中/高中考纲.json';
         }
     }
     const selected = (Array.isArray(riddleConfig.selectedBooks) && riddleConfig.selectedBooks.length > 0)
         ? riddleConfig.selectedBooks
-        : ['books/经典/高中考纲词汇.json'];
+        : ['books/高中/高中考纲.json'];
 
     candidatePool = await BookManager.loadMultipleBooks(selected);
     if (!candidatePool || candidatePool.length === 0) {
@@ -1373,7 +1401,7 @@ async function startWordRiddleGame(forceNew = false) {
         const wordStr = (w && w.word ? w.word : '').trim();
         if (wordStr.includes(' ') || !/^[a-zA-Z]+$/.test(wordStr)) return false;
         if (requiredLen > 0 && wordStr.length !== requiredLen) return false;
-        if (requiredLen === 0 && (wordStr.length < 3 || wordStr.length > 9)) return false;
+        if (requiredLen === 0 && (wordStr.length < 3 || wordStr.length > 10)) return false;
         return true;
     });
 
@@ -1384,20 +1412,20 @@ async function startWordRiddleGame(forceNew = false) {
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             return startWordRiddleGame(true);
         } else {
-            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高中考纲词汇默认词书，绝不卡死
-            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高中考纲词汇》');
-            riddleConfig.selectedBooks = ['books/经典/高中考纲词汇.json'];
-            riddleConfig.bookId = 'books/经典/高中考纲词汇.json';
+            // 当前选中的词书不含适于 Wordle 猜词的纯单词（如纯词组或翻译词书），自动回退至高中考纲默认词书，绝不卡死
+            showToast('所选词书不包含适用于 Wordle 的英文单词，已自动切换为《高中考纲》');
+            riddleConfig.selectedBooks = ['books/高中/高中考纲.json'];
+            riddleConfig.bookId = 'books/高中/高中考纲.json';
             localStorage.setItem('vocab_riddle_config', JSON.stringify(riddleConfig));
             try {
-                candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
+                candidatePool = await BookManager.loadMultipleBooks(['books/高中/高中考纲.json']);
             } catch (e) { }
             if (!candidatePool || candidatePool.length === 0) {
                 candidatePool = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
             }
             const fallbackWords = candidatePool.filter(w => {
                 const s = (w && w.word ? w.word : '').trim();
-                return /^[a-zA-Z]{3,9}$/.test(s);
+                return /^[a-zA-Z]{3,10}$/.test(s);
             });
             if (fallbackWords.length > 0) {
                 validWords.push(...fallbackWords);
@@ -1428,6 +1456,8 @@ async function startWordRiddleGame(forceNew = false) {
         currentInput: '',
         gameOver: false,
         isWon: false,
+        resultTitle: '',
+        resultColor: '',
         letterStatus: {},
         hintLevel: 0,
         isSubmitting: false,
@@ -1461,6 +1491,16 @@ async function startWordRiddleGame(forceNew = false) {
 }
 
 // ----------------- 今日 Wordle 每日统一单词获取与云端同步 -----------------
+function withRiddleTimeout(promise, ms = 2500) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Riddle network timeout')), ms);
+        Promise.resolve(promise).then(
+            val => { clearTimeout(timer); resolve(val); },
+            err => { clearTimeout(timer); reject(err); }
+        );
+    });
+}
+
 async function getDailyWordForDate(dateStr) {
     const todayStr = (new Date()).toISOString().slice(0, 10);
     if (!dateStr) dateStr = todayStr;
@@ -1470,14 +1510,17 @@ async function getDailyWordForDate(dateStr) {
         return null;
     }
 
-    // 1. 优先从 Supabase 云端拉取当日已锁定的每日词（云端优先，动态更新，不写死）
-    if (typeof sbClient !== 'undefined' && sbClient) {
+    // 1. 优先从 Supabase 云端拉取当日已锁定的每日词（云端优先，动态更新，带超时防止阻塞点击）
+    if (typeof sbClient !== 'undefined' && sbClient && !(typeof isOfflineMode === 'function' && isOfflineMode())) {
         try {
-            const { data, error } = await sbClient
-                .from('daily_wordle_words')
-                .select('*')
-                .eq('date', dateStr)
-                .maybeSingle();
+            const { data, error } = await withRiddleTimeout(
+                sbClient
+                    .from('daily_wordle_words')
+                    .select('*')
+                    .eq('date', dateStr)
+                    .maybeSingle(),
+                2500
+            );
             if (!error && data && data.word) {
                 const targetW = data.word.trim().toUpperCase();
                 const cloudResult = {
@@ -1506,11 +1549,11 @@ async function getDailyWordForDate(dateStr) {
         }
     } catch (e) { }
 
-    // 3. 从高考3500中动态抽取确定性每日词 (支持4-8随机字母数)
+    // 3. 从高中考纲中动态抽取确定性每日词 (支持4-8随机字母数)
     let candidatePool = [];
     try {
         if (typeof BookManager !== 'undefined' && BookManager.loadMultipleBooks) {
-            candidatePool = await BookManager.loadMultipleBooks(['books/经典/高中考纲词汇.json']);
+            candidatePool = await BookManager.loadMultipleBooks(['books/高中/高中考纲.json']);
         }
     } catch (e) { }
 
@@ -1595,161 +1638,192 @@ async function getDailyWordForDate(dateStr) {
 }
 window.getDailyWordForDate = getDailyWordForDate;
 
+let isStartingDailyWordle = false;
+
 async function startDailyWordleGame() {
-    if (!hasUnlockedDailyWordle()) {
-        showToast('请先成功完成一次普通 Wordle 猜词，解锁今日挑战功能！', 'info');
-        return;
-    }
+    if (isStartingDailyWordle) return;
+    isStartingDailyWordle = true;
 
-    isDailyWordleMode = true;
-    updateRiddleModeUI();
-
-    const todayStr = (new Date()).toISOString().slice(0, 10);
-    const userKey = currentUser || 'guest';
-
-    // 先从云端获取今日统一词 (支持动态换词与字母数随机)
-    const dailyWord = await getDailyWordForDate(todayStr);
-
-    // 1. 如果今天已经有进行中或完成的进度，且与最新云端词一致，恢复进度
-    const savedDaily = localStorage.getItem(`vocab_daily_wordle_${userKey}_${todayStr}`);
-    let hasRestored = false;
-    let restoreData = null;
-
-    if (savedDaily) {
-        try {
-            const p = JSON.parse(savedDaily);
-            if (p && p.date === todayStr && p.targetWord && (!dailyWord || p.targetWord === dailyWord.word)) {
-                restoreData = p;
-                hasRestored = true;
-            }
-        } catch (e) {
-            console.warn('[Wordle] Failed to parse saved daily progress:', e);
+    try {
+        if (isRiddleTutorialMode) {
+            isRiddleTutorialMode = false;
+            const banner = document.getElementById('riddle-tutorial-banner');
+            if (banner) banner.style.display = 'none';
         }
-    }
 
-    // 若本地没有或者本地记录尚未完结，向 Supabase 云端检查今日是否已经挑战过
-    if ((!hasRestored || !restoreData?.gameOver) && userKey && !userKey.startsWith('游客') && typeof sbClient !== 'undefined' && sbClient) {
-        try {
-            const { data: userRow } = await sbClient
-                .from('user_accounts')
-                .select('user_data')
-                .eq('username', userKey)
-                .single();
-            const cloudWordle = userRow?.user_data?.wordle?.[todayStr] || userRow?.user_data?.wordle_history?.[todayStr];
-            if (cloudWordle && Array.isArray(cloudWordle.attemptDetails) && cloudWordle.attemptDetails.length > 0) {
-                const targetW = cloudWordle.word || (dailyWord ? dailyWord.word : '');
-                restoreData = {
-                    date: todayStr,
-                    targetWord: targetW,
-                    clueMeaning: cloudWordle.meaning || (dailyWord ? dailyWord.meaning : '---'),
-                    cluePhone: cloudWordle.phonetic || (dailyWord ? dailyWord.phone : ''),
-                    bookName: '高考3500',
-                    targetLength: targetW.length,
-                    maxAttempts: 6,
-                    attempts: cloudWordle.attemptDetails,
-                    currentInput: '',
-                    gameOver: true,
-                    isWon: !!cloudWordle.isWon,
-                    letterStatus: cloudWordle.letterStatus || {},
-                    elapsedSeconds: cloudWordle.timeSpent || 0
-                };
-                hasRestored = true;
-                localStorage.setItem(`vocab_daily_wordle_${userKey}_${todayStr}`, JSON.stringify(restoreData));
+        isDailyWordleMode = true;
+        updateRiddleModeUI();
+
+        const todayStr = (new Date()).toISOString().slice(0, 10);
+        const userKey = currentUser || 'guest';
+
+        // 先从云端/本地获取今日统一词 (支持动态换词与字母数随机)
+        let dailyWord = await getDailyWordForDate(todayStr);
+
+        // 1. 如果今天已经有进行中或完成的进度，且与最新云端词一致，恢复进度
+        const savedDaily = localStorage.getItem(`vocab_daily_wordle_${userKey}_${todayStr}`);
+        let hasRestored = false;
+        let restoreData = null;
+
+        if (savedDaily) {
+            try {
+                const p = JSON.parse(savedDaily);
+                if (p && p.date === todayStr && p.targetWord && (!dailyWord || p.targetWord === dailyWord.word)) {
+                    restoreData = p;
+                    hasRestored = true;
+                }
+            } catch (e) {
+                console.warn('[Wordle] Failed to parse saved daily progress:', e);
             }
-        } catch (e) {
-            console.warn('[Wordle] Failed to check cloud wordle record:', e);
         }
-    }
 
-    if (hasRestored && restoreData) {
+        // 若本地没有或者本地记录尚未完结，向 Supabase 云端检查今日是否已经挑战过
+        if ((!hasRestored || !restoreData?.gameOver) && userKey && userKey !== 'guest' && !userKey.startsWith('游客') && typeof sbClient !== 'undefined' && sbClient && !(typeof isOfflineMode === 'function' && isOfflineMode())) {
+            try {
+                const { data: userRow } = await withRiddleTimeout(
+                    sbClient
+                        .from('user_accounts')
+                        .select('user_data')
+                        .eq('username', userKey)
+                        .single(),
+                    2500
+                );
+                const cloudWordle = userRow?.user_data?.wordle?.[todayStr] || userRow?.user_data?.wordle_history?.[todayStr];
+                if (cloudWordle && Array.isArray(cloudWordle.attemptDetails) && cloudWordle.attemptDetails.length > 0) {
+                    const targetW = cloudWordle.word || (dailyWord ? dailyWord.word : '');
+                    restoreData = {
+                        date: todayStr,
+                        targetWord: targetW,
+                        clueMeaning: cloudWordle.meaning || (dailyWord ? dailyWord.meaning : '---'),
+                        cluePhone: cloudWordle.phonetic || (dailyWord ? dailyWord.phone : ''),
+                        bookName: '高中考纲',
+                        targetLength: targetW.length,
+                        maxAttempts: 6,
+                        attempts: cloudWordle.attemptDetails,
+                        currentInput: '',
+                        gameOver: true,
+                        isWon: !!cloudWordle.isWon,
+                        letterStatus: cloudWordle.letterStatus || {},
+                        elapsedSeconds: cloudWordle.timeSpent || 0
+                    };
+                    hasRestored = true;
+                    localStorage.setItem(`vocab_daily_wordle_${userKey}_${todayStr}`, JSON.stringify(restoreData));
+                }
+            } catch (e) {
+                console.warn('[Wordle] Failed to check cloud wordle record:', e);
+            }
+        }
+
+        if (hasRestored && restoreData) {
+            const restoredOver = !!restoreData.gameOver;
+            const restoredWon = !!restoreData.isWon;
+            const restoredElapsed = restoreData.elapsedSeconds || 0;
+            const defaultMsg = restoredWon
+                ? `🎉 今日挑战已通关！用时 ${formatDailyTimer(restoredElapsed)} (${(restoreData.attempts || []).length}次尝试)`
+                : `💔 今日挑战已结束！正确答案：`;
+            riddleState = {
+                targetWord: restoreData.targetWord,
+                clueMeaning: restoreData.clueMeaning || '---',
+                cluePhone: restoreData.cluePhone || '',
+                bookName: '高中考纲',
+                targetLength: restoreData.targetLength || restoreData.targetWord.length,
+                maxAttempts: 6,
+                attempts: restoreData.attempts || [],
+                currentInput: restoreData.currentInput || '',
+                gameOver: restoredOver,
+                isWon: restoredWon,
+                resultTitle: restoreData.resultTitle || (restoredOver ? defaultMsg : ''),
+                resultColor: restoreData.resultColor || (restoredOver ? (restoredWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)') : ''),
+                letterStatus: restoreData.letterStatus || {},
+                hintLevel: 0,
+                isSubmitting: false,
+                revealedPositions: new Set(),
+                pendingHint: null,
+                revealedMeaning: false
+            };
+            dailyWordleElapsedSeconds = restoredElapsed;
+
+            const topBookName = document.getElementById('riddle-top-book-name');
+            if (topBookName) topBookName.innerText = '高中考纲';
+            initRiddleDraftRows();
+            const hintBox = document.getElementById('riddle-hint-box');
+            if (hintBox) hintBox.style.display = 'none';
+
+            renderRiddleBoard();
+            renderRiddleKeyboard();
+
+            const timerText = document.getElementById('riddle-daily-timer-text');
+            if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
+
+            if (riddleState.gameOver) {
+                stopDailyTimer();
+            } else {
+                startDailyTimer();
+            }
+
+            switchView('view-riddle');
+            restoreRiddleViewOverlays();
+            return;
+        }
+
+        // 2. 从高中考纲与云端获取今日统一词（字母数随机4-8）
+        if (!dailyWord) {
+            dailyWord = await getDailyWordForDate(todayStr);
+        }
+        if (!dailyWord || !dailyWord.word) {
+            dailyWord = {
+                date: todayStr,
+                word: 'REACT',
+                meaning: 'v. 作出反应；发生化学反应',
+                length: 5,
+                phone: ''
+            };
+        }
+
         riddleState = {
-            targetWord: restoreData.targetWord,
-            clueMeaning: restoreData.clueMeaning || '---',
-            cluePhone: restoreData.cluePhone || '',
-            bookName: '高考3500',
-            targetLength: restoreData.targetLength || restoreData.targetWord.length,
+            targetWord: dailyWord.word,
+            clueMeaning: dailyWord.meaning,
+            cluePhone: dailyWord.phone || '',
+            bookName: '高中考纲',
+            targetLength: dailyWord.length || dailyWord.word.length,
             maxAttempts: 6,
-            attempts: restoreData.attempts || [],
-            currentInput: restoreData.currentInput || '',
-            gameOver: !!restoreData.gameOver,
-            isWon: !!restoreData.isWon,
-            letterStatus: restoreData.letterStatus || {},
+            attempts: [],
+            currentInput: '',
+            gameOver: false,
+            isWon: false,
+            resultTitle: '',
+            resultColor: '',
+            letterStatus: {},
             hintLevel: 0,
             isSubmitting: false,
             revealedPositions: new Set(),
             pendingHint: null,
             revealedMeaning: false
         };
-        dailyWordleElapsedSeconds = restoreData.elapsedSeconds || 0;
 
+        dailyWordleElapsedSeconds = 0;
+        saveDailyWordleProgress();
+
+        resetAllGameAlertsAndFeedback();
         const topBookName = document.getElementById('riddle-top-book-name');
-        if (topBookName) topBookName.innerText = '高考3500';
+        if (topBookName) topBookName.innerText = '高中考纲';
         initRiddleDraftRows();
         const hintBox = document.getElementById('riddle-hint-box');
         if (hintBox) hintBox.style.display = 'none';
+        const resbox = document.getElementById('riddle-result-box');
+        if (resbox) resbox.style.display = 'none';
 
         renderRiddleBoard();
         renderRiddleKeyboard();
-
-        const timerText = document.getElementById('riddle-daily-timer-text');
-        if (timerText) timerText.innerText = formatDailyTimer(dailyWordleElapsedSeconds);
-
-        if (riddleState.gameOver) {
-            stopDailyTimer();
-            const msg = riddleState.isWon
-                ? `🎉 今日挑战已通关！用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} (${riddleState.attempts.length}次尝试)`
-                : `💔 今日挑战已结束！正确答案：`;
-            renderRiddleResult(msg, riddleState.isWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)');
-        } else {
-            startDailyTimer();
-        }
+        startDailyTimer();
 
         switchView('view-riddle');
-        return;
+    } finally {
+        isStartingDailyWordle = false;
     }
-
-    // 2. 从高考3500与云端获取今日统一词（字母数随机4-8）
-    if (!dailyWord) {
-        dailyWord = await getDailyWordForDate(todayStr);
-    }
-
-    riddleState = {
-        targetWord: dailyWord.word,
-        clueMeaning: dailyWord.meaning,
-        cluePhone: dailyWord.phone || '',
-        bookName: '高考3500',
-        targetLength: dailyWord.length,
-        maxAttempts: 6,
-        attempts: [],
-        currentInput: '',
-        gameOver: false,
-        isWon: false,
-        letterStatus: {},
-        hintLevel: 0,
-        isSubmitting: false,
-        revealedPositions: new Set(),
-        pendingHint: null,
-        revealedMeaning: false
-    };
-
-    dailyWordleElapsedSeconds = 0;
-    saveDailyWordleProgress();
-
-    resetAllGameAlertsAndFeedback();
-    const topBookName = document.getElementById('riddle-top-book-name');
-    if (topBookName) topBookName.innerText = '高考3500';
-    initRiddleDraftRows();
-    const hintBox = document.getElementById('riddle-hint-box');
-    if (hintBox) hintBox.style.display = 'none';
-    const resbox = document.getElementById('riddle-result-box');
-    if (resbox) resbox.style.display = 'none';
-
-    renderRiddleBoard();
-    renderRiddleKeyboard();
-    startDailyTimer();
-
-    switchView('view-riddle');
 }
+window.startDailyWordleGame = startDailyWordleGame;
+window.startWordRiddleGame = startWordRiddleGame;
 
 async function recordDailyWordleFinish(isWon) {
     const todayStr = (new Date()).toISOString().slice(0, 10);
@@ -1852,7 +1926,7 @@ function renderRiddleBoard() {
 
     syncFormalInputLetters();
     let html = '';
-    const compactClass = (riddleState.targetLength >= 9) ? 'compact-9' : ((riddleState.targetLength === 8) ? 'compact-8' : '');
+    const compactClass = getRiddleCompactClass(riddleState.targetLength);
     const isLower = (typeof riddleConfig !== 'undefined' && riddleConfig.letterCase === 'lower');
 
     for (let r = 0; r < riddleState.maxAttempts; r++) {
@@ -2157,7 +2231,7 @@ function submitRiddleRow() {
         }
     }
 
-    const compactClass = (len >= 9) ? 'compact-9' : ((len === 8) ? 'compact-8' : '');
+    const compactClass = getRiddleCompactClass(len);
     const grid = document.getElementById('riddle-grid');
     const submittedRowIndex = riddleState.attempts.length;
     const submittedRow = grid ? grid.children[submittedRowIndex] : null;
@@ -2239,6 +2313,10 @@ function submitRiddleRow() {
         const winTitle = isDailyWordleMode
             ? `🎉 今日挑战成功！用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} (${riddleState.attempts.length}次尝试)`
             : `🎉 恭喜猜中！${riddleConfig.enableTimer ? `用时 ${formatDailyTimer(dailyWordleElapsedSeconds)} · ` : ''}${riddleState.attempts.length} 次尝试`;
+        riddleState.resultTitle = winTitle;
+        riddleState.resultColor = 'var(--md-sys-color-success)';
+        if (isDailyWordleMode) saveDailyWordleProgress();
+        else saveRiddleProgress();
         renderRiddleResult(winTitle, 'var(--md-sys-color-success)');
         return;
     }
@@ -2246,6 +2324,11 @@ function submitRiddleRow() {
     if (riddleState.attempts.length >= riddleState.maxAttempts) {
         riddleState.gameOver = true;
         riddleState.isWon = false;
+        const failTitle = isDailyWordleMode
+            ? `💔 今日挑战结束！正确答案：`
+            : `💔 失败！正确单词：`;
+        riddleState.resultTitle = failTitle;
+        riddleState.resultColor = 'var(--md-sys-color-error)';
         if (isRiddleTutorialMode) {
             isRiddleTutorialMode = false;
             const banner = document.getElementById('riddle-tutorial-banner');
@@ -2263,9 +2346,6 @@ function submitRiddleRow() {
         if (typeof syncAllUserDataToCloud === 'function') {
             syncAllUserDataToCloud();
         }
-        const failTitle = isDailyWordleMode
-            ? `💔 今日挑战结束！正确答案：`
-            : `💔 失败！正确单词：`;
         renderRiddleResult(failTitle, 'var(--md-sys-color-error)');
         return;
     }
@@ -2469,15 +2549,21 @@ function handleRiddleHint() {
     showToast(`提示：含有字母【${formatRiddleCase(letter)}】`);
 }
 
-function renderRiddleResult(title, titleColor) {
+function renderRiddleResult(title, titleColor, options = {}) {
     const resbox = document.getElementById('riddle-result-box');
-    if (!resbox) return;
+    if (!resbox || !riddleState || !riddleState.targetWord) return;
+
+    const finalTitle = title || riddleState.resultTitle || (riddleState.isWon ? '🎉 恭喜猜中！' : '揭晓答案');
+    const finalColor = titleColor || riddleState.resultColor || (riddleState.isWon ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-primary)');
+    riddleState.resultTitle = finalTitle;
+    riddleState.resultColor = finalColor;
+
     resbox.style.display = 'block';
 
     const titleEl = document.getElementById('riddle-result-title');
     if (titleEl) {
-        titleEl.innerText = title;
-        titleEl.style.color = titleColor || 'var(--md-sys-color-primary)';
+        titleEl.innerText = finalTitle;
+        titleEl.style.color = finalColor;
     }
 
     const wordEl = document.getElementById('riddle-result-word');
@@ -2527,13 +2613,43 @@ function renderRiddleResult(title, titleColor) {
         shareActionBox.style.display = 'none';
     }
 
-    try {
-        resbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } catch (e) { }
-    if (typeof showToast === 'function') {
-        showToast(title);
+    if (!options || !options.silent) {
+        try {
+            resbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (e) { }
+        if (typeof showToast === 'function') {
+            showToast(finalTitle);
+        }
     }
 }
+
+function restoreRiddleViewOverlays() {
+    if (!riddleState || !riddleState.targetWord) return;
+    const isChallenge = !!(riddleConfig.challengeMode || riddleConfig.enableTimer);
+    const hintBox = document.getElementById('riddle-hint-box');
+    const resbox = document.getElementById('riddle-result-box');
+
+    if (riddleState.gameOver) {
+        if (hintBox && (isChallenge || isDailyWordleMode || !riddleState.hintLevel)) {
+            hintBox.style.display = 'none';
+        } else if (hintBox && riddleState.hintLevel > 0) {
+            hintBox.style.display = 'block';
+            renderRiddleHintContent();
+        }
+        renderRiddleResult(riddleState.resultTitle, riddleState.resultColor, { silent: true });
+    } else {
+        if (resbox) resbox.style.display = 'none';
+        if (hintBox) {
+            if (!isChallenge && !isDailyWordleMode && riddleState.hintLevel > 0) {
+                hintBox.style.display = 'block';
+                renderRiddleHintContent();
+            } else {
+                hintBox.style.display = 'none';
+            }
+        }
+    }
+}
+window.restoreRiddleViewOverlays = restoreRiddleViewOverlays;
 
 async function giveUpRiddle() {
     if (riddleState.gameOver) return;
@@ -2547,6 +2663,9 @@ async function giveUpRiddle() {
     });
     if (ok) {
         riddleState.gameOver = true;
+        riddleState.isWon = false;
+        riddleState.resultTitle = '揭晓答案';
+        riddleState.resultColor = 'var(--md-sys-color-primary)';
         if (isDailyWordleMode) {
             stopDailyTimer();
             saveDailyWordleProgress();

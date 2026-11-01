@@ -19,6 +19,36 @@ function toggleSettlementDrawer(el) {
     el.classList.toggle('open');
 }
 
+function toggleSettlementWordMastered(word, phone, meaning, btnEl) {
+    if (!word) return;
+    if (typeof toggleMasteredWord !== 'function') return;
+    const nowMastered = toggleMasteredWord(word, phone, meaning);
+    if (btnEl) {
+        btnEl.classList.toggle('active', nowMastered);
+        const icon = btnEl.querySelector('.material-symbols-rounded');
+        const text = btnEl.querySelector('.btn-label-text');
+        if (icon) icon.innerText = nowMastered ? 'check_circle' : 'check_circle_outline';
+        if (text) text.innerText = nowMastered ? '已设熟词' : '熟词';
+
+        const itemEl = btnEl.closest('.settlement-item');
+        if (itemEl) {
+            const diamondBox = itemEl.querySelector('.settlement-mastery-diamonds');
+            if (diamondBox) {
+                let stage = 0;
+                if (nowMastered) {
+                    stage = 5;
+                } else if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords) {
+                    const rec = EbbinghausEngine.getRecords()[word.trim().toLowerCase()];
+                    if (rec && typeof rec.stage === 'number') stage = Math.max(0, Math.min(5, rec.stage));
+                }
+                diamondBox.title = `掌握度 ${stage}/5`;
+                diamondBox.innerHTML = [1, 2, 3, 4, 5].map(i => `<span class="settlement-diamond ${i <= stage ? 'filled' : ''}">${i <= stage ? '◆' : '◇'}</span>`).join('');
+            }
+        }
+    }
+}
+window.toggleSettlementWordMastered = toggleSettlementWordMastered;
+
 function filterSettlementList(filter, btn) {
     if (btn && btn.parentElement) {
         btn.parentElement.querySelectorAll('.settlement-filter-btn').forEach(b => b.classList.remove('active'));
@@ -56,6 +86,10 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
             if (wasEverMistake) {
                 itemCopy.isCorrect = false;
             }
+            if (!q.isCorrect) {
+                if (q.wrongAnswerIdx !== undefined) itemCopy.wrongAnswerIdx = q.wrongAnswerIdx;
+                else if (q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) itemCopy.wrongAnswerIdx = q.userAnswerIdx;
+            }
             seenWords.set(key, itemCopy);
             uniquePool.push(itemCopy);
         } else {
@@ -65,7 +99,11 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
                 if (q.wrongSlotIndices && q.wrongSlotIndices.length > 0) {
                     existing.wrongSlotIndices = q.wrongSlotIndices;
                 }
-                if (q.userAnswerIdx !== undefined) existing.userAnswerIdx = q.userAnswerIdx;
+                // 错题选项记录：不被后续重测对题覆盖
+                if (!q.isCorrect) {
+                    if (q.wrongAnswerIdx !== undefined) existing.wrongAnswerIdx = q.wrongAnswerIdx;
+                    else if (q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) existing.wrongAnswerIdx = q.userAnswerIdx;
+                }
             }
         }
     });
@@ -77,12 +115,29 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         const isMistake = !q.isCorrect;
         const isPhrase = !!(q.isPhrase || (q.word && q.word.trim().includes(' ')));
         const targetMeaning = escapeHtml(q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : ''));
+        const isMastered = (typeof isWordMastered === 'function') && isWordMastered(q.word);
+
+        // 获取当前单词/词组的掌握度星级 (0-5)
+        let targetStage = 0;
+        if (isMastered) {
+            targetStage = 5;
+        } else if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords) {
+            const records = EbbinghausEngine.getRecords();
+            const rec = records[(q.word || '').trim().toLowerCase()];
+            if (rec && typeof rec.stage === 'number') {
+                targetStage = Math.max(0, Math.min(5, rec.stage));
+            }
+        }
+        const diamondsHtml = `
+            <div class="settlement-mastery-diamonds" title="掌握度 ${targetStage}/5">
+                ${[1, 2, 3, 4, 5].map(i => `<span class="settlement-diamond ${i <= targetStage ? 'filled' : ''}">${i <= targetStage ? '◆' : '◇'}</span>`).join('')}
+            </div>
+        `;
 
         let titleDisplay = '';
         let drawerContent = '';
 
         if (isPhrase) {
-            // 词组不需要展开功能，仅在答错的词块部分上标红
             const targetWords = q.targetWords || (typeof extractPhraseTargetWords === 'function' ? extractPhraseTargetWords(q.word) : q.word.split(' '));
             const wrongSlots = Array.isArray(q.wrongSlotIndices) ? q.wrongSlotIndices : [];
 
@@ -97,9 +152,12 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
             } else {
                 titleDisplay = escapeHtml(q.word);
             }
+            // 词组无多余辨析时抽屉内不重复展示词条与释义，仅保留底部操作按钮
             drawerContent = '';
         } else {
-            const phoneDisplay = q.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(q.phone)}/</span>` : '';
+            // 清除首尾斜杠，确保单斜杠规范 (/.../)
+            const cleanPhone = String(q.phone || '').replace(/^\/+|\/+$/g, '').trim();
+            const phoneDisplay = cleanPhone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(cleanPhone)}/</span>` : '';
             if (isMistake) {
                 titleDisplay = `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong>${phoneDisplay}`;
             } else {
@@ -108,9 +166,10 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
 
             let distractorsHtml = '';
             if (Array.isArray(q.options) && q.options.length > 0) {
+                const wrongAnswerIdx = (q.wrongAnswerIdx !== undefined) ? q.wrongAnswerIdx : ((q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) ? q.userAnswerIdx : -1);
                 distractorsHtml = q.options.map((opt, optIdx) => {
                     const isCorrectOpt = (optIdx === q.correctIdx);
-                    const isUserChosen = (optIdx === q.userAnswerIdx);
+                    const isUserChosen = (optIdx === wrongAnswerIdx);
                     const isChosenWrong = isMistake && isUserChosen;
 
                     const optWord = escapeHtml(opt.word || (isCorrectOpt ? q.word : ''));
@@ -153,15 +212,19 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
                 <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:8px; font-size:0.86rem;">
                     选项辨析：
                 </div>
-                <div class="distractor-list">
+                <div class="distractor-list" style="margin-bottom:8px;">
                     ${distractorsHtml}
                 </div>
             `;
         }
 
+        const safeWord = escapeHtml((q.word || '').replace(/'/g, "\\'"));
+        const safePhone = escapeHtml((q.phone || '').replace(/'/g, "\\'"));
+        const safeMeaning = escapeHtml((q.meaning || '').replace(/'/g, "\\'"));
+
         return `
-            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'} ${isPhrase ? 'phrase-no-drawer' : ''}" ${isPhrase ? '' : 'onclick="toggleSettlementDrawer(this)"'} data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
-                <div class="settlement-item-header" style="${isPhrase ? 'cursor:default;' : ''}">
+            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
+                <div class="settlement-item-header">
                     <div class="settlement-item-main">
                         <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
                             ${isMistake ? 'cancel' : 'check_circle'}
@@ -171,13 +234,28 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
                             <div class="settlement-trans-text">${targetMeaning}</div>
                         </div>
                     </div>
-                    ${isPhrase ? '' : '<span class="material-symbols-rounded settlement-item-chevron">expand_more</span>'}
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${diamondsHtml}
+                        <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
+                    </div>
                 </div>
-                ${isPhrase ? '' : `
                 <div class="settlement-item-drawer">
                     ${drawerContent}
+                    <div class="settlement-item-actions-row">
+                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn" onclick="event.stopPropagation(); jumpToSearch('${safeWord}');" title="在词典中查询此词">
+                            <span class="material-symbols-rounded" style="font-size:16px;">search</span>
+                            <span class="btn-label-text">查词</span>
+                        </button>
+                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn" onclick="event.stopPropagation(); playWordAudio('${safeWord}');" title="播放发音">
+                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
+                            <span class="btn-label-text">发音</span>
+                        </button>
+                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn ${isMastered ? 'active' : ''}" onclick="event.stopPropagation(); toggleSettlementWordMastered('${safeWord}', '${safePhone}', '${safeMeaning}', this);" title="${isMastered ? '取消熟词标记' : '标记为熟词'}">
+                            <span class="material-symbols-rounded" style="font-size:16px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
+                            <span class="btn-label-text">${isMastered ? '已设熟词' : '熟词'}</span>
+                        </button>
+                    </div>
                 </div>
-                `}
             </div>
         `;
     }).join('');
@@ -187,7 +265,7 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
             <div class="settlement-summary-header">
                 <div>
                     <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组小结</h3>
-                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击单词查看辨析项</p>
+                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击词条查看详情</p>
                 </div>
                 <div class="settlement-filter-group">
                     <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
@@ -200,7 +278,6 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         </div>
     `;
 }
-
 function renderShiCiSummaryHtml(pool) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
     let mistakeCount = pool.filter(q => !q.isCorrect).length;
@@ -368,7 +445,8 @@ function renderDictationSummaryHtml(pool, sessionMistakes) {
     const itemsHtml = uniquePool.map((q, idx) => {
         const isMistake = !q.isCorrect;
         const targetMeaning = escapeHtml(q.meaning || '');
-        const phoneDisplay = q.phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(q.phone)}/</span>` : '';
+        const cleanPhone = String(q.phone || '').replace(/^\/+|\/+$/g, '').trim();
+        const phoneDisplay = cleanPhone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(cleanPhone)}/</span>` : '';
         const titleDisplay = isMistake
             ? `<strong class="settlement-word-text mistake-word-bold" style="color:var(--md-sys-color-error, #ba1a1a); font-weight:700;">${escapeHtml(q.word)}</strong>${phoneDisplay}`
             : `<span class="settlement-word-text" style="font-weight:600;">${escapeHtml(q.word)}</span>${phoneDisplay}`;

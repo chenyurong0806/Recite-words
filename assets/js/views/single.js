@@ -26,7 +26,7 @@ function renderSingleBookList() {
     if (!listEl) return;
 
     if (!Array.isArray(singleSelectedBookIds)) {
-        singleSelectedBookIds = ['books/经典/高中考纲词汇.json'];
+        singleSelectedBookIds = ['books/高中/高中考纲.json'];
     }
 
     renderBookFolderTree('single-book-list', {
@@ -772,7 +772,7 @@ async function startSingleReview(specificBookId = null) {
         let targetBookIds = [];
         if (specificBookId && specificBookId !== 'all') {
             if (specificBookId === 'other_due') {
-                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['GaoKao3500'];
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
             } else {
                 targetBookIds = [specificBookId];
             }
@@ -781,7 +781,7 @@ async function startSingleReview(specificBookId = null) {
             if (booksWithDue.length > 0) {
                 targetBookIds = booksWithDue.map(b => b.id);
             } else {
-                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['GaoKao3500'];
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
             }
         }
 

@@ -195,12 +195,25 @@ function renderTreeBookItem(b, selectedIds, onToggleFn, isSingle, isReadOnly = f
 
     const countText = prog.total ? `共${prog.total}词` : (b.count ? `共${b.count}词` : '多词');
 
+    const supportsFilter = (typeof doesBookSupportFilter === 'function' && doesBookSupportFilter(b));
+    const studyFilter = supportsFilter ? (typeof BookManager !== 'undefined' ? BookManager.getBookStudyFilter(b.id) : null) : null;
+    const hasActiveFilter = Boolean(studyFilter && !studyFilter.isAll);
+    const filterSummary = supportsFilter && typeof getBookFilterSummaryText === 'function' ? getBookFilterSummaryText(b.id) : '';
+
     return `
             <div class="tree-book-item ${isSel ? 'selected' : ''}" ${clickHandler} style="${cursorStyle}">
                 <div class="tree-book-info" style="flex:1; min-width:0;">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                         <span class="tree-book-name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
-                        <span class="tree-book-count" style="flex-shrink:0;">${countText}</span>
+                        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                            ${supportsFilter ? `
+                                <button type="button" class="book-card-section-btn ${hasActiveFilter ? 'has-filter' : ''}" style="padding:1px 6px; font-size:0.68rem;" onclick="event.stopPropagation(); if (typeof toggleBookSectionFilterDropdown === 'function') toggleBookSectionFilterDropdown(event, '${escapeHtml(b.id)}');" title="设置学习板块与类型">
+                                    <span class="material-symbols-rounded" style="font-size:12px;">tune</span>
+                                    <span class="book-card-section-summary" style="max-width:80px;">${escapeHtml(filterSummary)}</span>
+                                </button>
+                            ` : ''}
+                            <span class="tree-book-count">${countText}</span>
+                        </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
                         <div class="book-progress-mini" style="flex:1; height:4px;">

@@ -514,8 +514,8 @@ function scheduleNextAiAnswer() {
     const q = aiDuelState.pool[aiDuelState.aiIdx] || (aiDuelState.basePool && aiDuelState.basePool[0]);
     if (!q) return;
     let delay = 3500;
-    const isShiCi = Boolean(q && (q.isShiCi || q.senses || q.highlightedSentence || (q.word && /[\u4e00-\u9fa5]/.test(q.word))));
-    const isPhrase = !isShiCi && q.word && q.word.trim().includes(' ');
+    const isShiCi = Boolean(q && (q.isShiCi || q.highlightedSentence || (q.senses && !/[a-zA-Z]/.test(q.word || '')) || (q.word && /[\u4e00-\u9fa5]/.test(q.word))));
+    const isPhrase = Boolean(!isShiCi && (q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0))));
 
     if (aiDuelConfig.speedMode === 'smart') {
         if (isShiCi) {

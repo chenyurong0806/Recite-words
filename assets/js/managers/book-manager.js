@@ -22,9 +22,9 @@ const BookManager = {
     // 默认内置兜底词书 (严格采用云端最新分类：高中、初中、大学、实词、翻译、其他)
     fallbackBooks: [
         { id: 'builtin_default', name: '默认词书', category: '内置', count: DEFAULT_WORDS.length, words: DEFAULT_WORDS, path: '', isCloud: false, syncStatus: 'downloaded' },
-        { id: 'books/高中/高中考纲词汇.json', name: '高中考纲词汇', category: '高中', count: 3892, path: 'books/高中/高中考纲词汇.json', isCloud: true, size: 709960, updatedAt: 1790866132725 },
+        { id: 'books/高中/高中考纲.json', name: '高中考纲', category: '高中', count: 2391, path: 'books/高中/高中考纲.json', isCloud: true, size: 1298188, updatedAt: 1793433974940 },
         { id: 'books/高中/高中考纲词组.json', name: '高中考纲词组', category: '高中', count: 1200, path: 'books/高中/高中考纲词组.json', isCloud: true, size: 101004, updatedAt: 1789287225149 },
-        { id: 'books/高中/高中518词组.json', name: '高中518词组', category: '高中', count: 570, path: 'books/高中/高中518词组.json', isCloud: true, size: 43073, updatedAt: 1789277163781 },
+        { id: 'books/高中/高中518词组.json', name: '高中518词组', category: '高中', count: 570, path: 'books/高中/高中考纲518词组.json'.replace('高中考纲518词组', '高中518词组'), isCloud: true, size: 43073, updatedAt: 1789277163781 },
         { id: 'books/高中/高考真题高频.json', name: '高考真题高频', category: '高中', count: 799, path: 'books/高中/高考真题高频.json', isCloud: true, size: 188628, updatedAt: 1790993843899 },
         { id: 'books/高中/高考阅读高频.json', name: '高考阅读高频', category: '高中', count: 688, path: 'books/高中/高考阅读高频.json', isCloud: true, size: 56600, updatedAt: 1790994126898 },
         { id: 'books/初中/初中考纲词汇.json', name: '初中考纲词汇', category: '初中', count: 1741, path: 'books/初中/初中考纲词汇.json', isCloud: true, size: 203237, updatedAt: 1790866132727 },
@@ -40,9 +40,13 @@ const BookManager = {
 
     // 旧版词书 ID / 路径映射至最新路径
     legacyBookMap: {
-        'GaoKao3500': 'books/高中/高中考纲词汇.json',
-        'books/考纲/高考3500.json': 'books/高中/高中考纲词汇.json',
-        'books/经典/高中考纲词汇.json': 'books/高中/高中考纲词汇.json',
+        'GaoKao3500': 'books/高中/高中考纲.json',
+        '高中考纲': 'books/高中/高中考纲.json',
+        '高中考纲.json': 'books/高中/高中考纲.json',
+        'books/考纲/高考3500.json': 'books/高中/高中考纲.json',
+        'books/经典/高中考纲.json': 'books/高中/高中考纲.json',
+        'books/经典/高中考纲词汇.json': 'books/高中/高中考纲.json',
+        'books/高中/高中考纲词汇.json': 'books/高中/高中考纲.json',
         'books/考纲/初中考纲词汇.json': 'books/初中/初中考纲词汇.json',
         'books/经典/初中考纲词汇.json': 'books/初中/初中考纲词汇.json',
         'books/考纲/初中考纲词组.json': 'books/初中/初中考纲词组.json',
@@ -86,7 +90,12 @@ const BookManager = {
             if (cachedCloudList) {
                 const parsed = JSON.parse(cachedCloudList);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    this.availableBooks = parsed;
+                    this.availableBooks = parsed.map(b => {
+                        if (b && (b.id === 'books/高中/高中考纲词汇.json' || b.id === 'books/经典/高中考纲词汇.json' || b.name === '高中考纲词汇')) {
+                            return { ...b, id: 'books/高中/高中考纲.json', name: '高中考纲', path: 'books/高中/高中考纲.json', count: b.count || 2391 };
+                        }
+                        return b;
+                    });
                 }
             }
         } catch (e) { }
@@ -102,7 +111,10 @@ const BookManager = {
                 ob.rawName = cleanBookName(ob.rawName || ob.name);
                 if (ob.isCloud) {
                     if (ob.words && ob.words.length > 0 && !this.bookCache[ob.id]) {
-                        this.bookCache[ob.id] = ob.words;
+                        const isGaoKaoOb = (ob.id === 'books/高中/高中考纲.json' || ob.id === 'books/高中/高中考纲词汇.json');
+                        if (!isGaoKaoOb || ob.words.some(w => w.derivatives || w.antonyms || w.mistake)) {
+                            this.bookCache[ob.id] = ob.words;
+                        }
                     }
                 } else {
                     const normCat = (ob.category || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').trim().toLowerCase();
@@ -136,12 +148,12 @@ const BookManager = {
         // 4. 获取云端最新词书索引文件并对比更新状态
         await this.fetchBookList();
 
-        // 5. 初始进入网站逻辑优化：不要一次性全量下载词书！首次进入只下载核心词书《高中考纲词汇》
-        const gaoKaoId = 'books/高中/高中考纲词汇.json';
-        const hasGaoKao = (this.bookCache[gaoKaoId] && this.bookCache[gaoKaoId].length > 50) ||
-                          (await VocabOfflineDB.getBook(gaoKaoId));
-        if (!hasGaoKao) {
-            console.log('[BookManager] 首次进入网站，按需下载核心词书《高中考纲词汇》...');
+        // 5. 初始进入网站逻辑优化：不要一次性全量下载词书！首次进入只下载核心词书《高中考纲》
+        const gaoKaoId = 'books/高中/高中考纲.json';
+        const cachedGaoKao = this.bookCache[gaoKaoId];
+        const hasRichGaoKao = Array.isArray(cachedGaoKao) && cachedGaoKao.length > 50 && cachedGaoKao.some(w => w.derivatives || w.antonyms || w.mistake);
+        if (!hasRichGaoKao) {
+            console.log('[BookManager] 首次进入网站，按需下载核心词书《高中考纲》...');
             this.downloadBook(gaoKaoId, true).catch(() => {});
         } else {
             // 确保缓存中存在
@@ -367,7 +379,7 @@ const BookManager = {
                 if (singleSelectedBookIds.includes(bookId)) {
                     singleSelectedBookIds = singleSelectedBookIds.filter(id => id !== bookId);
                     if (singleSelectedBookIds.length === 0) {
-                        singleSelectedBookIds = ['books/高中/高中考纲词汇.json'];
+                        singleSelectedBookIds = ['books/高中/高中考纲.json'];
                     }
                     localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
                 }
@@ -511,8 +523,9 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             return this.bookCache[bookId];
         }
 
-        const isGaoKao = (bookId === 'books/高中/高中考纲词汇.json' || bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json');
+        const isGaoKao = (bookId === 'books/高中/高中考纲.json' || bookId === 'books/高中/高中考纲词汇.json' || bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json' || bookId === 'books/经典/高中考纲.json');
         if (isGaoKao && !forceNetwork) {
+            if (this.bookCache['books/高中/高中考纲.json'] && this.bookCache['books/高中/高中考纲.json'].length > 50) return this.bookCache['books/高中/高中考纲.json'];
             if (this.bookCache['books/高中/高中考纲词汇.json'] && this.bookCache['books/高中/高中考纲词汇.json'].length > 50) return this.bookCache['books/高中/高中考纲词汇.json'];
             if (this.bookCache['books/经典/高中考纲词汇.json'] && this.bookCache['books/经典/高中考纲词汇.json'].length > 50) return this.bookCache['books/经典/高中考纲词汇.json'];
             if (this.bookCache['books/考纲/高考3500.json'] && this.bookCache['books/考纲/高考3500.json'].length > 50) return this.bookCache['books/考纲/高考3500.json'];
@@ -533,11 +546,14 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             try {
                 const offlineBook = await VocabOfflineDB.getBook(bookId);
                 if (offlineBook && offlineBook.words && offlineBook.words.length > 0) {
-                    this.bookCache[bookId] = offlineBook.words;
-                    if (isGaoKao) {
-                        this.bookCache['books/高中/高中考纲词汇.json'] = offlineBook.words;
+                    const needsRefresh = isGaoKao && !offlineBook.words.some(w => w.derivatives || w.antonyms || w.mistake);
+                    if (!needsRefresh) {
+                        this.bookCache[bookId] = offlineBook.words;
+                        if (isGaoKao) {
+                            this.bookCache['books/高中/高中考纲.json'] = offlineBook.words;
+                        }
+                        return offlineBook.words;
                     }
-                    return offlineBook.words;
                 }
             } catch (e) { }
         }
@@ -558,7 +574,7 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
         // 构造本地与远程相对路径
         let relPath = (bookMeta ? bookMeta.path : '') || bookId;
         if (!relPath.startsWith('books/') && !relPath.includes('/')) {
-            if (isGaoKao) relPath = 'books/高中/高中考纲词汇.json';
+            if (isGaoKao) relPath = 'books/高中/高中考纲.json';
             else relPath = `books/${bookMeta.category || '高中'}/${bookMeta.name || bookId}.json`;
         }
         relPath = relPath.replace(/\\/g, '/');
@@ -572,12 +588,13 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                     relPath: relPath,
                     category: (bookMeta && bookMeta.category) || ''
                 });
-                if (diskRes && diskRes.success && diskRes.data) {
-                    const normalized = this.normalizeWords(diskRes.data, bookMeta ? bookMeta.name : bookId, bookId);
+                if (diskRes && diskRes.success && (diskRes.data || diskRes.words)) {
+                    const rawList = diskRes.data || diskRes.words;
+                    const normalized = this.normalizeWords(rawList, bookMeta ? bookMeta.name : bookId, bookId);
                     if (normalized.length > 0) {
                         this.bookCache[bookId] = normalized;
                         if (isGaoKao) {
-                            this.bookCache['books/高中/高中考纲词汇.json'] = normalized;
+                            this.bookCache['books/高中/高中考纲.json'] = normalized;
                         }
                         const target = this.availableBooks.find(b => b.id === bookId);
                         if (target) target.syncStatus = 'downloaded';
@@ -636,6 +653,7 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                         if (normalized.length > 0) {
                             this.bookCache[bookId] = normalized;
                             if (isGaoKao) {
+                                this.bookCache['books/高中/高中考纲.json'] = normalized;
                                 this.bookCache['books/高中/高中考纲词汇.json'] = normalized;
                                 this.bookCache['books/经典/高中考纲词汇.json'] = normalized;
                                 this.bookCache['GaoKao3500'] = normalized;
@@ -692,8 +710,25 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             else if (rawData.items && Array.isArray(rawData.items)) list = rawData.items;
             else if (rawData.data && Array.isArray(rawData.data)) list = rawData.data;
             else if (typeof rawData === 'object') {
-                // 处理形如 { "apple": "苹果", "banana": "香蕉" } 结构
-                list = Object.keys(rawData).map(k => ({ word: k, trans: rawData[k] }));
+                const keys = Object.keys(rawData);
+                const hasArrayVal = keys.some(k => Array.isArray(rawData[k]));
+                if (keys.length > 0 && hasArrayVal) {
+                    // 兼容《高中考纲.json》等按首字母/板块分组的 { a: [...], b: [...] } 词书结构
+                    list = [];
+                    keys.forEach(k => {
+                        if (Array.isArray(rawData[k])) {
+                            rawData[k].forEach(item => {
+                                if (item && typeof item === 'object') {
+                                    item.section = item.section || k;
+                                }
+                                list.push(item);
+                            });
+                        }
+                    });
+                } else {
+                    // 处理形如 { "apple": "苹果", "banana": "香蕉" } 结构
+                    list = Object.keys(rawData).map(k => ({ word: k, trans: rawData[k] }));
+                }
             } else {
                 return [];
             }
@@ -709,14 +744,29 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             else if (!phone && item.usphone) phone = `/${item.usphone}/`;
             else if (!phone && item.ukphone) phone = `/${item.ukphone}/`;
 
+            const rawNoParen = (item.name || word).replace(/\s*\([^)]*\)/g, '').trim();
+            const isPhrase = Boolean(
+                item.itemType === 'phrase' ||
+                (item.mistake && (!item.senses || item.senses.length === 0)) ||
+                rawNoParen.includes(' ') ||
+                rawNoParen.includes('...') ||
+                rawNoParen.includes('…') ||
+                (!item.senses && !phone && (item.trans || item.meaning))
+            );
+            const itemType = isPhrase ? 'phrase' : 'word';
+
             let meanings = [];
             if (Array.isArray(item.senses) && item.senses.length > 0) {
                 meanings = item.senses.map(s => {
                     if (typeof s === 'string') return { pos: '', meaning: s };
+                    const rawMeaning = Array.isArray(s.trans)
+                        ? s.trans.filter(Boolean).join('；')
+                        : String(s.meaning || s.trans || '');
                     return {
                         pos: s.part_of_speech || s.pos || '',
-                        meaning: (s.meaning || s.trans || '').replace(/★/g, ''),
-                        examples: s.examples || []
+                        meaning: rawMeaning.replace(/★/g, ''),
+                        trans: Array.isArray(s.trans) ? s.trans : null,
+                        examples: Array.isArray(s.examples) ? s.examples : []
                     };
                 });
             } else if (Array.isArray(item.meanings) && item.meanings.length > 0) {
@@ -749,29 +799,121 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                 meanings = [{ pos: '', meaning: '释义暂缺' }];
             }
 
+            // 合并相同连续词性，避免输出 "vt. 丢弃； vt. 放弃"
+            const fullMeaningParts = [];
+            meanings.forEach(m => {
+                if (!m || !m.meaning) return;
+                const last = fullMeaningParts[fullMeaningParts.length - 1];
+                if (last && last.pos === m.pos) {
+                    last.meanings.push(m.meaning);
+                } else {
+                    fullMeaningParts.push({ pos: m.pos || '', meanings: [m.meaning] });
+                }
+            });
+            const fullMeaning = fullMeaningParts.map(p => (p.pos ? `${p.pos} ` : '') + p.meanings.join('； ')).join('； ');
+
             return {
                 word,
+                name: item.name || word,
                 phone,
+                usphone: item.usphone || '',
+                ukphone: item.ukphone || '',
+                meaning: item.meaning || fullMeaning,
                 meanings,
+                trans: item.trans || null,
+                note: item.note || '',
                 senses: item.senses || null,
+                mistake: Array.isArray(item.mistake) ? item.mistake : null,
+                examples: Array.isArray(item.examples) ? item.examples : null,
+                derivatives: Array.isArray(item.derivatives) ? item.derivatives : null,
+                discriminations: Array.isArray(item.discriminations) ? item.discriminations : null,
+                antonyms: Array.isArray(item.antonyms) ? item.antonyms : null,
                 pinyin: item.pinyin || phone,
                 bookName: bookName || '练习词书',
-                bookId: bookId || 'default'
+                bookId: bookId || 'default',
+                section: item.section || '',
+                itemType: itemType
             };
         }).filter(Boolean);
     },
 
-    async loadMultipleBooks(bookIds = []) {
+    getBookSections(bookId, words = null) {
+        if (!words) {
+            words = this.bookCache[bookId] || [];
+        }
+        const sections = [];
+        const seen = new Set();
+        words.forEach(w => {
+            if (w && w.section && !seen.has(w.section)) {
+                seen.add(w.section);
+                sections.push(w.section);
+            }
+        });
+        return sections;
+    },
+
+    getBookStudyFilter(bookId) {
+        if (!bookId) return null;
+        try {
+            const raw = localStorage.getItem(`book_study_filter_${bookId}`);
+            if (raw) return JSON.parse(raw);
+        } catch (e) { }
+        return null;
+    },
+
+    setBookStudyFilter(bookId, filter) {
+        if (!bookId) return;
+        if (!filter || filter.isAll) {
+            localStorage.removeItem(`book_study_filter_${bookId}`);
+        } else {
+            localStorage.setItem(`book_study_filter_${bookId}`, JSON.stringify(filter));
+        }
+    },
+
+    filterWordsByBookFilter(bookId, words) {
+        if (!words || words.length === 0) return words || [];
+        const filter = this.getBookStudyFilter(bookId);
+        if (!filter || filter.isAll) return words;
+
+        const allowedTypes = Array.isArray(filter.types) && filter.types.length > 0 ? new Set(filter.types) : null;
+        const allowedSections = Array.isArray(filter.sections) && filter.sections.length > 0 ? new Set(filter.sections.map(s => String(s).toLowerCase())) : null;
+
+        return words.filter(w => {
+            if (!w) return false;
+            if (allowedTypes && w.itemType && !allowedTypes.has(w.itemType)) {
+                return false;
+            }
+            if (allowedSections) {
+                const wSec = String(w.section || '').toLowerCase();
+                if (wSec && !allowedSections.has(wSec)) return false;
+                if (!wSec && w.word) {
+                    const firstChar = w.word.trim().charAt(0).toLowerCase();
+                    if (/^[a-z]$/.test(firstChar) && !allowedSections.has(firstChar)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        });
+    },
+
+    async loadMultipleBooks(bookIds = [], applyFilter = true) {
         if (!bookIds || bookIds.length === 0) return [];
         const loadPromises = bookIds.map(id => this.loadBookData(id));
         const results = await Promise.all(loadPromises);
         const combined = [];
         const seenWords = new Set();
-        results.flat().forEach(item => {
-            if (item && !seenWords.has(item.word.toLowerCase())) {
-                seenWords.add(item.word.toLowerCase());
-                combined.push(item);
+        bookIds.forEach((id, idx) => {
+            let bookWords = results[idx] || [];
+            if (applyFilter) {
+                bookWords = this.filterWordsByBookFilter(id, bookWords);
             }
+            bookWords.forEach(item => {
+                if (item && item.word && !seenWords.has(item.word.toLowerCase())) {
+                    seenWords.add(item.word.toLowerCase());
+                    combined.push(item);
+                }
+            });
         });
         return combined;
     },

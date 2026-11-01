@@ -50,8 +50,8 @@ const EbbinghausEngine = {
         bookIds.forEach(id => {
             const normId = String(id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
             let words = BookManager.bookCache ? BookManager.bookCache[id] : null;
-            if (!words && (id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || id === 'builtin_default')) {
-                words = (BookManager.bookCache && BookManager.bookCache['builtin_default']) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
+            if (!words && (id === 'books/高中/高中考纲.json' || id === 'books/高中/高中考纲词汇.json' || id === 'GaoKao3500' || normId === '考纲/高考3500' || normId === '高考3500' || normId === '高中/高中考纲' || normId === '高中考纲' || id === 'builtin_default')) {
+                words = (BookManager.bookCache && (BookManager.bookCache['books/高中/高中考纲.json'] || BookManager.bookCache['builtin_default'])) || (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : null);
             }
             if (!words && window.customBooks) {
                 const cb = window.customBooks.find(b => b.id === id || String(b.id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normId);
@@ -192,7 +192,7 @@ const EbbinghausEngine = {
         if (!currentUser || !bookId) return;
         let words = await BookManager.loadBookData(bookId);
         if (!words || words.length === 0) {
-            if (bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json') {
+            if (bookId === 'books/高中/高中考纲.json' || bookId === 'books/高中/高中考纲词汇.json' || bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json') {
                 words = DEFAULT_WORDS;
             }
         }

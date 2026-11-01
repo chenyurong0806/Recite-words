@@ -11,12 +11,13 @@ function showToast(text, duration = 2600) {
         clearTimeout(toastTimer);
         toastTimer = null;
     }
+    const ms = (typeof duration === 'number' && !isNaN(duration) && duration > 0) ? duration : 2800;
     snackbar.innerText = text;
     snackbar.classList.add('show');
     toastTimer = setTimeout(() => {
         snackbar.classList.remove('show');
         toastTimer = null;
-    }, duration);
+    }, ms);
 }
 
 let currentView = 'view-auth';
@@ -44,7 +45,7 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
+    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
 
     const performSwitch = () => {
         currentView = viewId;
@@ -68,10 +69,72 @@ function switchView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         const target = document.getElementById(viewId);
         if (target) target.classList.add('active');
+
+        if (viewId === 'view-hub') {
+            updateHub();
+            const hubInp = document.getElementById('hub-search-input');
+            if (hubInp) hubInp.value = '';
+            const hubClear = document.getElementById('hub-search-clear-btn');
+            if (hubClear) hubClear.style.display = 'none';
+            const hubSuggs = document.getElementById('hub-search-suggestions');
+            if (hubSuggs) hubSuggs.style.display = 'none';
+            if (currentUser && typeof initGlobalPresence === 'function') {
+                initGlobalPresence();
+            }
+        } else if (viewId === 'view-auth') {
+            if (typeof renderAuthView === 'function') renderAuthView();
+        } else if (viewId === 'view-me') {
+            const activeKey = window.__targetMeSubview || 'main';
+            window.__targetMeSubview = null;
+            const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items'];
+            meSubviews.forEach(k => {
+                const el = (k === 'main')
+                    ? document.getElementById('me-subview-main')
+                    : document.getElementById(`settings-subview-${k}`);
+                if (el) {
+                    if (k === activeKey) el.classList.add('active');
+                    else el.classList.remove('active');
+                }
+            });
+            if (activeKey === 'main' && typeof renderMeView === 'function') {
+                renderMeView();
+            }
+        } else if (viewId === 'view-settings') {
+            if (typeof switchSettingsSubview === 'function') {
+                switchSettingsSubview('main', true);
+            }
+        } else if (viewId === 'view-online') {
+            const inRoomEl = document.getElementById('online-in-room');
+            const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+            if (!isInRoom) {
+                if (typeof fetchOnlineRoomsList === 'function') {
+                    fetchOnlineRoomsList();
+                    initGlobalPresence();
+                }
+            }
+        } else if (viewId === 'view-search') {
+            const searchInp = document.getElementById('search-page-input');
+            if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
+                if (typeof showSearchHistoryView === 'function') {
+                    showSearchHistoryView();
+                }
+            }
+        } else if (viewId === 'view-riddle') {
+            if (typeof restoreRiddleViewOverlays === 'function') {
+                restoreRiddleViewOverlays();
+            }
+        }
+
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    if (document.startViewTransition) {
+    const isReducedMotion = (
+        document.documentElement.classList.contains('reduce-motion') ||
+        document.body.classList.contains('reduce-motion') ||
+        (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    );
+
+    if (document.startViewTransition && !isReducedMotion) {
         try {
             const transition = document.startViewTransition(performSwitch);
             if (transition) {
@@ -84,45 +147,6 @@ function switchView(viewId) {
         }
     } else {
         performSwitch();
-    }
-
-    if (viewId === 'view-hub') {
-        updateHub();
-        const hubInp = document.getElementById('hub-search-input');
-        if (hubInp) hubInp.value = '';
-        const hubClear = document.getElementById('hub-search-clear-btn');
-        if (hubClear) hubClear.style.display = 'none';
-        const hubSuggs = document.getElementById('hub-search-suggestions');
-        if (hubSuggs) hubSuggs.style.display = 'none';
-        if (currentUser && typeof initGlobalPresence === 'function') {
-            initGlobalPresence();
-        }
-    } else if (viewId === 'view-auth') {
-        if (typeof renderAuthView === 'function') renderAuthView();
-    } else if (viewId === 'view-me') {
-        if (typeof renderMeView === 'function') {
-            renderMeView();
-        }
-    } else if (viewId === 'view-settings') {
-        if (typeof switchSettingsSubview === 'function') {
-            switchSettingsSubview('main');
-        }
-    } else if (viewId === 'view-online') {
-        const inRoomEl = document.getElementById('online-in-room');
-        const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
-        if (!isInRoom) {
-            if (typeof fetchOnlineRoomsList === 'function') {
-                fetchOnlineRoomsList();
-                initGlobalPresence();
-            }
-        }
-    } else if (viewId === 'view-search') {
-        const searchInp = document.getElementById('search-page-input');
-        if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
-            if (typeof showSearchHistoryView === 'function') {
-                showSearchHistoryView();
-            }
-        }
     }
 }
 
@@ -400,7 +424,7 @@ function updateHubResumeButtons() {
         }
     }
 
-    const riddleSaved = localStorage.getItem(`riddle_progress_${currentUser}`);
+    const riddleSaved = localStorage.getItem(`riddle_progress_${currentUser || 'guest'}`) || (currentUser ? localStorage.getItem(`riddle_progress_${currentUser}`) : null);
     const riddleBtnText = document.getElementById('btn-hub-riddle-text');
     if (riddleBtnText) {
         if (riddleSaved) {
@@ -551,18 +575,22 @@ async function loadCustomBook(e) {
     }
 }
 
+function isGaoKaoBookId(id) {
+    return id === 'books/高中/高中考纲.json' || id === 'books/高中/高中考纲词汇.json' || id === 'books/经典/高中考纲.json' || id === 'books/经典/高中考纲词汇.json' || id === 'books/考纲/高考3500.json' || id === 'GaoKao3500' || id === '高中考纲' || id === '高中考纲.json';
+}
+
 function isBookIdSelected(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) return false;
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
-    return selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
+    const isGaoKao = isGaoKaoBookId(bookId);
+    return selectedIds.some(id => id === bookId || (isGaoKao && isGaoKaoBookId(id)));
 }
 
 function toggleBookIdInList(selectedIds, bookId) {
     if (!Array.isArray(selectedIds)) selectedIds = [];
-    const isGaoKao = bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json';
-    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
+    const isGaoKao = isGaoKaoBookId(bookId);
+    const hasIt = selectedIds.some(id => id === bookId || (isGaoKao && isGaoKaoBookId(id)));
     if (hasIt) {
-        return selectedIds.filter(id => id !== bookId && !(isGaoKao && (id === 'GaoKao3500' || id === 'books/考纲/高考3500.json' || id === 'books/经典/高中考纲词汇.json')));
+        return selectedIds.filter(id => id !== bookId && !(isGaoKao && isGaoKaoBookId(id)));
     } else {
         return [...selectedIds, bookId];
     }
@@ -576,9 +604,9 @@ function isShiCiBook(b) {
     if (b.type === 'shici' || b.isShiCi) return true;
     if (b.category === '实词' || b.category === '实词词书' || (b.name && (b.name.includes('实词') || b.name.includes('文言'))) || (b.id && String(b.id).includes('实词'))) return true;
     if (b.words && b.words.length > 0) {
-        if (b.words[0].senses) return true;
         const firstWord = b.words[0].word || b.words[0].name || '';
         if (/[\u4e00-\u9fa5]/.test(firstWord)) return true;
+        if (b.words[0].senses && !/[a-zA-Z]/.test(firstWord)) return true;
     }
     return false;
 }

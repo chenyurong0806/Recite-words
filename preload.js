@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveCloudBook: (category, fileName, jsonString) => ipcRenderer.invoke('save-cloud-book', { category, fileName, jsonString }),
     saveLocalBook: (folder, fileName, jsonString) => ipcRenderer.invoke('save-local-book', { folder, fileName, jsonString }),
     deleteBookFile: (params) => ipcRenderer.invoke('delete-book-file', params),
-    readBookFile: (filePath) => ipcRenderer.invoke('read-book-file', { filePath }),
+    readBookFile: (params) => ipcRenderer.invoke('read-book-file', typeof params === 'string' ? { filePath: params } : (params || {})),
     scanBooksFolder: (options = {}) => ipcRenderer.invoke('scan-books-folder', options),
     createLocalCategory: (categoryName) => ipcRenderer.invoke('create-local-category', { categoryName }),
     renameLocalCategory: (oldName, newName) => ipcRenderer.invoke('rename-local-category', { oldName, newName }),

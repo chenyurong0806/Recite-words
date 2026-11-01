@@ -1686,7 +1686,8 @@
 
         // 换背景按钮：仅在无法联网的情况下删除，可联网时显示并检查冷却状态
         const btnChangeBg = document.getElementById('btn-poster-change-bg');
-        const isNetworkBlocked = window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine);
+        const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode()) || window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine);
+        const isNetworkBlocked = isOffline;
         if (btnChangeBg) {
             if (isNetworkBlocked) {
                 btnChangeBg.remove();

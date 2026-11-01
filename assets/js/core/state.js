@@ -193,7 +193,7 @@ let roomConfig = {
     duration: 60,
     winLead: 6,
     gaugeStyle: 'tug',
-    selectedBooks: ['GaoKao3500']
+    selectedBooks: ['books/高中/高中考纲.json']
 };
 
 let p1State = { score: 0, total: 0, pool: [], currentIdx: 0, frozen: false, answeringLock: false, timerId: null };
@@ -203,12 +203,15 @@ let gameTimer = null;
 let gameResult = null;
 
 const savedSingleBooks = SafeStorage.getItem('single_vocab_books');
-let singleSelectedBookIds = ['books/考纲/高考3500.json'];
+let singleSelectedBookIds = ['books/高中/高中考纲.json'];
 if (savedSingleBooks) {
     try {
         const parsed = JSON.parse(savedSingleBooks);
-        if (Array.isArray(parsed) && parsed.length > 0) singleSelectedBookIds = parsed;
-        else singleSelectedBookIds = ['books/考纲/高考3500.json'];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            singleSelectedBookIds = parsed.map(b => (b === 'GaoKao3500' || b === 'books/考纲/高考3500.json' || b === 'books/经典/高中考纲词汇.json' || b === 'books/高中/高中考纲词汇.json') ? 'books/高中/高中考纲.json' : b);
+        } else {
+            singleSelectedBookIds = ['books/高中/高中考纲.json'];
+        }
     } catch (e) { }
 }
 
