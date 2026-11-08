@@ -45,108 +45,102 @@ function switchView(viewId) {
     if (typeof resetAllGameAlertsAndFeedback === 'function') {
         resetAllGameAlertsAndFeedback();
     }
+
+    // 学习时长计时器管理：进入学习/练习视图时开启计时，离开时结算保存
+    const studyTimerViews = ['view-single', 'view-shici', 'view-dictation', 'view-riddle', 'view-game', 'view-local-duel'];
+    if (window.DailyStudyTracker) {
+        if (studyTimerViews.includes(viewId)) {
+            window.DailyStudyTracker.startSessionTimer();
+        } else {
+            window.DailyStudyTracker.flushSessionTimer(false);
+        }
+    }
+
     const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
 
-    const performSwitch = () => {
-        currentView = viewId;
-        window.currentView = viewId;
-        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
+    const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
 
-        // 纯类名控制，触发 CSS 3D 平滑移出/移入动画
-        if (shouldHideNav) {
-            document.body.classList.remove('has-nav');
-            document.body.classList.add('nav-hidden');
-        } else {
-            document.body.classList.add('has-nav');
-            document.body.classList.remove('nav-hidden');
-        }
+    if (shouldHideNav) {
+        document.body.classList.remove('has-nav');
+        document.body.classList.add('nav-hidden');
+    } else {
+        document.body.classList.add('has-nav');
+        document.body.classList.remove('nav-hidden');
+    }
 
-        if (typeof updateNavActive === 'function') {
-            const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
-            updateNavActive(navKey);
-        }
+    if (typeof updateNavActive === 'function') {
+        const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
+        updateNavActive(navKey);
+    }
 
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        const target = document.getElementById(viewId);
-        if (target) target.classList.add('active');
+    const prevActive = document.querySelectorAll('.view.active');
+    for (let i = 0; i < prevActive.length; i++) {
+        if (prevActive[i].id !== viewId) prevActive[i].classList.remove('active');
+    }
+    const target = document.getElementById(viewId);
+    if (target && !target.classList.contains('active')) {
+        target.classList.add('active');
+    }
 
-        if (viewId === 'view-hub') {
-            updateHub();
-            const hubInp = document.getElementById('hub-search-input');
-            if (hubInp) hubInp.value = '';
-            const hubClear = document.getElementById('hub-search-clear-btn');
-            if (hubClear) hubClear.style.display = 'none';
-            const hubSuggs = document.getElementById('hub-search-suggestions');
-            if (hubSuggs) hubSuggs.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    if (viewId === 'view-hub') {
+        const hubInp = document.getElementById('hub-search-input');
+        if (hubInp) hubInp.value = '';
+        const hubClear = document.getElementById('hub-search-clear-btn');
+        if (hubClear) hubClear.style.display = 'none';
+        const hubSuggs = document.getElementById('hub-search-suggestions');
+        if (hubSuggs) hubSuggs.style.display = 'none';
+        updateHub();
+        requestAnimationFrame(() => {
             if (currentUser && typeof initGlobalPresence === 'function') {
                 initGlobalPresence();
             }
-        } else if (viewId === 'view-auth') {
-            if (typeof renderAuthView === 'function') renderAuthView();
-        } else if (viewId === 'view-me') {
-            const activeKey = window.__targetMeSubview || 'main';
-            window.__targetMeSubview = null;
-            const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items'];
-            meSubviews.forEach(k => {
-                const el = (k === 'main')
-                    ? document.getElementById('me-subview-main')
-                    : document.getElementById(`settings-subview-${k}`);
-                if (el) {
-                    if (k === activeKey) el.classList.add('active');
-                    else el.classList.remove('active');
-                }
-            });
-            if (activeKey === 'main' && typeof renderMeView === 'function') {
-                renderMeView();
+        });
+    } else if (viewId === 'view-auth') {
+        if (typeof renderAuthView === 'function') renderAuthView();
+    } else if (viewId === 'view-me') {
+        const activeKey = window.__targetMeSubview || 'main';
+        window.__targetMeSubview = null;
+        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
+        meSubviews.forEach(k => {
+            const el = (k === 'main')
+                ? document.getElementById('me-subview-main')
+                : document.getElementById(`settings-subview-${k}`);
+            if (el) {
+                if (k === activeKey) el.classList.add('active');
+                else el.classList.remove('active');
             }
-        } else if (viewId === 'view-settings') {
-            if (typeof switchSettingsSubview === 'function') {
-                switchSettingsSubview('main', true);
-            }
-        } else if (viewId === 'view-online') {
-            const inRoomEl = document.getElementById('online-in-room');
-            const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
-            if (!isInRoom) {
+        });
+        if (activeKey === 'main' && typeof renderMeView === 'function') {
+            renderMeView();
+        }
+    } else if (viewId === 'view-settings') {
+        if (typeof switchSettingsSubview === 'function') {
+            switchSettingsSubview('main', true);
+        }
+    } else if (viewId === 'view-online') {
+        const inRoomEl = document.getElementById('online-in-room');
+        const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+        if (!isInRoom) {
+            requestAnimationFrame(() => {
                 if (typeof fetchOnlineRoomsList === 'function') {
                     fetchOnlineRoomsList();
                     initGlobalPresence();
                 }
-            }
-        } else if (viewId === 'view-search') {
-            const searchInp = document.getElementById('search-page-input');
-            if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
-                if (typeof showSearchHistoryView === 'function') {
-                    showSearchHistoryView();
-                }
-            }
-        } else if (viewId === 'view-riddle') {
-            if (typeof restoreRiddleViewOverlays === 'function') {
-                restoreRiddleViewOverlays();
+            });
+        }
+    } else if (viewId === 'view-search') {
+        const searchInp = document.getElementById('search-page-input');
+        if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
+            if (typeof showSearchHistoryView === 'function') {
+                showSearchHistoryView();
             }
         }
-
-        window.scrollTo({ top: 0, behavior: 'instant' });
-    };
-
-    const isReducedMotion = (
-        document.documentElement.classList.contains('reduce-motion') ||
-        document.body.classList.contains('reduce-motion') ||
-        (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-    );
-
-    if (document.startViewTransition && !isReducedMotion) {
-        try {
-            const transition = document.startViewTransition(performSwitch);
-            if (transition) {
-                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
-                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
-                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
-            }
-        } catch (e) {
-            performSwitch();
+    } else if (viewId === 'view-riddle') {
+        if (typeof restoreRiddleViewOverlays === 'function') {
+            restoreRiddleViewOverlays();
         }
-    } else {
-        performSwitch();
     }
 }
 
@@ -174,9 +168,6 @@ function checkNetworkStatus(explicitState) {
             if (!isNetworkOnline) {
                 badge.className = 'network-status-badge offline';
                 badgeText.innerText = '离线';
-            } else if (currentPresenceStatus === 'invisible') {
-                badge.className = 'network-status-badge invisible';
-                badgeText.innerText = '隐身';
             } else {
                 badge.className = 'network-status-badge online';
                 badgeText.innerText = '在线';
@@ -223,9 +214,6 @@ window.addEventListener('pageshow', () => {
     checkNetworkStatus();
 });
 
-let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
-window.currentPresenceStatus = currentPresenceStatus;
-
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
     const dd = document.getElementById('hub-user-dropdown');
@@ -244,27 +232,104 @@ function closeHubUserDropdown() {
     if (dd) dd.style.display = 'none';
 }
 
-function setUserPresenceStatus(status) {
-    currentPresenceStatus = status;
-    window.currentPresenceStatus = status;
-    localStorage.setItem('vocab_presence_status', status);
-    const chkOnline = document.getElementById('hub-dd-status-check-online');
-    const chkInv = document.getElementById('hub-dd-status-check-invisible');
-    if (chkOnline) chkOnline.style.display = (status === 'online') ? 'inline-flex' : 'none';
-    if (chkInv) chkInv.style.display = (status === 'invisible') ? 'inline-flex' : 'none';
+const DEFAULT_HOME_MODE_ORDER = [
+    'mode-duel',
+    'mode-single',
+    'mode-shici',
+    'mode-riddle',
+    'mode-dictation'
+];
 
-    // 同步更新首页顶部网络徽标的状态与文字
-    checkNetworkStatus();
-
-    // 如果在线对战存在连接，通知更新状态并刷新在线列表
-    if (typeof updateMyLobbyPresence === 'function') {
-        updateMyLobbyPresence();
+function getHomeLayoutConfig() {
+    const def = {
+        collapseSearchBar: false,
+        hiddenCards: [],
+        modeOrder: [...DEFAULT_HOME_MODE_ORDER]
+    };
+    try {
+        const raw = localStorage.getItem('vocab_home_layout_config');
+        if (!raw) return def;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return def;
+        const hidden = Array.isArray(parsed.hiddenCards)
+            ? parsed.hiddenCards.filter(id => id !== 'hub-activity-entry-card' && id !== 'hub-leaderboard-entry-card')
+            : [];
+        let order = Array.isArray(parsed.modeOrder) ? parsed.modeOrder.filter(id => DEFAULT_HOME_MODE_ORDER.includes(id)) : [...DEFAULT_HOME_MODE_ORDER];
+        DEFAULT_HOME_MODE_ORDER.forEach(id => {
+            if (!order.includes(id)) order.push(id);
+        });
+        return {
+            collapseSearchBar: Boolean(parsed.collapseSearchBar),
+            hiddenCards: hidden,
+            modeOrder: order
+        };
+    } catch (e) {
+        return def;
     }
-    if (typeof syncGlobalPresenceState === 'function') {
-        syncGlobalPresenceState();
-    }
-    showToast(`状态已设为：${status === 'online' ? '在线' : '隐身'}`);
 }
+window.getHomeLayoutConfig = getHomeLayoutConfig;
+
+function saveHomeLayoutConfig(cfg) {
+    const clean = {
+        collapseSearchBar: Boolean(cfg.collapseSearchBar),
+        hiddenCards: Array.isArray(cfg.hiddenCards)
+            ? cfg.hiddenCards.filter(id => id !== 'hub-activity-entry-card' && id !== 'hub-leaderboard-entry-card')
+            : [],
+        modeOrder: Array.isArray(cfg.modeOrder) ? cfg.modeOrder : [...DEFAULT_HOME_MODE_ORDER]
+    };
+    localStorage.setItem('vocab_home_layout_config', JSON.stringify(clean));
+    applyHomeLayoutConfig();
+}
+window.saveHomeLayoutConfig = saveHomeLayoutConfig;
+
+function applyHomeLayoutConfig() {
+    const cfg = getHomeLayoutConfig();
+    const hiddenSet = new Set(cfg.hiddenCards || []);
+
+    // 1. 搜索栏收起/展开控制
+    const searchWrapper = document.querySelector('#view-hub .hub-search-wrapper');
+    const appBarSearchBtn = document.getElementById('btn-hub-appbar-search');
+    if (searchWrapper) {
+        searchWrapper.style.display = cfg.collapseSearchBar ? 'none' : '';
+    }
+    if (appBarSearchBtn) {
+        appBarSearchBtn.style.display = cfg.collapseSearchBar ? 'inline-flex' : 'none';
+    }
+
+    // 2. 活动和排行榜禁止隐藏，强制保持显示
+    const actCard = document.getElementById('hub-activity-entry-card');
+    if (actCard) actCard.style.display = '';
+    const lbCard = document.getElementById('hub-leaderboard-entry-card');
+    if (lbCard) lbCard.style.display = '';
+
+    // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
+    const onlineCard = document.getElementById('hub-online-players-card');
+    if (onlineCard) {
+        onlineCard.style.display = hiddenSet.has('hub-online-players-card') ? 'none' : '';
+    }
+    const calendarCard = document.getElementById('hub-calendar-card') || document.querySelector('#view-hub .week-calendar-card');
+    if (calendarCard) {
+        calendarCard.style.display = hiddenSet.has('hub-calendar-card') ? 'none' : '';
+    }
+
+    // 4. modes-grid 卡片顺序与隐藏控制
+    const modesGrid = document.querySelector('#view-hub .modes-grid');
+    if (modesGrid) {
+        const cardMap = new Map();
+        Array.from(modesGrid.children).forEach(el => {
+            const cid = el.getAttribute('data-home-card-id') || el.id;
+            if (cid) cardMap.set(cid, el);
+        });
+        cfg.modeOrder.forEach(cid => {
+            const el = cardMap.get(cid);
+            if (el) {
+                el.style.display = hiddenSet.has(cid) ? 'none' : '';
+                modesGrid.appendChild(el);
+            }
+        });
+    }
+}
+window.applyHomeLayoutConfig = applyHomeLayoutConfig;
 
 document.addEventListener('pointerdown', (e) => {
     if (!e.target.closest('#hub-user-pill') && !e.target.closest('#hub-user-dropdown')) {
@@ -322,12 +387,6 @@ function updateHub() {
         }
     }
 
-    // 更新下拉菜单内容
-    const chkOnline = document.getElementById('hub-dd-status-check-online');
-    const chkInv = document.getElementById('hub-dd-status-check-invisible');
-    if (chkOnline) chkOnline.style.display = (currentPresenceStatus === 'online') ? 'inline-flex' : 'none';
-    if (chkInv) chkInv.style.display = (currentPresenceStatus === 'invisible') ? 'inline-flex' : 'none';
-
     const ddUsername = document.getElementById('hub-dd-username');
     const ddLevelText = document.getElementById('hub-dd-level-text');
     const ddLogged = document.getElementById('hub-dd-logged-actions');
@@ -349,11 +408,10 @@ function updateHub() {
 
     const statTotal = document.getElementById('stat-total');
     const statAcc = document.getElementById('stat-acc');
-    const statMistakes = document.getElementById('stat-mistakes');
     if (statTotal) statTotal.innerText = userStats.total || 0;
     if (statAcc) statAcc.innerText = (userStats.total > 0) ? Math.round((userStats.correct / userStats.total) * 100) + '%' : '0%';
-    if (statMistakes) statMistakes.innerText = Object.keys(userStats.mistakes || {}).length;
 
+    applyHomeLayoutConfig();
     checkNetworkStatus();
     updateHubResumeButtons();
 
@@ -362,29 +420,28 @@ function updateHub() {
     if (btnDailyWordle) {
         btnDailyWordle.style.display = isOffline ? 'none' : '';
     }
-    const presenceSec = document.getElementById('hub-dd-presence-section');
-    if (presenceSec) {
-        presenceSec.style.display = isOffline ? 'none' : 'block';
-    }
 
-    if (window.EbbinghausEngine) {
-        window.EbbinghausEngine.updateDueBadge();
-    }
     if (window.DailyStudyTracker) {
         window.DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
     }
-    if (typeof updateHubShiCiBadge === 'function') {
-        updateHubShiCiBadge();
-    }
-    if (typeof initSearchTabs === 'function') {
-        initSearchTabs();
-    }
-    if (typeof ActivityManager !== 'undefined') {
-        ActivityManager.updateBadge();
-    }
-    if (typeof MailManager !== 'undefined') {
-        MailManager.updateBadge();
-    }
+
+    requestAnimationFrame(() => {
+        if (window.EbbinghausEngine) {
+            window.EbbinghausEngine.updateDueBadge();
+        }
+        if (typeof updateHubShiCiBadge === 'function') {
+            updateHubShiCiBadge();
+        }
+        if (typeof initSearchTabs === 'function') {
+            initSearchTabs();
+        }
+        if (typeof ActivityManager !== 'undefined') {
+            ActivityManager.updateBadge();
+        }
+        if (typeof MailManager !== 'undefined') {
+            MailManager.updateBadge();
+        }
+    });
 }
 
 // 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）

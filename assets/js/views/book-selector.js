@@ -1819,27 +1819,33 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const folder = triggerBtn.closest('.local-tree-folder');
     if (folder) folder.classList.add('dropdown-open-folder');
 
+    // 先重置位置与高度约束以便准确测量菜单自然尺寸
+    menuEl.style.maxHeight = '';
+    menuEl.style.top = '0px';
+    menuEl.style.left = '0px';
+    menuEl.style.right = 'auto';
+    menuEl.style.bottom = 'auto';
     menuEl.style.display = 'flex';
     menuEl.style.visibility = 'hidden';
     menuEl.style.position = 'fixed';
     menuEl.style.zIndex = '10050';
 
     const btnRect = triggerBtn.getBoundingClientRect();
-    const menuWidth = menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 160 : 240);
-    const menuHeight = menuEl.offsetHeight || 220;
+    const menuWidth = menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240);
+    const naturalHeight = menuEl.scrollHeight || menuEl.offsetHeight || 240;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
     const spaceBelow = viewportHeight - btnRect.bottom - 12;
     const spaceAbove = btnRect.top - 12;
     let top = 0;
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-        const fitHeight = Math.min(menuHeight, spaceAbove - 6);
+    if (spaceBelow < Math.min(220, naturalHeight) && spaceAbove > spaceBelow) {
+        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceAbove - 8));
         top = Math.max(10, btnRect.top - fitHeight - 6);
         menuEl.classList.add('flip-up');
         menuEl.style.maxHeight = `${fitHeight}px`;
     } else {
-        const fitHeight = Math.min(menuHeight, Math.max(120, spaceBelow - 6));
+        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceBelow - 8));
         top = btnRect.bottom + 6;
         menuEl.classList.remove('flip-up');
         menuEl.style.maxHeight = `${fitHeight}px`;
@@ -2091,26 +2097,16 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
             if (cleanSec) secSet.add(cleanSec);
         }
     });
-    if (secSet.size <= 1 && words.length > 50) {
-        const letterSet = new Set();
-        words.forEach(w => {
-            const first = (w.word || '').trim().charAt(0).toLowerCase();
-            if (/^[a-z]$/.test(first)) letterSet.add(first);
-        });
-        if (letterSet.size >= 2) {
-            letterSet.forEach(l => secSet.add(l));
-        }
-    }
     const secWrap = document.getElementById('bc-toolbar-section-wrap');
     const secLabel = document.getElementById('bc-toolbar-section-label');
     const secMenu = document.getElementById('bc-toolbar-section-menu');
     if (secWrap && secMenu) {
         if (secSet.size > 1) {
             const sortedSecs = Array.from(secSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-            if (secLabel) secLabel.textContent = `全部分类 (${words.length}词)`;
+            if (secLabel) secLabel.textContent = '全部分类';
             secMenu.innerHTML = `
-                <div class="md3-custom-select-option selected" data-value="all" onclick="selectMd3Option('bc-toolbar-section', 'all', '全部分类 (${words.length}词)', 'setBookContentSectionFilter')">
-                    <span>全部分类 (${words.length}词)</span>
+                <div class="md3-custom-select-option selected" data-value="all" onclick="selectMd3Option('bc-toolbar-section', 'all', '全部分类', 'setBookContentSectionFilter')">
+                    <span>全部分类</span>
                     <span class="material-symbols-rounded" style="font-size:16px;">check</span>
                 </div>
                 ${sortedSecs.map(s => `
@@ -2124,6 +2120,8 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
             secWrap.style.display = 'none';
         }
     }
+    const searchWrapEl = document.getElementById('bc-expandable-search-wrap');
+    if (searchWrapEl) searchWrapEl.classList.remove('expanded');
     document.querySelectorAll('#bc-toolbar-type-tabs .settings-cat-tab').forEach(ch => {
         ch.classList.toggle('active', ch.getAttribute('data-type') === 'all');
     });
@@ -2132,7 +2130,7 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
     });
     bookContentState.collapsedDisplayMode = 'en';
     const dispModeText = document.getElementById('text-bc-display-mode');
-    if (dispModeText) dispModeText.textContent = '展示释义';
+    if (dispModeText) dispModeText.textContent = '展示英文';
     const dispModeBtn = document.getElementById('btn-bc-toggle-display-mode');
     if (dispModeBtn) dispModeBtn.classList.remove('active');
     const expandIcon = document.getElementById('icon-bc-expand-all');
@@ -2206,21 +2204,60 @@ function setBookContentFilter(kind, val) {
 }
 
 /**
- * 实时搜索词书内容
+ * 实时搜索词书内容与可伸展搜索框控制
  */
+function toggleBookContentSearchExpand(forceExpand = true, e = null) {
+    if (e) e.stopPropagation();
+    const wrap = document.getElementById('bc-expandable-search-wrap');
+    const input = document.getElementById('book-content-search-input');
+    if (!wrap) return;
+    if (forceExpand) {
+        wrap.classList.add('expanded');
+        if (input) {
+            setTimeout(() => input.focus(), 20);
+        }
+    } else {
+        if (input) input.value = '';
+        handleBookContentSearch('');
+        wrap.classList.remove('expanded');
+    }
+}
+window.toggleBookContentSearchExpand = toggleBookContentSearchExpand;
+
+function handleBookContentSearchBlur() {
+    const wrap = document.getElementById('bc-expandable-search-wrap');
+    const input = document.getElementById('book-content-search-input');
+    if (!wrap || !input) return;
+    setTimeout(() => {
+        if (!input.value.trim() && document.activeElement !== input) {
+            wrap.classList.remove('expanded');
+        }
+    }, 150);
+}
+window.handleBookContentSearchBlur = handleBookContentSearchBlur;
+
 function handleBookContentSearch(val) {
     bookContentState.searchQuery = (val || '').trim();
     const clearBtn = document.getElementById('book-content-search-clear');
     if (clearBtn) {
-        clearBtn.style.display = bookContentState.searchQuery ? 'inline-flex' : 'none';
+        clearBtn.style.display = 'inline-flex';
     }
     applyBookContentFilters();
 }
 
-function clearBookContentSearch() {
+function clearBookContentSearch(e = null) {
+    if (e) e.stopPropagation();
+    const wrap = document.getElementById('bc-expandable-search-wrap');
     const input = document.getElementById('book-content-search-input');
-    if (input) input.value = '';
-    handleBookContentSearch('');
+    if (input && input.value.trim()) {
+        input.value = '';
+        handleBookContentSearch('');
+        input.focus();
+    } else {
+        if (input) input.value = '';
+        handleBookContentSearch('');
+        if (wrap) wrap.classList.remove('expanded');
+    }
 }
 
 /**
@@ -2244,9 +2281,11 @@ function applyBookContentFilters() {
             if (!isPh) return false;
         }
 
-        // 分类筛选
+        // 分类筛选（兼容显式 section 与首字母回退分类）
         if (bookContentState.activeSection && bookContentState.activeSection !== 'all') {
-            const wSec = String(w.section || '').trim().replace(/^板块\s*/i, '').toLowerCase();
+            const explicitSec = String(w.section || '').trim().replace(/^板块\s*/i, '').toLowerCase();
+            const fallbackLetter = (w.word || '').trim().charAt(0).toLowerCase();
+            const wSec = explicitSec || fallbackLetter;
             if (wSec !== bookContentState.activeSection.toLowerCase()) return false;
         }
 
@@ -2379,9 +2418,72 @@ function formatDerivativesHtml(derivatives) {
 }
 
 /**
- * 典型例句排版助手：图7更换图标为 text_snippet 并增加间距
+ * 反义词排版助手：修复对象渲染 [object Object] 问题
  */
-function formatExamplesHtml(examplesList) {
+function formatAntonymsHtml(antonyms) {
+    if (!Array.isArray(antonyms) || antonyms.length === 0) return '';
+    return `
+        <div class="bc-drawer-section">
+            <div class="bc-drawer-title"><span class="material-symbols-rounded">swap_horiz</span>反义词</div>
+            <div class="bc-chips-flow">
+                ${antonyms.map(a => {
+                    if (!a) return '';
+                    if (typeof a === 'string') {
+                        return `<div class="bc-tag-chip antonym"><strong class="bc-antonym-name">${escapeHtml(a)}</strong></div>`;
+                    }
+                    const name = a.name || a.word || a.hwd || a.antonym || '';
+                    const trans = Array.isArray(a.trans) ? a.trans.join('； ') : (a.trans || a.meaning || a.tran || '');
+                    return `
+                        <div class="bc-tag-chip antonym">
+                            <strong class="bc-antonym-name">${escapeHtml(name)}</strong>
+                            ${trans ? `<span class="bc-antonym-trans">${escapeHtml(trans)}</span>` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 典型例句关键词高亮助手：自动将目标词及其常见词形变化加粗
+ */
+function highlightTargetWordInSentence(sentence, targetWord) {
+    if (!sentence) return '';
+    const safeSentence = escapeHtml(sentence);
+    const cleanTarget = String(targetWord || '').trim();
+    if (!cleanTarget) return safeSentence;
+
+    // 处理形如 "a (an)" 的词条，拆解括号分别高亮
+    const rawTokens = cleanTarget.replace(/[()（）]/g, ' ').split(/\s+/).map(t => t.trim()).filter(Boolean);
+    const candidates = [];
+    if (cleanTarget.includes('(') || cleanTarget.includes('（')) {
+        candidates.push(...rawTokens);
+    } else {
+        candidates.push(cleanTarget);
+    }
+
+    let result = safeSentence;
+    candidates.forEach(cand => {
+        const escapedTarget = cand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let patternStr = `\\b${escapedTarget}\\b`;
+        if (/^[a-zA-Z]+$/.test(cand) && cand.length >= 3) {
+            const stem = cand.replace(/(?:e|y)$/i, '');
+            const escapedStem = stem.length >= 3 ? stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : escapedTarget;
+            patternStr = `\\b(?:${escapedTarget}|${escapedStem}(?:s|es|ed|d|ing|ies|ied|er|est|ly|tion|tions|ity|ities)?)\\b`;
+        }
+        try {
+            const regex = new RegExp(patternStr, 'gi');
+            result = result.replace(regex, '<strong class="bc-ex-keyword">$&</strong>');
+        } catch (e) {}
+    });
+    return result;
+}
+
+/**
+ * 典型例句排版助手：将目标关键词加粗
+ */
+function formatExamplesHtml(examplesList, targetWord = '') {
     if (!Array.isArray(examplesList) || examplesList.length === 0) return '';
     return `
         <div class="bc-drawer-section">
@@ -2390,7 +2492,7 @@ function formatExamplesHtml(examplesList) {
                 ${examplesList.slice(0, 4).map(ex => `
                     <div class="bc-example-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                         <div class="bc-example-main">
-                            <div class="bc-ex-en">${escapeHtml(ex.en)}</div>
+                            <div class="bc-ex-en">${highlightTargetWordInSentence(ex.en, targetWord)}</div>
                             <div class="bc-ex-zh">${escapeHtml(ex.zh)}</div>
                         </div>
                     </div>
@@ -2401,18 +2503,18 @@ function formatExamplesHtml(examplesList) {
 }
 
 /**
- * 统一词条行渲染器 (图10: 将所有词条放在一起，不要用独立容器分隔，先不显示释义，点击词条向下展开详情)
- * 图8: 短语搭配同样默认折叠释义，删除 ⚠️ 易错 / 干扰项
+ * 统一词条行渲染器
+ * - 展示英文状态时：所有卡片（含已展开）上方展示英文+音标，详情框中展示每个词性及释义
+ * - 展示释义状态时：所有卡片（含已展开）上方展示每个词性和对应释义（直接用空格分隔，不显示|和音标），详情框中展示单词本身和音标
  */
 function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
-    const word = w.word || '';
-    const safeKey = `bc_${idx}_${encodeURIComponent(word).replace(/%/g, '_')}`;
+    const word = w.word || w.name || '';
+    const safeKey = `bc_${idx}_${String(word).replace(/[^a-zA-Z0-9]/g, '_')}`;
     const isMastered = isShiCi
         ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
         : isWordMastered(word);
     const isExp = bookContentState.allExpanded || bookContentState.expandedItemKeys.has(safeKey);
 
-    // 音标处理：图10“只要单斜杠”
     let phoneDisplay = '';
     if (isShiCi) {
         phoneDisplay = w.pinyin || '';
@@ -2420,8 +2522,6 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         const phone = w.phone || w.ukphone || w.usphone || '';
         phoneDisplay = formatPhonetic(phone);
     }
-
-    const isPhrase = w.itemType === 'phrase' || (!isShiCi && word.includes(' '));
 
     // 收集所有例句
     const examplesList = [];
@@ -2445,9 +2545,10 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         });
     }
 
-    // 格式化释义 (在折叠抽屉中展现)
+    // 格式化释义
     let meaningsHtml = '';
     let flatMeaning = '';
+    let topZhHeaderHtml = '';
     if (isShiCi && Array.isArray(w.senses) && w.senses.length > 0) {
         meaningsHtml = w.senses.map((s) => {
             const cleanMeaning = (s.meaning || s.trans || '').replace(/★/g, '').trim();
@@ -2455,13 +2556,22 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
             const pos = s.part_of_speech || s.pos || '实词';
             return `
                 <div class="bc-meaning-row">
-                    <span class="bc-pos-badge">${escapeHtml(pos)}</span>
+                    <span class="bc-pos-inline">${escapeHtml(pos)}</span>
                     <span class="bc-meaning-text">${escapeHtml(cleanMeaning)}</span>
                     ${isStar ? '<span class="shici-star-badge" style="margin-left:6px;">★ 考点</span>' : ''}
                 </div>
             `;
         }).join('');
-        flatMeaning = w.senses.map(s => s.meaning || s.trans || '').join('； ');
+        flatMeaning = w.senses.map(s => {
+            const pos = s.part_of_speech || s.pos || '';
+            const m = (s.meaning || s.trans || '').replace(/★/g, '').trim();
+            return (pos ? pos + ' ' : '') + m;
+        }).join('   ');
+        topZhHeaderHtml = w.senses.map(s => {
+            const pos = s.part_of_speech || s.pos || '';
+            const m = (s.meaning || s.trans || '').replace(/★/g, '').trim();
+            return `<span class="bc-top-sense-seg">${pos ? `<span class="bc-pos-inline">${escapeHtml(pos)}</span> ` : ''}${escapeHtml(m)}</span>`;
+        }).join(' ');
     } else if (Array.isArray(w.senses) && w.senses.length > 0) {
         const posMap = [];
         w.senses.forEach(s => {
@@ -2479,26 +2589,30 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         });
         meaningsHtml = posMap.map(g => `
             <div class="bc-meaning-row">
-                ${g.pos ? `<span class="bc-pos-badge">${escapeHtml(g.pos)}</span>` : ''}
+                ${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span>` : ''}
                 <span class="bc-meaning-text">${escapeHtml(g.texts.join('； '))}</span>
             </div>
         `).join('');
-        flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join(' | ');
+        // 不同词性之间直接用空格分隔，不使用 |
+        flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('   ');
+        topZhHeaderHtml = posMap.map(g => `<span class="bc-top-sense-seg">${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span> ` : ''}${escapeHtml(g.texts.join('； '))}</span>`).join(' ');
     } else if (w.meanings && Array.isArray(w.meanings)) {
         meaningsHtml = w.meanings.map(m => `
             <div class="bc-meaning-row">
-                ${m.pos ? `<span class="bc-pos-badge">${escapeHtml(m.pos)}</span>` : ''}
+                ${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span>` : ''}
                 <span class="bc-meaning-text">${escapeHtml(m.meaning || '')}</span>
             </div>
         `).join('');
-        flatMeaning = w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + (m.meaning || '')).join(' | ');
+        flatMeaning = w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + (m.meaning || '')).join('   ');
+        topZhHeaderHtml = w.meanings.map(m => `<span class="bc-top-sense-seg">${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span> ` : ''}${escapeHtml(m.meaning || '')}</span>`).join(' ');
     } else {
         const rawM = w.meaning || (Array.isArray(w.trans) ? w.trans.join('； ') : (w.trans || '暂无释义'));
         meaningsHtml = `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
         flatMeaning = rawM;
+        topZhHeaderHtml = `<span class="bc-top-sense-seg">${escapeHtml(rawM)}</span>`;
     }
 
-    const examplesHtml = formatExamplesHtml(examplesList);
+    const examplesHtml = formatExamplesHtml(examplesList, word);
     const derivativesHtml = formatDerivativesHtml(w.derivatives);
     const discriminationsHtml = (Array.isArray(w.discriminations) && w.discriminations.length > 0)
         ? `<div class="bc-drawer-section">
@@ -2506,56 +2620,54 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                ${formatDiscriminationsHtml(w.discriminations)}
            </div>`
         : '';
-    const antonymsHtml = (Array.isArray(w.antonyms) && w.antonyms.length > 0)
-        ? `<div class="bc-drawer-section">
-               <div class="bc-drawer-title"><span class="material-symbols-rounded">swap_horiz</span>反义词</div>
-               <div class="bc-chips-flow">
-                   ${w.antonyms.map(a => `<span class="bc-tag-chip antonym">${escapeHtml(a)}</span>`).join('')}
-               </div>
+    const antonymsHtml = formatAntonymsHtml(w.antonyms);
+
+    // 所有词条均支持点击展开（包含词组、简明词条等）
+    const hasExpandableContent = true;
+
+    const isZhMode = (bookContentState.collapsedDisplayMode === 'zh');
+
+    // 顶部标题栏：展示英文模式显示“单词 + 音标”；展示释义模式显示“词性 + 释义”（不含 | 和音标）
+    const headerTitleHtml = isZhMode
+        ? `<span class="bc-headword bc-headword-zh" title="${escapeHtml(flatMeaning || word)}">${topZhHeaderHtml || escapeHtml(word)}</span>`
+        : `<span class="bc-headword" title="${escapeHtml(word)}">${escapeHtml(word)}</span>
+           ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : `<span class="bc-phone" style="display:none;">${escapeHtml(phoneDisplay)}</span>`}`;
+
+    // 展开框内部第一栏：展示英文模式显示“词性 + 释义”；展示释义模式显示“单词本身 + 音标”
+    const drawerPrimaryBoxHtml = isZhMode
+        ? `<div class="bc-meaning-row bc-word-reveal-row">
+               <span class="bc-reveal-word">${escapeHtml(word)}</span>
+               ${phoneDisplay ? `<span class="bc-reveal-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
            </div>`
-        : '';
-
-    const hasExpandableContent = Boolean(
-        (meaningsHtml && flatMeaning && flatMeaning !== '暂无释义') ||
-        w.note ||
-        (Array.isArray(examplesList) && examplesList.length > 0) ||
-        (Array.isArray(w.derivatives) && w.derivatives.length > 0) ||
-        (Array.isArray(w.discriminations) && w.discriminations.length > 0) ||
-        (Array.isArray(w.antonyms) && w.antonyms.length > 0)
-    );
-
-    const isCollapsedZh = (!isExp && bookContentState.collapsedDisplayMode === 'zh');
-    const displayHeadword = isCollapsedZh ? (flatMeaning || word) : word;
+        : meaningsHtml;
 
     return `
-        <div class="bc-unified-item ${isExp ? 'expanded' : ''} ${hasExpandableContent ? '' : 'no-expand'}" id="bc-card-${safeKey}" onclick="${hasExpandableContent ? `toggleBookContentItemDetail('${safeKey}', event)` : ''}">
+        <div class="bc-unified-item ${isExp ? 'expanded' : ''}" id="bc-card-${safeKey}" onclick="toggleBookContentItemDetail('${safeKey}', event)">
             <div class="bc-item-header">
                 <div class="bc-item-title-meta">
-                    <span class="bc-headword" title="${escapeHtml(displayHeadword)}">${escapeHtml(displayHeadword)}</span>
-                    ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
+                    ${headerTitleHtml}
                 </div>
                 <div class="bc-item-actions" onclick="event.stopPropagation()">
-                    <button type="button" class="btn-circle-icon-action" onclick="jumpToSearch('${escapeHtml(word)}')" title="查词" aria-label="查词">
+                    <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(word)}" onclick="jumpToSearch(this.dataset.word)" title="查词" aria-label="查词">
                         <span class="material-symbols-rounded">search</span>
                     </button>
-                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}', event)" title="发音" aria-label="发音">
+                    <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(word)}" onclick="playWordAudio(this.dataset.word)" title="发音" aria-label="发音">
                         <span class="material-symbols-rounded">volume_up</span>
                     </button>
-                    <button type="button" class="btn-circle-icon-action ${isMastered ? 'mastered' : ''}" onclick="toggleBookContentMastered('${escapeHtml(word)}', ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
+                    <button type="button" class="btn-circle-icon-action bc-mastered-btn ${isMastered ? 'mastered' : ''}" data-word="${escapeHtml(word)}" onclick="toggleBookContentMastered(this.dataset.word, ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
                         <span class="material-symbols-rounded">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
                     </button>
                     ${isCustomLocal ? `
-                        <button type="button" class="btn-circle-icon-action danger" onclick="deleteWordFromBookContent('${escapeHtml(word)}')" title="删除词汇">
+                        <button type="button" class="btn-circle-icon-action danger" data-word="${escapeHtml(word)}" onclick="deleteWordFromBookContent(this.dataset.word)" title="删除词汇">
                             <span class="material-symbols-rounded">delete</span>
                         </button>
                     ` : ''}
-                    ${hasExpandableContent ? `<span class="material-symbols-rounded bc-expand-chevron">expand_more</span>` : ''}
                 </div>
             </div>
-            <!-- 向下展开的详情抽屉 (默认折叠) -->
+            <!-- 向下展开的详情抽屉 -->
             <div class="bc-item-drawer" style="display:${isExp ? 'block' : 'none'};">
                 <div class="bc-meanings-group">
-                    ${meaningsHtml}
+                    ${drawerPrimaryBoxHtml}
                 </div>
                 ${w.note ? `<div class="bc-word-note"><span class="material-symbols-rounded" style="font-size:14px; margin-right:4px;">info</span><span>${escapeHtml(w.note)}</span></div>` : ''}
                 ${examplesHtml}
@@ -2584,7 +2696,7 @@ function toggleBookContentItemDetail(uniqueKey, e) {
         drawer.style.display = !isExp ? 'block' : 'none';
     }
     const phoneEl = card.querySelector('.bc-phone');
-    if (phoneEl) {
+    if (phoneEl && bookContentState.collapsedDisplayMode !== 'zh') {
         phoneEl.style.display = !isExp ? 'inline-flex' : 'none';
     }
 }
@@ -2752,22 +2864,34 @@ function renderBookViewerList(wordsList) {
 /**
  * 重学词书：清空记忆算法记录与已背进度
  */
-async function actionResetBookProgress() {
+async function actionResetBookProgress(explicitBookId = null) {
+    const bookId = (typeof explicitBookId === 'string' && explicitBookId) ? explicitBookId : (typeof activeActionBookId === 'string' ? activeActionBookId : null);
     closeBookActionMenu();
-    if (!activeActionBookId) return;
+    if (!bookId) {
+        console.warn('actionResetBookProgress: 未找到要重学的词书ID');
+        return;
+    }
 
-    const bookId = activeActionBookId;
-    const bookMeta = BookManager.getBookMeta(bookId);
-    const bookName = bookMeta.name || bookId;
+    const bookMeta = (typeof BookManager !== 'undefined' && BookManager.getBookMeta) ? (BookManager.getBookMeta(bookId) || { id: bookId, name: bookId }) : { id: bookId, name: bookId };
+    const bookName = (bookMeta.rawName || bookMeta.name || bookId).replace(/^[📂📁\s]+/, '');
 
-    const okReset = await (typeof showAppConfirm === 'function' ? showAppConfirm({
-        title: '重置学习进度',
-        message: `确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`,
-        confirmText: '确认重置',
-        cancelText: '取消',
-        isDanger: true,
-        icon: 'restart_alt'
-    }) : Promise.resolve(confirm(`确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`)));
+    let okReset = false;
+    if (typeof showAppConfirm === 'function') {
+        try {
+            okReset = await showAppConfirm({
+                title: '重置学习进度',
+                message: `确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`,
+                confirmText: '确认重置',
+                cancelText: '取消',
+                isDanger: true,
+                icon: 'restart_alt'
+            });
+        } catch (e) {
+            okReset = confirm(`确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`);
+        }
+    } else {
+        okReset = confirm(`确定要重学词书《${bookName}》吗？\n这将清空该词书所有学习记录，从头开始背诵。`);
+    }
     if (!okReset) {
         return;
     }
@@ -2776,27 +2900,45 @@ async function actionResetBookProgress() {
         if (typeof EbbinghausEngine !== 'undefined' && typeof EbbinghausEngine.resetBookProgress === 'function') {
             await EbbinghausEngine.resetBookProgress(bookId);
         }
-        if (isBookShiCi(bookMeta) && typeof ShiCiEbbinghausEngine !== 'undefined') {
+        if (typeof isBookShiCi === 'function' && isBookShiCi(bookMeta) && typeof ShiCiEbbinghausEngine !== 'undefined') {
             const shiciRecs = ShiCiEbbinghausEngine.getRecords();
-            const words = bookMeta.words || (BookManager.bookCache ? BookManager.bookCache[bookId] : null) || [];
-            words.forEach(w => {
+            let words = bookMeta.words || (BookManager.bookCache ? BookManager.bookCache[bookId] : null);
+            if ((!words || words.length === 0) && typeof ShiCiManager !== 'undefined') {
+                words = await ShiCiManager.loadBooks([bookId]);
+            }
+            (words || []).forEach(w => {
                 if (w && w.word) {
                     delete shiciRecs[w.word.trim()];
                 }
             });
             ShiCiEbbinghausEngine.saveRecords(shiciRecs);
+            if (typeof ShiCiEbbinghausEngine.updateDueBadge === 'function') {
+                ShiCiEbbinghausEngine.updateDueBadge();
+            }
         }
 
-        if (currentUser) {
-            localStorage.removeItem(`single_learn_progress_${currentUser}`);
-            localStorage.removeItem(`single_progress_${currentUser}`);
-            localStorage.removeItem(`single_review_progress_${currentUser}`);
-            localStorage.removeItem(`shici_learn_progress_${currentUser}`);
-            localStorage.removeItem(`shici_review_progress_${currentUser}`);
+        const userKey = (typeof currentUser !== 'undefined' && currentUser) || window.currentUser;
+        if (userKey) {
+            localStorage.removeItem(`single_learn_progress_${userKey}`);
+            localStorage.removeItem(`single_progress_${userKey}`);
+            localStorage.removeItem(`single_review_progress_${userKey}`);
+            localStorage.removeItem(`shici_learn_progress_${userKey}`);
+            localStorage.removeItem(`shici_review_progress_${userKey}`);
         }
 
         showToast(`已成功重置《${bookName}》的学习进度！`);
-        renderManageBooksPage();
+        if (typeof renderManageBooksPage === 'function') {
+            renderManageBooksPage();
+        }
+        if (typeof renderBookSelectorPage === 'function') {
+            renderBookSelectorPage();
+        }
+        if (typeof renderMeRecentBookCard === 'function') {
+            renderMeRecentBookCard();
+        }
+        if (typeof renderMeView === 'function') {
+            renderMeView();
+        }
         if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
     } catch (e) {
         console.error('Reset book progress error:', e);
@@ -2807,13 +2949,13 @@ async function actionResetBookProgress() {
 /**
  * 删除本地词书
  */
-async function actionDeleteBook() {
+async function actionDeleteBook(explicitBookId = null) {
+    const bookId = explicitBookId || activeActionBookId;
     closeBookActionMenu();
-    if (!activeActionBookId) return;
+    if (!bookId) return;
 
-    const bookId = activeActionBookId;
-    const bookMeta = BookManager.getBookMeta(bookId);
-    const bookName = bookMeta.name || bookId;
+    const bookMeta = BookManager.getBookMeta(bookId) || { id: bookId, name: bookId };
+    const bookName = (bookMeta.rawName || bookMeta.name || bookId).replace(/^[📂📁\s]+/, '');
 
     const okDelete = await (typeof showAppConfirm === 'function' ? showAppConfirm({
         title: '删除词书',
@@ -2849,11 +2991,78 @@ async function actionDeleteBook() {
         if (typeof renderBookSelectorPage === 'function' && window.currentView === 'view-book-selector') {
             renderBookSelectorPage();
         }
+        if (typeof renderMeRecentBookCard === 'function') {
+            renderMeRecentBookCard();
+        }
     } catch (e) {
         console.error('Delete book error:', e);
         showToast('删除词书失败');
     }
 }
+
+/**
+ * 单本词书更新（供个人中心“我的词书”菜单调用）
+ */
+async function actionUpdateSingleBook(explicitBookId = null) {
+    const bookId = explicitBookId || activeActionBookId;
+    closeBookActionMenu();
+    if (!bookId || typeof BookManager === 'undefined') return;
+    const bookMeta = BookManager.getBookMeta(bookId) || { id: bookId, name: bookId };
+    if (String(bookId).startsWith('custom_') || !bookMeta.isCloud) {
+        showToast('本地自定义词书无需从云端更新');
+        return;
+    }
+    showToast(`正在更新《${bookMeta.name || bookId}》...`);
+    try {
+        const ok = await BookManager.downloadBook(bookId);
+        if (ok) {
+            showToast(`《${bookMeta.name || bookId}》已更新至最新版本！`);
+            if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
+        }
+    } catch (e) {
+        showToast('更新词书失败，请检查网络连接');
+    }
+}
+window.actionUpdateSingleBook = actionUpdateSingleBook;
+
+/**
+ * 获取词书学习范围摘要文本
+ */
+function getBookScopeSummaryText(bookId) {
+    if (!bookId || typeof BookManager === 'undefined') return '';
+    const filter = BookManager.getBookStudyFilter(bookId);
+    if (!filter || filter.isAll) return '全部范围';
+    const parts = [];
+    if (Array.isArray(filter.sections) && filter.sections.length > 0) {
+        parts.push(filter.sections.length <= 2 ? filter.sections.map(s => s.toUpperCase()).join(',') : `${filter.sections.length}个分类`);
+    }
+    if (Array.isArray(filter.types) && filter.types.length === 1) {
+        parts.push(filter.types[0] === 'phrase' ? '仅词组' : '仅单词');
+    }
+    return parts.length > 0 ? parts.join(' · ') : '全部范围';
+}
+window.getBookScopeSummaryText = getBookScopeSummaryText;
+
+/**
+ * 在个人中心点击“选择学习范围”：打开词书学习范围选择弹窗或跳转选书页打开筛选
+ */
+async function openBookScopeModalForBook(bookId) {
+    if (!bookId) return;
+    openBookSelectorPage('single');
+    setTimeout(() => {
+        const card = document.querySelector(`#book-selector-content-list .book-cover-card[data-book-id="${bookId}"]`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const secBtn = card.querySelector('.book-card-filter-btn');
+            if (secBtn) {
+                secBtn.click();
+            } else {
+                showToast('该词书默认学习全部词汇');
+            }
+        }
+    }, 120);
+}
+window.openBookScopeModalForBook = openBookScopeModalForBook;
 
 /**
  * 移动词书选项：打开分类文件夹选择弹窗
@@ -3893,7 +4102,7 @@ function toggleBookContentDisplayMode() {
     const text = document.getElementById("text-bc-display-mode");
     const btn = document.getElementById("btn-bc-toggle-display-mode");
     const isZh = (bookContentState.collapsedDisplayMode === "zh");
-    if (text) text.textContent = isZh ? "展示英文" : "展示释义";
+    if (text) text.textContent = isZh ? "展示释义" : "展示英文";
     if (btn) btn.classList.toggle("active", isZh);
     renderBookContentItems();
 }

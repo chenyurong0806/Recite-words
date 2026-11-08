@@ -13,7 +13,8 @@ let localDuelConfig = {
     mode: 'lead',
     leadThreshold: 6,
     duration: 60,
-    gaugeStyle: 'tug'
+    gaugeStyle: 'tug',
+    meaningMode: 'all'
 };
 
 try {
@@ -23,6 +24,7 @@ try {
         Object.assign(localDuelConfig, saved);
         if (!Array.isArray(localDuelConfig.selectedBooks)) localDuelConfig.selectedBooks = [];
         if (!localDuelConfig.matchType) localDuelConfig.matchType = 'ranked';
+        if (!localDuelConfig.meaningMode) localDuelConfig.meaningMode = 'all';
     }
 } catch (e) { }
 
@@ -225,7 +227,17 @@ function updateLocalDuelSettingsChips() {
     document.querySelectorAll('#chips-local-duel-gauge-style .md3-chip').forEach(c => {
         c.classList.toggle('selected', c.getAttribute('data-gauge') === (localDuelConfig.gaugeStyle || 'tug'));
     });
+    document.querySelectorAll('#chips-local-duel-meaning-mode .md3-chip').forEach(c => {
+        c.classList.toggle('selected', c.getAttribute('data-meaning-mode') === (localDuelConfig.meaningMode || 'all'));
+    });
 }
+
+function selectLocalDuelMeaningMode(mode) {
+    localDuelConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
+    updateLocalDuelSettingsChips();
+    localStorage.setItem('vocab_local_duel_config', JSON.stringify(localDuelConfig));
+}
+window.selectLocalDuelMeaningMode = selectLocalDuelMeaningMode;
 
 function selectLocalDuelMatchType(type) {
     localDuelConfig.matchType = type;
@@ -288,7 +300,7 @@ async function startLocalDuel() {
         return;
     }
 
-    const matchPool = generateShuffledPoolFromWords(words, 80);
+    const matchPool = generateShuffledPoolFromWords(words, 80, localDuelConfig.meaningMode || 'all');
 
     const p1Name = currentUser || '红方';
     const p2Name = localDuelConfig.opponentName || '蓝方';
@@ -1216,6 +1228,17 @@ function endLocalDuel(winner, detailText) {
         rankDetailsHtml = `<div style="font-size:0.85rem; color:var(--md-sys-color-outline); margin:10px 0;">[ 友谊赛模式 · 不计排位段位积分 ]</div>`;
     }
 
+    const pool = (localDuelState.p1 && Array.isArray(localDuelState.p1.pool))
+        ? localDuelState.p1.pool.slice(0, Math.max((localDuelState.p1.currentIdx || 0) + 1, p1Final || 0))
+        : (localDuelState.matchPool || []);
+    const mistakes = [];
+    if (localDuelState.p1 && Array.isArray(localDuelState.p1.mistakes)) {
+        mistakes.push(...localDuelState.p1.mistakes);
+    }
+    const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(pool) && pool.length > 0)
+        ? renderSingleSummaryHtml(pool, mistakes)
+        : '';
+
     document.getElementById('result-icon').innerText = icon;
     document.getElementById('result-message').innerText = title;
     document.getElementById('result-details').innerHTML = `
@@ -1226,7 +1249,17 @@ function endLocalDuel(winner, detailText) {
                 <span style="color:var(--p2-sys-color);">🔵 ${p2Name}: ${p2Final} 题</span>
             </div>
             ${rankDetailsHtml}
+            ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
         `;
+
+    const viewResultEl = document.getElementById('view-result');
+    if (viewResultEl) {
+        viewResultEl.classList.toggle('is-study-summary-mode', Boolean(summaryHtml));
+    }
+    const resultCard = document.querySelector('#view-result .card');
+    if (resultCard) {
+        resultCard.style.maxWidth = summaryHtml ? '680px' : '500px';
+    }
 
     const btnBack = document.getElementById('btn-back-room');
     if (btnBack) {

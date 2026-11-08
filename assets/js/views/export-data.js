@@ -729,62 +729,26 @@ function collectAndFilterExportData() {
         }
     }
 
-    // 整合错题本
-    const mistakesList = [];
-    Object.keys(mistakesMap).forEach(key => {
-        const m = mistakesMap[key];
-        if (!m) return;
-        const mTime = m.updatedAt || m.lastMistakeTime || 0;
-        if (!isAll && mTime && (mTime < startTime || mTime > endTime)) {
-            return;
-        }
-
-        const wordDetails = wordDetailsCache.get(key.toLowerCase()) || {};
-        const wordKey = key.trim().toLowerCase();
-        const details = wordDetailsCache.get(wordKey) || {};
-        const isChinese = Boolean(m.isShiCi || /[\u4e00-\u9fa5]/.test(key));
-        const isPhrase = !isChinese && (key.includes(' ') || (m.meaning && m.meaning.includes('词组')));
-
-        const extracted = extractWordDetails(wordKey, details, m.meaning || m.correctAnswer);
-
-        mistakesList.push({
-            word: key.trim(),
-            count: m.count || 1,
-            meaning: extracted.meaning,
-            phone: m.phone || extracted.phone,
-            pos: extracted.pos,
-            example: extracted.example,
-            source: extracted.source,
-            isShiCi: isChinese,
-            isPhrase: isPhrase,
-            wrongAnswer: m.wrongAnswer || '',
-            correctAnswer: m.correctAnswer || extracted.meaning
-        });
-    });
-
     // 按掌握度或字母排序
     wordsList.sort((a, b) => a.word.localeCompare(b.word));
     phrasesList.sort((a, b) => a.word.localeCompare(b.word));
     shiciList.sort((a, b) => a.word.localeCompare(b.word, 'zh-Hans-CN'));
-    mistakesList.sort((a, b) => b.count - a.count);
 
     exportFilteredData = {
         words: wordsList,
         phrases: phrasesList,
         shici: shiciList,
-        mistakes: mistakesList
+        mistakes: []
     };
 
     // 动态更新选项卡片上的计数 Badge
     const countWordsEl = document.getElementById('export-count-words');
     const countPhrasesEl = document.getElementById('export-count-phrases');
     const countShiciEl = document.getElementById('export-count-shici');
-    const countMistakesEl = document.getElementById('export-count-mistakes');
 
     if (countWordsEl) countWordsEl.textContent = `${wordsList.length} 条`;
     if (countPhrasesEl) countPhrasesEl.textContent = `${phrasesList.length} 条`;
     if (countShiciEl) countShiciEl.textContent = `${shiciList.length} 条`;
-    if (countMistakesEl) countMistakesEl.textContent = `${mistakesList.length} 条`;
 }
 
 const exportPhraseCache = new Map();
@@ -915,7 +879,7 @@ async function renderExportPreview() {
     const showWords = document.getElementById('export-check-words')?.checked !== false;
     const showPhrases = document.getElementById('export-check-phrases')?.checked !== false;
     const showShici = document.getElementById('export-check-shici')?.checked !== false;
-    const showMistakes = document.getElementById('export-check-mistakes')?.checked !== false;
+    const showMistakes = false;
 
     // 字段勾选项
     const fieldWordsPhone = document.getElementById('field-words-phone')?.checked !== false;
@@ -1774,7 +1738,7 @@ async function exportStudyDataPDF() {
     const showWords = document.getElementById('export-check-words')?.checked !== false;
     const showPhrases = document.getElementById('export-check-phrases')?.checked !== false;
     const showShici = document.getElementById('export-check-shici')?.checked !== false;
-    const showMistakes = document.getElementById('export-check-mistakes')?.checked !== false;
+    const showMistakes = false;
     const totalItems =
         (showWords ? exportFilteredData.words.length : 0) +
         (showPhrases ? exportFilteredData.phrases.length : 0) +

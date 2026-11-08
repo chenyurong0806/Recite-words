@@ -7,20 +7,121 @@ let currentCalendarWeekOffset = 0;
 let currentSelectedCalendarDate = null;
 
 const DailyStudyTracker = {
-    getLogs() {
+    _sessionStartTime: null,
+    _sessionTickTimer: null,
+    getRawLogs() {
         if (!currentUser) return {};
         try {
-            return JSON.parse(localStorage.getItem(`vocab_daily_logs_${currentUser}`) || '{}');
+            const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
+                ? (SafeStorage.getItem(`vocab_daily_logs_${currentUser}`) || localStorage.getItem(`vocab_daily_logs_${currentUser}`))
+                : localStorage.getItem(`vocab_daily_logs_${currentUser}`);
+            return raw ? JSON.parse(raw) : {};
         } catch (e) {
             return {};
         }
     },
-    saveLogs(logs) {
+    getLogs() {
+        if (!currentUser) return {};
+        const logs = this.getRawLogs();
+        let modified = false;
+
+        // 结合艾宾浩斯词汇记忆时间戳自动对齐每日学习与复习数（防止云端恢复或旧版本缺失每日明细）
+        try {
+            if (typeof EbbinghausEngine !== 'undefined' && typeof EbbinghausEngine.getRecords === 'function') {
+                const records = EbbinghausEngine.getRecords() || {};
+                const ebByDate = {};
+                Object.values(records).forEach(r => {
+                    if (!r || !r.lastPracticed) return;
+                    const ds = this.getDateStrFromTimestamp(r.lastPracticed);
+                    if (!ebByDate[ds]) ebByDate[ds] = { learned: 0, reviewed: 0 };
+                    if ((r.historyCount || 1) > 1 || (r.stage && r.stage >= 3)) {
+                        ebByDate[ds].reviewed++;
+                    } else {
+                        ebByDate[ds].learned++;
+                    }
+                });
+                Object.keys(ebByDate).forEach(ds => {
+                    if (!logs[ds]) {
+                        logs[ds] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+                        modified = true;
+                    }
+                    const eb = ebByDate[ds];
+                    if ((logs[ds].learned || 0) < eb.learned) {
+                        logs[ds].learned = eb.learned;
+                        modified = true;
+                    }
+                    if ((logs[ds].reviewed || 0) < eb.reviewed) {
+                        logs[ds].reviewed = eb.reviewed;
+                        modified = true;
+                    }
+                });
+            }
+            if (typeof ShiCiEbbinghausEngine !== 'undefined' && typeof ShiCiEbbinghausEngine.getRecords === 'function') {
+                const shiciRecs = ShiCiEbbinghausEngine.getRecords() || {};
+                const scByDate = {};
+                Object.values(shiciRecs).forEach(r => {
+                    if (!r || !r.lastPracticed) return;
+                    const ds = this.getDateStrFromTimestamp(r.lastPracticed);
+                    scByDate[ds] = (scByDate[ds] || 0) + 1;
+                });
+                Object.keys(scByDate).forEach(ds => {
+                    if (!logs[ds]) {
+                        logs[ds] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+                        modified = true;
+                    }
+                    const totalNow = (logs[ds].learned || 0) + (logs[ds].reviewed || 0) + (logs[ds].shici || 0);
+                    if (totalNow < scByDate[ds]) {
+                        logs[ds].learned = (logs[ds].learned || 0) + (scByDate[ds] - totalNow);
+                        modified = true;
+                    }
+                });
+            }
+            const rawWordle = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
+                ? (SafeStorage.getItem(`vocab_wordle_history_${currentUser}`) || localStorage.getItem(`vocab_wordle_history_${currentUser}`))
+                : localStorage.getItem(`vocab_wordle_history_${currentUser}`);
+            if (rawWordle) {
+                const wHist = JSON.parse(rawWordle) || {};
+                Object.keys(wHist).forEach(ds => {
+                    if (!wHist[ds]) return;
+                    if (!logs[ds]) {
+                        logs[ds] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+                        modified = true;
+                    }
+                    if (!logs[ds].riddle) {
+                        logs[ds].riddle = 1;
+                        modified = true;
+                    }
+                });
+            }
+        } catch (e) { }
+
+        if (modified) {
+            this.saveLogs(logs, true);
+        }
+        return logs;
+    },
+    saveLogs(logs, skipSyncEnqueue = false) {
         if (!currentUser) return;
-        localStorage.setItem(`vocab_daily_logs_${currentUser}`, JSON.stringify(logs));
+        const str = JSON.stringify(logs);
+        try {
+            if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+                SafeStorage.setItem(`vocab_daily_logs_${currentUser}`, str);
+            }
+            localStorage.setItem(`vocab_daily_logs_${currentUser}`, str);
+        } catch (e) { }
+        if (!skipSyncEnqueue && window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+            window.SyncManager.enqueue('daily_logs_update', { date: this.getTodayStr() });
+        }
     },
     getTodayStr() {
         const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    },
+    getDateStrFromTimestamp(ts) {
+        const d = new Date(ts);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -31,9 +132,12 @@ const DailyStudyTracker = {
         const logs = this.getLogs();
         const todayStr = this.getTodayStr();
         if (!logs[todayStr]) {
-            logs[todayStr] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0 };
+            logs[todayStr] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
         }
         logs[todayStr][type] = (logs[todayStr][type] || 0) + count;
+        if (!logs[todayStr].durationSeconds) {
+            logs[todayStr].durationSeconds = 0;
+        }
         this.saveLogs(logs);
         this.renderWeekCalendar(currentCalendarWeekOffset);
 
@@ -44,6 +148,165 @@ const DailyStudyTracker = {
                 ItemManager.recordTaskProgress('task_wordle', count);
             }
         }
+    },
+    recordDurationSeconds(seconds = 0) {
+        if (!currentUser || !seconds || seconds <= 0) return;
+        const logs = this.getLogs();
+        const todayStr = this.getTodayStr();
+        if (!logs[todayStr]) {
+            logs[todayStr] = { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+        }
+        logs[todayStr].durationSeconds = Math.round((logs[todayStr].durationSeconds || 0) + seconds);
+        this.saveLogs(logs);
+    },
+    startSessionTimer() {
+        this.flushSessionTimer();
+        this._sessionStartTime = Date.now();
+        if (this._sessionTickTimer) clearInterval(this._sessionTickTimer);
+        this._sessionTickTimer = setInterval(() => {
+            this.flushSessionTimer(true);
+        }, 15000);
+    },
+    flushSessionTimer(keepRunning = false) {
+        if (this._sessionStartTime) {
+            const elapsedSec = Math.floor((Date.now() - this._sessionStartTime) / 1000);
+            if (elapsedSec > 0 && elapsedSec < 3600) {
+                this.recordDurationSeconds(elapsedSec);
+            }
+            this._sessionStartTime = keepRunning ? Date.now() : null;
+        }
+        if (!keepRunning && this._sessionTickTimer) {
+            clearInterval(this._sessionTickTimer);
+            this._sessionTickTimer = null;
+        }
+    },
+    formatDuration(seconds, compact = false) {
+        const sec = Math.max(0, Math.round(seconds || 0));
+        if (sec === 0) return compact ? '0分钟' : '0 分钟';
+        const hours = Math.floor(sec / 3600);
+        const mins = Math.floor((sec % 3600) / 60);
+        if (hours > 0) {
+            return mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`;
+        }
+        if (mins > 0) {
+            return `${mins}分钟`;
+        }
+        return '< 1分钟';
+    },
+    getSummaryStats() {
+        this.flushSessionTimer(Boolean(this._sessionStartTime));
+        const logs = this.getLogs();
+        const todayStr = this.getTodayStr();
+        const todayLog = logs[todayStr] || { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+
+        const todayLearned = (todayLog.learned || 0);
+        const todayReviewed = (todayLog.reviewed || 0);
+        const todayLearnAndReview = todayLearned + todayReviewed;
+        let todayDurationSec = todayLog.durationSeconds || 0;
+        if (todayDurationSec === 0 && (todayLearnAndReview + (todayLog.riddle || 0) + (todayLog.dictation || 0)) > 0) {
+            todayDurationSec = (todayLearnAndReview * 8) + ((todayLog.dictation || 0) * 12) + ((todayLog.riddle || 0) * 45);
+        }
+
+        let totalLearned = 0;
+        let totalReviewed = 0;
+        let totalDurationSec = 0;
+        let totalDictation = 0;
+        let totalRiddle = 0;
+        let activeDays = 0;
+
+        Object.values(logs).forEach(l => {
+            if (!l) return;
+            const lc = (l.learned || 0);
+            const rc = (l.reviewed || 0);
+            const dc = (l.dictation || 0);
+            const wc = (l.riddle || 0);
+            let dur = (l.durationSeconds || 0);
+            if (dur === 0 && (lc + rc + dc + wc) > 0) {
+                dur = (lc + rc) * 8 + dc * 12 + wc * 45;
+            }
+            totalLearned += lc;
+            totalReviewed += rc;
+            totalDictation += dc;
+            totalRiddle += wc;
+            totalDurationSec += dur;
+            if ((lc + rc + dc + wc + dur) > 0) activeDays++;
+        });
+
+        // 兜底：若历史学习记录多于日志统计，自动对齐已学词条总数
+        if (typeof EbbinghausEngine !== 'undefined') {
+            const ebLearnedCount = EbbinghausEngine.getAllLearnedWords().length;
+            if (ebLearnedCount > (totalLearned + totalReviewed)) {
+                const diff = ebLearnedCount - (totalLearned + totalReviewed);
+                totalLearned += diff;
+                totalDurationSec += diff * 8;
+            }
+        }
+
+        const totalWords = Math.max(totalLearned + totalReviewed, (typeof userStats !== 'undefined' && userStats && userStats.total) ? userStats.total : 0);
+        if (totalDurationSec === 0 && totalWords > 0) {
+            totalDurationSec = totalWords * 8;
+        }
+
+        return {
+            todayLearned,
+            todayReviewed,
+            todayLearnAndReview,
+            todayWords: todayLearnAndReview,
+            todayDurationSeconds: todayDurationSec,
+            todayDurationFormatted: this.formatDuration(todayDurationSec, true),
+            totalLearned,
+            totalReviewed,
+            totalLearnAndReview: totalWords,
+            totalWords,
+            totalDurationSeconds: totalDurationSec,
+            totalDurationFormatted: this.formatDuration(totalDurationSec, true),
+            totalDictation,
+            totalRiddle,
+            activeDays
+        };
+    },
+    getRangeSeries(daysCount = 7) {
+        this.flushSessionTimer(Boolean(this._sessionStartTime));
+        const logs = this.getLogs();
+        const result = [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+        for (let i = daysCount - 1; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(now.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${day}`;
+            const l = logs[dateStr] || { learned: 0, reviewed: 0, riddle: 0, dictation: 0, durationSeconds: 0 };
+            const learned = (l.learned || 0) + (l.shici || 0);
+            const reviewed = l.reviewed || 0;
+            const dictation = l.dictation || 0;
+            const riddle = l.riddle || 0;
+            let durationSec = l.durationSeconds || 0;
+            if (durationSec === 0 && (learned + reviewed + dictation + riddle) > 0) {
+                durationSec = (learned + reviewed) * 8 + dictation * 12 + riddle * 45;
+            }
+            const shortLabel = daysCount <= 7 ? dayNames[d.getDay()] : `${d.getMonth() + 1}/${d.getDate()}`;
+            result.push({
+                dateStr,
+                dateKey: dateStr,
+                shortLabel,
+                label: shortLabel,
+                dateLabel: `${d.getMonth() + 1}月${d.getDate()}日`,
+                learned,
+                reviewed,
+                shici: 0,
+                dictation,
+                riddle,
+                learnAndReview: learned + reviewed,
+                durationSeconds: durationSec,
+                durationMinutes: Number((durationSec / 60).toFixed(1))
+            });
+        }
+        return result;
     },
     getDaysOfWeek(offset = 0) {
         const now = new Date();

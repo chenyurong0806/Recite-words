@@ -24,6 +24,12 @@ function openMeSubview(subviewKey, skipTransition = false) {
             return;
         }
     }
+    if (subviewKey === 'sync') {
+        if (typeof openSyncOptionsModal === 'function') {
+            openSyncOptionsModal();
+        }
+        return;
+    }
     const viewMe = document.getElementById('view-me');
     if (viewMe && !viewMe.classList.contains('active')) {
         window.__targetMeSubview = subviewKey;
@@ -31,7 +37,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         skipTransition = true;
     }
     const performSwitch = () => {
-        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items'];
+        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
                 ? document.getElementById('me-subview-main')
@@ -55,6 +61,18 @@ function openMeSubview(subviewKey, skipTransition = false) {
         } else if (subviewKey === 'export-data') {
             if (typeof initExportStudyDataView === 'function') {
                 initExportStudyDataView();
+            }
+        } else if (subviewKey === 'account') {
+            if (typeof renderAccountManageSubview === 'function') {
+                renderAccountManageSubview();
+            }
+        } else if (subviewKey === 'detailed-stats') {
+            if (typeof renderDetailedStatsSubview === 'function') {
+                renderDetailedStatsSubview();
+            }
+        } else if (subviewKey === 'review-plan') {
+            if (typeof renderReviewPlanSubview === 'function') {
+                renderReviewPlanSubview();
             }
         }
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -151,6 +169,10 @@ function initDisplaySettings() {
     const motionToggle = document.getElementById('toggle-reduce-motion');
     if (motionToggle) motionToggle.checked = savedReduceMotion;
 
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+
     syncOfflineModeSwitchUI();
 }
 
@@ -200,7 +222,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
     }
 
     const performSubviewSwitch = () => {
-        const subviews = ['main', 'changelog'];
+        const subviews = ['main', 'changelog', 'edit-home'];
         subviews.forEach(k => {
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
@@ -212,6 +234,10 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
             renderSettingsMain();
         } else if (subviewKey === 'changelog') {
             renderChangelogInSettings();
+        } else if (subviewKey === 'edit-home') {
+            if (typeof renderEditHomeSettings === 'function') {
+                renderEditHomeSettings();
+            }
         }
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
@@ -243,7 +269,7 @@ function renderSettingsMain() {
     if (nameEl) nameEl.innerText = `当前登录：${currentUser || '未登录'}`;
     if (statEl) {
         const acc = userStats.total > 0 ? Math.round((userStats.correct / userStats.total) * 100) : 0;
-        statEl.innerText = `作答词数：${userStats.total || 0} 词  |  正确率：${acc}%  |  错题数：${Object.keys(userStats.mistakes || {}).length} 词`;
+        statEl.innerText = `作答词数：${userStats.total || 0} 词  |  正确率：${acc}%`;
     }
 
     if (typeof updatePronunciationSettingsChips === 'function') {
@@ -1554,7 +1580,7 @@ function renderSettingsViewingWordsList(words) {
                             ${(Array.isArray(w.antonyms) && w.antonyms.length > 0) ? `
                                 <div class="book-viewer-tag-group antonym">
                                     <strong>反义:</strong>
-                                    <span>${escapeHtml(w.antonyms.join(', '))}</span>
+                                    <span>${w.antonyms.map(a => typeof a === 'string' ? escapeHtml(a) : `${escapeHtml(a.name || a.word || '')}${Array.isArray(a.trans) ? ` ${escapeHtml(a.trans.join('、'))}` : (a.trans ? ` ${escapeHtml(a.trans)}` : '')}`).join('； ')}</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -1591,49 +1617,161 @@ function isShiCiItem(item) {
     return false;
 }
 
-function filterMasteredCategory(cat) {
-    settingsMasteredCategory = cat;
-    ['all', 'en', 'shici'].forEach(k => {
-        const btn = document.getElementById(`tab-mastered-${k}`);
-        if (btn) btn.classList.toggle('active', (k === 'all' && cat === 'all') || (k === 'en' && cat === 'english') || (k === 'shici' && cat === 'shici'));
-    });
+let selectedMasteredBookId = 'all';
+let selectedTrashBookId = 'all';
+
+function renderMasteredBookDropdown() {
+    const menu = document.getElementById('mastered-book-filter-menu');
+    const label = document.getElementById('mastered-book-filter-label');
+    if (!menu) return;
+
+    const books = [];
+    if (typeof BookManager !== 'undefined' && Array.isArray(BookManager.availableBooks)) {
+        BookManager.availableBooks.forEach(b => {
+            if (b && !books.some(x => x.id === b.id)) {
+                books.push({ id: b.id, name: (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '') });
+            }
+        });
+    }
+    if (Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (b && !books.some(x => x.id === b.id)) {
+                books.push({ id: b.id, name: (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '') });
+            }
+        });
+    }
+
+    let activeName = '全部词书';
+    if (selectedMasteredBookId !== 'all') {
+        const found = books.find(b => b.id === selectedMasteredBookId);
+        if (found) activeName = found.name;
+    }
+    if (label) label.innerText = activeName;
+
+    menu.innerHTML = `
+        <div class="md3-custom-select-option ${selectedMasteredBookId === 'all' ? 'active' : ''}" onclick="selectMasteredBook('all')">
+            <span>全部词书</span>
+            ${selectedMasteredBookId === 'all' ? '<span class="material-symbols-rounded">check</span>' : ''}
+        </div>
+        ${books.map(b => `
+            <div class="md3-custom-select-option ${selectedMasteredBookId === b.id ? 'active' : ''}" onclick="selectMasteredBook('${escapeHtml(b.id)}')">
+                <span>${escapeHtml(b.name)}</span>
+                ${selectedMasteredBookId === b.id ? '<span class="material-symbols-rounded">check</span>' : ''}
+            </div>
+        `).join('')}
+    `;
+}
+window.renderMasteredBookDropdown = renderMasteredBookDropdown;
+
+function selectMasteredBook(bookId) {
+    selectedMasteredBookId = bookId;
+    if (typeof closeAllMd3Selects === 'function') closeAllMd3Selects();
+    renderMasteredBookDropdown();
     renderMasteredWordsInSettings();
 }
+window.selectMasteredBook = selectMasteredBook;
 
-function filterTrashCategory(cat) {
-    settingsTrashCategory = cat;
-    ['all', 'en', 'shici'].forEach(k => {
-        const btn = document.getElementById(`tab-trash-${k}`);
-        if (btn) btn.classList.toggle('active', (k === 'all' && cat === 'all') || (k === 'en' && cat === 'english') || (k === 'shici' && cat === 'shici'));
+function renderTrashBookDropdown() {
+    const menu = document.getElementById('trash-book-filter-menu');
+    const label = document.getElementById('trash-book-filter-label');
+    if (!menu) return;
+
+    const trash = getTrashWords();
+    const books = [];
+    trash.forEach(t => {
+        const bId = t.originalBookId || 'unknown';
+        const bName = (t.originalBookName || '原词书').replace(/^[📂📁\s]+/, '');
+        if (!books.some(b => b.id === bId)) {
+            books.push({ id: bId, name: bName });
+        }
     });
+
+    let activeName = '全部词书';
+    if (selectedTrashBookId !== 'all') {
+        const found = books.find(b => b.id === selectedTrashBookId);
+        if (found) activeName = found.name;
+    }
+    if (label) label.innerText = activeName;
+
+    menu.innerHTML = `
+        <div class="md3-custom-select-option ${selectedTrashBookId === 'all' ? 'active' : ''}" onclick="selectTrashBook('all')">
+            <span>全部词书</span>
+            ${selectedTrashBookId === 'all' ? '<span class="material-symbols-rounded">check</span>' : ''}
+        </div>
+        ${books.map(b => `
+            <div class="md3-custom-select-option ${selectedTrashBookId === b.id ? 'active' : ''}" onclick="selectTrashBook('${escapeHtml(b.id)}')">
+                <span>${escapeHtml(b.name)}</span>
+                ${selectedTrashBookId === b.id ? '<span class="material-symbols-rounded">check</span>' : ''}
+            </div>
+        `).join('')}
+    `;
+}
+window.renderTrashBookDropdown = renderTrashBookDropdown;
+
+function selectTrashBook(bookId) {
+    selectedTrashBookId = bookId;
+    if (typeof closeAllMd3Selects === 'function') closeAllMd3Selects();
+    renderTrashBookDropdown();
     renderTrashWordsInSettings();
 }
+window.selectTrashBook = selectTrashBook;
 
-/* Settings 熟词本页面渲染逻辑 (Task 22) */
+function toggleExpandableSearch(wrapId, inputId) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const isExpanded = wrap.classList.contains('expanded');
+    if (isExpanded) {
+        closeExpandableSearch(wrapId, inputId);
+    } else {
+        wrap.classList.add('expanded');
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.focus();
+        }
+    }
+}
+window.toggleExpandableSearch = toggleExpandableSearch;
+
+function closeExpandableSearch(wrapId, inputId) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.classList.remove('expanded');
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = '';
+        input.dispatchEvent(new Event('input'));
+    }
+}
+window.closeExpandableSearch = closeExpandableSearch;
+
+/* Settings 熟词本页面渲染逻辑 */
 function renderMasteredWordsInSettings() {
+    renderMasteredBookDropdown();
     const container = document.getElementById('settings-mastered-container');
     const countEl = document.getElementById('settings-mastered-count');
     if (!container) return;
 
     let list = getMasteredWords();
-    if (settingsMasteredCategory === 'english') {
-        list = list.filter(item => !isShiCiItem(item));
-    } else if (settingsMasteredCategory === 'shici') {
-        list = list.filter(item => isShiCiItem(item));
+    if (selectedMasteredBookId !== 'all') {
+        list = list.filter(item => {
+            const bId = item.bookId || item.originalBookId;
+            return bId === selectedMasteredBookId;
+        });
     }
 
     if (countEl) countEl.innerText = `共 ${list.length} 词`;
 
     if (list.length === 0) {
         container.innerHTML = `
-                    <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
-                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">check_circle</span>
-                        <p style="margin-top:8px; font-size:0.92rem;">暂无${settingsMasteredCategory === 'shici' ? '实词' : (settingsMasteredCategory === 'english' ? '英语' : '')}熟词</p>
-                    </div>
-                `;
+            <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">check_circle</span>
+                <p style="margin-top:8px; font-size:0.92rem;">暂无熟词</p>
+            </div>
+        `;
         return;
     }
 
+    container.className = 'book-content-unified-card';
     container.innerHTML = list.map((item, idx) => {
         const word = typeof item === 'string' ? item : item.word;
         const phone = typeof item === 'string' ? '' : (item.phone || '');
@@ -1641,26 +1779,27 @@ function renderMasteredWordsInSettings() {
         const isShiCi = isShiCiItem(item);
 
         return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="flex:1;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span style="font-size:1.1rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                                ${phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(phone)}</span>` : ''}
-                                ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                                ${!isShiCi ? `
-                                <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                                    <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                                </button>
-                                ` : ''}
-                            </div>
-                            ${meaning ? `<div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${escapeHtml(meaning)}</div>` : ''}
-                        </div>
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="font-size:16px;">remove_done</span>
-                            <span class="btn-label-text">取消熟词</span>
+            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
+                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
+                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
+                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
+                    </div>
+                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
+                        ${!isShiCi ? `
+                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                            <span class="material-symbols-rounded">volume_up</span>
+                        </button>
+                        ` : ''}
+                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
                         </button>
                     </div>
-                `;
+                </div>
+                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+            </div>
+        `;
     }).join('');
 }
 
@@ -1683,10 +1822,11 @@ function filterMasteredWordsDisplay() {
     if (!container) return;
 
     let list = getMasteredWords();
-    if (settingsMasteredCategory === 'english') {
-        list = list.filter(item => !isShiCiItem(item));
-    } else if (settingsMasteredCategory === 'shici') {
-        list = list.filter(item => isShiCiItem(item));
+    if (selectedMasteredBookId !== 'all') {
+        list = list.filter(item => {
+            const bId = item.bookId || item.originalBookId;
+            return bId === selectedMasteredBookId;
+        });
     }
 
     if (!query) {
@@ -1708,6 +1848,7 @@ function filterMasteredWordsDisplay() {
         return;
     }
 
+    container.className = 'book-content-unified-card';
     container.innerHTML = filtered.map((item, idx) => {
         const word = typeof item === 'string' ? item : item.word;
         const phone = typeof item === 'string' ? '' : (item.phone || '');
@@ -1715,141 +1856,86 @@ function filterMasteredWordsDisplay() {
         const isShiCi = isShiCiItem(item);
 
         return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="flex:1;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span style="font-size:1.1rem; font-weight:700; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                                ${phone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); font-family:'Roboto Mono',monospace;">${escapeHtml(phone)}</span>` : ''}
-                                ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                                ${!isShiCi ? `
-                                <button type="button" class="btn-audio-speak" style="width:26px; height:26px; margin-left:4px;" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                                    <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                                </button>
-                                ` : ''}
-                            </div>
-                            ${meaning ? `<div style="font-size:0.86rem; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">${escapeHtml(meaning)}</div>` : ''}
-                        </div>
-                        <button type="button" class="btn btn-outlined btn-sm" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="font-size:16px;">remove_done</span>
-                            <span class="btn-label-text">取消熟词</span>
-                        </button>
+            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
+                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
+                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
+                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
                     </div>
-                `;
-    }).join('');
-}
-function toggleTrashMoveDropdown(e, trashId) {
-    if (e) e.stopPropagation();
-    const dropdownId = `dropdown-trash-move-${trashId}`;
-    const targetEl = document.getElementById(dropdownId);
-    if (!targetEl) return;
-    const isAlreadyOpen = targetEl.classList.contains('open');
-    document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
-    if (!isAlreadyOpen) {
-        targetEl.classList.add('open');
-    }
-}
-
-function selectMoveTrashWordOption(trashId, targetBookId) {
-    document.querySelectorAll('.md3-custom-dropdown.open').forEach(el => el.classList.remove('open'));
-    moveTrashWordToAnotherBook(trashId, targetBookId);
-}
-
-/* ==========================================================================
-   回收站公用单行模板函数（统一防挤压、自适应图层展开）
-   ========================================================================== */
-function renderTrashWordRow(item, customBooks) {
-    const deletedTimeStr = item.deletedAt
-        ? new Date(item.deletedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : '';
-    const cleanBookName = String(item.originalBookName || '未知').replace(/^[📂📁\s]+/, '');
-    const isShiCi = isShiCiItem(item);
-
-    return `
-                <div class="trash-word-row">
-                    <!-- 左侧信息区：自适应伸缩，自动折行，绝不挤压右侧按钮 -->
-                    <div class="trash-word-info">
-                        <div class="trash-word-header">
-                            <span class="trash-word-title">${escapeHtml(item.word)}</span>
-                            ${item.phone ? `<span class="trash-word-phone">${escapeHtml(item.phone)}</span>` : ''}
-                            ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.75rem; font-weight:700;">文言实词</span>` : ''}
-                            <span class="badge" style="background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-outline); font-size:0.75rem;">原词书: ${escapeHtml(cleanBookName)}</span>
-                            ${deletedTimeStr ? `<span style="font-size:0.75rem; color:var(--md-sys-color-outline);">${deletedTimeStr}</span>` : ''}
-                        </div>
-                        <div class="trash-word-meaning">${escapeHtml(item.meaning || '')}</div>
-                    </div>
-
-                    <!-- 右侧操作区：flex-shrink: 0 彻底防止挤压变形 -->
-                    <div class="trash-word-actions">
-                        <button type="button" class="btn btn-tonal btn-sm" onclick="restoreTrashWord('${item.id}')" title="恢复到原词书">
-                            <span class="material-symbols-rounded" style="font-size:16px;">restore</span>
-                            <span class="btn-label-text">恢复</span>
+                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
+                        ${!isShiCi ? `
+                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                            <span class="material-symbols-rounded">volume_up</span>
                         </button>
-
-                        ${customBooks.length > 0 ? `
-                        <div class="md3-custom-dropdown" id="dropdown-trash-move-${item.id}">
-                            <button type="button" class="md3-dropdown-btn" style="height:34px; font-size:0.82rem; padding:0 12px;" onclick="toggleTrashMoveDropdown(event, '${item.id}')">
-                                <span>移动到...</span>
-                                <span class="material-symbols-rounded dropdown-chevron" style="font-size:16px;">expand_more</span>
-                            </button>
-                            <div class="md3-dropdown-menu">
-                                ${customBooks.map(cb => `
-                                    <div class="md3-dropdown-item" onclick="selectMoveTrashWordOption('${item.id}', '${cb.id}')">
-                                        <span class="material-symbols-rounded">menu_book</span>
-                                        <span>${escapeHtml((cb.rawName || cb.name).replace(/^[📂📁\s]+/, ''))}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
                         ` : ''}
-
-                        <button type="button" class="btn btn-danger btn-sm" style="padding:0 10px; height:34px;" onclick="permanentlyDeleteTrashWord('${item.id}')" title="彻底删除">
-                            <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
+                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
                         </button>
                     </div>
                 </div>
-            `;
+                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+            </div>
+        `;
+    }).join('');
 }
 
 /* 渲染回收站完整列表 */
 function renderTrashWordsInSettings() {
+    renderTrashBookDropdown();
     const container = document.getElementById('settings-trash-container');
     const countEl = document.getElementById('settings-trash-count');
     if (!container) return;
 
     let trash = getTrashWords();
-    if (settingsTrashCategory === 'english') {
-        trash = trash.filter(item => !isShiCiItem(item));
-    } else if (settingsTrashCategory === 'shici') {
-        trash = trash.filter(item => isShiCiItem(item));
+    if (selectedTrashBookId !== 'all') {
+        trash = trash.filter(item => (item.originalBookId || 'unknown') === selectedTrashBookId);
     }
 
     if (countEl) countEl.innerText = `共 ${trash.length} 词`;
 
     if (trash.length === 0) {
         container.innerHTML = `
-                    <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
-                        <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">delete</span>
-                        <p style="margin-top:8px; font-size:0.92rem;">暂无${settingsTrashCategory === 'shici' ? '实词' : (settingsTrashCategory === 'english' ? '英语' : '')}已删词汇</p>
-                    </div>
-                `;
+            <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:42px; opacity:0.5;">delete</span>
+                <p style="margin-top:8px; font-size:0.92rem;">暂无已删词汇</p>
+            </div>
+        `;
         return;
     }
 
-    const customBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_'));
-    container.innerHTML = trash.map(item => renderTrashWordRow(item, customBooks)).join('');
+    container.className = 'book-content-unified-card';
+    container.innerHTML = trash.map(item => `
+        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
+                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
+                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
+                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
+                </div>
+                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
+                    </button>
+                </div>
+            </div>
+            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
+        </div>
+    `).join('');
 }
 
-/* 搜索过滤回收站词汇（完美同步一致模板） */
+/* 搜索过滤回收站词汇 */
 function filterTrashWordsDisplay() {
     const query = (document.getElementById('settings-trash-search')?.value || '').trim().toLowerCase();
     const container = document.getElementById('settings-trash-container');
     if (!container) return;
 
     let trash = getTrashWords();
-    if (settingsTrashCategory === 'english') {
-        trash = trash.filter(item => !isShiCiItem(item));
-    } else if (settingsTrashCategory === 'shici') {
-        trash = trash.filter(item => isShiCiItem(item));
+    if (selectedTrashBookId !== 'all') {
+        trash = trash.filter(item => (item.originalBookId || 'unknown') === selectedTrashBookId);
     }
 
     if (!query) {
@@ -1872,16 +1958,56 @@ function filterTrashWordsDisplay() {
         return;
     }
 
-    const customBooks = (window.customBooks || []).filter(b => !b.isCloud && String(b.id).startsWith('custom_'));
-    container.innerHTML = filtered.map(item => renderTrashWordRow(item, customBooks)).join('');
+    container.className = 'book-content-unified-card';
+    container.innerHTML = filtered.map(item => `
+        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
+            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
+                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
+                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
+                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
+                </div>
+                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
+                    </button>
+                </div>
+            </div>
+            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
+        </div>
+    `).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.10.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.11.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.11.0',
+        date: '2026-11-08',
+        badge: '当前版本',
+        items: [
+            '背词与对战全模式小结上线：为背单词、背实词、人机对战、同屏对决、远程联机模式全面配备轻量扁平化小结页，排版风格保持高度一致，支持查看答题词条、音标、释义、复习状态与即时标熟。',
+            '个人中心数据中心重构升级：顶部“晒成绩”按需替换为“同步数据”胶囊按钮（仅在存在未同步数据时灵动显示），支持一键云端对齐；数据统计卡片修复 undefined 异常并完善持久化；并将“晒成绩”、“下载学习数据”与“自动同步”开关整合至数据中心操作列表。',
+            '个人中心架构与词书卡片瘦身：彻底移除多余的“备份与管理”模块，将离线模式开关整合至设置“网络与离线”；最近学习词书卡片移除冗余嵌套容器与双重外边框，更多操作菜单更新为绝对定位优雅弹窗；若词书无需更新则自动禁用“更新词书”按钮。',
+            '“管理账号”全新子页面：顶部卡片精致展示用户头像、用户名、平台认证徽章与段位积分进度条；完整支持修改用户名、修改密码、切换账号、删除账号及退出登录，切换账号返回交互无缝回跳当前管理页，退出登录顺畅回到首页。',
+            '详细数据子页面视觉重构：将“每日新学与复习词数”堆叠柱状图调整至“学习时长趋势”折线图前方，删除冗余的“词汇掌握度阶段分布”图表，聚焦关键学习数据。',
+            '复习计划子页面全面优化：新增复习概览状态看板与快速日期筛选芯片（全部、待复习、今日、明日、未来7天），支持按具体日期精准筛选，优化紧急待复习呼吸灯徽章与音频试听。',
+            '熟词本与回收站（已删除词汇）改版：顶栏改用 MD3 风格词书选择下拉列表，搜索框升级为右上角图标展开框；移除“清空熟词”与“永久删除”冗余按钮；词条卡片样式与查看词书内容页面全面统一。',
+            '查看词书内容页面视觉与交互打磨：顶部工具栏统一为 32px 紧凑 MD3 胶囊风格；全部分类下拉框在仅有多分类时才展示；词条标题取消加粗，音标独立为分离圆角标签；典型例句关键词自动加粗高亮；修复反义词等拓展项解析为 [object Object] 的问题；彻底支持文言词组与短语点击展开与发音。',
+            '背单词与背实词答题界面增强：答题卡片右上角掌握度菱形（◇ ◇ ◇ ◇ ◇）随作答正确率与熟词标记实时动态演进；工具栏全面换用规范 MD3 图标 ↩（撤回/上一个）与 ↪（重做/返回），界面更简洁高级。',
+            '首页与布局优化：个人下拉菜单去除重复的用户名与段位信息；首页移除版权信息页脚；排行榜卡片右侧“查看”按钮位置与活动卡片统一右对齐。',
+            '设置“编辑首页”优化：各模式图标采用统一的色块图标容器，移除模式卡片冗余描述文本；美化卡片上移/下移按钮；修复切换卡片显示开关时动画被重绘打断的问题；删除活动与排行榜卡片选项（受保护始终常驻）。',
+            '道具系统优化：我的道具中为已过期的道具右上角增加删除按钮，支持本地与云端安全销毁已过期道具。',
+            '“减弱动画效果”开启时，精准恢复所有输入框（包括 Wordle、搜索框等）的光标与输入动效。',
+            '彻底清理错题本与状态设置遗留代码，系统轻量化运行更流畅。'
+        ]
+    },
     {
         version: 'v2.10.0',
         date: '2026-11-01',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '统一词书卡片、筛选下拉菜单及数量统计字体，全面采用页面标准 UI 字体。',
             '优化词书封面排版设计，封面文字标题在色块卡片中严格垂直与水平居中。',
@@ -2587,4 +2713,137 @@ function toggleAutoSyncSetting(enabled) {
     }
 }
 window.toggleAutoSyncSetting = toggleAutoSyncSetting;
+
+/* ==========================================================================
+   编辑首页布局与卡片配置 (隐藏卡片 / 调整 modes-grid 顺序 / 收起搜索栏)
+   ========================================================================== */
+const HOME_MODE_CARD_META = {
+    'mode-single': { title: '背单词', icon: 'track_changes', bg: '#FFDAD6', color: '#B3261E' },
+    'mode-duel': { title: '对战', icon: 'public', bg: '#D1E4FF', color: '#0061A4' },
+    'mode-dictation': { title: '英语默写', icon: 'spellcheck', bg: '#D1E4FF', color: '#0061A4' },
+    'mode-shici': { title: '背实词', icon: 'history_edu', bg: '#E0F2FE', color: '#006874' },
+    'mode-riddle': { title: 'Word Riddles', icon: 'grid_view', bg: '#E8DEF8', color: '#6750A4' }
+};
+
+function renderEditHomeSettings() {
+    const cfg = (typeof getHomeLayoutConfig === 'function')
+        ? getHomeLayoutConfig()
+        : { collapseSearchBar: false, hiddenCards: [], modeOrder: Object.keys(HOME_MODE_CARD_META) };
+    const hiddenSet = new Set(cfg.hiddenCards || []);
+
+    const searchSwitch = document.getElementById('switch-home-collapse-search');
+    if (searchSwitch) {
+        searchSwitch.checked = Boolean(cfg.collapseSearchBar);
+    }
+
+    const chkOnlinePlayers = document.getElementById('switch-home-card-online-players');
+    if (chkOnlinePlayers) {
+        chkOnlinePlayers.checked = !hiddenSet.has('hub-online-players-card');
+    }
+
+    const chkCalendar = document.getElementById('switch-home-card-calendar');
+    if (chkCalendar) {
+        chkCalendar.checked = !hiddenSet.has('hub-calendar-card');
+    }
+
+    const modeListEl = document.getElementById('edit-home-modes-list');
+    if (modeListEl) {
+        const order = Array.isArray(cfg.modeOrder) ? cfg.modeOrder : Object.keys(HOME_MODE_CARD_META);
+        modeListEl.innerHTML = order.map((cardId, idx) => {
+            const meta = HOME_MODE_CARD_META[cardId] || { title: cardId, icon: 'widgets', bg: 'var(--md-sys-color-primary-container)', color: 'var(--md-sys-color-primary)' };
+            const isVisible = !hiddenSet.has(cardId);
+            const isFirst = idx === 0;
+            const isLast = idx === order.length - 1;
+            return `
+                <div class="settings-row edit-home-mode-row" style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
+                    <div class="settings-row-left" style="display:flex; align-items:center; gap:12px;">
+                        <div class="settings-icon-box" style="background:${meta.bg}; color:${meta.color}; width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <span class="material-symbols-rounded" style="font-size:22px;">${meta.icon}</span>
+                        </div>
+                        <div class="settings-row-text">
+                            <h4 style="margin:0; font-size:0.95rem; font-weight:600; color:var(--md-sys-color-on-surface);">${escapeHtml(meta.title)}</h4>
+                        </div>
+                    </div>
+                    <div class="settings-row-action" style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-icon-move" onclick="moveHomeModeCard('${cardId}', -1)" ${isFirst ? 'disabled' : ''} title="上移">
+                            <span class="material-symbols-rounded" style="font-size:18px;">arrow_upward</span>
+                        </button>
+                        <button type="button" class="btn-icon-move" onclick="moveHomeModeCard('${cardId}', 1)" ${isLast ? 'disabled' : ''} title="下移">
+                            <span class="material-symbols-rounded" style="font-size:18px;">arrow_downward</span>
+                        </button>
+                        <label class="md3-switch" style="margin-left:6px;" title="${isVisible ? '显示中' : '已隐藏'}">
+                            <input type="checkbox" ${isVisible ? 'checked' : ''} onchange="toggleHomeCardVisibility('${cardId}', this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+window.renderEditHomeSettings = renderEditHomeSettings;
+
+function toggleHomeSearchBarCollapse(checked) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    cfg.collapseSearchBar = Boolean(checked);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+}
+window.toggleHomeSearchBarCollapse = toggleHomeSearchBarCollapse;
+
+function toggleHomeCardVisibility(cardId, isVisible) {
+    if (cardId === 'hub-activity-entry-card' || cardId === 'hub-leaderboard-entry-card') {
+        showToast('活动与排行榜卡片禁止隐藏');
+        return;
+    }
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    const set = new Set(cfg.hiddenCards || []);
+    if (isVisible) {
+        set.delete(cardId);
+    } else {
+        set.add(cardId);
+    }
+    cfg.hiddenCards = Array.from(set);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+}
+window.toggleHomeCardVisibility = toggleHomeCardVisibility;
+
+function moveHomeModeCard(cardId, direction) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    const order = [...(cfg.modeOrder || Object.keys(HOME_MODE_CARD_META))];
+    const idx = order.indexOf(cardId);
+    if (idx === -1) return;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= order.length) return;
+    const temp = order[idx];
+    order[idx] = order[targetIdx];
+    order[targetIdx] = temp;
+    cfg.modeOrder = order;
+    saveHomeLayoutConfig(cfg);
+    renderEditHomeSettings();
+}
+window.moveHomeModeCard = moveHomeModeCard;
+
+function resetHomeLayoutDefault() {
+    if (typeof saveHomeLayoutConfig !== 'function') return;
+    saveHomeLayoutConfig({
+        collapseSearchBar: false,
+        hiddenCards: [],
+        modeOrder: Object.keys(HOME_MODE_CARD_META)
+    });
+    renderEditHomeSettings();
+    showToast('已恢复默认首页布局');
+}
+window.resetHomeLayoutDefault = resetHomeLayoutDefault;
+
 

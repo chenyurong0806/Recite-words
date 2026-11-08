@@ -12,58 +12,210 @@ function escapeRegex(str) {
 }
 
 // ========================
-// 结算页面小结渲染函数
+// 结算页面小结渲染函数 (扁平化极简结构)
 // ========================
-function toggleSettlementDrawer(el) {
-    if (!el) return;
-    el.classList.toggle('open');
+function getWordSettlementReviewStatus(word, isShiCi = false) {
+    if (!word) return { text: '1天后复习', isMastered: false };
+    const clean = word.trim();
+    const isMast = isShiCi
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' && ShiCiEbbinghausEngine.isWordMastered(clean))
+        : (typeof isWordMastered === 'function' && isWordMastered(clean));
+    if (isMast) {
+        return { text: '已标熟', isMastered: true };
+    }
+    const records = isShiCi
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.getRecords() : {})
+        : (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords ? EbbinghausEngine.getRecords() : {});
+    const rec = records[isShiCi ? clean : clean.toLowerCase()];
+    if (rec) {
+        if (rec.stage >= 5) {
+            return { text: '已标熟', isMastered: true };
+        }
+        if (rec.nextReview && rec.nextReview > Date.now()) {
+            const days = Math.max(1, Math.round((rec.nextReview - Date.now()) / 86400000));
+            return { text: `${days}天后复习`, isMastered: false };
+        }
+    }
+    return { text: '1天后复习', isMastered: false };
 }
 
-function toggleSettlementWordMastered(word, phone, meaning, btnEl) {
+function formatSettlementMeaningsLines(q) {
+    if (!q) return [];
+    if (q.isShiCi) {
+        const pos = q.sense?.part_of_speech || q.pos || '';
+        const m = (q.sense?.meaning || q.meaning || '').replace(/★/g, '').trim();
+        const lines = [];
+        if (m) lines.push(`${pos ? pos + '. ' : ''}${m}`);
+        if (q.sentence || q.example?.sentence) {
+            lines.push(`例：${q.sentence || q.example?.sentence} ${q.source || q.example?.source || ''}`);
+        }
+        return lines;
+    }
+    if (Array.isArray(q.meanings) && q.meanings.length > 0) {
+        const lines = [];
+        q.meanings.forEach(m => {
+            if (!m) return;
+            const line = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
+            if (line && line !== '---' && !lines.includes(line)) {
+                lines.push(line);
+            }
+        });
+        if (lines.length > 0) return lines;
+    }
+    const raw = (q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : '') || '').trim();
+    if (!raw || raw === '---') return [];
+    // 将同一串中包含多个词性的释义按词性前缀拆分为多行
+    const splitParts = raw.split(/\s+(?=(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|art|int|aux|pl)\.)/g).map(s => s.trim()).filter(Boolean);
+    return splitParts.length > 0 ? splitParts : [raw];
+}
+
+function toggleSettlementRowExpand(rowEl) {
+    if (!rowEl) return;
+    rowEl.classList.toggle('expanded');
+    syncSettlementEyeBtnState();
+}
+window.toggleSettlementRowExpand = toggleSettlementRowExpand;
+
+function toggleSettlementWordsMask(btnEl) {
+    const list = document.getElementById('settlement-list-container');
+    if (!list) return;
+    const masked = list.classList.toggle('mask-words');
+    if (btnEl) {
+        btnEl.classList.toggle('active', !masked);
+    }
+}
+window.toggleSettlementWordsMask = toggleSettlementWordsMask;
+
+function toggleSettlementMeaningsAll(btnEl) {
+    const list = document.getElementById('settlement-list-container');
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
+    const allExpanded = rows.length > 0 && rows.every(r => r.classList.contains('expanded'));
+    const targetExpand = !allExpanded;
+    rows.forEach(r => r.classList.toggle('expanded', targetExpand));
+    syncSettlementEyeBtnState();
+}
+window.toggleSettlementMeaningsAll = toggleSettlementMeaningsAll;
+
+function syncSettlementEyeBtnState() {
+    const list = document.getElementById('settlement-list-container');
+    const btn = document.getElementById('btn-settlement-toggle-meanings');
+    if (!list || !btn) return;
+    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
+    const anyExpanded = rows.some(r => r.classList.contains('expanded'));
+    btn.classList.toggle('active', anyExpanded);
+    const closedSvg = btn.querySelector('.eye-closed-svg');
+    const openSvg = btn.querySelector('.eye-open-svg');
+    if (closedSvg && openSvg) {
+        closedSvg.style.display = anyExpanded ? 'none' : 'block';
+        openSvg.style.display = anyExpanded ? 'block' : 'none';
+    }
+}
+
+function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = false) {
     if (!word) return;
-    if (typeof toggleMasteredWord !== 'function') return;
-    const nowMastered = toggleMasteredWord(word, phone, meaning);
+    let nowMastered = false;
+    if (isShiCi) {
+        if (!shiciProgress.masteredWords) shiciProgress.masteredWords = {};
+        nowMastered = !shiciProgress.masteredWords[word];
+        if (nowMastered) {
+            shiciProgress.masteredWords[word] = true;
+            ShiCiEbbinghausEngine.recordWord(word, meaning, phone, true, true);
+        } else {
+            delete shiciProgress.masteredWords[word];
+            ShiCiEbbinghausEngine.unmarkMastered(word);
+        }
+        saveShiCiState();
+        if (typeof toggleMasteredWord === 'function') {
+            toggleMasteredWord(word, phone || '', meaning || '', 'shici');
+        }
+    } else if (typeof toggleMasteredWord === 'function') {
+        nowMastered = toggleMasteredWord(word, phone, meaning);
+    }
+
+    const rowEl = btnEl ? btnEl.closest('.settlement-minimal-row') : null;
     if (btnEl) {
         btnEl.classList.toggle('active', nowMastered);
         const icon = btnEl.querySelector('.material-symbols-rounded');
-        const text = btnEl.querySelector('.btn-label-text');
-        if (icon) icon.innerText = nowMastered ? 'check_circle' : 'check_circle_outline';
-        if (text) text.innerText = nowMastered ? '已设熟词' : '熟词';
-
-        const itemEl = btnEl.closest('.settlement-item');
-        if (itemEl) {
-            const diamondBox = itemEl.querySelector('.settlement-mastery-diamonds');
-            if (diamondBox) {
-                let stage = 0;
-                if (nowMastered) {
-                    stage = 5;
-                } else if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords) {
-                    const rec = EbbinghausEngine.getRecords()[word.trim().toLowerCase()];
-                    if (rec && typeof rec.stage === 'number') stage = Math.max(0, Math.min(5, rec.stage));
-                }
-                diamondBox.title = `掌握度 ${stage}/5`;
-                diamondBox.innerHTML = [1, 2, 3, 4, 5].map(i => `<span class="settlement-diamond ${i <= stage ? 'filled' : ''}">${i <= stage ? '◆' : '◇'}</span>`).join('');
-            }
+        if (icon) icon.innerText = nowMastered ? 'star' : 'star_outline';
+    }
+    if (rowEl) {
+        const statusEl = rowEl.querySelector('.settlement-minimal-status');
+        if (statusEl) {
+            const st = getWordSettlementReviewStatus(word, isShiCi);
+            statusEl.innerText = st.text;
+            statusEl.classList.toggle('is-mastered', st.isMastered);
         }
     }
 }
 window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
-function filterSettlementList(filter, btn) {
-    if (btn && btn.parentElement) {
-        btn.parentElement.querySelectorAll('.settlement-filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
-    const container = document.getElementById('settlement-list-container');
-    if (!container) return;
-    const items = container.querySelectorAll('.settlement-item');
-    items.forEach(item => {
-        if (filter === 'all') {
-            item.style.display = 'block';
-        } else if (filter === 'mistakes') {
-            item.style.display = (item.getAttribute('data-mistake') === '1') ? 'block' : 'none';
-        }
-    });
+function buildMinimalSummaryLayoutHtml(items) {
+    const rowsHtml = items.map(item => {
+        const cleanPhone = String(item.phone || '').replace(/^\/+|\/+$/g, '').trim();
+        const phoneHtml = cleanPhone
+            ? (item.isShiCi ? `<span class="settlement-minimal-phone">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phone">/${escapeHtml(cleanPhone)}/</span>`)
+            : '';
+        const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
+        const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
+        const safeWord = escapeHtml((item.word || '').replace(/'/g, "\\'"));
+        const safePhone = escapeHtml((item.phone || '').replace(/'/g, "\\'"));
+        const safeMeaning = escapeHtml((lines.join('；') || '').replace(/'/g, "\\'"));
+
+        return `
+            <div class="settlement-minimal-row ${item.isMistake ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this)" data-mistake="${item.isMistake ? '1' : '0'}">
+                <div class="settlement-minimal-row-top">
+                    <div class="settlement-minimal-word-group">
+                        <span class="settlement-minimal-word ${item.isMistake ? 'is-mistake' : ''}" onclick="if(this.closest('.settlement-minimal-row').classList.contains('expanded')){event.stopPropagation(); playWordAudio('${safeWord}');}">${escapeHtml(item.word)}</span>
+                        ${phoneHtml}
+                    </div>
+                    <span class="settlement-minimal-status ${statusInfo.isMastered ? 'is-mastered' : ''}">${escapeHtml(statusInfo.text)}</span>
+                </div>
+                <div class="settlement-minimal-row-body">
+                    <div class="settlement-minimal-meanings">
+                        ${lines.map(line => `<div class="settlement-minimal-meaning-line">${escapeHtml(line)}</div>`).join('')}
+                    </div>
+                    <button type="button" class="settlement-minimal-star-btn ${statusInfo.isMastered ? 'active' : ''}" onclick="event.stopPropagation(); toggleSettlementWordMastered('${safeWord}', '${safePhone}', '${safeMeaning}', this, ${item.isShiCi ? 'true' : 'false'});" title="${statusInfo.isMastered ? '取消标熟' : '标为熟词'}">
+                        <span class="material-symbols-rounded">${statusInfo.isMastered ? 'star' : 'star_outline'}</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const anyExpanded = items.some(i => i.isMistake);
+
+    return `
+        <div class="settlement-minimal-page">
+            <div class="settlement-minimal-topbar">
+                <button type="button" class="settlement-minimal-nav-btn" onclick="handleResultBackToHub()" title="返回">
+                    <span class="material-symbols-rounded">arrow_back_ios_new</span>
+                </button>
+                <div class="settlement-minimal-title">小结</div>
+                <div class="settlement-minimal-toggles">
+                    <button type="button" class="settlement-minimal-abc-btn active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
+                        <span>ab<u style="text-underline-offset:3px;">c</u></span>
+                    </button>
+                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-eye-btn ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
+                        <svg class="eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 10c3.5 4.5 8 6 10 6s6.5-1.5 10-6"/>
+                            <path d="M5 13l-2 3"/>
+                            <path d="M9.5 15.5l-1 3.5"/>
+                            <path d="M14.5 15.5l1 3.5"/>
+                            <path d="M19 13l2 3"/>
+                        </svg>
+                        <svg class="eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="settlement-minimal-list" id="settlement-list-container">
+                ${rowsHtml}
+            </div>
+        </div>
+    `;
 }
 
 function renderSingleSummaryHtml(pool, sessionMistakes) {
@@ -74,7 +226,6 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         (sessionMistakes instanceof Set ? Array.from(sessionMistakes).map(s => String(s).trim().toLowerCase()) : [])
     );
 
-    // 去重：同一道题（单词/词组）答错多次不重复展示；只要答错一次即在小结中归为错题
     const uniquePool = [];
     const seenWords = new Map();
     pool.forEach(q => {
@@ -83,414 +234,56 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
         if (!seenWords.has(key)) {
             const itemCopy = { ...q };
-            if (wasEverMistake) {
-                itemCopy.isCorrect = false;
-            }
-            if (!q.isCorrect) {
-                if (q.wrongAnswerIdx !== undefined) itemCopy.wrongAnswerIdx = q.wrongAnswerIdx;
-                else if (q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) itemCopy.wrongAnswerIdx = q.userAnswerIdx;
-            }
+            if (wasEverMistake) itemCopy.isCorrect = false;
             seenWords.set(key, itemCopy);
             uniquePool.push(itemCopy);
         } else {
             const existing = seenWords.get(key);
-            if (wasEverMistake) {
-                existing.isCorrect = false;
-                if (q.wrongSlotIndices && q.wrongSlotIndices.length > 0) {
-                    existing.wrongSlotIndices = q.wrongSlotIndices;
-                }
-                // 错题选项记录：不被后续重测对题覆盖
-                if (!q.isCorrect) {
-                    if (q.wrongAnswerIdx !== undefined) existing.wrongAnswerIdx = q.wrongAnswerIdx;
-                    else if (q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) existing.wrongAnswerIdx = q.userAnswerIdx;
-                }
-            }
+            if (wasEverMistake) existing.isCorrect = false;
         }
     });
 
-    let mistakeCount = uniquePool.filter(q => !q.isCorrect).length;
-    const hasMistakes = mistakeCount > 0;
+    const items = uniquePool.map(q => ({
+        word: q.word,
+        phone: q.phone || '',
+        lines: formatSettlementMeaningsLines(q),
+        isMistake: !q.isCorrect,
+        isShiCi: false
+    }));
 
-    let itemsHtml = uniquePool.map((q, idx) => {
-        const isMistake = !q.isCorrect;
-        const isPhrase = !!(q.isPhrase || (q.word && q.word.trim().includes(' ')));
-        const targetMeaning = escapeHtml(q.meaning || (q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : ''));
-        const isMastered = (typeof isWordMastered === 'function') && isWordMastered(q.word);
-
-        // 获取当前单词/词组的掌握度星级 (0-5)
-        let targetStage = 0;
-        if (isMastered) {
-            targetStage = 5;
-        } else if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords) {
-            const records = EbbinghausEngine.getRecords();
-            const rec = records[(q.word || '').trim().toLowerCase()];
-            if (rec && typeof rec.stage === 'number') {
-                targetStage = Math.max(0, Math.min(5, rec.stage));
-            }
-        }
-        const diamondsHtml = `
-            <div class="settlement-mastery-diamonds" title="掌握度 ${targetStage}/5">
-                ${[1, 2, 3, 4, 5].map(i => `<span class="settlement-diamond ${i <= targetStage ? 'filled' : ''}">${i <= targetStage ? '◆' : '◇'}</span>`).join('')}
-            </div>
-        `;
-
-        let titleDisplay = '';
-        let drawerContent = '';
-
-        if (isPhrase) {
-            const targetWords = q.targetWords || (typeof extractPhraseTargetWords === 'function' ? extractPhraseTargetWords(q.word) : q.word.split(' '));
-            const wrongSlots = Array.isArray(q.wrongSlotIndices) ? q.wrongSlotIndices : [];
-
-            if (isMistake) {
-                titleDisplay = targetWords.map((w, i) => {
-                    if (typeof isFixedPhraseToken === 'function' && isFixedPhraseToken(w)) return escapeHtml(w);
-                    const isSlotWrong = wrongSlots.length === 0 || wrongSlots.includes(i);
-                    return isSlotWrong
-                        ? `<span style="color:var(--md-sys-color-error, #ba1a1a); font-weight:700;">${escapeHtml(w)}</span>`
-                        : escapeHtml(w);
-                }).join(' ');
-            } else {
-                titleDisplay = escapeHtml(q.word);
-            }
-            // 词组无多余辨析时抽屉内不重复展示词条与释义，仅保留底部操作按钮
-            drawerContent = '';
-        } else {
-            // 清除首尾斜杠，确保单斜杠规范 (/.../)
-            const cleanPhone = String(q.phone || '').replace(/^\/+|\/+$/g, '').trim();
-            const phoneDisplay = cleanPhone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(cleanPhone)}/</span>` : '';
-            if (isMistake) {
-                titleDisplay = `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong>${phoneDisplay}`;
-            } else {
-                titleDisplay = `<span class="settlement-word-text">${escapeHtml(q.word)}</span>${phoneDisplay}`;
-            }
-
-            let distractorsHtml = '';
-            if (Array.isArray(q.options) && q.options.length > 0) {
-                const wrongAnswerIdx = (q.wrongAnswerIdx !== undefined) ? q.wrongAnswerIdx : ((q.userAnswerIdx !== undefined && q.userAnswerIdx !== q.correctIdx) ? q.userAnswerIdx : -1);
-                distractorsHtml = q.options.map((opt, optIdx) => {
-                    const isCorrectOpt = (optIdx === q.correctIdx);
-                    const isUserChosen = (optIdx === wrongAnswerIdx);
-                    const isChosenWrong = isMistake && isUserChosen;
-
-                    const optWord = escapeHtml(opt.word || (isCorrectOpt ? q.word : ''));
-                    const optMeaning = escapeHtml(opt.meaning || '');
-
-                    if (isCorrectOpt) {
-                        return `
-                            <div class="distractor-grid-row correct-target-row">
-                                <span class="distractor-word-col">
-                                    <span style="font-weight:700;">✓</span>
-                                    <span>${optWord}</span>
-                                </span>
-                                <span class="distractor-meaning-col">${optMeaning}</span>
-                            </div>
-                        `;
-                    } else if (isChosenWrong) {
-                        return `
-                            <div class="distractor-grid-row chosen-mistake-row">
-                                <span class="distractor-word-col">
-                                    <span style="font-weight:800;">✕</span>
-                                    <strong>${optWord}</strong>
-                                </span>
-                                <span class="distractor-meaning-col"><strong>${optMeaning}</strong></span>
-                            </div>
-                        `;
-                    } else {
-                        return `
-                            <div class="distractor-grid-row">
-                                <span class="distractor-word-col">${optWord}</span>
-                                <span class="distractor-meaning-col">${optMeaning}</span>
-                            </div>
-                        `;
-                    }
-                }).join('');
-            } else {
-                distractorsHtml = '<div style="color:var(--md-sys-color-outline); font-size:0.84rem;">暂无选项数据</div>';
-            }
-
-            drawerContent = `
-                <div style="font-weight:700; color:var(--md-sys-color-primary); margin-bottom:8px; font-size:0.86rem;">
-                    选项辨析：
-                </div>
-                <div class="distractor-list" style="margin-bottom:8px;">
-                    ${distractorsHtml}
-                </div>
-            `;
-        }
-
-        const safeWord = escapeHtml((q.word || '').replace(/'/g, "\\'"));
-        const safePhone = escapeHtml((q.phone || '').replace(/'/g, "\\'"));
-        const safeMeaning = escapeHtml((q.meaning || '').replace(/'/g, "\\'"));
-
-        return `
-            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
-                <div class="settlement-item-header">
-                    <div class="settlement-item-main">
-                        <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
-                            ${isMistake ? 'cancel' : 'check_circle'}
-                        </span>
-                        <div>
-                            <div>${titleDisplay}</div>
-                            <div class="settlement-trans-text">${targetMeaning}</div>
-                        </div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        ${diamondsHtml}
-                        <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
-                    </div>
-                </div>
-                <div class="settlement-item-drawer">
-                    ${drawerContent}
-                    <div class="settlement-item-actions-row">
-                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn" onclick="event.stopPropagation(); jumpToSearch('${safeWord}');" title="在词典中查询此词">
-                            <span class="material-symbols-rounded" style="font-size:16px;">search</span>
-                            <span class="btn-label-text">查词</span>
-                        </button>
-                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn" onclick="event.stopPropagation(); playWordAudio('${safeWord}');" title="播放发音">
-                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                            <span class="btn-label-text">发音</span>
-                        </button>
-                        <button type="button" class="btn btn-tonal btn-sm settlement-act-btn ${isMastered ? 'active' : ''}" onclick="event.stopPropagation(); toggleSettlementWordMastered('${safeWord}', '${safePhone}', '${safeMeaning}', this);" title="${isMastered ? '取消熟词标记' : '标记为熟词'}">
-                            <span class="material-symbols-rounded" style="font-size:16px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
-                            <span class="btn-label-text">${isMastered ? '已设熟词' : '熟词'}</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    return `
-        <div class="settlement-summary-card">
-            <div class="settlement-summary-header">
-                <div>
-                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组小结</h3>
-                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">点击词条查看详情</p>
-                </div>
-                <div class="settlement-filter-group">
-                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
-                    <button type="button" class="settlement-filter-btn ${!hasMistakes ? 'active' : ''}" onclick="filterSettlementList('all', this)">全部 (${uniquePool.length})</button>
-                </div>
-            </div>
-            <div class="settlement-list md3-scroll-view" id="settlement-list-container">
-                ${itemsHtml}
-            </div>
-        </div>
-    `;
+    return buildMinimalSummaryLayoutHtml(items);
 }
+
 function renderShiCiSummaryHtml(pool) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
-    let mistakeCount = pool.filter(q => !q.isCorrect).length;
-
-    let itemsHtml = pool.map((q, idx) => {
-        const isMistake = !q.isCorrect;
-        const wordTitle = isMistake
-            ? `<strong class="settlement-word-text mistake-word-bold">${escapeHtml(q.word)}</strong> <span style="font-size:0.85rem; color:var(--md-sys-color-outline); font-weight:normal;">${escapeHtml(q.pinyin || '')}</span>`
-            : `<span class="settlement-word-text">${escapeHtml(q.word)}</span> <span style="font-size:0.85rem; color:var(--md-sys-color-outline); font-weight:normal;">${escapeHtml(q.pinyin || '')}</span>`;
-
-        const correctSenseText = `【${escapeHtml(q.sense?.part_of_speech || '')}】 ${escapeHtml((q.sense?.meaning || '').replace(/★/g, ''))}`;
-
-        let optionsHtml = '';
-        if (Array.isArray(q.options)) {
-            optionsHtml = q.options.map((opt, optIdx) => {
-                const isCorrect = (optIdx === q.correctIdx);
-                const isUserChosen = (optIdx === q.userAnswerIdx);
-                const isChosenWrong = isMistake && isUserChosen;
-
-                if (isCorrect) {
-                    return `
-                                <div class="distractor-row correct-target-meaning" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px;">
-                                    <span class="distractor-text">✓ [${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}</span>
-                                    <span class="badge" style="background:#2E7D32; color:#fff; font-size:0.72rem; padding:2px 8px; border-radius:12px; font-weight:600;">例句对应释义</span>
-                                </div>
-                            `;
-                } else if (isChosenWrong) {
-                    // 选错项：前缀加 ✕，加粗，展示选错释义对应的例句与出处
-                    let wrongExampleHtml = '';
-                    const ex = (opt.examples && opt.examples.length > 0) ? opt.examples[0] : null;
-                    if (ex) {
-                        wrongExampleHtml = `
-                                    <div class="shici-wrong-example-box">
-                                        <div style="font-weight:700; color:#BA1A1A; font-size:0.8rem; margin-bottom:2px;">选错释义对应例句：</div>
-                                        <div style="line-height:1.5;">${escapeHtml(ex.sentence || '')} <span style="color:var(--md-sys-color-outline); font-size:0.78rem;">${escapeHtml(ex.source || '')}</span></div>
-                                        ${ex.annotation ? `<div style="color:var(--md-sys-color-on-surface-variant); font-size:0.8rem; margin-top:2px;">句意：${escapeHtml(ex.annotation)}</div>` : ''}
-                                    </div>
-                                `;
-                    } else if (Array.isArray(q.allSenses)) {
-                        const matchedSense = q.allSenses.find(s => (s.meaning || '').replace(/★/g, '').trim() === opt.meaning);
-                        if (matchedSense && matchedSense.examples && matchedSense.examples.length > 0) {
-                            const mex = matchedSense.examples[0];
-                            wrongExampleHtml = `
-                                        <div class="shici-wrong-example-box">
-                                            <div style="font-weight:700; color:#BA1A1A; font-size:0.8rem; margin-bottom:2px;">选错释义对应例句：</div>
-                                            <div style="line-height:1.5;">${escapeHtml(mex.sentence || '')} <span style="color:var(--md-sys-color-outline); font-size:0.78rem;">${escapeHtml(mex.source || '')}</span></div>
-                                            ${mex.annotation ? `<div style="color:var(--md-sys-color-on-surface-variant); font-size:0.8rem; margin-top:2px;">句意：${escapeHtml(mex.annotation)}</div>` : ''}
-                                        </div>
-                                    `;
-                        }
-                    }
-
-                    return `
-                                <div style="background:#FFDAD6; border:1.5px solid var(--md-sys-color-error); border-radius:8px; padding:10px 12px; margin-bottom:4px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span class="distractor-text" style="font-weight:800; color:#BA1A1A; font-size:0.92rem;">
-                                            ✕ [${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}
-                                        </span>
-                                        <span class="badge" style="background:#BA1A1A; color:#fff; font-size:0.72rem; padding:2px 8px; border-radius:12px; font-weight:700;">选错的释义</span>
-                                    </div>
-                                    ${wrongExampleHtml}
-                                </div>
-                            `;
-                } else {
-                    // 其他干扰项：不加“该词其他释义”/“该词其他义项”标签
-                    return `
-                                <div class="distractor-row" style="padding:8px 12px;">
-                                    <span class="distractor-text">[${escapeHtml(opt.pos || '')}] ${escapeHtml(opt.meaning || '')}</span>
-                                </div>
-                            `;
-                }
-            }).join('');
-        }
-
-        const annotationHtml = q.example?.annotation
-            ? `<div style="font-size:0.88rem; color:var(--md-sys-color-on-surface-variant); margin-top:6px; background:rgba(0,104,116,0.06); padding:8px 12px; border-radius:8px; line-height:1.5;">💡 <strong>句意释义：</strong>${escapeHtml(q.example.annotation)}</div>`
-            : '';
-
-        return `
-                    <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" onclick="toggleSettlementDrawer(this)" data-mistake="${isMistake ? '1' : '0'}">
-                        <div class="settlement-item-header">
-                            <div class="settlement-item-main">
-                                <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
-                                    ${isMistake ? 'cancel' : 'check_circle'}
-                                </span>
-                                <div style="flex:1;">
-                                    <div style="display:flex; align-items:center; gap:8px;">
-                                        <div>${wordTitle}</div>
-                                        <span class="badge" style="background:var(--md-sys-color-surface-container); color:var(--md-sys-color-on-surface); font-size:0.74rem;">${escapeHtml(q.example?.source || '文言例句')}</span>
-                                    </div>
-                                    <div style="font-size:0.95rem; margin-top:4px; line-height:1.5;">
-                                        ${q.highlightedSentence || escapeHtml(q.example?.sentence || '')}
-                                    </div>
-                                    <div class="settlement-trans-text" style="color:var(--md-sys-color-primary); font-weight:600; margin-top:4px;">
-                                        例句释义：${correctSenseText}
-                                    </div>
-                                </div>
-                            </div>
-                            <span class="material-symbols-rounded settlement-item-chevron">expand_more</span>
-                        </div>
-                        <div class="settlement-item-drawer">
-                            ${annotationHtml}
-                            <div style="font-weight:700; color:var(--md-sys-color-primary); margin:10px 0 6px 0; font-size:0.86rem;">
-                                抽取的释义辨析项：
-                            </div>
-                            <div class="distractor-list">
-                                ${optionsHtml}
-                            </div>
-                        </div>
-                    </div>
-                `;
-    }).join('');
-
-    return `
-                <div class="settlement-summary-card">
-                    <div class="settlement-summary-header">
-                        <div>
-                            <h3 style="margin:0; font-size:1.1rem; font-weight:700;">本组实词小结</h3>
-                            <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">列举本组所有实词及其在对应例句下的释义</p>
-                        </div>
-                        <div class="settlement-filter-group">
-                            <button type="button" class="settlement-filter-btn active" onclick="filterSettlementList('all', this)">全部 (${pool.length})</button>
-                            <button type="button" class="settlement-filter-btn" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
-                        </div>
-                    </div>
-                    <div class="settlement-list md3-scroll-view" id="settlement-list-container">
-                        ${itemsHtml}
-                    </div>
-                </div>
-            `;
-}
-
-function renderDictationSummaryHtml(pool, sessionMistakes) {
-    if (!Array.isArray(pool) || pool.length === 0) return '';
-
-    const mistakeSet = new Set(
-        Array.isArray(sessionMistakes) ? sessionMistakes.map(s => String(s).trim().toLowerCase()) :
-        (sessionMistakes instanceof Set ? Array.from(sessionMistakes).map(s => String(s).trim().toLowerCase()) : [])
-    );
-
     const uniquePool = [];
-    const seenWords = new Map();
+    const seen = new Map();
     pool.forEach(q => {
         if (!q || !q.word) return;
-        const key = q.word.trim().toLowerCase();
-        const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
-        if (!seenWords.has(key)) {
-            const itemCopy = { ...q };
-            if (wasEverMistake) {
-                itemCopy.isCorrect = false;
-            }
-            seenWords.set(key, itemCopy);
-            uniquePool.push(itemCopy);
-        } else {
-            const existing = seenWords.get(key);
-            if (wasEverMistake) {
-                existing.isCorrect = false;
-            }
+        const k = q.word.trim();
+        if (!seen.has(k)) {
+            seen.set(k, { ...q });
+            uniquePool.push(seen.get(k));
+        } else if (!q.isCorrect) {
+            seen.get(k).isCorrect = false;
         }
     });
 
-    const mistakeCount = uniquePool.filter(q => !q.isCorrect).length;
-    const hasMistakes = mistakeCount > 0;
+    const items = uniquePool.map(q => ({
+        word: q.word,
+        phone: q.pinyin || '',
+        lines: formatSettlementMeaningsLines({ ...q, isShiCi: true }),
+        isMistake: !q.isCorrect,
+        isShiCi: true
+    }));
 
-    const itemsHtml = uniquePool.map((q, idx) => {
-        const isMistake = !q.isCorrect;
-        const targetMeaning = escapeHtml(q.meaning || '');
-        const cleanPhone = String(q.phone || '').replace(/^\/+|\/+$/g, '').trim();
-        const phoneDisplay = cleanPhone ? `<span style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-left:6px; font-weight:normal;">/${escapeHtml(cleanPhone)}/</span>` : '';
-        const titleDisplay = isMistake
-            ? `<strong class="settlement-word-text mistake-word-bold" style="color:var(--md-sys-color-error, #ba1a1a); font-weight:700;">${escapeHtml(q.word)}</strong>${phoneDisplay}`
-            : `<span class="settlement-word-text" style="font-weight:600;">${escapeHtml(q.word)}</span>${phoneDisplay}`;
+    return buildMinimalSummaryLayoutHtml(items);
+}
+window.renderSingleSummaryHtml = renderSingleSummaryHtml;
+window.renderShiCiSummaryHtml = renderShiCiSummaryHtml;
 
-        const safeWord = escapeHtml((q.word || '').replace(/'/g, "\\'"));
-        const audioBtn = `<button type="button" class="btn btn-icon-only btn-sm" onclick="event.stopPropagation(); playWordAudio('${safeWord}')" title="发音" style="width:28px; height:28px; padding:0; margin-left:6px; vertical-align:middle; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:18px;">volume_up</span></button>`;
-
-        return `
-            <div class="settlement-item ${isMistake ? 'item-mistake' : 'item-correct'}" data-mistake="${isMistake ? '1' : '0'}" style="display: ${hasMistakes ? (isMistake ? 'block' : 'none') : 'block'};">
-                <div class="settlement-item-header" style="cursor:default;">
-                    <div class="settlement-item-main" style="display:flex; align-items:center; gap:12px; width:100%;">
-                        <span class="material-symbols-rounded settlement-status-icon ${isMistake ? 'wrong' : 'correct'}">
-                            ${isMistake ? 'cancel' : 'check_circle'}
-                        </span>
-                        <div style="flex:1; min-width:0;">
-                            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                                ${titleDisplay}
-                                ${audioBtn}
-                            </div>
-                            <div class="settlement-trans-text" style="margin-top:2px; font-size:0.85rem; color:var(--md-sys-color-on-surface-variant); line-height:1.4;">${targetMeaning}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    return `
-        <div class="settlement-summary-card">
-            <div class="settlement-summary-header">
-                <div>
-                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;">默写小结</h3>
-                    <p style="margin:2px 0 0 0; font-size:0.8rem; color:var(--md-sys-color-outline);">单词发音与释义对比</p>
-                </div>
-                <div class="settlement-filter-group">
-                    <button type="button" class="settlement-filter-btn ${hasMistakes ? 'active' : ''}" onclick="filterSettlementList('mistakes', this)">仅看错题 (${mistakeCount})</button>
-                    <button type="button" class="settlement-filter-btn ${!hasMistakes ? 'active' : ''}" onclick="filterSettlementList('all', this)">全部 (${uniquePool.length})</button>
-                </div>
-            </div>
-            <div class="settlement-list md3-scroll-view" id="settlement-list-container">
-                ${itemsHtml}
-            </div>
-        </div>
-    `;
+function renderDictationSummaryHtml(pool, sessionMistakes) {
+    return renderSingleSummaryHtml(pool, sessionMistakes);
 }
 window.renderDictationSummaryHtml = renderDictationSummaryHtml;
 
@@ -1350,16 +1143,62 @@ function updateShiCiProgressDisplay() {
 }
 window.updateShiCiProgressDisplay = updateShiCiProgressDisplay;
 
+function updateShiCiNavButtons() {
+    const prevBtn = document.getElementById('btn-shici-prev');
+    const returnBtn = document.getElementById('btn-shici-return');
+    if (!shiciState) return;
+    if (typeof shiciState.maxReachedIdx !== 'number' || shiciState.currentIdx > shiciState.maxReachedIdx) {
+        shiciState.maxReachedIdx = shiciState.currentIdx;
+    }
+    const canPrev = shiciState.currentIdx > 0;
+    const canReturn = shiciState.currentIdx < shiciState.maxReachedIdx;
+    if (prevBtn) {
+        prevBtn.style.display = 'inline-flex';
+        prevBtn.disabled = !canPrev;
+        prevBtn.style.opacity = canPrev ? '1' : '0.35';
+        prevBtn.style.cursor = canPrev ? 'pointer' : 'not-allowed';
+    }
+    if (returnBtn) {
+        returnBtn.style.display = canReturn ? 'inline-flex' : 'none';
+        returnBtn.disabled = !canReturn;
+    }
+}
+
+function viewPreviousShiCiQuestion() {
+    if (!shiciState || !shiciState.pool || shiciState.currentIdx <= 0) return;
+    if (typeof shiciState.maxReachedIdx !== 'number' || shiciState.currentIdx > shiciState.maxReachedIdx) {
+        shiciState.maxReachedIdx = shiciState.currentIdx;
+    }
+    shiciState.currentIdx--;
+    renderShiCiQuestion();
+}
+window.viewPreviousShiCiQuestion = viewPreviousShiCiQuestion;
+
+function returnToCurrentShiCiQuestion() {
+    if (!shiciState || !shiciState.pool) return;
+    if (typeof shiciState.maxReachedIdx === 'number' && shiciState.currentIdx < shiciState.maxReachedIdx) {
+        shiciState.currentIdx = shiciState.maxReachedIdx;
+        renderShiCiQuestion();
+    }
+}
+window.returnToCurrentShiCiQuestion = returnToCurrentShiCiQuestion;
+
 function renderShiCiQuestion() {
     if (!shiciState || shiciState.currentIdx >= shiciState.pool.length) {
         endShiCiGame();
         return;
     }
 
+    if (typeof shiciState.maxReachedIdx !== 'number' || shiciState.currentIdx > shiciState.maxReachedIdx) {
+        shiciState.maxReachedIdx = shiciState.currentIdx;
+    }
+    const isHistoryView = shiciState.currentIdx < shiciState.maxReachedIdx;
     const q = shiciState.pool[shiciState.currentIdx];
-    shiciState.answered = false;
+    const alreadyAnswered = Boolean(isHistoryView || q.answered);
+    shiciState.answered = alreadyAnswered;
 
     updateShiCiProgressDisplay();
+    updateShiCiNavButtons();
 
     const bookBadge = document.getElementById('shici-book-badge');
     if (bookBadge) {
@@ -1385,25 +1224,48 @@ function renderShiCiQuestion() {
     const optContainer = document.getElementById('shici-options-container');
     if (optContainer) {
         const letters = ['A', 'B', 'C', 'D'];
-        optContainer.innerHTML = q.options.map((opt, idx) => `
+        optContainer.innerHTML = q.options.map((opt, idx) => {
+            if (alreadyAnswered) {
+                const isCorr = idx === q.correctIdx;
+                const isWr = !q.isCorrect && q.userAnswerIdx === idx;
+                const cls = isCorr ? 'correct' : (isWr ? 'wrong' : '');
+                return `
+                    <button class="shici-opt-btn ${cls}" id="shici-opt-${idx}" disabled>
+                        <span class="opt-prefix">${letters[idx]}</span>
+                        ${opt.pos ? `<span class="opt-pos-tag">${escapeHtml(opt.pos)}</span>` : ''}
+                        <span class="opt-meaning-text">${escapeHtml(opt.meaning)}</span>
+                    </button>
+                `;
+            }
+            return `
                     <button class="shici-opt-btn" id="shici-opt-${idx}" onclick="handleShiCiAnswer(${idx})">
                         <span class="opt-prefix">${letters[idx]}</span>
                         ${opt.pos ? `<span class="opt-pos-tag">${escapeHtml(opt.pos)}</span>` : ''}
                         <span class="opt-meaning-text">${escapeHtml(opt.meaning)}</span>
                     </button>
-                `).join('');
+                `;
+        }).join('');
     }
 
     const expCard = document.getElementById('shici-explanation-card');
-    if (expCard) expCard.style.display = 'none';
-
     const actionBtn = document.getElementById('btn-shici-action');
     const actionText = document.getElementById('btn-shici-action-text');
-    if (actionBtn) {
-        actionBtn.className = 'single-next-btn show-answer-mode';
-        actionBtn.style.display = 'flex';
+    if (alreadyAnswered) {
+        displayShiCiExplanation(q, Boolean(q.isCorrect));
+        const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+        if (actionBtn) {
+            actionBtn.className = 'single-next-btn';
+            actionBtn.style.display = 'flex';
+        }
+        if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+    } else {
+        if (expCard) expCard.style.display = 'none';
+        if (actionBtn) {
+            actionBtn.className = 'single-next-btn show-answer-mode';
+            actionBtn.style.display = 'flex';
+        }
+        if (actionText) actionText.innerText = '看答案';
     }
-    if (actionText) actionText.innerText = '看答案';
 }
 
 function handleShiCiAnswer(idx) {

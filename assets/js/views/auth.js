@@ -751,6 +751,16 @@ function continueAsGuest() {
 }
 
 function handleAuthBack() {
+    const returnMeSub = window.__authReturnMeSubview;
+    window.__authReturnMeSubview = null;
+    if (returnMeSub) {
+        window.__targetMeSubview = returnMeSub;
+        switchView('view-me');
+        if (typeof openMeSubview === 'function') {
+            openMeSubview(returnMeSub);
+        }
+        return;
+    }
     if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username && !currentUserProfile.username.startsWith('游客')) {
         const target = (window.previousView && window.previousView !== 'view-auth') ? window.previousView : 'view-hub';
         switchView(target);
@@ -761,20 +771,35 @@ function handleAuthBack() {
 window.handleAuthBack = handleAuthBack;
 
 function handleAuthLogout(notify = true) {
+    window.__authReturnMeSubview = null;
+    window.__targetMeSubview = null;
     if (typeof MailManager !== 'undefined' && typeof MailManager.resetForUser === 'function') {
         MailManager.resetForUser('');
     }
     if (typeof isOfflineMode === 'function' && isOfflineMode()) {
-        currentUser = null;
-        currentUserProfile = null;
+        const guestName = (typeof getUniqueGuestName === 'function') ? getUniqueGuestName() : '游客';
+        currentUser = guestName;
+        currentUserProfile = {
+            isLoggedIn: false,
+            type: 'guest',
+            username: guestName,
+            avatar: '',
+            openId: ''
+        };
         SafeStorage.setItem('vocab_user_logged_out', 'true');
         SafeStorage.removeItem('vocab_local_current_user');
         SafeStorage.removeItem('vocab_auth_session');
+        SafeStorage.setItem('vocab_pk_user', guestName);
         if (notify) {
             showToast('已退出登录');
         }
-        switchView('view-auth');
-        renderAuthView();
+        updateHub();
+        if (typeof renderMeView === 'function') {
+            renderMeView();
+        }
+        if (typeof switchView === 'function') {
+            switchView('view-hub');
+        }
         return;
     }
 
@@ -804,9 +829,14 @@ function handleAuthLogout(notify = true) {
     if (typeof renderMeView === 'function') {
         renderMeView();
     }
+    if (typeof switchView === 'function') {
+        switchView('view-hub');
+    }
 }
 
 function handleSwitchAccount() {
+    // 记录从“管理账号”子页面进入，以便点击返回时回到“管理账号”页面
+    window.__authReturnMeSubview = 'account';
     // 切换账号时不提前登出，保留原登录态，待用户登录新账号成功后再切换
     switchView('view-auth');
     if (typeof isOfflineMode === 'function' && isOfflineMode()) {

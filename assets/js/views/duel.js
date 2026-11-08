@@ -155,6 +155,7 @@ function getDefaultRoomPreset(user) {
         winLead: 6,
         gaugeStyle: 'tug',
         matchType: isGuest ? 'friendly' : 'ranked',
+        meaningMode: 'all',
         selectedBooks: books
     };
 }
@@ -271,6 +272,11 @@ function renderPresetChips() {
         const val = el.getAttribute('data-gauge');
         el.classList.toggle('selected', val === (activeEditingPreset.gaugeStyle || 'tug'));
     });
+
+    document.querySelectorAll('#preset-chips-meaning-mode .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-meaning-mode');
+        el.classList.toggle('selected', val === (activeEditingPreset.meaningMode || 'all'));
+    });
 }
 
 function selectPresetRule(val) {
@@ -337,6 +343,13 @@ function selectPresetGauge(val) {
     renderPresetChips();
 }
 window.selectPresetGauge = selectPresetGauge;
+
+function selectPresetMeaningMode(val) {
+    if (!activeEditingPreset) return;
+    activeEditingPreset.meaningMode = val === 'random' ? 'random' : 'all';
+    renderPresetChips();
+}
+window.selectPresetMeaningMode = selectPresetMeaningMode;
 
 function updatePresetBookSummaryUI() {
     if (!activeEditingPreset) return;
@@ -637,6 +650,16 @@ function changeRuleGaugeStyle(style) {
     broadcastRuleChange();
 }
 
+function changeRuleMeaningMode(mode) {
+    if (!isHost) return;
+    roomConfig.meaningMode = mode === 'random' ? 'random' : 'all';
+    guestReady = false;
+    renderRuleChips();
+    refreshRoomPlayerCards();
+    broadcastRuleChange();
+}
+window.changeRuleMeaningMode = changeRuleMeaningMode;
+
 function toggleRoomBook(bookId) {
     if (!isHost) return;
     if (!roomConfig.selectedBooks) roomConfig.selectedBooks = [];
@@ -894,6 +917,23 @@ function renderRuleChips() {
             el.classList.remove('disabled');
             el.style.pointerEvents = 'auto';
             el.style.cursor = 'pointer';
+        }
+    });
+
+    document.querySelectorAll('#chips-meaning-mode .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-meaning-mode');
+        const isSel = (val === (roomConfig.meaningMode || 'all'));
+        el.classList.toggle('selected', isSel);
+        if (!isHost) {
+            el.classList.add('disabled');
+            el.style.pointerEvents = 'none';
+            el.style.cursor = 'default';
+            el.style.opacity = isSel ? '1' : '0.4';
+        } else {
+            el.classList.remove('disabled');
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+            el.style.opacity = '1';
         }
     });
 
@@ -1547,7 +1587,7 @@ async function startOnlineGame() {
 
     try {
         const words = await BookManager.loadMultipleBooks(roomConfig.selectedBooks);
-        const sharedPool = generateShuffledPoolFromWords(words, 80);
+        const sharedPool = generateShuffledPoolFromWords(words, 80, roomConfig.meaningMode || 'all');
         const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
         hostRank = myRankData.rank;
         hostRating = myRankData.rating;
@@ -2818,12 +2858,19 @@ function endGame(msg, broadcastToPeer) {
         }
     }
 
+    const matchSummaryPool = (p1State && Array.isArray(p1State.pool))
+        ? p1State.pool.slice(0, Math.max((p1State.currentIdx || 0) + 1, p1State.score || 0))
+        : [];
+    const matchMistakes = (p1State && Array.isArray(p1State.mistakes)) ? p1State.mistakes : [];
+
     gameResult = {
         mode: gameMode,
         msg: msg,
         p1Score: p1State.score,
         p2Score: p2State.score,
-        matchResult: matchResult
+        matchResult: matchResult,
+        pool: matchSummaryPool,
+        sessionMistakes: matchMistakes
     };
     renderResult();
     switchView('view-result');
@@ -2831,7 +2878,13 @@ function endGame(msg, broadcastToPeer) {
 
 function renderResult() {
     if (!gameResult) return;
-    document.getElementById('result-message').innerText = gameResult.msg;
+    const viewResultEl = document.getElementById('view-result');
+    const isStudySummary = (gameResult.mode === 'single' || gameResult.mode === 'shici' || gameResult.mode === 'dictation' || gameResult.mode === 'ai_duel' || gameResult.mode === 'online' || gameResult.mode === 'local_duel');
+    if (viewResultEl) {
+        viewResultEl.classList.toggle('is-study-summary-mode', isStudySummary);
+    }
+    const msgEl = document.getElementById('result-message');
+    if (msgEl) msgEl.innerText = gameResult.msg;
     const details = document.getElementById('result-details');
     const btnBackRoom = document.getElementById('btn-back-room');
     const btnResultHub = document.getElementById('btn-result-hub');
@@ -2842,7 +2895,7 @@ function renderResult() {
         if (gameResult.mode === 'ai_duel' || gameResult.mode === 'online') {
             btnSharePoster.style.display = 'inline-flex';
             if (btnSharePosterText) btnSharePosterText.innerText = '晒成绩';
-        } else if (gameResult.mode === 'single' || gameResult.mode === 'shici' || gameResult.mode === 'dictation') {
+        } else if (isStudySummary) {
             btnSharePoster.style.display = 'inline-flex';
             if (btnSharePosterText) btnSharePosterText.innerText = '晒成绩';
         } else {
@@ -2852,7 +2905,7 @@ function renderResult() {
 
     const resultCard = document.querySelector('#view-result .card');
     if (resultCard) {
-        resultCard.style.maxWidth = (gameResult.mode === 'single' || gameResult.mode === 'shici' || gameResult.mode === 'dictation') ? '720px' : '500px';
+        resultCard.style.maxWidth = isStudySummary ? '680px' : '500px';
     }
 
     if (gameResult.mode === 'single') {
@@ -2876,40 +2929,9 @@ function renderResult() {
                 if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
             });
         }
-        // 背词小结的本次作答严格显示每组的学习数，只要答错就在小结中归为错题
         const sessionMistakeSet = new Set(Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes : ((singleState && singleState.sessionMistakes) ? Array.from(singleState.sessionMistakes) : []));
-        const uniqueWordsMap = new Map();
-        (pool || []).forEach(p => {
-            if (p && p.word) {
-                const k = p.word.trim().toLowerCase();
-                if (!uniqueWordsMap.has(k)) {
-                    uniqueWordsMap.set(k, p);
-                }
-            }
-        });
-        const totalCount = uniqueWordsMap.size || (singleState ? singleState.targetTotal : 0) || (pool ? pool.length : 0);
-        let mistakeCount = 0;
-        uniqueWordsMap.forEach((p, k) => {
-            if (sessionMistakeSet.has(k) || !p.isCorrect) {
-                mistakeCount++;
-            }
-        });
-        const correctCount = Math.max(0, totalCount - mistakeCount);
-        const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
-        details.innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-label">本次作答</span>
-                        <span class="stat-value">${totalCount}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">正确率</span>
-                        <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
-                    </div>
-                </div>
-                ${renderSingleSummaryHtml(pool, sessionMistakeSet)}
-            `;
+        details.innerHTML = renderSingleSummaryHtml(pool, sessionMistakeSet);
     } else if (gameResult.mode === 'shici') {
         btnBackRoom.style.display = 'inline-flex';
         btnBackRoom.innerText = '再练一组';
@@ -2918,23 +2940,7 @@ function renderResult() {
         if (btnResultHub) btnResultHub.innerText = '返回主页';
 
         const pool = gameResult.pool || [];
-        const totalCount = pool.length;
-        const correctCount = gameResult.p1Score !== undefined ? gameResult.p1Score : 0;
-        const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-
-        details.innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-label">本次实词</span>
-                        <span class="stat-value">${totalCount}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">正确率</span>
-                        <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
-                    </div>
-                </div>
-                ${renderShiCiSummaryHtml(pool)}
-            `;
+        details.innerHTML = renderShiCiSummaryHtml(pool);
     } else if (gameResult.mode === 'dictation') {
         btnBackRoom.style.display = 'inline-flex';
         btnBackRoom.innerText = '再练一组';
@@ -2951,29 +2957,8 @@ function renderResult() {
             Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes :
             (gameResult.sessionMistakes instanceof Set ? Array.from(gameResult.sessionMistakes) : [])
         );
-        const totalCount = pool.length;
-        let mistakeCount = 0;
-        pool.forEach(q => {
-            if (sessionMistakeSet.has((q.word || '').trim().toLowerCase()) || !q.isCorrect) {
-                mistakeCount++;
-            }
-        });
-        const correctCount = Math.max(0, totalCount - mistakeCount);
-        const rate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
-        details.innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-label">本次默写</span>
-                        <span class="stat-value">${totalCount}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">正确率</span>
-                        <span class="stat-value" style="color: ${rate >= 60 ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)'};">${rate}%</span>
-                    </div>
-                </div>
-                ${typeof renderDictationSummaryHtml === 'function' ? renderDictationSummaryHtml(pool, sessionMistakeSet) : ''}
-            `;
+        details.innerHTML = typeof renderDictationSummaryHtml === 'function' ? renderDictationSummaryHtml(pool, sessionMistakeSet) : '';
     } else if (gameResult.mode === 'ai_duel') {
         btnBackRoom.style.display = 'inline-flex';
         btnBackRoom.innerText = '再战人机';
@@ -2985,6 +2970,9 @@ function renderResult() {
         const myAvatar = (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : '');
         const myAvatarHtml = myAvatar ? `<img src="${escapeHtml(myAvatar)}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">` : `<div style="width:44px; height:44px; border-radius:50%; background:var(--p1-sys-color, #ba1a1a); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">person</span></div>`;
         const aiAvatarHtml = `<div style="width:44px; height:44px; border-radius:50%; background:var(--p2-sys-color, #006874); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:26px;">smart_toy</span></div>`;
+        const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(gameResult.pool) && gameResult.pool.length > 0)
+            ? renderSingleSummaryHtml(gameResult.pool, gameResult.sessionMistakes || [])
+            : '';
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
@@ -3000,6 +2988,7 @@ function renderResult() {
                     </div>
                 </div>
                 ${renderMatchResultBadgeHtml(gameResult.matchResult)}
+                ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
             `;
     } else {
         btnBackRoom.style.display = 'inline-flex';
@@ -3017,6 +3006,9 @@ function renderResult() {
 
         const oppoTitle = isHost ? guestName : hostName;
         const oppoRankDisplay = currentMatchOppoRank ? ` (${currentMatchOppoRank}段)` : '';
+        const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(gameResult.pool) && gameResult.pool.length > 0)
+            ? renderSingleSummaryHtml(gameResult.pool, gameResult.sessionMistakes || [])
+            : '';
         details.innerHTML = `
                 <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
                     <div>
@@ -3030,6 +3022,7 @@ function renderResult() {
                     </div>
                 </div>
                 ${renderMatchResultBadgeHtml(gameResult.matchResult)}
+                ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
             `;
     }
 }
@@ -3268,20 +3261,7 @@ async function cleanAccountSwitchPresence(oldUser, newUser) {
 window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
 async function updateMyLobbyPresence() {
-    if (!currentUser) return;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
-    if (myPresenceStatus === 'invisible') {
-        if (globalLobbyChannel) {
-            try {
-                await globalLobbyChannel.untrack();
-            } catch (e) { }
-        }
-        if (sbClient) {
-            sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
-        }
-        return;
-    }
-    if (!globalLobbyChannel) return;
+    if (!currentUser || !globalLobbyChannel) return;
     let myRank = 1;
     let myRating = 0;
     if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
@@ -3317,16 +3297,13 @@ function initGlobalPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
     const initialStatus = isPlayingMatch ? 'playing' : 'idle';
 
     if (globalLobbyChannel) {
         if ((globalLobbyChannel.state === 'joined' || globalLobbyChannel.state === 'subscribing') && lobbyCurrentChannelUser === currentUser) {
             if (globalLobbyChannel.state === 'joined') {
                 try {
-                    if (myPresenceStatus === 'invisible') {
-                        globalLobbyChannel.untrack();
-                    } else if (typeof globalLobbyChannel.track === 'function') {
+                    if (typeof globalLobbyChannel.track === 'function') {
                         globalLobbyChannel.track({
                             username: currentUser,
                             sessionId: CLIENT_SESSION_ID,
@@ -3394,7 +3371,7 @@ function initGlobalPresence() {
     // 若频道已被订阅（罕见复用情况），不再重复绑定 presence 回调以防抛错
     if (chan.state === 'joined' || chan.state === 'joining') {
         isConnectingLobby = false;
-        if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+        if (chan && typeof chan.track === 'function') {
             chan.track({
                 username: currentUser,
                 sessionId: CLIENT_SESSION_ID,
@@ -3475,7 +3452,7 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
-                if (myPresenceStatus !== 'invisible' && chan && typeof chan.track === 'function') {
+                if (chan && typeof chan.track === 'function') {
                     try {
                         await chan.track({
                             username: currentUser,
@@ -3529,34 +3506,28 @@ function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
         if (!currentUser) return;
-        // 1. WebSocket Presence 续期（游客与登录用户均续期并自动重连，隐身状态保持 untrack）
-        const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
-                if (myPresenceStatus === 'invisible') {
-                    globalLobbyChannel.untrack();
-                } else {
-                    let myRank = 1;
-                    let myRating = 0;
-                    if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
-                        const rd = LevelManager.getUserRankData(currentUser);
-                        myRank = rd.rank;
-                        myRating = rd.rating;
-                    }
-                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-                    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
-                    globalLobbyChannel.track({
-                        username: currentUser,
-                        sessionId: CLIENT_SESSION_ID,
-                        avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-                        level: myRank,
-                        rank: myRank,
-                        rating: myRating,
-                        isBili: isBili,
-                        status: initialStatus,
-                        joinedAt: Date.now()
-                    });
+                let myRank = 1;
+                let myRating = 0;
+                if (typeof LevelManager !== 'undefined' && !currentUser.startsWith('游客')) {
+                    const rd = LevelManager.getUserRankData(currentUser);
+                    myRank = rd.rank;
+                    myRating = rd.rating;
                 }
+                const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                const initialStatus = isPlayingMatch ? 'playing' : 'idle';
+                globalLobbyChannel.track({
+                    username: currentUser,
+                    sessionId: CLIENT_SESSION_ID,
+                    avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                    level: myRank,
+                    rank: myRank,
+                    rating: myRating,
+                    isBili: isBili,
+                    status: initialStatus,
+                    joinedAt: Date.now()
+                });
             } catch (e) { }
         } else if (!isConnectingLobby) {
             // 兜底：任何非 joined 状态（包括 leaving、joining 卡死等）均重连
@@ -3576,40 +3547,36 @@ function startPresenceHeartbeat() {
         if (!isPlayingMatch && (nowMs - lastRestOnlineFetchTime >= 45000)) {
             try {
                 if (sbClient && currentUser) {
-                    if (myPresenceStatus === 'invisible') {
-                        sbClient.from('rooms').delete().eq('code', `ONL_${getUserRoomCode(currentUser)}`).then(() => { }).catch(() => { });
-                    } else {
-                        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                        const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                        const statusVal = 'idle';
-                        const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+                    const statusVal = 'idle';
+                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
 
-                        // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                        sbClient.from('rooms').upsert({
-                            code: `ONL_${getUserRoomCode(currentUser)}`,
-                            name: currentUser,
-                            host: currentUser,
-                            capacity: 2,
-                            player_count: 1,
+                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
+                    sbClient.from('rooms').upsert({
+                        code: `ONL_${getUserRoomCode(currentUser)}`,
+                        name: currentUser,
+                        host: currentUser,
+                        capacity: 2,
+                        player_count: 1,
+                        status: statusVal,
+                        is_temporary: true,
+                        config: {
+                            avatar: myAvatar,
+                            rank: myRankData.rank,
+                            rating: myRankData.rating,
+                            isBili: isBili,
                             status: statusVal,
-                            is_temporary: true,
-                            config: {
-                                avatar: myAvatar,
-                                rank: myRankData.rank,
-                                rating: myRankData.rating,
-                                isBili: isBili,
-                                status: statusVal,
-                                clientSession: CLIENT_SESSION_ID
-                            },
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+                            clientSession: CLIENT_SESSION_ID
+                        },
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
 
-                        // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
-                        if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                            sbClient.from('user_accounts').update({
-                                updated_at: new Date().toISOString()
-                            }).eq('username', currentUser).then(() => { }).catch(() => { });
-                        }
+                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
+                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
+                        sbClient.from('user_accounts').update({
+                            updated_at: new Date().toISOString()
+                        }).eq('username', currentUser).then(() => { }).catch(() => { });
                     }
                 }
             } catch (e) { }
@@ -4113,6 +4080,11 @@ function renderInviteRuleChips() {
         el.classList.toggle('selected', val === (activeInviteRules.gaugeStyle || 'tug'));
     });
 
+    document.querySelectorAll('#invite-chips-meaning-mode .md3-chip').forEach(el => {
+        const val = el.getAttribute('data-meaning-mode');
+        el.classList.toggle('selected', val === (activeInviteRules.meaningMode || 'all'));
+    });
+
     updateInvitePresetSummaryUI();
 }
 
@@ -4218,6 +4190,13 @@ function selectInviteRuleGauge(val) {
 }
 window.selectInviteRuleGauge = selectInviteRuleGauge;
 
+function selectInviteRuleMeaningMode(val) {
+    if (!activeInviteRules) return;
+    activeInviteRules.meaningMode = val === 'random' ? 'random' : 'all';
+    renderInviteRuleChips();
+}
+window.selectInviteRuleMeaningMode = selectInviteRuleMeaningMode;
+
 function updateInviteBookSummaryUI() {
     if (!activeInviteRules) return;
     const books = activeInviteRules.selectedBooks || [];
@@ -4279,6 +4258,7 @@ async function confirmAndSendMatchInvite() {
         winLead: activeInviteRules.winLead || 6,
         gaugeStyle: activeInviteRules.gaugeStyle || 'tug',
         matchType: effectiveMatchType,
+        meaningMode: activeInviteRules.meaningMode || 'all',
         targetUser: activeInviteTarget,
         selectedBooks: activeInviteRules.selectedBooks || ['books/高中/高中考纲.json']
     };
@@ -4557,25 +4537,7 @@ function handleReceivedMatchInvite(payload) {
         return;
     }
 
-    // 4. 隐身模式检查
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
-    if (myPresenceStatus === 'invisible') {
-        markInviteHandled(payload);
-        if (globalLobbyChannel) {
-            safeBroadcast(globalLobbyChannel, 'invite_response', {
-                from: currentUser,
-                to: payload.from,
-                accepted: false,
-                isInvisible: true
-            });
-        }
-        if (payload.roomCode && sbClient && payload.roomCode !== getUserRoomCode(currentUser)) {
-            sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
-        }
-        return;
-    }
-
-    // 5. 展示邀请弹窗
+    // 4. 展示邀请弹窗
     currentIncomingInvite = payload;
     markInviteHandled(payload);
 

@@ -130,8 +130,10 @@ function updatePronunciationSettingsChips() {
 // 5. 差异化播放总路由：支持英语单词、英语词组、中文
 // ==========================================================================
 function playWordAudio(rawText, type = null) {
-    if (type === null || type === undefined) {
+    if (type !== 1 && type !== 2 && type !== '1' && type !== '2') {
         type = getDefaultPronunciationAccent();
+    } else {
+        type = Number(type);
     }
     if (!rawText) return;
     ensureAudioContextUnlocked();
@@ -209,15 +211,15 @@ function playWordAudio(rawText, type = null) {
             return;
         }
 
-        // 有网环境下播放有道网络音频
+        // 有网环境下播放有道网络音频，加载失败时自动无缝回退到本地语音
         const url = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(spokenPhrase)}`;
-        playNetworkAudioFallback(url);
+        playNetworkAudioFallback(url, spokenPhrase, type === 1 ? 'en-GB' : 'en-US');
         return;
     }
 
     // ----------------------------------------------------------------------
     // 场景 3：英语单词 (English Single Words)
-    // 策略：仅在无网环境下播放系统自带语音；在线环境下仅播放有道语音，绝不重叠混音
+    // 策略：优先有道在线高保真人声，出错或无网络时无缝回退到本地语音
     // ----------------------------------------------------------------------
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode()) || (typeof navigator !== 'undefined' && !navigator.onLine) || window._isDeviceOfflineForce;
     if (isOffline) {
@@ -234,9 +236,7 @@ function playWordAudio(rawText, type = null) {
             cachedAudio.currentTime = 0;
             currentActiveAudio = cachedAudio;
             cachedAudio.play().catch(() => {
-                if (typeof navigator !== 'undefined' && !navigator.onLine) {
-                    speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
-                }
+                speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
             });
             return;
         } catch (e) {
@@ -244,7 +244,7 @@ function playWordAudio(rawText, type = null) {
         }
     }
 
-    // 未命中缓存：在线环境下播放有道语音，不启动系统并发定时器，彻底防止混音
+    // 未命中缓存：在线环境下播放有道语音，失败或被拦截时可靠回退到原生语音
     const netUrl = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`;
     const audio = new Audio(netUrl);
     currentActiveAudio = audio;
@@ -255,9 +255,7 @@ function playWordAudio(rawText, type = null) {
 
     audio.onerror = () => {
         currentActiveAudio = null;
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
-        }
+        speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     };
 
     audio.play().then(() => {
@@ -267,18 +265,26 @@ function playWordAudio(rawText, type = null) {
         }
         AudioCache.set(wordKey, audio);
     }).catch(() => {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
-        }
+        currentActiveAudio = null;
+        speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     });
 }
 
-function playNetworkAudioFallback(url) {
+function playNetworkAudioFallback(url, fallbackText = null, lang = 'en-US') {
     try {
         const audio = new Audio(url);
         currentActiveAudio = audio;
-        audio.play().catch(() => { });
-    } catch (e) { }
+        audio.onerror = () => {
+            currentActiveAudio = null;
+            if (fallbackText) speakNative(fallbackText, lang, 0.95);
+        };
+        audio.play().catch(() => {
+            currentActiveAudio = null;
+            if (fallbackText) speakNative(fallbackText, lang, 0.95);
+        });
+    } catch (e) {
+        if (fallbackText) speakNative(fallbackText, lang, 0.95);
+    }
 }
 
 // ==========================================================================
@@ -324,4 +330,15 @@ function playDictationAudio() {
         }
         playWordAudio(dictationState.currentQ.word);
     }
+}
+
+// 统一导出到全局 window，确保内联 onclick 与动态模板无缝调用
+if (typeof window !== 'undefined') {
+    window.playWordAudio = playWordAudio;
+    window.playAudio = playWordAudio;
+    window.playWordVoice = playWordVoice;
+    window.preloadWordAudio = preloadWordAudio;
+    window.playCurrentSingleWordAudio = playCurrentSingleWordAudio;
+    window.playDictationAudio = playDictationAudio;
+    if (typeof speakNative === 'function') window.speakNative = speakNative;
 }

@@ -87,7 +87,6 @@ function updateGlobalNetworkBadge(status) {
     const badge = document.getElementById('hub-online-offline-badge');
     const badgeText = document.getElementById('hub-online-offline-text');
     const btnOnline = document.getElementById('btn-enter-online');
-    const myPresenceStatus = (typeof currentPresenceStatus !== 'undefined') ? currentPresenceStatus : (window.currentPresenceStatus || localStorage.getItem('vocab_presence_status') || 'online');
 
     if (!badge || !badgeText) return;
 
@@ -98,16 +97,6 @@ function updateGlobalNetworkBadge(status) {
         if (btnOnline) {
             btnOnline.disabled = true;
             btnOnline.style.opacity = '0.45';
-        }
-        return;
-    }
-
-    if (myPresenceStatus === 'invisible') {
-        badge.className = 'network-status-badge invisible';
-        badgeText.innerText = '隐身';
-        if (btnOnline) {
-            btnOnline.disabled = false;
-            btnOnline.style.opacity = '1';
         }
         return;
     }
@@ -1172,19 +1161,49 @@ function restoreUserDataFromCloud(user) {
             }
         } catch (e) { }
     }
-    if (ud.daily_logs) {
+    if (ud.daily_logs && typeof ud.daily_logs === 'object') {
         try {
-            SafeStorage.setItem(`vocab_daily_logs_${u}`, JSON.stringify(ud.daily_logs));
+            const localRaw = SafeStorage.getItem(`vocab_daily_logs_${u}`) || (typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_daily_logs_${u}`) : null);
+            const localLogs = localRaw ? JSON.parse(localRaw) : {};
+            const mergedLogs = { ...ud.daily_logs };
+            Object.keys(localLogs).forEach(dateKey => {
+                const locDay = localLogs[dateKey];
+                const cldDay = mergedLogs[dateKey];
+                if (!locDay || typeof locDay !== 'object') return;
+                if (!cldDay || typeof cldDay !== 'object') {
+                    mergedLogs[dateKey] = locDay;
+                } else {
+                    mergedLogs[dateKey] = {
+                        learned: Math.max(locDay.learned || 0, cldDay.learned || 0),
+                        reviewed: Math.max(locDay.reviewed || 0, cldDay.reviewed || 0),
+                        shici: Math.max(locDay.shici || 0, cldDay.shici || 0),
+                        riddle: Math.max(locDay.riddle || 0, cldDay.riddle || 0),
+                        dictation: Math.max(locDay.dictation || 0, cldDay.dictation || 0),
+                        durationSeconds: Math.max(locDay.durationSeconds || 0, cldDay.durationSeconds || 0)
+                    };
+                }
+            });
+            const mergedLogsStr = JSON.stringify(mergedLogs);
+            SafeStorage.setItem(`vocab_daily_logs_${u}`, mergedLogsStr);
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem(`vocab_daily_logs_${u}`, mergedLogsStr); } catch (e) { }
+            }
         } catch (e) { }
     }
     if (ud.mastered_words) {
         try {
             SafeStorage.setItem(`vocab_mastered_words_${u}`, JSON.stringify(ud.mastered_words));
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem(`vocab_mastered_words_${u}`, JSON.stringify(ud.mastered_words)); } catch (e) { }
+            }
         } catch (e) { }
     }
     if (ud.wordle_history) {
         try {
             SafeStorage.setItem(`vocab_wordle_history_${u}`, JSON.stringify(ud.wordle_history));
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem(`vocab_wordle_history_${u}`, JSON.stringify(ud.wordle_history)); } catch (e) { }
+            }
         } catch (e) { }
     }
     if (ud.shici_progress) {
@@ -1194,13 +1213,29 @@ function restoreUserDataFromCloud(user) {
     }
 
     if (window.EbbinghausEngine) {
-        try { window.EbbinghausEngine.updateDueBadge(); } catch (e) { }
+        try {
+            window.EbbinghausEngine.invalidateProgressCache();
+            window.EbbinghausEngine.updateDueBadge();
+        } catch (e) { }
     }
     if (typeof updateHubLevelUI === 'function') {
         try { updateHubLevelUI(); } catch (e) { }
     }
     if (typeof updateHub === 'function') {
         try { updateHub(); } catch (e) { }
+    }
+    if (typeof currentView !== 'undefined' && currentView === 'view-me') {
+        if (typeof renderMeView === 'function') {
+            try { renderMeView(); } catch (e) { }
+        }
+        const detailSub = document.getElementById('settings-subview-detailed-stats');
+        if (detailSub && detailSub.classList.contains('active') && typeof renderDetailedStatsSubview === 'function') {
+            try { renderDetailedStatsSubview(); } catch (e) { }
+        }
+        const reviewSub = document.getElementById('settings-subview-review-plan');
+        if (reviewSub && reviewSub.classList.contains('active') && typeof renderReviewPlanSubview === 'function') {
+            try { renderReviewPlanSubview(); } catch (e) { }
+        }
     }
 }
 

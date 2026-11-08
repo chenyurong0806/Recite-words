@@ -13,7 +13,8 @@ let aiDuelConfig = {
     speedMode: 'smart',
     mode: 'lead', // 默认为拔河不限时模式 ('lead' 或 'timed')
     winLead: 6,
-    duration: 60
+    duration: 60,
+    meaningMode: 'all'
 };
 
 try {
@@ -21,6 +22,7 @@ try {
     if (savedAi) {
         Object.assign(aiDuelConfig, savedAi);
         if (!aiDuelConfig.matchType) aiDuelConfig.matchType = 'ranked';
+        if (!aiDuelConfig.meaningMode) aiDuelConfig.meaningMode = 'all';
         if (!Array.isArray(aiDuelConfig.selectedBooks)) {
             aiDuelConfig.selectedBooks = [];
         }
@@ -357,7 +359,18 @@ function updateAiDuelSettingsChips() {
             c.style.opacity = '1';
         }
     });
+
+    document.querySelectorAll('#chips-ai-meaning-mode .md3-chip').forEach(c => {
+        c.classList.toggle('selected', c.getAttribute('data-meaning-mode') === (aiDuelConfig.meaningMode || 'all'));
+    });
 }
+
+function selectAiMeaningMode(mode) {
+    aiDuelConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
+    updateAiDuelSettingsChips();
+    localStorage.setItem('vocab_ai_duel_config', JSON.stringify(aiDuelConfig));
+}
+window.selectAiMeaningMode = selectAiMeaningMode;
 
 function selectAiSpeedMode(speed) {
     if (aiDuelConfig.matchType === 'ranked' && speed !== 'smart') {
@@ -424,7 +437,7 @@ async function startAiDuel() {
         return;
     }
 
-    const sharedPool = generateShuffledPoolFromWords(words, 80);
+    const sharedPool = generateShuffledPoolFromWords(words, 80, aiDuelConfig.meaningMode || 'all');
     // 确保玩家与系统 AI 题库与出题顺序 100% 完全一致
     const questionSequence = [...sharedPool];
     resetPlayerState(p1State, [...questionSequence]);

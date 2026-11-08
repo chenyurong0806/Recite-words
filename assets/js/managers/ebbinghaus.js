@@ -10,29 +10,38 @@ const EBBINGHAUS_INTERVALS = [
     28 * 24 * 60 * 60 * 1000   // 第 4 轮复习：28天后（四周后）
 ];
 
+function getEbbinghausCurrentUser() {
+    return (typeof currentUser !== 'undefined' && currentUser)
+        || (typeof window !== 'undefined' && window.currentUser)
+        || (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username)
+        || (typeof window !== 'undefined' && window.currentUserProfile && window.currentUserProfile.username)
+        || (typeof SafeStorage !== 'undefined' && SafeStorage.getItem ? SafeStorage.getItem('vocab_pk_user') : (typeof localStorage !== 'undefined' ? localStorage.getItem('vocab_pk_user') : ''))
+        || 'guest';
+}
+
 const EbbinghausEngine = {
     _progressCache: {},
     invalidateProgressCache() {
         this._progressCache = {};
     },
     getRecords() {
-        if (!currentUser) return {};
+        const u = getEbbinghausCurrentUser();
         try {
             const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
-                ? SafeStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`)
-                : localStorage.getItem(`vocab_ebbinghaus_db_${currentUser}`);
+                ? SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`)
+                : localStorage.getItem(`vocab_ebbinghaus_db_${u}`);
             return raw ? JSON.parse(raw) : {};
         } catch (e) { return {}; }
     },
     saveRecords(records) {
-        if (!currentUser) return;
+        const u = getEbbinghausCurrentUser();
         this.invalidateProgressCache();
         const str = JSON.stringify(records);
         try {
             if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
-                SafeStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+                SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, str);
             } else {
-                localStorage.setItem(`vocab_ebbinghaus_db_${currentUser}`, str);
+                localStorage.setItem(`vocab_ebbinghaus_db_${u}`, str);
             }
         } catch (e) { }
     },
@@ -95,7 +104,6 @@ const EbbinghausEngine = {
         if (!words && BookManager.bookCache) {
             words = BookManager.bookCache[bookId];
             if (!words) {
-                // 尝试归一化匹配别名
                 const normId = (bookId || '').replace(/^books\//, '').replace(/\.json$/, '');
                 for (const k in BookManager.bookCache) {
                     const normK = k.replace(/^books\//, '').replace(/\.json$/, '');
@@ -140,7 +148,6 @@ const EbbinghausEngine = {
                 }
             });
 
-            // 掌握度计算：已学习/掌握的单词数占总词数比例
             let progressPercent = 0;
             if (total > 0 && learned > 0) {
                 const rawPercent = (learned / total) * 100;
@@ -151,10 +158,11 @@ const EbbinghausEngine = {
                     progressPercent = Math.min(100, Math.round(rawPercent));
                 }
             }
-            return { total, learned, due, mastered, progressPercent };
+            const res = { total, learned, due, mastered, progressPercent };
+            this._progressCache[cacheKey] = res;
+            return res;
         }
 
-        // 若词汇列表尚未加载到内存，尝试通过元数据与已学记录计算
         let metaCount = 0;
         const normId = (bookId || '').replace(/^books\//, '').replace(/\.json$/, '');
         const meta = (BookManager.availableBooks || []).find(b => b.id === bookId || (b.id && b.id.replace(/^books\//, '').replace(/\.json$/, '') === normId)) ||
@@ -200,11 +208,22 @@ const EbbinghausEngine = {
         return { total, learned, due, mastered, progressPercent };
     },
     async resetBookProgress(bookId) {
-        if (!currentUser || !bookId) return;
-        let words = await BookManager.loadBookData(bookId);
+        const user = (typeof currentUser !== 'undefined' && currentUser) || window.currentUser || (window.currentUserProfile && window.currentUserProfile.username) || 'guest';
+        if (!bookId) return;
+        const normTargetId = String(bookId).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase();
+        let words = (typeof BookManager !== 'undefined' && BookManager.bookCache) ? BookManager.bookCache[bookId] : null;
+        if (!words && typeof BookManager !== 'undefined' && typeof BookManager.loadBookData === 'function') {
+            try {
+                words = await BookManager.loadBookData(bookId);
+            } catch (e) { }
+        }
+        if ((!words || words.length === 0) && window.customBooks) {
+            const cb = window.customBooks.find(b => b.id === bookId || String(b.id).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() === normTargetId);
+            if (cb && cb.words) words = cb.words;
+        }
         if (!words || words.length === 0) {
-            if (bookId === 'books/高中/高中考纲.json' || bookId === 'books/高中/高中考纲词汇.json' || bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === 'books/经典/高中考纲词汇.json') {
-                words = DEFAULT_WORDS;
+            if (bookId === 'builtin_default' || bookId === 'books/高中/高中考纲.json' || bookId === 'books/高中/高中考纲词汇.json' || bookId === 'GaoKao3500' || bookId === 'books/考纲/高考3500.json' || bookId === '经典/高中考纲词汇.json') {
+                words = typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : [];
             }
         }
         const records = this.getRecords();
@@ -213,27 +232,116 @@ const EbbinghausEngine = {
                 if (!w || !w.word) return;
                 const k = w.word.trim().toLowerCase();
                 delete records[k];
-                removeWordMastered(k);
+                if (typeof removeWordMastered === 'function') removeWordMastered(k);
             });
         }
         Object.keys(records).forEach(k => {
-            if (records[k] && records[k].bookId === bookId) {
-                removeWordMastered(records[k].word);
+            const rec = records[k];
+            if (!rec) return;
+            const recNorm = rec.bookId ? String(rec.bookId).replace(/^books\//, '').replace(/\.json$/, '').toLowerCase() : '';
+            if (rec.bookId === bookId || (recNorm && recNorm === normTargetId)) {
+                if (typeof removeWordMastered === 'function') removeWordMastered(rec.word);
                 delete records[k];
             }
         });
         this.saveRecords(records);
+        if (typeof invalidateBookProgressCache === 'function') invalidateBookProgressCache(bookId);
         this.updateDueBadge();
         if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+        if (typeof syncAllUserDataToCloud === 'function') syncAllUserDataToCloud();
+    },
+    getScheduledReviewWords() {
+        const records = this.getRecords();
+        const list = [];
+        const now = Date.now();
+
+        // 构建快速查词字典以补全缺失的释义或音标
+        let fallbackWordMap = null;
+        const lookupWordMeta = (wText) => {
+            if (!fallbackWordMap) {
+                fallbackWordMap = new Map();
+                const addWords = (arr) => {
+                    if (!Array.isArray(arr)) return;
+                    for (let i = 0; i < arr.length; i++) {
+                        const it = arr[i];
+                        if (it && it.word) {
+                            const k = it.word.trim().toLowerCase();
+                            if (!fallbackWordMap.has(k)) fallbackWordMap.set(k, it);
+                        }
+                    }
+                };
+                if (typeof DEFAULT_WORDS !== 'undefined') addWords(DEFAULT_WORDS);
+                if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+                    Object.values(BookManager.bookCache).forEach(addWords);
+                }
+                if (Array.isArray(window.customBooks)) {
+                    window.customBooks.forEach(cb => addWords(cb && cb.words));
+                }
+            }
+            return fallbackWordMap.get(String(wText || '').trim().toLowerCase()) || null;
+        };
+
+        Object.values(records).forEach(r => {
+            if (!r || !r.word) return;
+            if (typeof isWordMastered === 'function' && isWordMastered(r.word)) return;
+            if (r.stage >= 1 && r.stage < 5 && r.nextReview) {
+                let meaning = r.meaning || '';
+                let phone = r.phone || '';
+                if (!meaning || !phone) {
+                    const meta = lookupWordMeta(r.word);
+                    if (meta) {
+                        if (!meaning) meaning = meta.meaning || (Array.isArray(meta.trans) ? meta.trans.join('；') : '');
+                        if (!phone) phone = meta.phone || meta.usphone || meta.ukphone || '';
+                    }
+                }
+                if (phone) {
+                    const cleanP = String(phone).replace(/^\/+|\/+$/g, '').trim();
+                    phone = cleanP ? `/${cleanP}/` : '';
+                }
+                list.push({
+                    word: r.word,
+                    meaning,
+                    phone,
+                    stage: r.stage || 1,
+                    nextReview: r.nextReview,
+                    isDue: r.nextReview <= now,
+                    lastPracticed: r.lastPracticed || 0,
+                    bookId: r.bookId || '',
+                    isShiCi: false
+                });
+            }
+        });
+        if (typeof ShiCiEbbinghausEngine !== 'undefined' && typeof ShiCiEbbinghausEngine.getRecords === 'function') {
+            const shiciRecs = ShiCiEbbinghausEngine.getRecords() || {};
+            Object.values(shiciRecs).forEach(r => {
+                if (!r || !r.word) return;
+                if (r.stage >= 1 && r.stage < 5 && r.nextReview) {
+                    list.push({
+                        word: r.word,
+                        meaning: r.meaning || '',
+                        phone: r.phone || '',
+                        stage: r.stage || 1,
+                        nextReview: r.nextReview,
+                        isDue: r.nextReview <= now,
+                        lastPracticed: r.lastPracticed || 0,
+                        bookId: r.bookId || '文言实词',
+                        isShiCi: true
+                    });
+                }
+            });
+        }
+        list.sort((a, b) => a.nextReview - b.nextReview);
+        return list;
     },
     recordWord(word, meaning, phone, isSuccess, bookId = null) {
-        if (!word || !currentUser) return;
-        const key = word.trim().toLowerCase();
+        if (!word) return;
+        const rawKey = word.trim().toLowerCase();
+        const normKey = rawKey.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
         const records = this.getRecords();
         const now = Date.now();
-        const isMast = isWordMastered(key);
+        const isMast = isWordMastered(rawKey) || isWordMastered(normKey);
 
-        const record = records[key] || {
+        const record = records[normKey] || records[rawKey] || {
             word: word.trim(),
             meaning: meaning || '',
             phone: phone || '',
@@ -250,18 +358,14 @@ const EbbinghausEngine = {
         const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
 
         if (currentStage === 0) {
-            // 首次学习生词：答对词后再加进度，答错词不要加进度
             if (isSuccess) {
-                // 首次答对进入第 2 轮复习（4天后），并计入已学进度
                 record.stage = 2;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[1];
             } else {
-                // 首次答错仍保持为生词（stage 0），不加已学进度
                 record.stage = 0;
                 record.nextReview = 0;
             }
         } else {
-            // 复习阶段 (Stage 1..4) 或熟词 (Stage 5)
             if (isSuccess) {
                 if (currentStage === 1) {
                     record.stage = 2;
@@ -273,20 +377,21 @@ const EbbinghausEngine = {
                     record.stage = 4;
                     record.nextReview = now + EBBINGHAUS_INTERVALS[3];
                 } else {
-                    // 第 4 轮复习答对 -> 标记为熟词
                     record.stage = 5;
                     record.nextReview = 0;
                     ensureWordMastered(word, phone, meaning);
                 }
             } else {
-                // 任何一轮答错，则回到第 1 轮复习（第二天）
                 record.stage = 1;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[0];
                 removeWordMastered(word);
             }
         }
 
-        records[key] = record;
+        records[normKey] = record;
+        if (rawKey !== normKey) {
+            records[rawKey] = record;
+        }
         this.saveRecords(records);
         this.updateDueBadge();
     },
@@ -313,7 +418,6 @@ const EbbinghausEngine = {
             }
         }
     },
-    // 新增：如果到期当天未复习，则掉一颗星
     checkOverduePenalties() {
         if (!currentUser) return;
         const records = this.getRecords();
@@ -325,16 +429,11 @@ const EbbinghausEngine = {
         let modified = false;
         Object.values(records).forEach(rec => {
             if (!rec || typeof rec.stage !== 'number') return;
-            // 处于复习阶段 (Stage 1..4) 且有到期时间的单词
             if (rec.stage >= 1 && rec.stage <= 4 && rec.nextReview) {
-                // 如果到期时间早于今日凌晨（即昨天或更早到期，但直至今天仍未复习）
                 if (rec.nextReview < todayStartMs) {
-                    // 保证一天只扣减一次，避免每次刷新重复掉星
                     if (rec.lastOverduePenalizedDate !== todayStr) {
                         rec.lastOverduePenalizedDate = todayStr;
-                        // 掉一颗星 (最低保留为第 1 轮复习)
                         rec.stage = Math.max(1, rec.stage - 1);
-                        // 调整为立即待复习
                         rec.nextReview = todayStartMs - 1000;
                         modified = true;
                     }

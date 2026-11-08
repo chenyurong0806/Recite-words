@@ -320,6 +320,13 @@
                     </div>
                 </div>
                 <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">词性及释义展示</label>
+                    <div class="chip-group" id="preset-chips-meaning-mode">
+                        <div class="md3-chip selected" data-meaning-mode="all" onclick="selectPresetMeaningMode('all')">展示所有词性及释义</div>
+                        <div class="md3-chip" data-meaning-mode="random" onclick="selectPresetMeaningMode('random')">随机抽取一个词性及释义</div>
+                    </div>
+                </div>
+                <div>
                     <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; color:var(--md-sys-color-on-surface);">对决词书</label>
                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:var(--md-shape-m); border:1px solid var(--md-sys-color-outline-variant);">
                         <div style="flex:1; min-width:0; padding-right:8px;">
@@ -456,6 +463,13 @@
                         <div class="chip-group" id="invite-chips-gauge">
                             <div class="md3-chip selected" data-gauge="tug" onclick="selectInviteRuleGauge('tug')">拔河 (推荐)</div>
                             <div class="md3-chip" data-gauge="snake" onclick="selectInviteRuleGauge('snake')">盘龙</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:4px; color:var(--md-sys-color-on-surface);">词性及释义展示</label>
+                        <div class="chip-group" id="invite-chips-meaning-mode">
+                            <div class="md3-chip selected" data-meaning-mode="all" onclick="selectInviteRuleMeaningMode('all')">展示所有词性及释义</div>
+                            <div class="md3-chip" data-meaning-mode="random" onclick="selectInviteRuleMeaningMode('random')">随机抽取一个词性及释义</div>
                         </div>
                     </div>
                     <div>
@@ -749,12 +763,16 @@
                     <div id="hub-user-level-badge" class="user-level-badge" style="display:none; font-weight:800; font-size:0.8rem; padding:3px 10px; border-radius:9999px;">
                         Lv. 1
                     </div>
+                    <!-- 收起搜索栏时显示在顶栏的搜索图标按钮 -->
+                    <button type="button" class="hub-mailbox-btn" id="btn-hub-appbar-search" onclick="openSearchPageFromHub()" title="搜索单词、词组或释义" style="display:none;">
+                        <span class="material-symbols-rounded">search</span>
+                    </button>
                     <!-- 邮箱入口按钮 (移到段位与用户胶囊之间，统一胶囊圆角与高度样式，离线模式隐藏) -->
                     <button type="button" class="hub-mailbox-btn offline-hide" id="btn-hub-mailbox" onclick="openMailboxView()" title="系统邮箱">
                         <span class="material-symbols-rounded">mail</span>
                         <span id="hub-mailbox-unread-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:#dc2626; color:#ffffff; font-size:0.68rem; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; line-height:14px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.25); border:2px solid var(--md-sys-color-surface, #ffffff); box-sizing:border-box;">0</span>
                     </button>
-                    <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号与状态菜单" style="cursor: pointer; position: relative;">
+                    <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号菜单" style="cursor: pointer; position: relative;">
                         <div style="position: relative; width: 28px; height: 28px; flex-shrink: 0; display: inline-flex;">
                             <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="width: 100%; height: 100%;">
                                 <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
@@ -767,26 +785,6 @@
 
                     <!-- hub-user-pill 下拉菜单 (MD3规范) -->
                     <div id="hub-user-dropdown" class="md3-menu-dropdown" style="display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:999; min-width:210px; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:8px 0; overflow:hidden;">
-                        <div style="padding: 10px 16px 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                            <div style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);" id="hub-dd-username">用户</div>
-                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="hub-dd-level-text">Lv.1</div>
-                        </div>
-                        <div id="hub-dd-presence-section">
-                            <div style="padding: 6px 16px 2px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-outline);">
-                                状态设置
-                            </div>
-                            <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('online')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                                <span style="width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
-                                <span style="flex:1;">在线</span>
-                                <span class="material-symbols-rounded" id="hub-dd-status-check-online" style="font-size:18px; color:var(--md-sys-color-primary);">check</span>
-                            </button>
-                            <button type="button" class="hub-dd-item" onclick="setUserPresenceStatus('invisible')" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                                <span style="width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
-                                <span style="flex:1;">隐身</span>
-                                <span class="material-symbols-rounded" id="hub-dd-status-check-invisible" style="font-size:18px; color:var(--md-sys-color-primary); display:none;">check</span>
-                            </button>
-                            <div style="height: 1px; background: var(--md-sys-color-outline-variant, #e2e8f0); margin: 6px 0;"></div>
-                        </div>
                         <button type="button" class="hub-dd-item" onclick="switchView('view-me'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
                             <span class="material-symbols-rounded" style="font-size:18px;">person</span>
                             <span>个人中心</span>
@@ -834,7 +832,7 @@
             <!-- 模式卡片 -->
             <div class="modes-grid">
                 <!-- 模式 1: 联机模式 (远程对决 / 人机对决 / 希沃同屏) -->
-                <div class="mode-card">
+                <div class="mode-card" data-home-card-id="mode-duel">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -869,7 +867,7 @@
                 </div>
 
                 <!-- 模式 2: 学习模式 -->
-                <div class="mode-card">
+                <div class="mode-card" data-home-card-id="mode-single">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -904,7 +902,7 @@
                 </div>
 
                 <!-- 模式 3: 文言背实词 -->
-                <div class="mode-card">
+                <div class="mode-card" data-home-card-id="mode-shici">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -939,7 +937,7 @@
                 </div>
 
                 <!-- 模式 4: Wordle 单词谜题 -->
-                <div class="mode-card">
+                <div class="mode-card" data-home-card-id="mode-riddle">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -965,7 +963,7 @@
                 </div>
 
                 <!-- 模式 5: 听音/看义默写 -->
-                <div class="mode-card">
+                <div class="mode-card" data-home-card-id="mode-dictation">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -1034,7 +1032,7 @@
                             <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;" id="hub-activity-status-text">参与活动获得奖励</div>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
+                    <div class="entry-card-action" style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600; flex-shrink:0; margin-left:auto;">
                         <span>查看</span>
                         <span class="material-symbols-rounded entry-card-arrow" style="font-size: 18px;">arrow_forward</span>
                     </div>
@@ -1051,17 +1049,12 @@
                             <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">全服段位+等级分排行</div>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600;">
+                    <div class="entry-card-action" style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600; flex-shrink:0; margin-left:auto;">
                         <span>查看</span>
                         <span class="material-symbols-rounded entry-card-arrow" style="font-size: 18px;">arrow_forward</span>
                     </div>
                 </div>
             </div>
-
-            <footer class="site-global-footer">
-                <div>Copyright © 2026 词迹 All Rights Reserved.</div>
-                <div>网址：<a href="https://www.bilibili.com/toy/cyr/index.html" target="_blank" rel="noopener noreferrer">https://www.bilibili.com/toy/cyr/index.html</a></div>
-            </footer>
         </div>
 
         <!-- VIEW: 排行榜 (全网等级榜与Wordle竞速榜) -->
@@ -1269,16 +1262,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="me-account-top-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <button id="btn-sync-cloud-data" type="button" class="btn btn-outlined btn-sm" onclick="handleManualSyncUserData()" style="padding: 3px 12px; font-size: 0.82rem; height: 32px; border-radius: 999px; display: none; align-items: center; gap: 4px;">
-                                    <span class="material-symbols-rounded" style="font-size: 16px;">sync</span>
-                                    <span class="btn-label-text">同步数据</span>
-                                </button>
-                                <button type="button" class="btn btn-outlined btn-danger btn-sm" onclick="handleAuthLogout()" style="height: 32px;">
-                                    <span class="material-symbols-rounded" style="font-size: 16px;">logout</span>
-                                    <span class="btn-label-text">退出登录</span>
-                                </button>
-                            </div>
+                            <div class="me-account-top-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"></div>
                         </div>
 
                         <!-- 用户等级显示 (实际等级分与上限，9段不用显示上限) -->
@@ -1293,9 +1277,9 @@
                             </div>
                         </div>
 
-                        <!-- 移到下方的账号操作列表 (非按钮形式展示) -->
-                        <div id="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
-                            <div id="me-row-my-items" class="settings-row me-account-action-row clickable offline-hide" onclick="openMyItemsPage()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <!-- 账号操作列表：仅显示“我的道具”、“管理账号”、“退出登录” -->
+                        <div id="me-account-settings-list" class="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
+                            <div id="me-row-my-items" class="settings-row me-account-action-row clickable offline-hide" onclick="openMyItemsPage()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
                                 <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">backpack</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">我的道具</span>
@@ -1305,45 +1289,14 @@
                                     <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                                 </div>
                             </div>
-                            <div id="me-row-sync-data" class="settings-row me-account-action-row clickable" onclick="handleManualSyncUserData()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div id="me-row-manage-account" class="settings-row me-account-action-row clickable" onclick="openMeSubview('account')" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
                                 <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
-                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">云端数据同步</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
-                                    <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                                </div>
-                            </div>
-                            <div id="me-row-edit-username" class="settings-row me-account-action-row clickable" onclick="openEditUsernameModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">edit</span>
-                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">修改用户名</span>
+                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">manage_accounts</span>
+                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">管理账号</span>
                                 </div>
                                 <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                             </div>
-                            <div id="me-row-edit-password" class="settings-row me-account-action-row clickable" onclick="openEditPasswordModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">lock_reset</span>
-                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">修改密码</span>
-                                </div>
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                            </div>
-                            <div class="settings-row me-account-action-row clickable" onclick="handleSwitchAccount()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">switch_account</span>
-                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">切换账号</span>
-                                </div>
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                            </div>
-                            <div id="me-row-delete-account" class="settings-row me-account-action-row danger clickable" onclick="openDeleteAccountModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                    <span class="material-symbols-rounded" style="color: var(--md-sys-color-error, #ba1a1a); font-size: 20px;">person_remove</span>
-                                    <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-error, #ba1a1a);">删除账号</span>
-                                </div>
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                            </div>
-                            <div id="me-row-logout" class="settings-row me-account-action-row danger clickable me-row-mobile-only" onclick="handleAuthLogout()" style="display: none; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div id="me-row-logout" class="settings-row me-account-action-row danger clickable" onclick="handleAuthLogout()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
                                 <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                     <span class="material-symbols-rounded" style="color: var(--md-sys-color-error, #ba1a1a); font-size: 20px;">logout</span>
                                     <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-error, #ba1a1a);">退出登录</span>
@@ -1360,146 +1313,118 @@
                         <span class="material-symbols-rounded" style="font-size:20px;">analytics</span>
                         <span>数据中心</span>
                     </div>
-                    <button type="button" class="btn btn-tonal btn-sm" id="btn-me-share-poster" onclick="handleShareMeStudyPoster()" style="display:none; height:28px; padding:0 12px; font-size:0.78rem; border-radius:9999px;">
-                        <span class="material-symbols-rounded" style="font-size:16px;">share</span>
-                        <span class="btn-label-text">晒成绩</span>
+                    <button type="button" class="btn btn-tonal btn-sm offline-hide" id="btn-me-sync-header" onclick="handleManualSyncUserData()" style="display:none; height:28px; padding:0 12px; font-size:0.78rem; border-radius:9999px; gap:4px; align-items:center;">
+                        <span class="material-symbols-rounded" style="font-size:16px;">sync</span>
+                        <span class="btn-label-text">同步数据</span>
                     </button>
                 </div>
-                <div class="card" style="margin-top: 6px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                        <div style="font-size: 0.92rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">学习总体进度</div>
+                <div class="settings-card" style="padding: 16px 20px;">
+                    <div class="me-data-center-grid">
+                        <div class="me-data-stat-box">
+                            <div class="me-data-stat-label">今日学习 & 复习</div>
+                            <div class="me-data-stat-val"><span id="me-stat-today-words">0</span><small>词</small></div>
+                        </div>
+                        <div class="me-data-stat-box">
+                            <div class="me-data-stat-label">累计学习 & 复习</div>
+                            <div class="me-data-stat-val"><span id="me-stat-total-words">0</span><small>词</small></div>
+                        </div>
+                        <div class="me-data-stat-box">
+                            <div class="me-data-stat-label">今日学习时长</div>
+                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-today-duration">0分钟</div>
+                        </div>
+                        <div class="me-data-stat-box">
+                            <div class="me-data-stat-label">累计学习时长</div>
+                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-total-duration">0分钟</div>
+                        </div>
                     </div>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-label">总作答词数</div>
-                            <div class="stat-value" id="stat-total">0</div>
+
+                    <!-- 数据中心下方操作列表（与 me-account-settings-list 一致的列表样式） -->
+                    <div class="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
+                        <div class="settings-row me-account-action-row clickable" onclick="openMeSubview('detailed-stats')" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">bar_chart</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">详细数据</span>
+                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-label">正确率</div>
-                            <div class="stat-value" id="stat-acc" style="color: var(--md-sys-color-success);">0%</div>
+                        <div class="settings-row me-account-action-row clickable" onclick="openMeSubview('review-plan')" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">event_upcoming</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">复习计划</span>
+                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-label">错词数量</div>
-                            <div class="stat-value" id="stat-mistakes" style="color: var(--md-sys-color-error);">0</div>
+                        <div class="settings-row me-account-action-row clickable" onclick="handleShareMeStudyPoster()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">share</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">晒成绩</span>
+                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                        </div>
+                        <div class="settings-row me-account-action-row clickable" onclick="openExportStudyDataView()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">download_for_offline</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">下载学习数据</span>
+                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                        </div>
+                        <div class="settings-row me-account-action-row" style="display: flex; align-items: center; justify-content: space-between;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">cloud_sync</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">自动同步</span>
+                            </div>
+                            <label class="md3-switch" id="switch-auto-sync-label">
+                                <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
+                                <span class="md3-switch-track">
+                                    <span class="md3-switch-thumb"></span>
+                                </span>
+                            </label>
+                        </div>
+                        <div id="me-row-sync-data" class="settings-row me-account-action-row clickable offline-hide" onclick="handleManualSyncUserData()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">数据同步</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 管理词书 -->
+                <!-- 我的词书 -->
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">library_books</span>
                     <span>我的词书</span>
                 </div>
-                <div class="settings-card">
-                    <div class="settings-row clickable" onclick="openManageBooksPage('view-me');">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box"
-                                style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
-                                <span class="material-symbols-rounded">folder_managed</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>管理词书</h4>
-                                <p id="settings-books-summary-text">查看云端与本地词书、学习进度、新建/重学词书、导入与分类管理</p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-rounded"
-                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
-                    </div>
-                    <div class="settings-row clickable" onclick="openMistakesView('view-me');">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box"
-                                style="background:var(--md-sys-color-error-container, #ffdad6); color:var(--md-sys-color-error, #ba1a1a);">
-                                <span class="material-symbols-rounded">bookmark</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>错题本</h4>
-                                <p id="settings-mistakes-summary-text">在对战和练习过程中收录的错题</p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-rounded"
-                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
-                    </div>
-                    <div class="settings-row clickable" onclick="openMeSubview('mastered');">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box"
-                                style="background:#E8F5E9; color:#2E7D32;">
-                                <span class="material-symbols-rounded">check_circle</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>熟词本</h4>
-                                <p id="settings-mastered-summary-text">查看已标注为熟词的单词（练习与对战中不再抽取）</p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-rounded"
-                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
-                    </div>
-                    <div class="settings-row clickable" onclick="openMeSubview('trash');">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box"
-                                style="background:#FFEBEE; color:#C62828;">
-                                <span class="material-symbols-rounded">delete</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>回收站</h4>
-                                <p id="settings-trash-summary-text">查看从本地词书中删除的词汇，支持恢复或移至其他词书</p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-rounded"
-                            style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
-                    </div>
-                </div>
+                <div class="settings-card" style="padding: 16px 20px;">
+                    <!-- 最近学习的一本词书卡片 -->
+                    <div id="me-recent-book-card-container"></div>
 
-                <!-- 备份与管理 -->
-                <div class="settings-section-title">
-                    <span class="material-symbols-rounded" style="font-size:20px;">backup</span>
-                    <span>备份与管理</span>
-                </div>
-                <div class="settings-card">
-                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
-                                <span class="material-symbols-rounded" id="settings-offline-mode-icon">wifi_off</span>
+                    <!-- 我的词书下方操作列表（与 me-account-settings-list 一致的列表样式） -->
+                    <div class="me-account-settings-list" style="margin-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0); padding-top: 6px;">
+                        <div class="settings-row me-account-action-row clickable" onclick="openManageBooksPage('view-me');" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">folder_managed</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">管理词书</span>
                             </div>
-                            <div class="settings-row-text">
-                                <h4>离线模式</h4>
-                                <p id="settings-offline-mode-desc">开启后完全使用本地数据，不进行任何网络通信</p>
-                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <label class="md3-switch" id="toggle-offline-mode-label">
-                            <input type="checkbox" id="toggle-offline-mode" onchange="handleToggleOfflineMode(this.checked)">
-                            <span class="md3-switch-track">
-                                <span class="md3-switch-thumb"></span>
-                            </span>
-                        </label>
-                    </div>
-                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">cloud_sync</span>
+                        <div class="settings-row me-account-action-row clickable" onclick="openMeSubview('mastered');" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: #2E7D32; font-size: 20px;">check_circle</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">查看熟词</span>
                             </div>
-                            <div class="settings-row-text">
-                                <h4>自动同步</h4>
-                                <p>数据将自动同步至云端，关闭后请手动同步</p>
-                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <label class="md3-switch" id="switch-auto-sync-label">
-                            <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
-                            <span class="md3-switch-track">
-                                <span class="md3-switch-thumb"></span>
-                            </span>
-                        </label>
-                    </div>
-                    <div class="settings-row clickable" onclick="openExportStudyDataView()" style="cursor:pointer; justify-content:space-between; align-items:center;">
-                        <div class="settings-row-left">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">download_for_offline</span>
+                        <div class="settings-row me-account-action-row clickable" onclick="openMeSubview('trash');" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" style="color: #C62828; font-size: 20px;">delete</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">回收站</span>
                             </div>
-                            <div class="settings-row-text">
-                                <h4>下载学习数据</h4>
-                                <p>将学习数据导出为 PDF 或其他文档格式</p>
-                            </div>
+                            <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
                     </div>
                 </div>
             </div>
@@ -1547,26 +1472,35 @@
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">熟词本</h3>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllMasteredWords()">
-                        <span class="material-symbols-rounded" style="font-size:16px;">delete_sweep</span>
-                        <span class="btn-label-text">清空熟词</span>
-                    </button>
                 </div>
 
-                <div class="settings-category-tabs" id="mastered-category-tabs" style="margin-bottom:12px;">
-                    <button type="button" class="settings-cat-tab active" id="tab-mastered-all" onclick="filterMasteredCategory('all')">全部</button>
-                    <button type="button" class="settings-cat-tab" id="tab-mastered-en" onclick="filterMasteredCategory('english')">英语</button>
-                    <button type="button" class="settings-cat-tab" id="tab-mastered-shici" onclick="filterMasteredCategory('shici')">实词</button>
+                <div class="book-content-toolbar-row" style="margin-bottom: 12px;">
+                    <div class="book-content-toolbar-left">
+                        <div class="md3-custom-select" id="mastered-book-filter-wrap" style="position:relative;">
+                            <button type="button" class="md3-custom-select-trigger" id="mastered-book-filter-trigger" onclick="toggleMd3Select('mastered-book-filter', event)">
+                                <span id="mastered-book-filter-label">全部词书</span>
+                                <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
+                            </button>
+                            <div class="md3-custom-select-menu" id="mastered-book-filter-menu" onclick="event.stopPropagation()"></div>
+                        </div>
+                    </div>
+                    <div class="book-content-toolbar-right">
+                        <div class="bc-expandable-search-wrap" id="mastered-expandable-search-wrap">
+                            <button type="button" class="btn btn-tonal btn-sm bc-expandable-search-btn" onclick="toggleExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')" title="搜索熟词">
+                                <span class="material-symbols-rounded" style="font-size:18px;">search</span>
+                            </button>
+                            <div class="bc-expandable-search-input-box">
+                                <input type="text" id="settings-mastered-search" class="bc-search-input-field" placeholder="搜索熟词..." autocomplete="off" oninput="filterMasteredWordsDisplay()">
+                                <button type="button" class="bc-search-close-btn" onclick="closeExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div style="margin-bottom:12px;">
-                    <input type="text" id="settings-mastered-search" class="input-field" placeholder="搜索单词或释义..."
-                        style="height:42px; border-radius:var(--md-shape-full);"
-                        oninput="filterMasteredWordsDisplay()">
-                </div>
-
-                <div class="card md3-scroll-view" style="max-height: 600px; overflow-y: auto; padding: 14px 10px 14px 14px;">
-                    <div id="settings-mastered-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <div class="book-content-unified-wrapper" style="max-height: 620px; overflow-y: auto;">
+                    <div id="settings-mastered-container" class="book-content-unified-card"></div>
                 </div>
             </div>
 
@@ -1581,26 +1515,35 @@
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">已删除词汇</h3>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmClearAllTrashWords()">
-                        <span class="material-symbols-rounded" style="font-size:16px;">delete_forever</span>
-                        <span class="btn-label-text">永久删除</span>
-                    </button>
                 </div>
 
-                <div class="settings-category-tabs" id="trash-category-tabs" style="margin-bottom:12px;">
-                    <button type="button" class="settings-cat-tab active" id="tab-trash-all" onclick="filterTrashCategory('all')">全部</button>
-                    <button type="button" class="settings-cat-tab" id="tab-trash-en" onclick="filterTrashCategory('english')">英语</button>
-                    <button type="button" class="settings-cat-tab" id="tab-trash-shici" onclick="filterTrashCategory('shici')">实词</button>
+                <div class="book-content-toolbar-row" style="margin-bottom: 12px;">
+                    <div class="book-content-toolbar-left">
+                        <div class="md3-custom-select" id="trash-book-filter-wrap" style="position:relative;">
+                            <button type="button" class="md3-custom-select-trigger" id="trash-book-filter-trigger" onclick="toggleMd3Select('trash-book-filter', event)">
+                                <span id="trash-book-filter-label">全部词书</span>
+                                <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
+                            </button>
+                            <div class="md3-custom-select-menu" id="trash-book-filter-menu" onclick="event.stopPropagation()"></div>
+                        </div>
+                    </div>
+                    <div class="book-content-toolbar-right">
+                        <div class="bc-expandable-search-wrap" id="trash-expandable-search-wrap">
+                            <button type="button" class="btn btn-tonal btn-sm bc-expandable-search-btn" onclick="toggleExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')" title="搜索已删词汇">
+                                <span class="material-symbols-rounded" style="font-size:18px;">search</span>
+                            </button>
+                            <div class="bc-expandable-search-input-box">
+                                <input type="text" id="settings-trash-search" class="bc-search-input-field" placeholder="搜索已删词汇..." autocomplete="off" oninput="filterTrashWordsDisplay()">
+                                <button type="button" class="bc-search-close-btn" onclick="closeExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div style="margin-bottom:12px;">
-                    <input type="text" id="settings-trash-search" class="input-field" placeholder="搜索已删词汇..."
-                        style="height:42px; border-radius:var(--md-shape-full);"
-                        oninput="filterTrashWordsDisplay()">
-                </div>
-
-                <div class="trash-scroll-container">
-                    <div id="settings-trash-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <div class="book-content-unified-wrapper" style="max-height: 620px; overflow-y: auto;">
+                    <div id="settings-trash-container" class="book-content-unified-card"></div>
                 </div>
             </div>
 
@@ -1704,18 +1647,6 @@
                                     <div id="export-subfields-shici" style="display:flex; gap:10px; flex-wrap:wrap; padding-left:26px;">
                                         <label class="export-field-chk"><input type="checkbox" id="field-shici-meaning" checked onchange="renderExportPreview()"><span>释义</span></label>
                                         <label class="export-field-chk"><input type="checkbox" id="field-shici-example" checked onchange="renderExportPreview()"><span>例句</span></label>
-                                    </div>
-                                </div>
-
-                                <!-- 错题 -->
-                                <div class="export-content-block" style="border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--md-shape-m); padding:12px 14px; background:var(--md-sys-color-surface);">
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">
-                                            <input type="checkbox" class="md3-checkbox" id="export-check-mistakes" checked onchange="toggleExportContentSection('mistakes', this.checked)">
-                                            <span class="material-symbols-rounded" style="color:var(--md-sys-color-error); font-size:18px;">error_outline</span>
-                                            <span>错题</span>
-                                        </label>
-                                        <span id="export-count-mistakes" class="badge" style="background:var(--md-sys-color-surface-container-high); font-size:0.75rem;">0 条</span>
                                     </div>
                                 </div>
                             </div>
@@ -1867,6 +1798,175 @@
 
                 <div id="settings-subview-items-content" style="padding: 10px 0 30px 0;">
                     <!-- 动态由 ItemManager.renderItemsView() 渲染 -->
+                </div>
+            </div>
+
+            <!-- 子页面 8: 管理账号子页面 -->
+            <div id="settings-subview-account" class="me-subview settings-subview">
+                <div class="subview-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">管理账号</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card" id="account-manage-profile-card" style="padding: 16px 20px; margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div id="account-manage-avatar-wrap" class="me-avatar-wrap" style="position: relative; width: 52px; height: 52px; border-radius: 50%; overflow: hidden; background: var(--md-sys-color-surface-container-high, #e2e8f0); display: flex; align-items: center; justify-content: center; border: 2px solid var(--md-sys-color-outline-variant, #cbd5e1);">
+                                <span class="material-symbols-rounded" id="account-manage-avatar-icon" style="font-size: 30px;">person</span>
+                                <img id="account-manage-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('account-manage-avatar-icon').style.display='inline-flex';" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <h4 id="account-manage-username" style="margin: 0; font-size: 1.05rem; font-weight: 700;">用户名</h4>
+                                    <div id="account-manage-type-badge"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 用户等级与积分进度条 -->
+                    <div id="account-manage-user-level-card" style="margin-top: 14px; display: flex; align-items: center; gap: 12px; width: 100%;">
+                        <span id="account-manage-level-badge" style="font-size: 0.95rem; font-weight: 800; color: var(--md-sys-color-on-surface); white-space: nowrap;">1段</span>
+                        <div class="book-progress-mini" style="flex: 1; height: 6px; margin: 0; background: var(--md-sys-color-surface-container-high, #e2e8f0); border-radius: 999px; overflow: hidden;">
+                            <div id="account-manage-level-progress-fill" class="book-progress-mini-fill" style="width: 0%; height: 100%; border-radius: 999px;"></div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
+                            <span id="account-manage-level-exp-text" style="color: var(--md-sys-color-primary, #006495); font-weight: 700;">0分</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <div id="account-manage-row-username" class="settings-row clickable" onclick="openEditUsernameModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">edit</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>修改用户名</h4>
+                                <p>修改当前账号显示名称</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+
+                    <div id="account-manage-row-password" class="settings-row clickable" onclick="openEditPasswordModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">lock_reset</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>修改密码</h4>
+                                <p>更改当前账号登录密码</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+
+                    <div class="settings-row clickable" onclick="handleSwitchAccount()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
+                                <span class="material-symbols-rounded">switch_account</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>切换账号</h4>
+                                <p>切换到其他已保存账号或登录新账号</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+
+                    <div id="account-manage-row-delete" class="settings-row clickable" onclick="openDeleteAccountModal()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="settings-icon-box" style="background:#FFEBEE; color:#C62828;">
+                                <span class="material-symbols-rounded">person_remove</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="color:var(--md-sys-color-error, #ba1a1a);">删除账号</h4>
+                                <p>永久注销并清除该账号的所有数据</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+
+                    <div class="settings-row clickable" onclick="handleAuthLogout()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="settings-icon-box" style="background:#FFEBEE; color:#C62828;">
+                                <span class="material-symbols-rounded">logout</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="color:var(--md-sys-color-error, #ba1a1a);">退出登录</h4>
+                                <p>退出当前登录状态</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 子页面 9: 详细数据子页面 -->
+            <div id="settings-subview-detailed-stats" class="me-subview settings-subview">
+                <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">详细数据</h3>
+                        </div>
+                    </div>
+                    <div class="settings-category-tabs" id="detailed-stats-range-tabs" style="margin:0;">
+                        <button type="button" class="settings-cat-tab md3-seg-btn active" data-range="week" onclick="switchDetailedStatsRange('week')">近 7 天 (周)</button>
+                        <button type="button" class="settings-cat-tab md3-seg-btn" data-range="month" onclick="switchDetailedStatsRange('month')">近 30 天 (月)</button>
+                    </div>
+                </div>
+
+                <div id="detailed-stats-content" style="display:flex; flex-direction:column; gap:14px; padding-bottom:32px;"></div>
+            </div>
+
+            <!-- 子页面 10: 复习计划子页面 -->
+            <div id="settings-subview-review-plan" class="me-subview settings-subview">
+                <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <div>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">复习计划</h3>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
+                        <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
+                        <span class="btn-label-text">立即复习</span>
+                    </button>
+                </div>
+
+                <!-- 顶部总览状态条 -->
+                <div id="review-plan-summary-banner" class="review-plan-summary-banner"></div>
+
+                <!-- 快捷日期筛选 Chips 与日期选择器 -->
+                <div class="review-plan-filter-bar">
+                    <div id="review-plan-filter-chips" class="review-plan-filter-chips">
+                        <button type="button" class="md3-chip active" data-filter="all" onclick="filterReviewPlanByDate('all')">全部</button>
+                        <button type="button" class="md3-chip" data-filter="due" onclick="filterReviewPlanByDate('due')">待立即复习</button>
+                        <button type="button" class="md3-chip" data-filter="today" onclick="filterReviewPlanByDate('today')">今日</button>
+                        <button type="button" class="md3-chip" data-filter="tomorrow" onclick="filterReviewPlanByDate('tomorrow')">明日</button>
+                        <button type="button" class="md3-chip" data-filter="week" onclick="filterReviewPlanByDate('week')">未来7天</button>
+                    </div>
+                    <div class="review-plan-date-picker-wrap">
+                        <span class="material-symbols-rounded" style="font-size:17px; color:var(--md-sys-color-primary);">calendar_month</span>
+                        <input type="date" id="review-plan-custom-date" class="review-plan-date-input" onchange="filterReviewPlanByDate(this.value)" title="选择日期筛选">
+                    </div>
+                </div>
+
+                <!-- 待复习词汇列表容器 -->
+                <div class="review-plan-list-wrapper">
+                    <div id="review-plan-list-container" class="review-plan-list-container"></div>
                 </div>
             </div>
         </div>
@@ -2047,6 +2147,14 @@
                             </div>
                         </div>
 
+                        <div class="rule-group">
+                            <span class="rule-label">词性及释义展示</span>
+                            <div class="chip-group" id="chips-meaning-mode">
+                                <div class="md3-chip selected" data-meaning-mode="all" onclick="changeRuleMeaningMode('all')">展示所有词性及释义</div>
+                                <div class="md3-chip" data-meaning-mode="random" onclick="changeRuleMeaningMode('random')">随机抽取一个词性及释义</div>
+                            </div>
+                        </div>
+
                         <div class="rule-group" id="room-book-group" style="margin-bottom:0;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                                 <span class="rule-label" style="margin-bottom:0;">对决词书</span>
@@ -2162,6 +2270,14 @@
 
                         <!-- 右侧常驻工具栏（无折叠按钮，图标全部直接显示） -->
                         <div class="card-toolbar-cluster" id="single-card-toolbar-cluster">
+                            <button type="button" class="card-tool-btn" id="btn-card-prev"
+                                onclick="viewPreviousSingleQuestion()" title="查看上一个词" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">undo</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-card-return"
+                                onclick="returnToCurrentSingleQuestion()" title="返回最新单词" style="display:none;">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">redo</span>
+                            </button>
                             <button type="button" class="card-tool-btn" id="btn-card-audio"
                                 onclick="playCurrentSingleWordAudio()" title="朗读发音">
                                 <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
@@ -2308,42 +2424,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- VIEW 5: 错题本 -->
-        <div id="view-mistakes" class="view">
-            <div class="subview-header">
-                <div>
-                    <button type="button" class="nav-back-btn" onclick="exitMistakesView()" title="返回">
-                        <span class="material-symbols-rounded">arrow_back</span>
-                    </button>
-                    <h3>错题本</h3>
-                </div>
-            </div>
-            <div class="card">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                    <div class="settings-category-tabs" id="mistakes-category-tabs" style="margin:0;">
-                        <button type="button" class="settings-cat-tab active" data-cat="english" onclick="switchMistakesCategory('english')" id="tab-mistakes-english">
-                            英语错题
-                        </button>
-                        <button type="button" class="settings-cat-tab" data-cat="shici" onclick="switchMistakesCategory('shici')" id="tab-mistakes-shici">
-                            实词错题
-                        </button>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-filled" onclick="restudyMistakes()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">replay</span>
-                            <span class="btn-label-text" id="btn-restudy-mistakes-text">重练错题</span>
-                        </button>
-                        <button class="btn btn-danger" onclick="clearMistakes()">
-                            <span class="material-symbols-rounded" style="font-size:18px;">delete_sweep</span>
-                            <span class="btn-label-text">清空记录</span>
-                        </button>
-                    </div>
-                </div>
-                <div id="mistakes-container" style="max-height: 520px; overflow-y: auto;"></div>
             </div>
         </div>
 
@@ -2811,10 +2891,20 @@
                                 <span class="mastery-diamond" id="shici-mastery-star-5">◇</span>
                             </div>
                         </div>
-                        <button type="button" class="card-tool-btn" id="btn-shici-master"
-                            onclick="toggleCurrentShiCiMastered()" title="标注熟词（不再抽取）">
-                            <span class="material-symbols-rounded" id="btn-shici-master-icon" style="font-size: 18px;">check_circle_outline</span>
-                        </button>
+                        <div class="card-toolbar-cluster" id="shici-card-toolbar-cluster">
+                            <button type="button" class="card-tool-btn" id="btn-shici-prev"
+                                onclick="viewPreviousShiCiQuestion()" title="查看上一个实词" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">undo</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-shici-return"
+                                onclick="returnToCurrentShiCiQuestion()" title="返回最新实词" style="display:none;">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">redo</span>
+                            </button>
+                            <button type="button" class="card-tool-btn" id="btn-shici-master"
+                                onclick="toggleCurrentShiCiMastered()" title="标注熟词（不再抽取）">
+                                <span class="material-symbols-rounded" id="btn-shici-master-icon" style="font-size: 18px;">check_circle_outline</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- MD3 平滑细线进度条 -->
@@ -2949,6 +3039,19 @@
                             </span>
                         </label>
                     </div>
+
+                    <div class="settings-row clickable" onclick="switchSettingsSubview('edit-home')" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">dashboard_customize</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>编辑首页</h4>
+                                <p>隐藏首页卡片、调整模式卡片顺序或收起搜索栏</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
                 </div>
 
                 <div class="settings-section-title">
@@ -2989,6 +3092,30 @@
                             </div>
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
+                    </div>
+                </div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">wifi</span>
+                    <span>网络与离线</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="justify-content:space-between; align-items:center;">
+                        <div class="settings-row-left">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">
+                                <span class="material-symbols-rounded" id="settings-offline-mode-icon">wifi_off</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>离线模式</h4>
+                                <p id="settings-offline-mode-desc">开启后完全使用本地数据，不进行任何网络通信</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" id="toggle-offline-mode-label">
+                            <input type="checkbox" id="toggle-offline-mode" onchange="handleToggleOfflineMode(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -3099,6 +3226,75 @@
                 </div>
 
                 <div id="settings-changelog-container" style="display:flex; flex-direction:column; gap:14px;"></div>
+            </div>
+
+            <!-- 子页面 5: 编辑首页子页面 -->
+            <div id="settings-subview-edit-home" class="settings-subview">
+                <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" class="nav-back-btn" onclick="switchSettingsSubview('main')" title="返回设置">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">编辑首页</h3>
+                    </div>
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="resetHomeLayoutDefault()">
+                        <span class="material-symbols-rounded" style="font-size:16px;">restart_alt</span>
+                        <span class="btn-label-text">恢复默认</span>
+                    </button>
+                </div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">search</span>
+                    <span>顶部搜索栏</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">search</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4>收起搜索栏</h4>
+                                <p>开启后隐藏首页大搜索框，将搜索图标移至首页顶栏右上角</p>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" id="switch-home-collapse-search" onchange="toggleHomeSearchBarCollapse(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">swap_vert</span>
+                    <span>模式卡片排序与显示</span>
+                </div>
+                <div class="settings-card" id="edit-home-modes-list"></div>
+
+                <div class="settings-section-title">
+                    <span class="material-symbols-rounded" style="font-size:20px;">view_agenda</span>
+                    <span>其他首页板块</span>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box">
+                                <span class="material-symbols-rounded">group</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="margin:0;">在线玩家</h4>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" id="switch-home-card-online-players" checked onchange="toggleHomeCardVisibility('hub-online-players-card', this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
             </div>
             <footer class="site-global-footer">
                 <div>Copyright © 2026 词迹 All Rights Reserved.</div>
@@ -3217,18 +3413,7 @@
                     </div>
                 </div>
 
-                <!-- 搜索栏（只保留搜索框） -->
-                <div class="book-content-search-card">
-                    <div class="book-content-search-box">
-                        <span class="material-symbols-rounded book-content-search-icon">search</span>
-                        <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)">
-                        <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch()" style="display:none;" aria-label="清空搜索">
-                            <span class="material-symbols-rounded" style="font-size:17px;">close</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 中英切换 + 展开收起) -->
+                <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 可伸展搜索框 + 中英切换 + 展开收起) -->
                 <div class="book-content-toolbar-row" id="book-content-toolbar-row">
                     <div class="book-content-toolbar-left">
                         <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs">
@@ -3245,6 +3430,19 @@
                         </div>
                     </div>
                     <div class="book-content-toolbar-right">
+                        <!-- 可伸展搜索框：默认显示为搜索图标，点击后向左伸展为搜索框 -->
+                        <div class="bc-expandable-search-wrap" id="bc-expandable-search-wrap">
+                            <button type="button" class="btn btn-tonal btn-sm bc-search-icon-btn" id="btn-bc-search-trigger" onclick="toggleBookContentSearchExpand(true, event)" title="搜索词条" aria-label="搜索">
+                                <span class="material-symbols-rounded" style="font-size:18px;">search</span>
+                            </button>
+                            <div class="bc-search-input-box">
+                                <span class="material-symbols-rounded bc-search-inner-icon" style="font-size:17px; color:var(--md-sys-color-outline);">search</span>
+                                <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)" onblur="handleBookContentSearchBlur()">
+                                <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch(event)" title="清空或收起" aria-label="清空或收起">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                                </button>
+                            </div>
+                        </div>
                         <button type="button" class="btn btn-tonal btn-sm bc-toggle-display-btn" id="btn-bc-toggle-display-mode" onclick="toggleBookContentDisplayMode()" title="切换收起时展示英文或释义">
                             <span class="material-symbols-rounded" style="font-size:17px;">translate</span>
                             <span id="text-bc-display-mode">展示释义</span>
@@ -3359,6 +3557,14 @@
                         <div class="md3-chip" data-time="90" onclick="selectAiDuration(90)">1 分半</div>
                         <div class="md3-chip" data-time="120" onclick="selectAiDuration(120)">2 分钟</div>
                         <div class="md3-chip" data-time="180" onclick="selectAiDuration(180)">3 分钟</div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">词性及释义展示</span>
+                    <div class="chip-group" id="chips-ai-meaning-mode">
+                        <div class="md3-chip selected" data-meaning-mode="all" onclick="selectAiMeaningMode('all')">展示所有词性及释义</div>
+                        <div class="md3-chip" data-meaning-mode="random" onclick="selectAiMeaningMode('random')">随机抽取一个词性及释义</div>
                     </div>
                 </div>
             </div>
@@ -3728,6 +3934,14 @@
                             <span class="material-symbols-rounded" style="font-size:18px;">shuffle</span>
                             <span>乱序</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">词性及释义展示</span>
+                    <div class="chip-group" id="chips-single-meaning-mode">
+                        <div class="md3-chip selected" id="chip-single-meaning-all" data-meaning-mode="all" onclick="selectSingleMeaningMode('all')">展示所有词性及释义</div>
+                        <div class="md3-chip" id="chip-single-meaning-rand" data-meaning-mode="random" onclick="selectSingleMeaningMode('random')">随机抽取一个词性及释义</div>
                     </div>
                 </div>
 
@@ -4201,6 +4415,14 @@
                         <div class="md3-chip selected" data-gauge="tug" onclick="selectLocalDuelGaugeStyle('tug')">
                             拔河(推荐)</div>
                         <div class="md3-chip" data-gauge="snake" onclick="selectLocalDuelGaugeStyle('snake')">盘龙</div>
+                    </div>
+                </div>
+
+                <div class="rule-group">
+                    <span class="rule-label">词性及释义展示</span>
+                    <div class="chip-group" id="chips-local-duel-meaning-mode">
+                        <div class="md3-chip selected" data-meaning-mode="all" onclick="selectLocalDuelMeaningMode('all')">展示所有词性及释义</div>
+                        <div class="md3-chip" data-meaning-mode="random" onclick="selectLocalDuelMeaningMode('random')">随机抽取一个词性及释义</div>
                     </div>
                 </div>
             </div>

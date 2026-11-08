@@ -402,6 +402,31 @@
             return newItem;
         },
 
+        // 删除已过期的道具
+        async deleteItem(itemId) {
+            if (!itemId) return;
+            const u = this.getCurrentUsername();
+            const items = this.getUserItems(u);
+            const nextItems = items.filter(it => it.id !== itemId);
+            this._itemsCache = nextItems;
+            this._itemsCacheUser = u;
+            this._saveLocalCache(u, nextItems);
+            this.updateBadge();
+            this.renderItemsView();
+
+            const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+            if (!isOffline && window.supabaseClient && u && !u.startsWith('游客') && !String(itemId).startsWith('local_')) {
+                try {
+                    await window.supabaseClient.from('user_items').delete().eq('id', itemId);
+                } catch (e) {
+                    console.warn('[ItemManager] deleteItem cloud error:', e);
+                }
+            }
+            if (typeof showToast === 'function') {
+                showToast('已删除过期道具');
+            }
+        },
+
         // 空实现，兼容旧模块调用
         recordTaskProgress(taskId, count = 1) {},
 
@@ -618,15 +643,20 @@
                     <div class="card" style="padding:16px 18px; border-radius:var(--md-shape-l); background:var(--md-sys-color-surface); border:1.5px solid var(--md-sys-color-outline-variant); display:flex; flex-direction:column; justify-content:space-between; gap:12px; position:relative; overflow:hidden;">
                         ${isActive ? '<div style="position:absolute; top:0; left:0; right:0; height:3px; background:#16a34a;"></div>' : ''}
                         <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
-                            <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                                 <div style="width:48px; height:48px; border-radius:14px; background:${def.bgColor || '#f1f5f9'}; color:${def.color || '#0284c7'}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                                     <span class="material-symbols-rounded" style="font-size:26px;">${def.icon || 'shield'}</span>
                                 </div>
-                                <div>
+                                <div style="min-width:0;">
                                     <h4 style="margin:0; font-size:1.05rem; font-weight:700;">${item.item_name || def.name}</h4>
                                     <p style="margin:4px 0 0; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant); line-height:1.4;">${def.shortDesc || ''}</p>
                                 </div>
                             </div>
+                            ${isExpired ? `
+                                <button type="button" class="btn-delete-expired-item" onclick="ItemManager.deleteItem('${item.id}')" title="删除过期道具" style="background:transparent; border:none; color:var(--md-sys-color-error, #dc2626); cursor:pointer; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.15s ease;">
+                                    <span class="material-symbols-rounded" style="font-size:20px;">delete</span>
+                                </button>
+                            ` : ''}
                         </div>
 
                         <div style="margin-top:auto; padding-top:10px; border-top:1px dashed var(--md-sys-color-outline-variant); display:flex; justify-content:space-between; align-items:center; gap:8px;">

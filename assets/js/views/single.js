@@ -206,10 +206,11 @@ function loadCustomShiCiBook(event) {
     event.target.value = '';
 }
 
-let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false,"order":"sequence"}');
+let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false,"order":"sequence","meaningMode":"all"}');
 if (singleConfig.immediateRetest === undefined) singleConfig.immediateRetest = true;
 if (singleConfig.autoPlayAudio === undefined) singleConfig.autoPlayAudio = false;
 if (singleConfig.order === undefined) singleConfig.order = 'sequence';
+if (singleConfig.meaningMode === undefined) singleConfig.meaningMode = 'all';
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
@@ -336,6 +337,11 @@ function updateSingleSettingsChips() {
     if (orderSeq) orderSeq.classList.toggle('selected', singleConfig.order !== 'random');
     if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
 
+    const meaningAll = document.getElementById('chip-single-meaning-all');
+    const meaningRand = document.getElementById('chip-single-meaning-random');
+    if (meaningAll) meaningAll.classList.toggle('selected', singleConfig.meaningMode !== 'random');
+    if (meaningRand) meaningRand.classList.toggle('selected', singleConfig.meaningMode === 'random');
+
     const learnSlider = document.getElementById('slider-single-learn-batch');
     if (learnSlider) {
         learnSlider.value = singleConfig.learnBatch || 10;
@@ -369,6 +375,13 @@ function selectSingleOrder(order) {
 }
 window.selectSingleOrder = selectSingleOrder;
 
+function selectSingleMeaningMode(mode) {
+    singleConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
+    updateSingleSettingsChips();
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+}
+window.selectSingleMeaningMode = selectSingleMeaningMode;
+
 function handleSingleLearnBatchSlider(val) {
     const num = parseInt(val) || 10;
     singleConfig.learnBatch = num;
@@ -398,18 +411,42 @@ function selectReviewBatch(val) {
 }
 
 function selectImmediateRetest(val) {
-    singleConfig.immediateRetest = val;
+    singleConfig.immediateRetest = Boolean(val);
     updateSingleSettingsChips();
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
 }
+window.selectImmediateRetest = selectImmediateRetest;
+
+function toggleSingleRetestSwitch(checked) {
+    singleConfig.immediateRetest = Boolean(checked);
+    updateSingleSettingsChips();
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+}
+window.toggleSingleRetestSwitch = toggleSingleRetestSwitch;
 
 function selectAutoPlayAudio(val) {
     if (!navigator.onLine && val) {
         showToast('当前未联网，无法开启发音');
+        updateSingleSettingsChips();
         return;
     }
-    singleConfig.autoPlayAudio = val;
+    singleConfig.autoPlayAudio = Boolean(val);
     updateSingleSettingsChips();
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
 }
+window.selectAutoPlayAudio = selectAutoPlayAudio;
+
+function toggleSingleAutoplaySwitch(checked) {
+    if (!navigator.onLine && checked) {
+        showToast('当前未联网，无法开启发音');
+        updateSingleSettingsChips();
+        return;
+    }
+    singleConfig.autoPlayAudio = Boolean(checked);
+    updateSingleSettingsChips();
+    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+}
+window.toggleSingleAutoplaySwitch = toggleSingleAutoplaySwitch;
 
 function saveSingleSettings() {
     localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
@@ -581,9 +618,10 @@ async function startSingleLearning() {
         const learnedMap = EbbinghausEngine.getRecords();
         const candidateWords = words.filter(w => {
             if (!w || !w.word) return false;
-            const k = w.word.trim().toLowerCase();
-            if (isWordMastered(k)) return false;
-            const rec = learnedMap[k];
+            const rawK = w.word.trim().toLowerCase();
+            const normK = rawK.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+            if (isWordMastered(rawK) || isWordMastered(normK)) return false;
+            const rec = learnedMap[rawK] || learnedMap[normK];
             if (rec && rec.stage >= 1) return false;
             return true;
         });
@@ -892,7 +930,7 @@ async function startSingleReview(specificBookId = null) {
             };
         });
 
-        const pool = generateShuffledPoolFromWords(wordsList, wordsList.length);
+        const pool = generateShuffledPoolFromWords(wordsList, wordsList.length, singleConfig.meaningMode || 'all');
         startSinglePlayerWithPool(pool, '复习');
         updateReviewPageActiveBookLabel();
     } catch (err) {
@@ -937,7 +975,7 @@ async function startSinglePlayerFromSelectedBooks() {
         const targets = (singleConfig.order === 'random')
             ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize)
             : candidateWords.slice(0, batchSize);
-        const pool = generateShuffledPoolFromWords(targets, targets.length);
+        const pool = generateShuffledPoolFromWords(targets, targets.length, singleConfig.meaningMode || 'all');
         startSinglePlayerWithPool(pool, '单人练习');
     } catch (err) {
         alert('加载词书失败：' + err.message);
