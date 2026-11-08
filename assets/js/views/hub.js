@@ -162,7 +162,7 @@ function checkNetworkStatus(explicitState) {
     if (typeof updateGlobalNetworkBadge === 'function') {
         if (!isNetworkOnline) {
             updateGlobalNetworkBadge('CLOSED');
-        } else if (typeof currentConnectionQuality !== 'undefined') {
+        } else if (typeof currentConnectionQuality !== 'undefined' && (currentConnectionQuality === 'connected' || currentConnectionQuality === 'connecting' || currentConnectionQuality === 'degraded')) {
             updateGlobalNetworkBadge(currentConnectionQuality);
         } else {
             updateGlobalNetworkBadge('online');
@@ -216,6 +216,11 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     checkNetworkStatus(false);
     showToast('网络已断开');
+});
+
+// Safari / WebKit 页面从缓存恢复 (bfcache) 时及时纠正网络在线状态
+window.addEventListener('pageshow', () => {
+    checkNetworkStatus();
 });
 
 let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
@@ -384,10 +389,10 @@ function updateHub() {
 
 // 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
 function updateHubResumeButtons() {
-    if (!currentUser) return;
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
 
     // 1. 英语新词学习进度
-    const singleSaved = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
+    const singleSaved = localStorage.getItem(`single_learn_progress_${u}`) || localStorage.getItem(`single_progress_${u}`) || localStorage.getItem('single_learn_progress_guest') || localStorage.getItem('single_progress_guest');
     const learnBtnText = document.getElementById('btn-hub-learn-text');
     if (learnBtnText) {
         let restored = false;
@@ -406,7 +411,7 @@ function updateHubResumeButtons() {
     }
 
     // 2. 英语复习进度
-    const reviewSaved = localStorage.getItem(`single_review_progress_${currentUser}`);
+    const reviewSaved = localStorage.getItem(`single_review_progress_${u}`) || localStorage.getItem('single_review_progress_guest');
     const reviewBtnText = document.getElementById('btn-hub-review-text');
     if (reviewBtnText) {
         let restored = false;
@@ -615,3 +620,148 @@ function isEnglishBook(b) {
     return !isShiCiBook(b);
 }
 
+/* ==========================================================================
+   移动端左滑 / 侧滑返回支持
+   支持：
+   1. 从屏幕左边缘向右侧滑入 (iOS / Android 经典侧滑手势返回)
+   2. 屏幕横向左滑返回
+   联动机制：
+   - 优先关闭最上层打开的弹窗或菜单
+   - “我的”或“设置”处于二级子页面时，返回一级主页面
+   - 处于各功能子页面时，优先触发其页面原生 .nav-back-btn 按钮事件，或平滑返回首页
+   ========================================================================== */
+(function setupMobileSwipeBack() {
+    if (typeof window === 'undefined') return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isSwipeActive = false;
+    let lastSwipeTriggerTime = 0;
+
+    function isInteractiveOrScrollableElement(el) {
+        if (!el || !(el instanceof Element)) return false;
+        const tag = el.tagName ? el.tagName.toLowerCase() : '';
+        if (['input', 'textarea', 'select', 'button'].includes(tag)) return true;
+        if (el.isContentEditable) return true;
+        if (el.closest('input, textarea, select, .md3-slider, .virtual-keyboard, .settings-category-tabs, #folder-tree-root, .no-swipe-back, .monaco-editor')) {
+            return true;
+        }
+        return false;
+    }
+
+    function handleNavigateBackAction() {
+        const now = Date.now();
+        if (now - lastSwipeTriggerTime < 500) return;
+        lastSwipeTriggerTime = now;
+
+        // 1. 检查是否存在正在显示的模态框
+        const activeModals = Array.from(document.querySelectorAll('.modal, .modal-overlay, #activity-detail-modal, #avatar-modal, #poster-modal, #edit-headword-modal, #search-settings-modal'))
+            .filter(m => {
+                const s = window.getComputedStyle(m);
+                return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+            });
+        if (activeModals.length > 0) {
+            const topModal = activeModals[activeModals.length - 1];
+            const closeBtn = topModal.querySelector('.modal-close-btn, .btn-close-modal, .close, [data-dismiss="modal"]');
+            if (closeBtn && typeof closeBtn.click === 'function') {
+                closeBtn.click();
+                return;
+            }
+            topModal.style.display = 'none';
+            return;
+        }
+
+        // 2. 检查是否在“我的”界面的二级子视图
+        if (window.currentView === 'view-me') {
+            const activeMeSubview = document.querySelector('#view-me .settings-subview.active');
+            if (activeMeSubview && activeMeSubview.id !== 'me-subview-main') {
+                const backBtn = activeMeSubview.querySelector('.nav-back-btn, button[onclick*="openMeSubview"]');
+                if (backBtn && typeof backBtn.click === 'function') {
+                    backBtn.click();
+                    return;
+                }
+                if (typeof openMeSubview === 'function') {
+                    openMeSubview('main');
+                    return;
+                }
+            }
+        }
+
+        // 3. 检查是否在“设置”界面的二级子视图
+        if (window.currentView === 'view-settings') {
+            const activeSettingsSubview = document.querySelector('#view-settings .settings-subview.active');
+            if (activeSettingsSubview && activeSettingsSubview.id !== 'settings-subview-main') {
+                const backBtn = activeSettingsSubview.querySelector('.nav-back-btn, button[onclick*="switchSettingsSubview"]');
+                if (backBtn && typeof backBtn.click === 'function') {
+                    backBtn.click();
+                    return;
+                }
+                if (typeof switchSettingsSubview === 'function') {
+                    switchSettingsSubview('main');
+                    return;
+                }
+            }
+        }
+
+        // 4. 检查当前是否在非 Hub 主页的视图
+        const currViewId = window.currentView || (document.querySelector('.view.active') && document.querySelector('.view.active').id);
+        if (currViewId && currViewId !== 'view-hub' && currViewId !== 'view-auth') {
+            const viewEl = document.getElementById(currViewId);
+            if (viewEl) {
+                const navBackBtn = viewEl.querySelector('.nav-back-btn, .search-page-back-btn');
+                if (navBackBtn && typeof navBackBtn.click === 'function') {
+                    navBackBtn.click();
+                    return;
+                }
+            }
+            if (typeof goBackToPreviousView === 'function') {
+                goBackToPreviousView('view-hub');
+            } else if (typeof switchView === 'function') {
+                switchView('view-hub');
+            }
+        }
+    }
+
+    window.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) {
+            isSwipeActive = false;
+            return;
+        }
+        const touch = e.touches[0];
+        if (isInteractiveOrScrollableElement(e.target)) {
+            isSwipeActive = false;
+            return;
+        }
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchStartTime = Date.now();
+        isSwipeActive = true;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+        if (!isSwipeActive || !e.changedTouches || e.changedTouches.length !== 1) {
+            isSwipeActive = false;
+            return;
+        }
+        isSwipeActive = false;
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - touchStartX;
+        const deltaY = touch.clientY - touchStartY;
+        const deltaTime = Date.now() - touchStartTime;
+
+        // 如果滑动耗时过长或纵向移动明显大于横向移动，判定为常规上下滑动页面，不触发返回
+        if (deltaTime > 650 || Math.abs(deltaY) > Math.abs(deltaX) * 0.75) {
+            return;
+        }
+
+        // 手势 1: 屏幕左边缘向右侧滑入 (startX <= 80px 且向右滑动 50px 以上)
+        const isLeftEdgeSwipeRight = (touchStartX <= 80 && deltaX >= 50);
+        // 手势 2: 屏幕横向左滑返回 (向左滑动 65px 以上)
+        const isSwipeLeft = (deltaX <= -65 && Math.abs(deltaX) >= 65);
+
+        if (isLeftEdgeSwipeRight || isSwipeLeft) {
+            handleNavigateBackAction();
+        }
+    }, { passive: true });
+})();

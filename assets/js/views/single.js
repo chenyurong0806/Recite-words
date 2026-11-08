@@ -234,8 +234,7 @@ function updateSingleProgressStatusUI() {
     // 兼顾旧单按钮
     const tipOld = document.getElementById('single-progress-status-tip');
     const clearBtnOld = document.getElementById('btn-clear-single-progress');
-
-    if (!currentUser) return;
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
 
     // 学习进度
     const savedLearn = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
@@ -295,21 +294,30 @@ function updateSingleProgressStatusUI() {
 
 // 清除保存的学习进度
 function clearCurrentSingleLearnProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`single_learn_progress_${currentUser}`);
-    localStorage.removeItem(`single_progress_${currentUser}`);
-    updateHubResumeButtons();       // 首页按钮恢复为“学习新词”
-    updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
-    showToast('已清除新词学习进度');
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`single_learn_progress_${u}`);
+    localStorage.removeItem(`single_progress_${u}`);
+    localStorage.removeItem('single_learn_progress_guest');
+    localStorage.removeItem('single_progress_guest');
+    if (typeof singleState !== 'undefined' && singleState && (!singleState.isReview && !String(singleState.sessionName).includes('复习'))) {
+        singleState = null;
+    }
+    if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+    updateSingleProgressStatusUI();
+    showToast('已清空新词学习进度');
 }
 
 // 清除保存的复习进度
 function clearCurrentSingleReviewProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`single_review_progress_${currentUser}`);
-    updateHubResumeButtons();       // 首页按钮恢复为“复习”
-    updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
-    showToast('已清除复习进度');
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`single_review_progress_${u}`);
+    localStorage.removeItem('single_review_progress_guest');
+    if (typeof singleState !== 'undefined' && singleState && (singleState.isReview || String(singleState.sessionName).includes('复习'))) {
+        singleState = null;
+    }
+    if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+    updateSingleProgressStatusUI();
+    showToast('已清空复习进度');
 }
 
 function clearCurrentSingleProgress() {

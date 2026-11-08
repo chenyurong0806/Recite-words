@@ -3228,6 +3228,34 @@
                     </div>
                 </div>
 
+                <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 中英切换 + 展开收起) -->
+                <div class="book-content-toolbar-row" id="book-content-toolbar-row">
+                    <div class="book-content-toolbar-left">
+                        <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs">
+                            <button type="button" class="settings-cat-tab active" data-type="all" onclick="setBookContentTypeFilter('all')">全部</button>
+                            <button type="button" class="settings-cat-tab" data-type="word" onclick="setBookContentTypeFilter('word')">单词</button>
+                            <button type="button" class="settings-cat-tab" data-type="phrase" onclick="setBookContentTypeFilter('phrase')">词组</button>
+                        </div>
+                        <div class="md3-custom-select" id="bc-toolbar-section-wrap" style="display:none; position:relative;">
+                            <button type="button" class="md3-custom-select-trigger bc-section-select-trigger" id="bc-toolbar-section-trigger" onclick="toggleMd3Select('bc-toolbar-section', event)">
+                                <span id="bc-toolbar-section-label">全部分类</span>
+                                <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
+                            </button>
+                            <div class="md3-custom-select-menu" id="bc-toolbar-section-menu" onclick="event.stopPropagation()"></div>
+                        </div>
+                    </div>
+                    <div class="book-content-toolbar-right">
+                        <button type="button" class="btn btn-tonal btn-sm bc-toggle-display-btn" id="btn-bc-toggle-display-mode" onclick="toggleBookContentDisplayMode()" title="切换收起时展示英文或释义">
+                            <span class="material-symbols-rounded" style="font-size:17px;">translate</span>
+                            <span id="text-bc-display-mode">展示释义</span>
+                        </button>
+                        <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-book-content-expand-all" onclick="toggleBookContentExpandAll()">
+                            <span class="material-symbols-rounded" id="icon-bc-expand-all" style="font-size:18px;">unfold_more</span>
+                            <span id="text-bc-expand-all">展开全部</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- 词条统一列表容器（所有词条放在一起，不用独立卡片分隔） -->
                 <div class="book-content-unified-wrapper">
                     <div id="book-content-list" class="book-content-unified-card"></div>
@@ -4352,7 +4380,6 @@
         </div>
         <div id="sf-dropdown-sections-grid" class="book-dd-list"></div>
         <div class="book-dd-footer">
-            <span id="sf-sec-dropdown-matched" class="book-dd-summary">共 0 词</span>
             <button type="button" class="book-dd-apply-btn" onclick="applyBookSectionDropdown()">确定</button>
         </div>
     </div>

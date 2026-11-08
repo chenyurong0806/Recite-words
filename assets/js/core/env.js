@@ -150,13 +150,18 @@ async function checkDeviceNetworkOnline() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return false;
     }
+    // Safari / WebKit 在 fetch HEAD + no-cors 时会直接抛出 TypeError 误判断网
+    // 改用轻量 GET 请求并增加回退兼容
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2500);
-        await fetch('https://dict.youdao.com/favicon.ico', { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+        await fetch('https://dict.youdao.com/favicon.ico?' + Date.now(), { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
         clearTimeout(timeoutId);
         return true;
     } catch (e) {
+        if (!isElectronApp()) {
+            return (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
+        }
         return false;
     }
 }

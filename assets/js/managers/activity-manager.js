@@ -691,6 +691,14 @@
             this.updateBadge();
         },
 
+        // 点击进入活动页面即标记所有可用活动已读并清除未读红点
+        markAllActivitiesAsRead() {
+            const avail = this.getAvailableActivities();
+            avail.forEach(act => this._readActivityIds.add(act.id));
+            this.saveState();
+            this.updateBadge();
+        },
+
         // 渲染活动主页面
         renderActivitiesView() {
             const listEl = document.getElementById('activity-list-container');
@@ -1070,6 +1078,11 @@
             if (typeof showToast === 'function') showToast('离线模式下无法查看活动');
             return;
         }
+        // 点击进入活动页面即标记全部已读并清除未读红点
+        ActivityManager.markAllActivitiesAsRead();
+        const badgeEl = document.getElementById('hub-activity-unread-badge');
+        if (badgeEl) badgeEl.style.display = 'none';
+
         if (typeof switchView === 'function') {
             switchView('view-activity');
         }

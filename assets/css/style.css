@@ -203,6 +203,65 @@ body.reduce-motion *::after {
     scroll-behavior: auto !important;
 }
 
+/* 减弱动画开启时，保留指定核心动效与常用反馈 */
+/* 1. 保留 phrase-word-chip 悬浮与微动效 */
+html.reduce-motion .phrase-word-chip,
+body.reduce-motion .phrase-word-chip {
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+    transition-duration: 0.2s !important;
+}
+html.reduce-motion .phrase-word-chip:hover:not(.used):not(:disabled),
+body.reduce-motion .phrase-word-chip:hover:not(.used):not(:disabled) {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 2. 保留 Wordle 单词翻转动画 */
+html.reduce-motion .riddle-tile.flip,
+body.reduce-motion .riddle-tile.flip {
+    animation: tileFlip 0.45s ease forwards !important;
+    animation-duration: 0.45s !important;
+}
+
+/* 3. 恢复 settings-row clickable 的悬浮渐变动画，删除点击缩放 */
+html.reduce-motion .settings-row.clickable,
+body.reduce-motion .settings-row.clickable {
+    transition: background 0.18s ease !important;
+    transition-duration: 0.18s !important;
+    transform: none !important;
+}
+html.reduce-motion .settings-row.clickable:active,
+body.reduce-motion .settings-row.clickable:active {
+    transform: none !important;
+}
+
+/* 4. 恢复 me-account-settings-list 动画与列表交互 */
+html.reduce-motion #me-account-settings-list .me-account-action-row,
+body.reduce-motion #me-account-settings-list .me-account-action-row,
+html.reduce-motion #me-account-settings-list .settings-row,
+body.reduce-motion #me-account-settings-list .settings-row {
+    transition: background 0.18s ease, box-shadow 0.18s ease !important;
+    transition-duration: 0.18s !important;
+}
+
+/* 5. 恢复 single-opt-btn 的悬浮渐变动画 */
+html.reduce-motion .single-opt-btn,
+body.reduce-motion .single-opt-btn {
+    transition: background 0.16s ease, border-color 0.16s ease !important;
+    transition-duration: 0.16s !important;
+}
+
+/* 6. 恢复所有按钮的动画效果与交互反馈 */
+html.reduce-motion button,
+html.reduce-motion .btn,
+html.reduce-motion [role="button"],
+body.reduce-motion button,
+body.reduce-motion .btn,
+body.reduce-motion [role="button"] {
+    transition-duration: 0.15s !important;
+    animation-duration: 0.2s !important;
+}
+
 html.reduce-motion ::view-transition-group(*),
 html.reduce-motion ::view-transition-old(*),
 html.reduce-motion ::view-transition-new(*),
@@ -229,7 +288,7 @@ body.reduce-motion .me-subview.active {
     opacity: 1 !important;
 }
 
-/* 减弱动画开启时，删除首页卡片、各类型按钮及悬浮元素的一切位移(transform)动效 */
+/* 减弱动画开启时，删除首页大卡片及入口位移动效，保留常规按钮与特定组件反馈 */
 html.reduce-motion .card:hover,
 html.reduce-motion .mode-card:hover,
 html.reduce-motion #hub-online-players-card:hover,
@@ -238,9 +297,6 @@ html.reduce-motion .hub-activity-entry-card:hover,
 html.reduce-motion .activity-item-card:hover,
 html.reduce-motion .hub-user-pill:hover,
 html.reduce-motion .hub-mailbox-btn:hover,
-html.reduce-motion .btn:hover,
-html.reduce-motion button:hover,
-html.reduce-motion .btn:hover:not(:disabled),
 html.reduce-motion .hub-activity-entry-card:hover .entry-card-arrow,
 html.reduce-motion .activity-item-card:hover .entry-card-arrow,
 body.reduce-motion .card:hover,
@@ -251,25 +307,8 @@ body.reduce-motion .hub-activity-entry-card:hover,
 body.reduce-motion .activity-item-card:hover,
 body.reduce-motion .hub-user-pill:hover,
 body.reduce-motion .hub-mailbox-btn:hover,
-body.reduce-motion .btn:hover,
-body.reduce-motion button:hover,
-body.reduce-motion .btn:hover:not(:disabled),
 body.reduce-motion .hub-activity-entry-card:hover .entry-card-arrow,
-body.reduce-motion .activity-item-card:hover .entry-card-arrow,
-html.reduce-motion #me-account-settings-list *,
-html.reduce-motion #me-account-settings-list .me-account-action-row,
-html.reduce-motion #me-account-settings-list .me-account-action-row:hover,
-html.reduce-motion #me-account-settings-list .settings-row,
-html.reduce-motion #me-account-settings-list .settings-row:hover,
-html.reduce-motion #me-account-settings-list .settings-row.clickable:hover,
-html.reduce-motion #me-account-settings-list .settings-row.clickable:active,
-body.reduce-motion #me-account-settings-list *,
-body.reduce-motion #me-account-settings-list .me-account-action-row,
-body.reduce-motion #me-account-settings-list .me-account-action-row:hover,
-body.reduce-motion #me-account-settings-list .settings-row,
-body.reduce-motion #me-account-settings-list .settings-row:hover,
-body.reduce-motion #me-account-settings-list .settings-row.clickable:hover,
-body.reduce-motion #me-account-settings-list .settings-row.clickable:active {
+body.reduce-motion .activity-item-card:hover .entry-card-arrow {
     transform: none !important;
 }
 
@@ -6576,7 +6615,7 @@ body.nav-hidden {
 
 .settings-row.clickable {
     cursor: pointer;
-    transition: background 0.18s ease, transform 0.12s ease;
+    transition: background 0.18s ease;
     border-radius: var(--md-shape-m);
 }
 
@@ -6586,7 +6625,7 @@ body.nav-hidden {
 
 .settings-row.clickable:active {
     background: var(--md-sys-color-surface-container-high, #cbd5e1);
-    transform: scale(0.995);
+    transform: none;
 }
 
 .me-account-action-row {
@@ -9894,9 +9933,9 @@ body.nav-hidden {
 .gaokao-sense-examples-popup {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin: 4px 0 4px 24px;
-    padding: 8px 12px;
+    gap: 4px;
+    margin: 4px 0 6px 12px;
+    padding: 6px 12px;
     background: var(--md-sys-color-surface-container-low);
     border-left: 3px solid var(--md-sys-color-primary);
     border-radius: 0 8px 8px 0;
@@ -9968,9 +10007,9 @@ body.nav-hidden {
 .search-gaokao-extra-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 4px;
-    margin-bottom: 16px;
+    gap: 24px;
+    margin-top: 24px;
+    margin-bottom: 24px;
 }
 
 .search-gaokao-extra-container > .search-section-block {
@@ -10213,11 +10252,11 @@ body.nav-hidden {
 .book-card-filter-btn {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
     height: 22px;
-    padding: 0 8px;
+    padding: 0 6px;
     border-radius: 9999px;
-    font-size: 0.73rem;
+    font-size: 0.72rem;
     font-weight: 600;
     font-family: inherit;
     background: var(--md-sys-color-surface-container-high, #e2e8f0);
@@ -10227,7 +10266,7 @@ body.nav-hidden {
     user-select: none;
     transition: all 0.15s ease;
     white-space: nowrap;
-    max-width: 125px;
+    max-width: 90px;
     overflow: hidden;
     text-overflow: ellipsis;
     box-sizing: border-box;
@@ -10265,14 +10304,13 @@ body.nav-hidden {
     user-select: none;
 }
 
+/* 锚定下拉菜单已由 JS mountAnchoredBookDropdown 统一计算精确的 fixed 坐标 */
 .book-anchored-dropdown.align-right {
-    left: auto;
-    right: 0;
+    /* 严格依赖 JS 计算坐标，避免 right: 0 靠齐全屏产生偏位 */
 }
 
 .book-anchored-dropdown.flip-up {
-    top: auto;
-    bottom: calc(100% + 4px);
+    /* 严格依赖 JS 计算坐标，避免 bottom 覆盖 top 产生偏位 */
 }
 
 /* 更多操作菜单 */
@@ -10316,12 +10354,18 @@ body.nav-hidden {
 }
 
 /* 板块筛选与类型筛选通用列表 */
-.book-section-filter-dropdown,
-.book-type-filter-dropdown {
-    width: 240px;
+.book-section-filter-dropdown {
+    width: 155px;
     max-width: calc(100vw - 24px);
-    padding: 10px 12px;
-    gap: 6px;
+    padding: 8px 10px;
+    gap: 4px;
+}
+
+.book-type-filter-dropdown {
+    width: 115px;
+    max-width: calc(100vw - 24px);
+    padding: 8px 10px;
+    gap: 4px;
 }
 
 .book-dd-header {
@@ -10329,7 +10373,7 @@ body.nav-hidden {
     align-items: center;
     justify-content: space-between;
     padding: 2px 4px 6px;
-    border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+    border-bottom: none !important;
 }
 
 .book-dd-title {
@@ -10418,26 +10462,26 @@ body.nav-hidden {
 }
 
 .book-dd-row-count {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--md-sys-color-outline, #64748b);
-    font-family: inherit;
+    font-family: inherit !important;
+    font-variant-numeric: tabular-nums;
     flex-shrink: 0;
+    text-align: right;
+    min-width: 48px;
 }
 
 .book-dd-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-top: 6px;
-    border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+    justify-content: flex-end;
+    padding-top: 4px;
+    border-top: none !important;
     margin-top: 2px;
 }
 
 .book-dd-summary {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--md-sys-color-primary, #0061a4);
-    font-family: inherit;
+    display: none !important;
 }
 
 .book-dd-apply-btn {
@@ -10789,66 +10833,6 @@ body.nav-hidden {
     gap: 12px;
 }
 
-.book-content-search-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.book-content-search-box {
-    position: relative;
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-
-.book-content-search-icon {
-    position: absolute;
-    left: 12px;
-    font-size: 20px;
-    color: var(--md-sys-color-outline, #64748b);
-    pointer-events: none;
-}
-
-.book-content-search-field {
-    width: 100%;
-    height: 42px;
-    padding: 0 38px 0 40px;
-    border-radius: 12px;
-    border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
-    background: var(--md-sys-color-surface-container-low, #f8fafc);
-    color: var(--md-sys-color-on-surface, #0f172a);
-    font-size: 0.92rem;
-    font-family: inherit;
-    transition: all 0.2s;
-    box-sizing: border-box;
-}
-
-.book-content-search-field:focus {
-    outline: none;
-    border-color: var(--md-sys-color-primary, #0061a4);
-    background: var(--md-sys-color-surface-container-lowest, #ffffff);
-    box-shadow: 0 0 0 3px rgba(0, 97, 164, 0.12);
-}
-
-.book-content-search-clear {
-    position: absolute;
-    right: 8px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--md-sys-color-outline, #64748b);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.book-content-search-clear:hover {
-    background: var(--md-sys-color-surface-container-high, #e2e8f0);
-}
 
 .book-content-mastery-pill {
     padding: 6px 14px;
@@ -11132,12 +11116,7 @@ body.nav-hidden {
 
 /* 详尽抽屉 (例句/衍生词/辨析/干扰项) */
 .bc-item-drawer {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px dashed var(--md-sys-color-outline-variant, #e2e8f0);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    padding: 0 16px 12px 16px;
     animation: fadeIn 0.15s ease;
 }
 
@@ -11488,7 +11467,7 @@ body.nav-hidden {
    ========================================================================== */
 
 .book-content-search-card {
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .book-content-search-box {
@@ -11496,10 +11475,11 @@ body.nav-hidden {
     align-items: center;
     gap: 10px;
     background: var(--md-sys-color-surface-container-lowest, #ffffff);
-    border: 1.5px solid var(--md-sys-color-outline-variant, #cbd5e1);
+    border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
     border-radius: 9999px;
-    padding: 8px 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 8px 18px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
     transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -11558,7 +11538,6 @@ body.nav-hidden {
 
 .bc-unified-item {
     border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
-    transition: background 0.15s ease;
     cursor: pointer;
     background: var(--md-sys-color-surface-container-lowest, #ffffff);
 }
@@ -11571,12 +11550,30 @@ body.nav-hidden {
     background: var(--md-sys-color-surface-container-low, #f8fafc);
 }
 
+/* 展开项状态：改变背景颜色和bc-headword颜色 */
+.bc-unified-item.expanded {
+    background: var(--md-sys-color-surface-container, #f0f4f9);
+}
+
+.bc-unified-item.expanded .bc-headword {
+    color: var(--md-sys-color-primary, #0061a4);
+}
+
+/* 无法展开时隐藏箭头 */
+.bc-unified-item.no-expand .bc-expand-chevron {
+    display: none !important;
+}
+
+.bc-unified-item.no-expand {
+    cursor: default;
+}
+
 .bc-item-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    gap: 12px;
+    gap: 10px;
 }
 
 .bc-item-title-meta {
@@ -11592,12 +11589,19 @@ body.nav-hidden {
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--md-sys-color-on-surface, #0f172a);
+    transition: color 0.15s ease;
 }
 
+/* 仅展开时显示音标 */
 .bc-phone {
     font-size: 0.88rem;
     color: var(--md-sys-color-outline, #64748b);
     font-family: 'Roboto Mono', 'Lucida Sans Unicode', monospace;
+    display: none;
+}
+
+.bc-unified-item.expanded .bc-phone {
+    display: inline-flex;
 }
 
 .bc-phrase-badge {
@@ -11609,35 +11613,52 @@ body.nav-hidden {
     font-weight: 700;
 }
 
+/* 紧凑排布操作按钮组 */
 .bc-item-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 3px;
     flex-shrink: 0;
 }
 
-/* 圆形操作按钮 (图10: 查词只保留图标、发音) */
+/* 圆形操作按钮：更小轮廓与紧凑间隙 */
 .btn-circle-icon-action {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    border: 1px solid var(--md-sys-color-outline-variant, #cbd5e1);
-    background: var(--md-sys-color-surface-container-low, #f8fafc);
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
     color: var(--md-sys-color-on-surface-variant, #475569);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s ease;
     padding: 0;
     box-sizing: border-box;
     flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-circle-icon-action .material-symbols-rounded {
+    font-size: 17px;
 }
 
 .btn-circle-icon-action:hover {
-    background: var(--md-sys-color-primary-container, #e0f2fe);
-    color: var(--md-sys-color-primary, #0061a4);
-    border-color: var(--md-sys-color-primary, #0061a4);
+    background: var(--md-sys-color-surface-container-high, #e2e8f0) !important;
+    color: var(--md-sys-color-primary, #0061a4) !important;
+}
+
+.btn-circle-icon-action:active {
+    transform: scale(0.92);
+}
+
+.btn-circle-icon-action.mastered {
+    color: var(--md-sys-color-primary, #0061a4) !important;
+}
+
+.btn-circle-icon-action.mastered:hover {
+    background: var(--md-sys-color-primary-container, #d1e4ff) !important;
 }
 
 .btn-circle-icon-action.danger:hover {
@@ -11701,10 +11722,9 @@ body.nav-hidden {
     transform: rotate(180deg);
 }
 
-/* 抽屉与详情结构 */
+/* 抽屉与详情结构：确保展开时上下留白一致 */
 .bc-item-drawer {
-    padding: 4px 16px 16px 16px;
-    border-top: 1px dashed var(--md-sys-color-outline-variant, #e2e8f0);
+    padding: 0 16px 14px 16px;
     animation: fadeIn 0.15s ease;
 }
 
@@ -11712,15 +11732,15 @@ body.nav-hidden {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-top: 6px;
+    margin-top: 0;
 }
 
-/* 修复图7：抽屉内部各区块间距，解决“上下靠的太紧了” */
+/* 抽屉内部各区块间距，增大留白，解决“上下靠的太紧了” */
 .bc-drawer-section {
-    margin-top: 14px !important;
+    margin-top: 18px !important;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
 /* 图7：衍生词汇优化配色 */
@@ -11829,8 +11849,3 @@ body.nav-hidden {
     color: var(--md-sys-color-outline, #64748b);
     font-size: 0.78rem;
 }
-
-
-
-
-

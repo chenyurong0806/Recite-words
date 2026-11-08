@@ -11,6 +11,10 @@ const EBBINGHAUS_INTERVALS = [
 ];
 
 const EbbinghausEngine = {
+    _progressCache: {},
+    invalidateProgressCache() {
+        this._progressCache = {};
+    },
     getRecords() {
         if (!currentUser) return {};
         try {
@@ -22,6 +26,7 @@ const EbbinghausEngine = {
     },
     saveRecords(records) {
         if (!currentUser) return;
+        this.invalidateProgressCache();
         const str = JSON.stringify(records);
         try {
             if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
@@ -80,6 +85,12 @@ const EbbinghausEngine = {
         });
     },
     getBookProgress(bookId, bookWords = null) {
+        if (!bookId) return { progressPercent: 0, learned: 0, due: 0, mastered: 0, total: 0 };
+        const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+        const cacheKey = `${u}::${bookId}::${bookWords ? bookWords.length : 'cached'}`;
+        if (this._progressCache && this._progressCache[cacheKey]) {
+            return this._progressCache[cacheKey];
+        }
         let words = bookWords;
         if (!words && BookManager.bookCache) {
             words = BookManager.bookCache[bookId];

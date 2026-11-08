@@ -151,13 +151,18 @@ async function checkDeviceNetworkOnline() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return false;
     }
+    // Safari / WebKit 在 fetch HEAD + no-cors 时会直接抛出 TypeError 误判断网
+    // 改用轻量 GET 请求并增加回退兼容
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2500);
-        await fetch('https://dict.youdao.com/favicon.ico', { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+        await fetch('https://dict.youdao.com/favicon.ico?' + Date.now(), { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
         clearTimeout(timeoutId);
         return true;
     } catch (e) {
+        if (!isElectronApp()) {
+            return (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') ? navigator.onLine : true;
+        }
         return false;
     }
 }
@@ -502,6 +507,7 @@ function updateGlobalNetworkBadge(status) {
         case 'SUBSCRIBED':
         case 'connected':
         case 'open':
+        case 'online':
             currentConnectionQuality = 'connected';
             badge.className = 'network-status-badge online';
             badgeText.innerText = '在线';
@@ -1291,6 +1297,14 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'));
     if (!isRegisteredUser) return;
 
+    // 检查自动同步设置：关闭自动同步后，非强制手动同步 (force) 不执行后台上传
+    const autoSyncAllowed = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+    if (!options.force && !autoSyncAllowed) {
+        return { success: true, skipped: true, reason: 'auto_sync_disabled' };
+    }
+
     let stats = null;
     try {
         if (typeof userStats !== 'undefined' && currentUser === u) {
@@ -1370,6 +1384,36 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         updated_at: new Date().toISOString()
     };
 
+    // 计算核心学习数据指纹，避免数据无变动时频繁全量上传浪费流量
+    const hashPayload = {
+        stats: payload.stats,
+        cloudMastery: payload.cloud_books_mastery,
+        rank: payload.rank_data,
+        ebbinghaus: payload.ebbinghaus,
+        daily_logs: payload.daily_logs,
+        mastered_words: payload.mastered_words,
+        wordle_history: payload.wordle_history,
+        shici_progress: payload.shici_progress,
+        level: payload.level,
+        score: payload.score
+    };
+    let currentHash = null;
+    try {
+        const str = JSON.stringify(hashPayload);
+        let h = 0;
+        for (let i = 0; i < str.length; i++) {
+            h = ((h << 5) - h) + str.charCodeAt(i);
+            h |= 0;
+        }
+        currentHash = (h >>> 0).toString(16) + '_' + str.length;
+    } catch (e) {}
+
+    if (!window._lastCloudSyncHash) window._lastCloudSyncHash = {};
+    if (!options.force && currentHash && window._lastCloudSyncHash[u] === currentHash) {
+        // 数据未发生实际变动，安全跳过重复上传
+        return { success: true, skipped: true, reason: 'data_unchanged' };
+    }
+
     const updateObj = {
         user_data: payload,
         level: payload.level,
@@ -1444,6 +1488,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 console.warn('[Wordle] daily_wordle_records sync warning:', wordleSyncErr);
             }
 
+            if (currentHash) { window._lastCloudSyncHash[u] = currentHash; }
             window.lastCloudSyncTimestamp = Date.now();
             if (typeof updateSyncButtonStatus === 'function') {
                 updateSyncButtonStatus(true);
@@ -3176,31 +3221,48 @@ const SyncManager = {
     retryDelay: 5000,
     maxRetryDelay: 60000,
 
+    isAutoSyncAllowed() {
+        if (typeof isAutoSyncEnabled === 'function') {
+            return isAutoSyncEnabled();
+        }
+        try {
+            const val = localStorage.getItem('vocab_auto_sync_enabled');
+            if (val === null) return true;
+            return val === 'true' || val === true || val === '1';
+        } catch (e) {
+            return true;
+        }
+    },
+
     init() {
         this.loadQueue();
         if (typeof window !== 'undefined') {
             // 页面隐藏或关闭时利用 keepalive 发送最终批量
             window.addEventListener('beforeunload', () => {
+                if (!this.isAutoSyncAllowed()) return;
                 this.flush({ keepalive: true, silent: true });
             });
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'hidden') {
+                    if (!this.isAutoSyncAllowed()) return;
                     this.flush({ keepalive: true, silent: true });
                 }
             });
             // 弱网恢复在线时自动重试
             window.addEventListener('online', () => {
+                if (!this.isAutoSyncAllowed()) return;
                 console.log('[SyncManager] 网络已恢复，自动触发批量数据同步...');
                 this.flush({ silent: true });
             });
         }
-        // 定期检查与同步 (每 25 秒检查一次)
+        // 定期检查与同步 (优化为 90 秒，降低空闲请求频次)
         if (this.intervalTimer) clearInterval(this.intervalTimer);
         this.intervalTimer = setInterval(() => {
+            if (!this.isAutoSyncAllowed()) return;
             if (this.pendingQueue.length > 0 && !this.isSyncing) {
                 this.flush({ silent: true });
             }
-        }, 25000);
+        }, 90000);
     },
 
     getStorageKey(user) {
@@ -3256,9 +3318,7 @@ const SyncManager = {
             updateSyncButtonStatus();
         }
 
-        const autoSync = (typeof isAutoSyncEnabled === 'function')
-            ? isAutoSyncEnabled()
-            : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+        const autoSync = this.isAutoSyncAllowed();
 
         if (!autoSync && !immediate) {
             // 用户在设置中关闭了自动同步：数据安全保留在本地队列中，等待手动同步
@@ -3268,14 +3328,14 @@ const SyncManager = {
         if (immediate) {
             this.flush({ silent: false, force: true });
         } else {
-            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条且未在同步中则推送
+            // 防抖机制：连续答题合并在 20 秒后触发；若积压超过 25 条且未在同步中则推送
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
-            if (this.pendingQueue.length >= 10 && !this.isSyncing) {
+            if (this.pendingQueue.length >= 25 && !this.isSyncing) {
                 this.flush({ silent: true });
             } else {
                 this.debounceTimer = setTimeout(() => {
                     this.flush({ silent: true });
-                }, 4000);
+                }, 20000);
             }
         }
     },
@@ -3285,6 +3345,10 @@ const SyncManager = {
      */
     async flush(options = {}) {
         if (this.isSyncing) return;
+        // 如果未开启自动同步，且不是用户强制触发 (force)，坚决不执行后台自动同步
+        if (!options.force && !this.isAutoSyncAllowed()) {
+            return;
+        }
         const u = (typeof currentUser !== 'undefined') ? currentUser : null;
         if (!u || u.startsWith('游客')) {
             this.pendingQueue = [];
@@ -4085,59 +4149,109 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
     /**
      * 高鲁棒性词条归一化引擎：兼容词典数组、包装对象、中英键值对等各种格式，去除 UTF-8 BOM
      */
+    /**
+     * 高鲁棒性智能词条归一化引擎：
+     * 自动检测并深度适配各种词书结构（数组、包装信封、首字母/板块嵌套对象、键值对字典等）
+     */
     normalizeWords(rawData, bookName = '', bookId = '') {
         if (!rawData) return [];
         let list = rawData;
 
-        // 兼容解包各种常见 JSON 数据结构
-        if (!Array.isArray(rawData)) {
-            if (rawData.words && Array.isArray(rawData.words)) list = rawData.words;
-            else if (rawData.list && Array.isArray(rawData.list)) list = rawData.list;
-            else if (rawData.items && Array.isArray(rawData.items)) list = rawData.items;
-            else if (rawData.data && Array.isArray(rawData.data)) list = rawData.data;
-            else if (typeof rawData === 'object') {
-                const keys = Object.keys(rawData);
-                const hasArrayVal = keys.some(k => Array.isArray(rawData[k]));
-                if (keys.length > 0 && hasArrayVal) {
-                    // 兼容《高中考纲.json》等按首字母/板块分组的 { a: [...], b: [...] } 词书结构
-                    list = [];
-                    keys.forEach(k => {
-                        if (Array.isArray(rawData[k])) {
-                            rawData[k].forEach(item => {
-                                if (item && typeof item === 'object') {
-                                    item.section = item.section || k;
-                                }
-                                list.push(item);
-                            });
-                        }
-                    });
-                } else {
-                    // 处理形如 { "apple": "苹果", "banana": "香蕉" } 结构
-                    list = Object.keys(rawData).map(k => ({ word: k, trans: rawData[k] }));
+        // 1. 自动解包常见包装信封（Envelope）
+        if (!Array.isArray(rawData) && typeof rawData === 'object') {
+            const envelopeKeys = ['words', 'list', 'items', 'data', 'vocabulary', 'entries', 'vocab', 'dict', 'content', 'sections'];
+            for (const ek of envelopeKeys) {
+                if (rawData[ek]) {
+                    if (Array.isArray(rawData[ek])) {
+                        list = rawData[ek];
+                        break;
+                    } else if (typeof rawData[ek] === 'object' && rawData[ek] !== null) {
+                        rawData = rawData[ek];
+                        break;
+                    }
                 }
-            } else {
-                return [];
             }
         }
 
+        // 2. 深度适配非数组结构（如 { a: [...], b: [...] }, { a: { abandon: {...} } }, 或 { apple: "苹果" }）
+        if (!Array.isArray(list) && typeof rawData === 'object' && rawData !== null) {
+            const keys = Object.keys(rawData);
+            if (keys.length === 0) return [];
+
+            // 检测是否为分类/板块/首字母分组（如 26 个英文字母、Unit 1、板块 A 等）
+            const isSectionGroup = keys.every(k => k.length <= 4) ||
+                keys.some(k => /^[a-zA-Z]$/.test(k)) ||
+                keys.some(k => /^(unit|lesson|section|part|chapter|grade|level|板块|第)/i.test(k));
+
+            if (isSectionGroup) {
+                list = [];
+                keys.forEach(secKey => {
+                    const secVal = rawData[secKey];
+                    if (!secVal) return;
+
+                    if (Array.isArray(secVal)) {
+                        secVal.forEach(item => {
+                            if (!item) return;
+                            if (typeof item === 'string') {
+                                list.push({ word: item, section: secKey });
+                            } else if (typeof item === 'object') {
+                                item.section = item.section || secKey;
+                                list.push(item);
+                            }
+                        });
+                    } else if (typeof secVal === 'object') {
+                        // 内部可能是数字键名对象 { "0": {...}, "1": {...} } 或 词名键名对象 { "abandon": {...} }
+                        const subKeys = Object.keys(secVal);
+                        subKeys.forEach(subKey => {
+                            const subItem = secVal[subKey];
+                            if (!subItem) return;
+                            if (typeof subItem === 'string') {
+                                list.push({ word: subKey, trans: subItem, section: secKey });
+                            } else if (typeof subItem === 'object') {
+                                const wName = subItem.word || subItem.name || subItem.headWord || (/^\d+$/.test(subKey) ? '' : subKey);
+                                const itemObj = { ...subItem };
+                                if (wName) itemObj.word = wName;
+                                itemObj.section = itemObj.section || secKey;
+                                list.push(itemObj);
+                            }
+                        });
+                    }
+                });
+            } else {
+                // 纯扁平字典结构：键名为单词，值为释义字符串或词条对象
+                list = keys.map(k => {
+                    const val = rawData[k];
+                    if (typeof val === 'string') {
+                        return { word: k, trans: val };
+                    } else if (typeof val === 'object' && val !== null) {
+                        return { word: val.word || val.name || k, ...val };
+                    }
+                    return { word: k, trans: String(val || '') };
+                });
+            }
+        }
+
+        if (!Array.isArray(list)) return [];
+
         return list.map(item => {
             if (!item) return null;
-            const word = (item.word || item.name || item.headWord || item.key || item.title || '').trim();
+            const word = (item.word || item.name || item.headWord || item.key || item.title || item.english || item.vocab || '').trim();
             if (!word) return null;
 
-            let phone = item.phone || item.phonetic || '';
+            let phone = item.phone || item.phonetic || item.pronunciation || '';
             if (!phone && item.pinyin) phone = item.pinyin;
             else if (!phone && item.usphone) phone = `/${item.usphone}/`;
             else if (!phone && item.ukphone) phone = `/${item.ukphone}/`;
 
             const rawNoParen = (item.name || word).replace(/\s*\([^)]*\)/g, '').trim();
+            // 精准判定是否为词组：必须包含空格、省略号、短语标记等，单单词绝不误判为词组
             const isPhrase = Boolean(
                 item.itemType === 'phrase' ||
-                (item.mistake && (!item.senses || item.senses.length === 0)) ||
+                item.isPhrase === true ||
                 rawNoParen.includes(' ') ||
                 rawNoParen.includes('...') ||
                 rawNoParen.includes('…') ||
-                (!item.senses && !phone && (item.trans || item.meaning))
+                (item.mistake && (!item.senses || item.senses.length === 0) && rawNoParen.includes(' '))
             );
             const itemType = isPhrase ? 'phrase' : 'word';
 
@@ -5720,6 +5834,10 @@ const EBBINGHAUS_INTERVALS = [
 ];
 
 const EbbinghausEngine = {
+    _progressCache: {},
+    invalidateProgressCache() {
+        this._progressCache = {};
+    },
     getRecords() {
         if (!currentUser) return {};
         try {
@@ -5731,6 +5849,7 @@ const EbbinghausEngine = {
     },
     saveRecords(records) {
         if (!currentUser) return;
+        this.invalidateProgressCache();
         const str = JSON.stringify(records);
         try {
             if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
@@ -5789,6 +5908,12 @@ const EbbinghausEngine = {
         });
     },
     getBookProgress(bookId, bookWords = null) {
+        if (!bookId) return { progressPercent: 0, learned: 0, due: 0, mastered: 0, total: 0 };
+        const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+        const cacheKey = `${u}::${bookId}::${bookWords ? bookWords.length : 'cached'}`;
+        if (this._progressCache && this._progressCache[cacheKey]) {
+            return this._progressCache[cacheKey];
+        }
         let words = bookWords;
         if (!words && BookManager.bookCache) {
             words = BookManager.bookCache[bookId];
@@ -8008,6 +8133,14 @@ window.LevelManager = LevelManager;
             this.updateBadge();
         },
 
+        // 点击进入活动页面即标记所有可用活动已读并清除未读红点
+        markAllActivitiesAsRead() {
+            const avail = this.getAvailableActivities();
+            avail.forEach(act => this._readActivityIds.add(act.id));
+            this.saveState();
+            this.updateBadge();
+        },
+
         // 渲染活动主页面
         renderActivitiesView() {
             const listEl = document.getElementById('activity-list-container');
@@ -8387,6 +8520,11 @@ window.LevelManager = LevelManager;
             if (typeof showToast === 'function') showToast('离线模式下无法查看活动');
             return;
         }
+        // 点击进入活动页面即标记全部已读并清除未读红点
+        ActivityManager.markAllActivitiesAsRead();
+        const badgeEl = document.getElementById('hub-activity-unread-badge');
+        if (badgeEl) badgeEl.style.display = 'none';
+
         if (typeof switchView === 'function') {
             switchView('view-activity');
         }
@@ -13348,7 +13486,7 @@ function checkNetworkStatus(explicitState) {
     if (typeof updateGlobalNetworkBadge === 'function') {
         if (!isNetworkOnline) {
             updateGlobalNetworkBadge('CLOSED');
-        } else if (typeof currentConnectionQuality !== 'undefined') {
+        } else if (typeof currentConnectionQuality !== 'undefined' && (currentConnectionQuality === 'connected' || currentConnectionQuality === 'connecting' || currentConnectionQuality === 'degraded')) {
             updateGlobalNetworkBadge(currentConnectionQuality);
         } else {
             updateGlobalNetworkBadge('online');
@@ -13402,6 +13540,11 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     checkNetworkStatus(false);
     showToast('网络已断开');
+});
+
+// Safari / WebKit 页面从缓存恢复 (bfcache) 时及时纠正网络在线状态
+window.addEventListener('pageshow', () => {
+    checkNetworkStatus();
 });
 
 let currentPresenceStatus = localStorage.getItem('vocab_presence_status') || 'online';
@@ -13570,10 +13713,10 @@ function updateHub() {
 
 // 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
 function updateHubResumeButtons() {
-    if (!currentUser) return;
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
 
     // 1. 英语新词学习进度
-    const singleSaved = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
+    const singleSaved = localStorage.getItem(`single_learn_progress_${u}`) || localStorage.getItem(`single_progress_${u}`) || localStorage.getItem('single_learn_progress_guest') || localStorage.getItem('single_progress_guest');
     const learnBtnText = document.getElementById('btn-hub-learn-text');
     if (learnBtnText) {
         let restored = false;
@@ -13592,7 +13735,7 @@ function updateHubResumeButtons() {
     }
 
     // 2. 英语复习进度
-    const reviewSaved = localStorage.getItem(`single_review_progress_${currentUser}`);
+    const reviewSaved = localStorage.getItem(`single_review_progress_${u}`) || localStorage.getItem('single_review_progress_guest');
     const reviewBtnText = document.getElementById('btn-hub-review-text');
     if (reviewBtnText) {
         let restored = false;
@@ -13801,6 +13944,151 @@ function isEnglishBook(b) {
     return !isShiCiBook(b);
 }
 
+/* ==========================================================================
+   移动端左滑 / 侧滑返回支持
+   支持：
+   1. 从屏幕左边缘向右侧滑入 (iOS / Android 经典侧滑手势返回)
+   2. 屏幕横向左滑返回
+   联动机制：
+   - 优先关闭最上层打开的弹窗或菜单
+   - “我的”或“设置”处于二级子页面时，返回一级主页面
+   - 处于各功能子页面时，优先触发其页面原生 .nav-back-btn 按钮事件，或平滑返回首页
+   ========================================================================== */
+(function setupMobileSwipeBack() {
+    if (typeof window === 'undefined') return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isSwipeActive = false;
+    let lastSwipeTriggerTime = 0;
+
+    function isInteractiveOrScrollableElement(el) {
+        if (!el || !(el instanceof Element)) return false;
+        const tag = el.tagName ? el.tagName.toLowerCase() : '';
+        if (['input', 'textarea', 'select', 'button'].includes(tag)) return true;
+        if (el.isContentEditable) return true;
+        if (el.closest('input, textarea, select, .md3-slider, .virtual-keyboard, .settings-category-tabs, #folder-tree-root, .no-swipe-back, .monaco-editor')) {
+            return true;
+        }
+        return false;
+    }
+
+    function handleNavigateBackAction() {
+        const now = Date.now();
+        if (now - lastSwipeTriggerTime < 500) return;
+        lastSwipeTriggerTime = now;
+
+        // 1. 检查是否存在正在显示的模态框
+        const activeModals = Array.from(document.querySelectorAll('.modal, .modal-overlay, #activity-detail-modal, #avatar-modal, #poster-modal, #edit-headword-modal, #search-settings-modal'))
+            .filter(m => {
+                const s = window.getComputedStyle(m);
+                return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+            });
+        if (activeModals.length > 0) {
+            const topModal = activeModals[activeModals.length - 1];
+            const closeBtn = topModal.querySelector('.modal-close-btn, .btn-close-modal, .close, [data-dismiss="modal"]');
+            if (closeBtn && typeof closeBtn.click === 'function') {
+                closeBtn.click();
+                return;
+            }
+            topModal.style.display = 'none';
+            return;
+        }
+
+        // 2. 检查是否在“我的”界面的二级子视图
+        if (window.currentView === 'view-me') {
+            const activeMeSubview = document.querySelector('#view-me .settings-subview.active');
+            if (activeMeSubview && activeMeSubview.id !== 'me-subview-main') {
+                const backBtn = activeMeSubview.querySelector('.nav-back-btn, button[onclick*="openMeSubview"]');
+                if (backBtn && typeof backBtn.click === 'function') {
+                    backBtn.click();
+                    return;
+                }
+                if (typeof openMeSubview === 'function') {
+                    openMeSubview('main');
+                    return;
+                }
+            }
+        }
+
+        // 3. 检查是否在“设置”界面的二级子视图
+        if (window.currentView === 'view-settings') {
+            const activeSettingsSubview = document.querySelector('#view-settings .settings-subview.active');
+            if (activeSettingsSubview && activeSettingsSubview.id !== 'settings-subview-main') {
+                const backBtn = activeSettingsSubview.querySelector('.nav-back-btn, button[onclick*="switchSettingsSubview"]');
+                if (backBtn && typeof backBtn.click === 'function') {
+                    backBtn.click();
+                    return;
+                }
+                if (typeof switchSettingsSubview === 'function') {
+                    switchSettingsSubview('main');
+                    return;
+                }
+            }
+        }
+
+        // 4. 检查当前是否在非 Hub 主页的视图
+        const currViewId = window.currentView || (document.querySelector('.view.active') && document.querySelector('.view.active').id);
+        if (currViewId && currViewId !== 'view-hub' && currViewId !== 'view-auth') {
+            const viewEl = document.getElementById(currViewId);
+            if (viewEl) {
+                const navBackBtn = viewEl.querySelector('.nav-back-btn, .search-page-back-btn');
+                if (navBackBtn && typeof navBackBtn.click === 'function') {
+                    navBackBtn.click();
+                    return;
+                }
+            }
+            if (typeof goBackToPreviousView === 'function') {
+                goBackToPreviousView('view-hub');
+            } else if (typeof switchView === 'function') {
+                switchView('view-hub');
+            }
+        }
+    }
+
+    window.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) {
+            isSwipeActive = false;
+            return;
+        }
+        const touch = e.touches[0];
+        if (isInteractiveOrScrollableElement(e.target)) {
+            isSwipeActive = false;
+            return;
+        }
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchStartTime = Date.now();
+        isSwipeActive = true;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+        if (!isSwipeActive || !e.changedTouches || e.changedTouches.length !== 1) {
+            isSwipeActive = false;
+            return;
+        }
+        isSwipeActive = false;
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - touchStartX;
+        const deltaY = touch.clientY - touchStartY;
+        const deltaTime = Date.now() - touchStartTime;
+
+        // 如果滑动耗时过长或纵向移动明显大于横向移动，判定为常规上下滑动页面，不触发返回
+        if (deltaTime > 650 || Math.abs(deltaY) > Math.abs(deltaX) * 0.75) {
+            return;
+        }
+
+        // 手势 1: 屏幕左边缘向右侧滑入 (startX <= 80px 且向右滑动 50px 以上)
+        const isLeftEdgeSwipeRight = (touchStartX <= 80 && deltaX >= 50);
+        // 手势 2: 屏幕横向左滑返回 (向左滑动 65px 以上)
+        const isSwipeLeft = (deltaX <= -65 && Math.abs(deltaX) >= 65);
+
+        if (isLeftEdgeSwipeRight || isSwipeLeft) {
+            handleNavigateBackAction();
+        }
+    }, { passive: true });
+})();
 
 /* --- End: views/hub.js --- */
 
@@ -14941,6 +15229,7 @@ async function importCustomBookFiles(fileList, targetCategory = '') {
 }
 
 function renderBookSelectorPage() {
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
     if (typeof parkBookDropdownMenus === 'function') parkBookDropdownMenus();
     const container = document.getElementById('book-selector-content-list');
     const summaryChip = document.getElementById('book-selector-summary-chip');
@@ -15295,7 +15584,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                                 <span>下载</span>
                             </button>
                         ` : `
-                            <span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>
+                            ${(hasSections && hasTypes) ? '' : `<span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>`}
                         `)}
                     </div>
                 </div>
@@ -15447,6 +15736,7 @@ function renderManageBooksCategoryTabs() {
 }
 
 function renderManageBooksPage() {
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
     if (typeof parkBookDropdownMenus === 'function') parkBookDropdownMenus();
     const container = document.getElementById('manage-books-content-list');
     const summaryChip = document.getElementById('manage-books-summary-chip');
@@ -15635,17 +15925,20 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    const spaceBelow = viewportHeight - btnRect.bottom;
-    const spaceAbove = btnRect.top;
+    const spaceBelow = viewportHeight - btnRect.bottom - 12;
+    const spaceAbove = btnRect.top - 12;
     let top = 0;
-    if (spaceBelow < menuHeight + 10 && spaceAbove > spaceBelow) {
-        top = Math.max(10, btnRect.top - menuHeight - 6);
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+        const fitHeight = Math.min(menuHeight, spaceAbove - 6);
+        top = Math.max(10, btnRect.top - fitHeight - 6);
         menuEl.classList.add('flip-up');
+        menuEl.style.maxHeight = `${fitHeight}px`;
     } else {
-        top = Math.min(viewportHeight - menuHeight - 10, btnRect.bottom + 6);
+        const fitHeight = Math.min(menuHeight, Math.max(120, spaceBelow - 6));
+        top = btnRect.bottom + 6;
         menuEl.classList.remove('flip-up');
+        menuEl.style.maxHeight = `${fitHeight}px`;
     }
-
     let left = 0;
     if (defaultAlign === 'right') {
         left = btnRect.right - menuWidth;
@@ -15885,6 +16178,63 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
     bookContentState.allExpanded = false;
     bookContentState.expandedItemKeys.clear();
 
+    // 初始化内容工具栏：分类筛选下拉菜单与类型按钮组
+    const secSet = new Set();
+    words.forEach(w => {
+        if (w && w.section) {
+            const cleanSec = String(w.section).trim().replace(/^板块\s*/i, '');
+            if (cleanSec) secSet.add(cleanSec);
+        }
+    });
+    if (secSet.size <= 1 && words.length > 50) {
+        const letterSet = new Set();
+        words.forEach(w => {
+            const first = (w.word || '').trim().charAt(0).toLowerCase();
+            if (/^[a-z]$/.test(first)) letterSet.add(first);
+        });
+        if (letterSet.size >= 2) {
+            letterSet.forEach(l => secSet.add(l));
+        }
+    }
+    const secWrap = document.getElementById('bc-toolbar-section-wrap');
+    const secLabel = document.getElementById('bc-toolbar-section-label');
+    const secMenu = document.getElementById('bc-toolbar-section-menu');
+    if (secWrap && secMenu) {
+        if (secSet.size > 1) {
+            const sortedSecs = Array.from(secSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            if (secLabel) secLabel.textContent = `全部分类 (${words.length}词)`;
+            secMenu.innerHTML = `
+                <div class="md3-custom-select-option selected" data-value="all" onclick="selectMd3Option('bc-toolbar-section', 'all', '全部分类 (${words.length}词)', 'setBookContentSectionFilter')">
+                    <span>全部分类 (${words.length}词)</span>
+                    <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                </div>
+                ${sortedSecs.map(s => `
+                    <div class="md3-custom-select-option" data-value="${escapeHtml(s)}" onclick="selectMd3Option('bc-toolbar-section', '${escapeHtml(s)}', '${escapeHtml(s.toUpperCase())}', 'setBookContentSectionFilter')">
+                        <span>${escapeHtml(s.toUpperCase())}</span>
+                    </div>
+                `).join('')}
+            `;
+            secWrap.style.display = 'inline-flex';
+        } else {
+            secWrap.style.display = 'none';
+        }
+    }
+    document.querySelectorAll('#bc-toolbar-type-tabs .settings-cat-tab').forEach(ch => {
+        ch.classList.toggle('active', ch.getAttribute('data-type') === 'all');
+    });
+    document.querySelectorAll('#bc-toolbar-type-chips .md3-chip').forEach(ch => {
+        ch.classList.toggle('selected', ch.getAttribute('data-type') === 'all');
+    });
+    bookContentState.collapsedDisplayMode = 'en';
+    const dispModeText = document.getElementById('text-bc-display-mode');
+    if (dispModeText) dispModeText.textContent = '展示释义';
+    const dispModeBtn = document.getElementById('btn-bc-toggle-display-mode');
+    if (dispModeBtn) dispModeBtn.classList.remove('active');
+    const expandIcon = document.getElementById('icon-bc-expand-all');
+    const expandText = document.getElementById('text-bc-expand-all');
+    if (expandIcon) expandIcon.textContent = 'unfold_more';
+    if (expandText) expandText.textContent = '展开全部';
+
     // 更新页面标题与顶栏信息
     const titleEl = document.getElementById('book-content-page-title');
     const subtitleEl = document.getElementById('book-content-page-subtitle');
@@ -15979,6 +16329,22 @@ function applyBookContentFilters() {
 
     const filtered = rawWords.filter(w => {
         if (!w || !w.word) return false;
+
+        // 类型筛选：单词 / 词组
+        if (bookContentState.activeType === 'word') {
+            const isPh = w.itemType === 'phrase' || (!isShiCi && (w.word || '').includes(' '));
+            if (isPh) return false;
+        } else if (bookContentState.activeType === 'phrase') {
+            const isPh = w.itemType === 'phrase' || (!isShiCi && (w.word || '').includes(' '));
+            if (!isPh) return false;
+        }
+
+        // 分类筛选
+        if (bookContentState.activeSection && bookContentState.activeSection !== 'all') {
+            const wSec = String(w.section || '').trim().replace(/^板块\s*/i, '').toLowerCase();
+            if (wSec !== bookContentState.activeSection.toLowerCase()) return false;
+        }
+
         if (!q) return true;
 
         const wordText = String(w.word || '').toLowerCase();
@@ -16114,7 +16480,7 @@ function formatExamplesHtml(examplesList) {
     if (!Array.isArray(examplesList) || examplesList.length === 0) return '';
     return `
         <div class="bc-drawer-section">
-            <div class="bc-drawer-title"><span class="material-symbols-rounded">text_snippet</span>典型例句</div>
+            <div class="bc-drawer-title"><span class="material-symbols-rounded">notes</span>典型例句</div>
             <div class="bc-examples-list">
                 ${examplesList.slice(0, 4).map(ex => `
                     <div class="bc-example-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -16122,9 +16488,6 @@ function formatExamplesHtml(examplesList) {
                             <div class="bc-ex-en">${escapeHtml(ex.en)}</div>
                             <div class="bc-ex-zh">${escapeHtml(ex.zh)}</div>
                         </div>
-                        <button type="button" class="btn-circle-icon-action" style="width:26px; height:26px; border:none; background:transparent;" onclick="playWordAudio('${escapeHtml(ex.en.replace(/'/g, "\\'"))}', event)" title="朗读例句">
-                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                        </button>
                     </div>
                 `).join('')}
             </div>
@@ -16247,14 +16610,24 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
            </div>`
         : '';
 
+    const hasExpandableContent = Boolean(
+        (meaningsHtml && flatMeaning && flatMeaning !== '暂无释义') ||
+        w.note ||
+        (Array.isArray(examplesList) && examplesList.length > 0) ||
+        (Array.isArray(w.derivatives) && w.derivatives.length > 0) ||
+        (Array.isArray(w.discriminations) && w.discriminations.length > 0) ||
+        (Array.isArray(w.antonyms) && w.antonyms.length > 0)
+    );
+
+    const isCollapsedZh = (!isExp && bookContentState.collapsedDisplayMode === 'zh');
+    const displayHeadword = isCollapsedZh ? (flatMeaning || word) : word;
+
     return `
-        <div class="bc-unified-item ${isExp ? 'expanded' : ''}" id="bc-card-${safeKey}" onclick="toggleBookContentItemDetail('${safeKey}', event)">
+        <div class="bc-unified-item ${isExp ? 'expanded' : ''} ${hasExpandableContent ? '' : 'no-expand'}" id="bc-card-${safeKey}" onclick="${hasExpandableContent ? `toggleBookContentItemDetail('${safeKey}', event)` : ''}">
             <div class="bc-item-header">
                 <div class="bc-item-title-meta">
-                    <span class="bc-headword">${escapeHtml(word)}</span>
-                    ${phoneDisplay ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
-                    ${isPhrase ? `<span class="bc-phrase-badge">词组</span>` : ''}
-                    ${w.section ? `<span class="bc-section-badge">${escapeHtml(w.section.toUpperCase())}</span>` : ''}
+                    <span class="bc-headword" title="${escapeHtml(displayHeadword)}">${escapeHtml(displayHeadword)}</span>
+                    ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
                 </div>
                 <div class="bc-item-actions" onclick="event.stopPropagation()">
                     <button type="button" class="btn-circle-icon-action" onclick="jumpToSearch('${escapeHtml(word)}')" title="查词" aria-label="查词">
@@ -16263,22 +16636,17 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                     <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}', event)" title="发音" aria-label="发音">
                         <span class="material-symbols-rounded">volume_up</span>
                     </button>
-                    <button type="button" class="btn-mastered-pill ${isMastered ? 'mastered' : ''}" onclick="toggleBookContentMastered('${escapeHtml(word)}', ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握' : '标记熟词'}">
+                    <button type="button" class="btn-circle-icon-action ${isMastered ? 'mastered' : ''}" onclick="toggleBookContentMastered('${escapeHtml(word)}', ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
                         <span class="material-symbols-rounded">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
-                        <span>${isMastered ? '已掌握' : '熟词'}</span>
                     </button>
                     ${isCustomLocal ? `
-                        <button type="button" class="btn-circle-icon-action edit" onclick="if (typeof openEditMeaningModal === 'function') openEditMeaningModal('${escapeHtml(bookContentState.bookId)}', '${escapeHtml(word)}', '${escapeHtml(flatMeaning)}')" title="编辑释义">
-                            <span class="material-symbols-rounded">edit</span>
-                        </button>
                         <button type="button" class="btn-circle-icon-action danger" onclick="deleteWordFromBookContent('${escapeHtml(word)}')" title="删除词汇">
                             <span class="material-symbols-rounded">delete</span>
                         </button>
                     ` : ''}
-                    <span class="material-symbols-rounded bc-expand-chevron">expand_more</span>
+                    ${hasExpandableContent ? `<span class="material-symbols-rounded bc-expand-chevron">expand_more</span>` : ''}
                 </div>
             </div>
-
             <!-- 向下展开的详情抽屉 (默认折叠) -->
             <div class="bc-item-drawer" style="display:${isExp ? 'block' : 'none'};">
                 <div class="bc-meanings-group">
@@ -16309,6 +16677,10 @@ function toggleBookContentItemDetail(uniqueKey, e) {
     const drawer = card.querySelector('.bc-item-drawer');
     if (drawer) {
         drawer.style.display = !isExp ? 'block' : 'none';
+    }
+    const phoneEl = card.querySelector('.bc-phone');
+    if (phoneEl) {
+        phoneEl.style.display = !isExp ? 'inline-flex' : 'none';
     }
 }
 
@@ -16373,28 +16745,38 @@ function renderBookContentItems(isAppending = false) {
 function toggleBookContentMastered(word, isShiCi, btnEl) {
     if (!word) return;
     const nowMastered = isShiCi
-        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
-        : isWordMastered(word);
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : (typeof isWordMastered === 'function' ? isWordMastered(word) : false))
+        : (typeof isWordMastered === 'function' ? isWordMastered(word) : false);
 
     if (nowMastered) {
         if (isShiCi && typeof ShiCiEbbinghausEngine !== 'undefined') {
             ShiCiEbbinghausEngine.unmarkMastered(word);
             ShiCiEbbinghausEngine.updateDueBadge();
         }
-        unmarkWordAsMastered(word);
+        if (typeof removeWordMastered === 'function') {
+            removeWordMastered(word);
+        } else if (typeof unmarkWordAsMastered === 'function') {
+            unmarkWordAsMastered(word);
+        }
         if (btnEl) {
             btnEl.classList.remove('mastered');
-            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle_outline</span><span>熟词</span>`;
+            btnEl.title = '标为熟词';
+            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle_outline</span>`;
         }
     } else {
         if (isShiCi && typeof ShiCiEbbinghausEngine !== 'undefined') {
             ShiCiEbbinghausEngine.recordWord(word, '', '', true, true);
             ShiCiEbbinghausEngine.updateDueBadge();
         }
-        markWordAsMastered(word);
+        if (typeof ensureWordMastered === 'function') {
+            ensureWordMastered(word);
+        } else if (typeof markWordAsMastered === 'function') {
+            markWordAsMastered(word);
+        }
         if (btnEl) {
             btnEl.classList.add('mastered');
-            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle</span><span>已掌握</span>`;
+            btnEl.title = '已掌握（点击取消）';
+            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle</span>`;
         }
     }
 
@@ -17322,24 +17704,10 @@ function handleSectionDropdownChange() {
         }
     });
 
-    let matchedCount = 0;
-    const totalCount = currentDropdownSectionWords.length;
-
-    currentDropdownSectionWords.forEach(w => {
-        if (!w) return;
-        let sec = (w.section || '').trim().toLowerCase();
-        if (!sec && w.word) {
-            const first = w.word.trim().charAt(0).toLowerCase();
-            if (/^[a-z]$/.test(first)) sec = first;
-        }
-        if (sec && !selectedSections.has(sec)) return;
-        matchedCount++;
-    });
-
     const summaryEl = document.getElementById('sf-sec-dropdown-matched');
     if (summaryEl) {
-        summaryEl.textContent = `共 ${matchedCount} / ${totalCount} 词`;
-        summaryEl.style.color = (matchedCount === 0) ? 'var(--md-sys-color-error, #ba1a1a)' : 'var(--md-sys-color-primary)';
+        summaryEl.textContent = '';
+        summaryEl.style.display = 'none';
     }
 }
 
@@ -17355,7 +17723,7 @@ function applyBookSectionDropdown() {
     const selectedSections = sectionCbs.filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
 
     if (totalCount > 0 && selectedSections.length === 0) {
-        showToast('请至少勾选一个分类');
+        if (typeof showToast === 'function') showToast('请至少勾选一个分类');
         return;
     }
 
@@ -17376,7 +17744,9 @@ function applyBookSectionDropdown() {
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
 
-    showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
+    if (typeof showToast === 'function') {
+        showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
+    }
 }
 
 /* ==========================================================================
@@ -17415,20 +17785,13 @@ async function toggleBookTypeDropdown(event, bookId) {
 
     const savedFilter = (typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(bookId) : null;
 
-    let wordCount = 0;
-    let phraseCount = 0;
-    currentDropdownTypeWords.forEach(w => {
-        if (!w) return;
-        if (w.itemType === 'phrase') phraseCount++;
-        else wordCount++;
-    });
-
     const isAllSelected = !savedFilter || !savedFilter.types || savedFilter.types.length === 0 || savedFilter.types.length === 2;
     const isWordSelected = isAllSelected || (savedFilter.types && savedFilter.types.includes('word'));
     const isPhraseSelected = isAllSelected || (savedFilter.types && savedFilter.types.includes('phrase'));
 
     const listEl = document.getElementById('sf-dropdown-types-list');
     if (listEl) {
+        // 用户要求：选择类型菜单不用显示每个类型的词数，删除分割线和共...词
         listEl.innerHTML = `
             <div class="book-dd-header">
                 <span class="book-dd-title"><span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">category</span>选择类型</span>
@@ -17436,16 +17799,11 @@ async function toggleBookTypeDropdown(event, bookId) {
             <label class="book-dd-check-row ${isWordSelected ? 'active' : ''}">
                 <input type="checkbox" id="sf-type-opt-word" ${isWordSelected ? 'checked' : ''} onchange="handleTypeDropdownRowChange()" class="book-dd-checkbox">
                 <span class="book-dd-row-name">单词</span>
-                <span class="book-dd-row-count">${wordCount} 词</span>
             </label>
             <label class="book-dd-check-row ${isPhraseSelected ? 'active' : ''}">
                 <input type="checkbox" id="sf-type-opt-phrase" ${isPhraseSelected ? 'checked' : ''} onchange="handleTypeDropdownRowChange()" class="book-dd-checkbox">
                 <span class="book-dd-row-name">词组</span>
-                <span class="book-dd-row-count">${phraseCount} 词</span>
             </label>
-            <div class="book-dd-footer">
-                <span id="sf-type-dropdown-matched" class="book-dd-summary">共 ${currentDropdownTypeWords.length} / ${currentDropdownTypeWords.length} 词</span>
-            </div>
         `;
     }
 
@@ -17483,21 +17841,6 @@ function handleTypeDropdownRowChange() {
     const phraseRow = phraseCb.closest('.book-dd-check-row');
     if (wordRow) wordRow.classList.toggle('active', allowWord);
     if (phraseRow) phraseRow.classList.toggle('active', allowPhrase);
-
-    let matchedCount = 0;
-    const totalCount = currentDropdownTypeWords.length;
-    currentDropdownTypeWords.forEach(w => {
-        if (!w) return;
-        const isPhrase = (w.itemType === 'phrase');
-        if (isPhrase && !allowPhrase) return;
-        if (!isPhrase && !allowWord) return;
-        matchedCount++;
-    });
-
-    const summaryEl = document.getElementById('sf-type-dropdown-matched');
-    if (summaryEl) {
-        summaryEl.textContent = `共 ${matchedCount} / ${totalCount} 词`;
-    }
 
     // 实时保存并刷新卡片
     const bookId = currentDropdownTypeBookId;
@@ -17598,6 +17941,112 @@ window.closeBookSectionFilterDropdown = closeBookSectionDropdown;
 window.applyBookSectionFilterDropdown = applyBookSectionDropdown;
 window.openBookSectionFilterModal = toggleBookSectionDropdown;
 window.closeBookSectionFilterModal = closeBookSectionDropdown;
+
+/**
+ * 词书内容工具栏：一键展开/收起全部词条
+ */
+function toggleBookContentExpandAll() {
+    bookContentState.allExpanded = !bookContentState.allExpanded;
+    if (bookContentState.allExpanded) {
+        bookContentState.expandedItemKeys.clear();
+        (bookContentState.filteredWords || []).forEach((w, idx) => {
+            const word = w.word || '';
+            const safeKey = `bc_${idx}_${encodeURIComponent(word).replace(/%/g, '_')}`;
+            bookContentState.expandedItemKeys.add(safeKey);
+        });
+    } else {
+        bookContentState.expandedItemKeys.clear();
+    }
+    const expandIcon = document.getElementById('icon-bc-expand-all');
+    const expandText = document.getElementById('text-bc-expand-all');
+    if (expandIcon) expandIcon.textContent = bookContentState.allExpanded ? 'unfold_less' : 'unfold_more';
+    if (expandText) expandText.textContent = bookContentState.allExpanded ? '收起全部' : '展开全部';
+    renderBookContentItems();
+}
+window.toggleBookContentExpandAll = toggleBookContentExpandAll;
+
+function setBookContentTypeFilter(type) {
+    bookContentState.activeType = type;
+    document.querySelectorAll('#bc-toolbar-type-tabs .settings-cat-tab').forEach(ch => {
+        ch.classList.toggle('active', ch.getAttribute('data-type') === type);
+    });
+    document.querySelectorAll('#bc-toolbar-type-chips .md3-chip').forEach(ch => {
+        ch.classList.toggle('selected', ch.getAttribute('data-type') === type);
+    });
+    applyBookContentFilters();
+}
+window.setBookContentTypeFilter = setBookContentTypeFilter;
+
+function setBookContentSectionFilter(sec) {
+    bookContentState.activeSection = sec;
+    applyBookContentFilters();
+}
+window.setBookContentSectionFilter = setBookContentSectionFilter;
+
+function toggleBookContentDisplayMode() {
+    bookContentState.collapsedDisplayMode = (bookContentState.collapsedDisplayMode === "zh") ? "en" : "zh";
+    const text = document.getElementById("text-bc-display-mode");
+    const btn = document.getElementById("btn-bc-toggle-display-mode");
+    const isZh = (bookContentState.collapsedDisplayMode === "zh");
+    if (text) text.textContent = isZh ? "展示英文" : "展示释义";
+    if (btn) btn.classList.toggle("active", isZh);
+    renderBookContentItems();
+}
+window.toggleBookContentDisplayMode = toggleBookContentDisplayMode;
+
+/**
+ * 一键更新全部词书：检查并更新所有已下载云端词书
+ */
+async function handleUpdateAllBooks() {
+    if (typeof BookManager === 'undefined') return;
+    if (typeof showToast === 'function') showToast('正在检查全部词书更新...');
+    try {
+        await BookManager.fetchBookList();
+    } catch (e) { }
+
+    const candidates = (BookManager.availableBooks || []).filter(b => b && b.isCloud && b.syncStatus === 'update_available');
+    if (candidates.length === 0) {
+        if (typeof showToast === 'function') showToast('暂无需要更新的词书');
+        return;
+    }
+
+    let updatedCount = 0;
+    for (let i = 0; i < candidates.length; i++) {
+        const b = candidates[i];
+        try {
+            if (typeof showToast === 'function') showToast(`正在更新《${b.name}》(${i + 1}/${candidates.length})...`);
+            await BookManager.downloadBook(b.id);
+            updatedCount++;
+        } catch (e) { }
+    }
+
+    if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.invalidateProgressCache) {
+        EbbinghausEngine.invalidateProgressCache();
+    }
+
+    if (typeof showToast === 'function') showToast(`词书更新完成，共更新 ${updatedCount} 本词书`);
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
+
+    if (typeof currentView !== 'undefined') {
+        if (currentView === 'view-book-selector' && typeof renderBookSelectorPage === 'function') {
+            renderBookSelectorPage();
+        } else if (currentView === 'view-manage-books' && typeof renderManageBooksPage === 'function') {
+            renderManageBooksPage();
+        }
+    }
+}
+window.handleUpdateAllBooks = handleUpdateAllBooks;
+
+function updateAllBooksButtonVisibility() {
+    const hasUpdates = Boolean(
+        typeof BookManager !== "undefined" && Array.isArray(BookManager.availableBooks) &&
+        BookManager.availableBooks.some(b => b && b.isCloud && b.syncStatus === "update_available")
+    );
+    document.querySelectorAll(".btn-update-all-books").forEach(btn => {
+        btn.style.display = hasUpdates ? "inline-flex" : "none";
+    });
+}
+window.updateAllBooksButtonVisibility = updateAllBooksButtonVisibility;
 
 /* --- End: views/book-selector.js --- */
 
@@ -21376,8 +21825,7 @@ function updateSingleProgressStatusUI() {
     // 兼顾旧单按钮
     const tipOld = document.getElementById('single-progress-status-tip');
     const clearBtnOld = document.getElementById('btn-clear-single-progress');
-
-    if (!currentUser) return;
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
 
     // 学习进度
     const savedLearn = localStorage.getItem(`single_learn_progress_${currentUser}`) || localStorage.getItem(`single_progress_${currentUser}`);
@@ -21437,21 +21885,30 @@ function updateSingleProgressStatusUI() {
 
 // 清除保存的学习进度
 function clearCurrentSingleLearnProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`single_learn_progress_${currentUser}`);
-    localStorage.removeItem(`single_progress_${currentUser}`);
-    updateHubResumeButtons();       // 首页按钮恢复为“学习新词”
-    updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
-    showToast('已清除新词学习进度');
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`single_learn_progress_${u}`);
+    localStorage.removeItem(`single_progress_${u}`);
+    localStorage.removeItem('single_learn_progress_guest');
+    localStorage.removeItem('single_progress_guest');
+    if (typeof singleState !== 'undefined' && singleState && (!singleState.isReview && !String(singleState.sessionName).includes('复习'))) {
+        singleState = null;
+    }
+    if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+    updateSingleProgressStatusUI();
+    showToast('已清空新词学习进度');
 }
 
 // 清除保存的复习进度
 function clearCurrentSingleReviewProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`single_review_progress_${currentUser}`);
-    updateHubResumeButtons();       // 首页按钮恢复为“复习”
-    updateSingleProgressStatusUI(); // 更新当前弹窗内的提示
-    showToast('已清除复习进度');
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`single_review_progress_${u}`);
+    localStorage.removeItem('single_review_progress_guest');
+    if (typeof singleState !== 'undefined' && singleState && (singleState.isReview || String(singleState.sessionName).includes('复习'))) {
+        singleState = null;
+    }
+    if (typeof updateHubResumeButtons === 'function') updateHubResumeButtons();
+    updateSingleProgressStatusUI();
+    showToast('已清空复习进度');
 }
 
 function clearCurrentSingleProgress() {
@@ -33965,20 +34422,29 @@ function saveShiCiSessionProgress() {
 }
 
 function clearCurrentShiCiLearnProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`shici_learn_progress_${currentUser}`);
-    localStorage.removeItem(`shici_progress_session_${currentUser}`);
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`shici_learn_progress_${u}`);
+    localStorage.removeItem(`shici_progress_session_${u}`);
+    localStorage.removeItem('shici_learn_progress_guest');
+    localStorage.removeItem('shici_progress_session_guest');
+    if (typeof shiciState !== 'undefined' && shiciState && !shiciState.isReview) {
+        shiciState = null;
+    }
     updateHubShiCiResumeButton();
     updateShiCiProgressStatusUI();
-    showToast('已清除实词学习进度');
+    showToast('已清空实词学习进度');
 }
 
 function clearCurrentShiCiReviewProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`shici_review_progress_${currentUser}`);
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`shici_review_progress_${u}`);
+    localStorage.removeItem('shici_review_progress_guest');
+    if (typeof shiciState !== 'undefined' && shiciState && shiciState.isReview) {
+        shiciState = null;
+    }
     updateHubShiCiResumeButton();
     updateShiCiProgressStatusUI();
-    showToast('已清除实词复习进度');
+    showToast('已清空实词复习进度');
 }
 
 function clearCurrentShiCiProgress() {
@@ -38208,8 +38674,37 @@ function updateSearchSetting(key, val) {
         }
     }
     const phrasesBlock = document.getElementById('search-phrases-block');
-    if (phrasesBlock) {
-        phrasesBlock.style.display = cfg.enablePhrases !== false ? 'block' : 'none';
+    if (key === 'enablePhrases' && window._lastSearchPhrasesContext) {
+        const ctx = window._lastSearchPhrasesContext;
+        const allP = [];
+        const seen = new Set();
+        (ctx.phrasesResults || []).forEach(p => {
+            const pKey = p.phrase.toLowerCase();
+            if (!seen.has(pKey)) { seen.add(pKey); allP.push(p); }
+        });
+        if (cfg.enablePhrases !== false) {
+            (ctx.youdaoPhrases || []).forEach(yp => {
+                const pKey = yp.phrase.toLowerCase();
+                if (!seen.has(pKey)) { seen.add(pKey); allP.push(yp); }
+            });
+        }
+        const phrasesContent = document.getElementById('search-phrases-content');
+        if (phrasesContent) {
+            if (allP.length > 0) {
+                phrasesContent.innerHTML = allP.map(p => `
+                    <div class="search-phrase-item" onclick="executeHubSearch('${escapeHtml(p.phrase)}', true, true)">
+                        <div style="flex:1; min-width:0;">
+                            <div class="search-phrase-name">${highlightPhraseKeyword(p.phrase, ctx.clean)}</div>
+                            <div class="search-phrase-meaning">${escapeHtml(p.meaning)}</div>
+                        </div>
+                        <span class="badge" style="font-size:0.75rem;">${p.bookName ? `《${escapeHtml(p.bookName)}》` : '有道词典'}</span>
+                    </div>
+                `).join('');
+            } else {
+                phrasesContent.innerHTML = '<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">未找到相关词组</div>';
+            }
+        }
+        if (phrasesBlock) phrasesBlock.style.display = allP.length > 0 ? 'block' : 'none';
     }
     const relatedBlock = document.getElementById('search-related-block');
     if (relatedBlock) {
@@ -39538,7 +40033,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     isInlineAddToBookOpen = false;
     inlineSelectedChipIds.clear();
 
-    // 3. 相关词组 (过滤合并)
+    // 3. 相关词组 (过滤合并：设置开关“显示相关词组”仅针对有道词典词组)
     const allPhrases = [];
     const seenPhraseName = new Set();
     phrasesResults.forEach(p => {
@@ -39548,13 +40043,16 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
             allPhrases.push(p);
         }
     });
-    youdaoPhrases.forEach(yp => {
-        const pKey = yp.phrase.toLowerCase();
-        if (!seenPhraseName.has(pKey)) {
-            seenPhraseName.add(pKey);
-            allPhrases.push(yp);
-        }
-    });
+    if (searchConfig.enablePhrases !== false) {
+        youdaoPhrases.forEach(yp => {
+            const pKey = yp.phrase.toLowerCase();
+            if (!seenPhraseName.has(pKey)) {
+                seenPhraseName.add(pKey);
+                allPhrases.push(yp);
+            }
+        });
+    }
+    window._lastSearchPhrasesContext = { phrasesResults, youdaoPhrases, clean };
 
     let phrasesHtml = '';
     if (allPhrases.length > 0) {
@@ -39632,7 +40130,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                     <div id="search-gaokao-extra-sections" class="search-gaokao-extra-container" style="display:none;"></div>
 
                     <!-- 3. 相关词组 (受设置开关控制，已去除个数) -->
-                    <div class="search-section-block" id="search-phrases-block" style="${searchConfig.enablePhrases !== false ? '' : 'display:none;'}">
+                    <div class="search-section-block" id="search-phrases-block" style="${allPhrases.length > 0 ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-phrases-content', this)" style="cursor:pointer; user-select:none;">
                             <div class="search-section-title">
                                 <span class="material-symbols-rounded" style="color:#7c3aed; font-size:20px;">link</span>
@@ -39911,10 +40409,7 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
                             <div class="gaokao-sense-example-item">
                                 <div class="gaokao-sense-example-en-row">
                                     <span class="gaokao-sense-example-en">${escapeHtml(ex.en || '')}</span>
-                                    <button type="button" class="gaokao-example-audio-btn" onclick="if(typeof playWordAudio==='function') playWordAudio('${escapeJsStr(ex.en || '')}')" title="播放例句发音">
-                                        <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                                    </button>
-                                </div>
+                                                                    </div>
                                 ${ex.zh ? `<div class="gaokao-sense-example-zh">${escapeHtml(ex.zh)}</div>` : ''}
                             </div>
                         `).join('')}

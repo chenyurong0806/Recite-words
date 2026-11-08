@@ -699,59 +699,109 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
     /**
      * 高鲁棒性词条归一化引擎：兼容词典数组、包装对象、中英键值对等各种格式，去除 UTF-8 BOM
      */
+    /**
+     * 高鲁棒性智能词条归一化引擎：
+     * 自动检测并深度适配各种词书结构（数组、包装信封、首字母/板块嵌套对象、键值对字典等）
+     */
     normalizeWords(rawData, bookName = '', bookId = '') {
         if (!rawData) return [];
         let list = rawData;
 
-        // 兼容解包各种常见 JSON 数据结构
-        if (!Array.isArray(rawData)) {
-            if (rawData.words && Array.isArray(rawData.words)) list = rawData.words;
-            else if (rawData.list && Array.isArray(rawData.list)) list = rawData.list;
-            else if (rawData.items && Array.isArray(rawData.items)) list = rawData.items;
-            else if (rawData.data && Array.isArray(rawData.data)) list = rawData.data;
-            else if (typeof rawData === 'object') {
-                const keys = Object.keys(rawData);
-                const hasArrayVal = keys.some(k => Array.isArray(rawData[k]));
-                if (keys.length > 0 && hasArrayVal) {
-                    // 兼容《高中考纲.json》等按首字母/板块分组的 { a: [...], b: [...] } 词书结构
-                    list = [];
-                    keys.forEach(k => {
-                        if (Array.isArray(rawData[k])) {
-                            rawData[k].forEach(item => {
-                                if (item && typeof item === 'object') {
-                                    item.section = item.section || k;
-                                }
-                                list.push(item);
-                            });
-                        }
-                    });
-                } else {
-                    // 处理形如 { "apple": "苹果", "banana": "香蕉" } 结构
-                    list = Object.keys(rawData).map(k => ({ word: k, trans: rawData[k] }));
+        // 1. 自动解包常见包装信封（Envelope）
+        if (!Array.isArray(rawData) && typeof rawData === 'object') {
+            const envelopeKeys = ['words', 'list', 'items', 'data', 'vocabulary', 'entries', 'vocab', 'dict', 'content', 'sections'];
+            for (const ek of envelopeKeys) {
+                if (rawData[ek]) {
+                    if (Array.isArray(rawData[ek])) {
+                        list = rawData[ek];
+                        break;
+                    } else if (typeof rawData[ek] === 'object' && rawData[ek] !== null) {
+                        rawData = rawData[ek];
+                        break;
+                    }
                 }
-            } else {
-                return [];
             }
         }
 
+        // 2. 深度适配非数组结构（如 { a: [...], b: [...] }, { a: { abandon: {...} } }, 或 { apple: "苹果" }）
+        if (!Array.isArray(list) && typeof rawData === 'object' && rawData !== null) {
+            const keys = Object.keys(rawData);
+            if (keys.length === 0) return [];
+
+            // 检测是否为分类/板块/首字母分组（如 26 个英文字母、Unit 1、板块 A 等）
+            const isSectionGroup = keys.every(k => k.length <= 4) ||
+                keys.some(k => /^[a-zA-Z]$/.test(k)) ||
+                keys.some(k => /^(unit|lesson|section|part|chapter|grade|level|板块|第)/i.test(k));
+
+            if (isSectionGroup) {
+                list = [];
+                keys.forEach(secKey => {
+                    const secVal = rawData[secKey];
+                    if (!secVal) return;
+
+                    if (Array.isArray(secVal)) {
+                        secVal.forEach(item => {
+                            if (!item) return;
+                            if (typeof item === 'string') {
+                                list.push({ word: item, section: secKey });
+                            } else if (typeof item === 'object') {
+                                item.section = item.section || secKey;
+                                list.push(item);
+                            }
+                        });
+                    } else if (typeof secVal === 'object') {
+                        // 内部可能是数字键名对象 { "0": {...}, "1": {...} } 或 词名键名对象 { "abandon": {...} }
+                        const subKeys = Object.keys(secVal);
+                        subKeys.forEach(subKey => {
+                            const subItem = secVal[subKey];
+                            if (!subItem) return;
+                            if (typeof subItem === 'string') {
+                                list.push({ word: subKey, trans: subItem, section: secKey });
+                            } else if (typeof subItem === 'object') {
+                                const wName = subItem.word || subItem.name || subItem.headWord || (/^\d+$/.test(subKey) ? '' : subKey);
+                                const itemObj = { ...subItem };
+                                if (wName) itemObj.word = wName;
+                                itemObj.section = itemObj.section || secKey;
+                                list.push(itemObj);
+                            }
+                        });
+                    }
+                });
+            } else {
+                // 纯扁平字典结构：键名为单词，值为释义字符串或词条对象
+                list = keys.map(k => {
+                    const val = rawData[k];
+                    if (typeof val === 'string') {
+                        return { word: k, trans: val };
+                    } else if (typeof val === 'object' && val !== null) {
+                        return { word: val.word || val.name || k, ...val };
+                    }
+                    return { word: k, trans: String(val || '') };
+                });
+            }
+        }
+
+        if (!Array.isArray(list)) return [];
+
         return list.map(item => {
             if (!item) return null;
-            const word = (item.word || item.name || item.headWord || item.key || item.title || '').trim();
+            const word = (item.word || item.name || item.headWord || item.key || item.title || item.english || item.vocab || '').trim();
             if (!word) return null;
 
-            let phone = item.phone || item.phonetic || '';
+            let phone = item.phone || item.phonetic || item.pronunciation || '';
             if (!phone && item.pinyin) phone = item.pinyin;
             else if (!phone && item.usphone) phone = `/${item.usphone}/`;
             else if (!phone && item.ukphone) phone = `/${item.ukphone}/`;
 
             const rawNoParen = (item.name || word).replace(/\s*\([^)]*\)/g, '').trim();
+            // 精准判定是否为词组：必须包含空格、省略号、短语标记等，单单词绝不误判为词组
             const isPhrase = Boolean(
                 item.itemType === 'phrase' ||
-                (item.mistake && (!item.senses || item.senses.length === 0)) ||
+                item.isPhrase === true ||
                 rawNoParen.includes(' ') ||
                 rawNoParen.includes('...') ||
                 rawNoParen.includes('…') ||
-                (!item.senses && !phone && (item.trans || item.meaning))
+                (item.mistake && (!item.senses || item.senses.length === 0) && rawNoParen.includes(' '))
             );
             const itemType = isPhrase ? 'phrase' : 'word';
 

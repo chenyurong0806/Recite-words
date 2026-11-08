@@ -1180,20 +1180,29 @@ function saveShiCiSessionProgress() {
 }
 
 function clearCurrentShiCiLearnProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`shici_learn_progress_${currentUser}`);
-    localStorage.removeItem(`shici_progress_session_${currentUser}`);
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`shici_learn_progress_${u}`);
+    localStorage.removeItem(`shici_progress_session_${u}`);
+    localStorage.removeItem('shici_learn_progress_guest');
+    localStorage.removeItem('shici_progress_session_guest');
+    if (typeof shiciState !== 'undefined' && shiciState && !shiciState.isReview) {
+        shiciState = null;
+    }
     updateHubShiCiResumeButton();
     updateShiCiProgressStatusUI();
-    showToast('已清除实词学习进度');
+    showToast('已清空实词学习进度');
 }
 
 function clearCurrentShiCiReviewProgress() {
-    if (!currentUser) return;
-    localStorage.removeItem(`shici_review_progress_${currentUser}`);
+    const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'guest';
+    localStorage.removeItem(`shici_review_progress_${u}`);
+    localStorage.removeItem('shici_review_progress_guest');
+    if (typeof shiciState !== 'undefined' && shiciState && shiciState.isReview) {
+        shiciState = null;
+    }
     updateHubShiCiResumeButton();
     updateShiCiProgressStatusUI();
-    showToast('已清除实词复习进度');
+    showToast('已清空实词复习进度');
 }
 
 function clearCurrentShiCiProgress() {

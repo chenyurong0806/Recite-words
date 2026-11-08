@@ -18,31 +18,48 @@ const SyncManager = {
     retryDelay: 5000,
     maxRetryDelay: 60000,
 
+    isAutoSyncAllowed() {
+        if (typeof isAutoSyncEnabled === 'function') {
+            return isAutoSyncEnabled();
+        }
+        try {
+            const val = localStorage.getItem('vocab_auto_sync_enabled');
+            if (val === null) return true;
+            return val === 'true' || val === true || val === '1';
+        } catch (e) {
+            return true;
+        }
+    },
+
     init() {
         this.loadQueue();
         if (typeof window !== 'undefined') {
             // 页面隐藏或关闭时利用 keepalive 发送最终批量
             window.addEventListener('beforeunload', () => {
+                if (!this.isAutoSyncAllowed()) return;
                 this.flush({ keepalive: true, silent: true });
             });
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'hidden') {
+                    if (!this.isAutoSyncAllowed()) return;
                     this.flush({ keepalive: true, silent: true });
                 }
             });
             // 弱网恢复在线时自动重试
             window.addEventListener('online', () => {
+                if (!this.isAutoSyncAllowed()) return;
                 console.log('[SyncManager] 网络已恢复，自动触发批量数据同步...');
                 this.flush({ silent: true });
             });
         }
-        // 定期检查与同步 (每 25 秒检查一次)
+        // 定期检查与同步 (优化为 90 秒，降低空闲请求频次)
         if (this.intervalTimer) clearInterval(this.intervalTimer);
         this.intervalTimer = setInterval(() => {
+            if (!this.isAutoSyncAllowed()) return;
             if (this.pendingQueue.length > 0 && !this.isSyncing) {
                 this.flush({ silent: true });
             }
-        }, 25000);
+        }, 90000);
     },
 
     getStorageKey(user) {
@@ -98,9 +115,7 @@ const SyncManager = {
             updateSyncButtonStatus();
         }
 
-        const autoSync = (typeof isAutoSyncEnabled === 'function')
-            ? isAutoSyncEnabled()
-            : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+        const autoSync = this.isAutoSyncAllowed();
 
         if (!autoSync && !immediate) {
             // 用户在设置中关闭了自动同步：数据安全保留在本地队列中，等待手动同步
@@ -110,14 +125,14 @@ const SyncManager = {
         if (immediate) {
             this.flush({ silent: false, force: true });
         } else {
-            // 防抖机制：连续答题时合并在 4 秒空闲后触发；若积压超过 10 条且未在同步中则推送
+            // 防抖机制：连续答题合并在 20 秒后触发；若积压超过 25 条且未在同步中则推送
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
-            if (this.pendingQueue.length >= 10 && !this.isSyncing) {
+            if (this.pendingQueue.length >= 25 && !this.isSyncing) {
                 this.flush({ silent: true });
             } else {
                 this.debounceTimer = setTimeout(() => {
                     this.flush({ silent: true });
-                }, 4000);
+                }, 20000);
             }
         }
     },
@@ -127,6 +142,10 @@ const SyncManager = {
      */
     async flush(options = {}) {
         if (this.isSyncing) return;
+        // 如果未开启自动同步，且不是用户强制触发 (force)，坚决不执行后台自动同步
+        if (!options.force && !this.isAutoSyncAllowed()) {
+            return;
+        }
         const u = (typeof currentUser !== 'undefined') ? currentUser : null;
         if (!u || u.startsWith('游客')) {
             this.pendingQueue = [];

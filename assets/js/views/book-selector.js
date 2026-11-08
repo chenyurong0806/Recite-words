@@ -1134,6 +1134,7 @@ async function importCustomBookFiles(fileList, targetCategory = '') {
 }
 
 function renderBookSelectorPage() {
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
     if (typeof parkBookDropdownMenus === 'function') parkBookDropdownMenus();
     const container = document.getElementById('book-selector-content-list');
     const summaryChip = document.getElementById('book-selector-summary-chip');
@@ -1488,7 +1489,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                                 <span>下载</span>
                             </button>
                         ` : `
-                            <span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>
+                            ${(hasSections && hasTypes) ? '' : `<span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>`}
                         `)}
                     </div>
                 </div>
@@ -1640,6 +1641,7 @@ function renderManageBooksCategoryTabs() {
 }
 
 function renderManageBooksPage() {
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
     if (typeof parkBookDropdownMenus === 'function') parkBookDropdownMenus();
     const container = document.getElementById('manage-books-content-list');
     const summaryChip = document.getElementById('manage-books-summary-chip');
@@ -1828,17 +1830,20 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    const spaceBelow = viewportHeight - btnRect.bottom;
-    const spaceAbove = btnRect.top;
+    const spaceBelow = viewportHeight - btnRect.bottom - 12;
+    const spaceAbove = btnRect.top - 12;
     let top = 0;
-    if (spaceBelow < menuHeight + 10 && spaceAbove > spaceBelow) {
-        top = Math.max(10, btnRect.top - menuHeight - 6);
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+        const fitHeight = Math.min(menuHeight, spaceAbove - 6);
+        top = Math.max(10, btnRect.top - fitHeight - 6);
         menuEl.classList.add('flip-up');
+        menuEl.style.maxHeight = `${fitHeight}px`;
     } else {
-        top = Math.min(viewportHeight - menuHeight - 10, btnRect.bottom + 6);
+        const fitHeight = Math.min(menuHeight, Math.max(120, spaceBelow - 6));
+        top = btnRect.bottom + 6;
         menuEl.classList.remove('flip-up');
+        menuEl.style.maxHeight = `${fitHeight}px`;
     }
-
     let left = 0;
     if (defaultAlign === 'right') {
         left = btnRect.right - menuWidth;
@@ -2078,6 +2083,63 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
     bookContentState.allExpanded = false;
     bookContentState.expandedItemKeys.clear();
 
+    // 初始化内容工具栏：分类筛选下拉菜单与类型按钮组
+    const secSet = new Set();
+    words.forEach(w => {
+        if (w && w.section) {
+            const cleanSec = String(w.section).trim().replace(/^板块\s*/i, '');
+            if (cleanSec) secSet.add(cleanSec);
+        }
+    });
+    if (secSet.size <= 1 && words.length > 50) {
+        const letterSet = new Set();
+        words.forEach(w => {
+            const first = (w.word || '').trim().charAt(0).toLowerCase();
+            if (/^[a-z]$/.test(first)) letterSet.add(first);
+        });
+        if (letterSet.size >= 2) {
+            letterSet.forEach(l => secSet.add(l));
+        }
+    }
+    const secWrap = document.getElementById('bc-toolbar-section-wrap');
+    const secLabel = document.getElementById('bc-toolbar-section-label');
+    const secMenu = document.getElementById('bc-toolbar-section-menu');
+    if (secWrap && secMenu) {
+        if (secSet.size > 1) {
+            const sortedSecs = Array.from(secSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            if (secLabel) secLabel.textContent = `全部分类 (${words.length}词)`;
+            secMenu.innerHTML = `
+                <div class="md3-custom-select-option selected" data-value="all" onclick="selectMd3Option('bc-toolbar-section', 'all', '全部分类 (${words.length}词)', 'setBookContentSectionFilter')">
+                    <span>全部分类 (${words.length}词)</span>
+                    <span class="material-symbols-rounded" style="font-size:16px;">check</span>
+                </div>
+                ${sortedSecs.map(s => `
+                    <div class="md3-custom-select-option" data-value="${escapeHtml(s)}" onclick="selectMd3Option('bc-toolbar-section', '${escapeHtml(s)}', '${escapeHtml(s.toUpperCase())}', 'setBookContentSectionFilter')">
+                        <span>${escapeHtml(s.toUpperCase())}</span>
+                    </div>
+                `).join('')}
+            `;
+            secWrap.style.display = 'inline-flex';
+        } else {
+            secWrap.style.display = 'none';
+        }
+    }
+    document.querySelectorAll('#bc-toolbar-type-tabs .settings-cat-tab').forEach(ch => {
+        ch.classList.toggle('active', ch.getAttribute('data-type') === 'all');
+    });
+    document.querySelectorAll('#bc-toolbar-type-chips .md3-chip').forEach(ch => {
+        ch.classList.toggle('selected', ch.getAttribute('data-type') === 'all');
+    });
+    bookContentState.collapsedDisplayMode = 'en';
+    const dispModeText = document.getElementById('text-bc-display-mode');
+    if (dispModeText) dispModeText.textContent = '展示释义';
+    const dispModeBtn = document.getElementById('btn-bc-toggle-display-mode');
+    if (dispModeBtn) dispModeBtn.classList.remove('active');
+    const expandIcon = document.getElementById('icon-bc-expand-all');
+    const expandText = document.getElementById('text-bc-expand-all');
+    if (expandIcon) expandIcon.textContent = 'unfold_more';
+    if (expandText) expandText.textContent = '展开全部';
+
     // 更新页面标题与顶栏信息
     const titleEl = document.getElementById('book-content-page-title');
     const subtitleEl = document.getElementById('book-content-page-subtitle');
@@ -2172,6 +2234,22 @@ function applyBookContentFilters() {
 
     const filtered = rawWords.filter(w => {
         if (!w || !w.word) return false;
+
+        // 类型筛选：单词 / 词组
+        if (bookContentState.activeType === 'word') {
+            const isPh = w.itemType === 'phrase' || (!isShiCi && (w.word || '').includes(' '));
+            if (isPh) return false;
+        } else if (bookContentState.activeType === 'phrase') {
+            const isPh = w.itemType === 'phrase' || (!isShiCi && (w.word || '').includes(' '));
+            if (!isPh) return false;
+        }
+
+        // 分类筛选
+        if (bookContentState.activeSection && bookContentState.activeSection !== 'all') {
+            const wSec = String(w.section || '').trim().replace(/^板块\s*/i, '').toLowerCase();
+            if (wSec !== bookContentState.activeSection.toLowerCase()) return false;
+        }
+
         if (!q) return true;
 
         const wordText = String(w.word || '').toLowerCase();
@@ -2307,7 +2385,7 @@ function formatExamplesHtml(examplesList) {
     if (!Array.isArray(examplesList) || examplesList.length === 0) return '';
     return `
         <div class="bc-drawer-section">
-            <div class="bc-drawer-title"><span class="material-symbols-rounded">text_snippet</span>典型例句</div>
+            <div class="bc-drawer-title"><span class="material-symbols-rounded">notes</span>典型例句</div>
             <div class="bc-examples-list">
                 ${examplesList.slice(0, 4).map(ex => `
                     <div class="bc-example-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -2315,9 +2393,6 @@ function formatExamplesHtml(examplesList) {
                             <div class="bc-ex-en">${escapeHtml(ex.en)}</div>
                             <div class="bc-ex-zh">${escapeHtml(ex.zh)}</div>
                         </div>
-                        <button type="button" class="btn-circle-icon-action" style="width:26px; height:26px; border:none; background:transparent;" onclick="playWordAudio('${escapeHtml(ex.en.replace(/'/g, "\\'"))}', event)" title="朗读例句">
-                            <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                        </button>
                     </div>
                 `).join('')}
             </div>
@@ -2440,14 +2515,24 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
            </div>`
         : '';
 
+    const hasExpandableContent = Boolean(
+        (meaningsHtml && flatMeaning && flatMeaning !== '暂无释义') ||
+        w.note ||
+        (Array.isArray(examplesList) && examplesList.length > 0) ||
+        (Array.isArray(w.derivatives) && w.derivatives.length > 0) ||
+        (Array.isArray(w.discriminations) && w.discriminations.length > 0) ||
+        (Array.isArray(w.antonyms) && w.antonyms.length > 0)
+    );
+
+    const isCollapsedZh = (!isExp && bookContentState.collapsedDisplayMode === 'zh');
+    const displayHeadword = isCollapsedZh ? (flatMeaning || word) : word;
+
     return `
-        <div class="bc-unified-item ${isExp ? 'expanded' : ''}" id="bc-card-${safeKey}" onclick="toggleBookContentItemDetail('${safeKey}', event)">
+        <div class="bc-unified-item ${isExp ? 'expanded' : ''} ${hasExpandableContent ? '' : 'no-expand'}" id="bc-card-${safeKey}" onclick="${hasExpandableContent ? `toggleBookContentItemDetail('${safeKey}', event)` : ''}">
             <div class="bc-item-header">
                 <div class="bc-item-title-meta">
-                    <span class="bc-headword">${escapeHtml(word)}</span>
-                    ${phoneDisplay ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
-                    ${isPhrase ? `<span class="bc-phrase-badge">词组</span>` : ''}
-                    ${w.section ? `<span class="bc-section-badge">${escapeHtml(w.section.toUpperCase())}</span>` : ''}
+                    <span class="bc-headword" title="${escapeHtml(displayHeadword)}">${escapeHtml(displayHeadword)}</span>
+                    ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}
                 </div>
                 <div class="bc-item-actions" onclick="event.stopPropagation()">
                     <button type="button" class="btn-circle-icon-action" onclick="jumpToSearch('${escapeHtml(word)}')" title="查词" aria-label="查词">
@@ -2456,22 +2541,17 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                     <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}', event)" title="发音" aria-label="发音">
                         <span class="material-symbols-rounded">volume_up</span>
                     </button>
-                    <button type="button" class="btn-mastered-pill ${isMastered ? 'mastered' : ''}" onclick="toggleBookContentMastered('${escapeHtml(word)}', ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握' : '标记熟词'}">
+                    <button type="button" class="btn-circle-icon-action ${isMastered ? 'mastered' : ''}" onclick="toggleBookContentMastered('${escapeHtml(word)}', ${isShiCi ? 'true' : 'false'}, this)" title="${isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
                         <span class="material-symbols-rounded">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>
-                        <span>${isMastered ? '已掌握' : '熟词'}</span>
                     </button>
                     ${isCustomLocal ? `
-                        <button type="button" class="btn-circle-icon-action edit" onclick="if (typeof openEditMeaningModal === 'function') openEditMeaningModal('${escapeHtml(bookContentState.bookId)}', '${escapeHtml(word)}', '${escapeHtml(flatMeaning)}')" title="编辑释义">
-                            <span class="material-symbols-rounded">edit</span>
-                        </button>
                         <button type="button" class="btn-circle-icon-action danger" onclick="deleteWordFromBookContent('${escapeHtml(word)}')" title="删除词汇">
                             <span class="material-symbols-rounded">delete</span>
                         </button>
                     ` : ''}
-                    <span class="material-symbols-rounded bc-expand-chevron">expand_more</span>
+                    ${hasExpandableContent ? `<span class="material-symbols-rounded bc-expand-chevron">expand_more</span>` : ''}
                 </div>
             </div>
-
             <!-- 向下展开的详情抽屉 (默认折叠) -->
             <div class="bc-item-drawer" style="display:${isExp ? 'block' : 'none'};">
                 <div class="bc-meanings-group">
@@ -2502,6 +2582,10 @@ function toggleBookContentItemDetail(uniqueKey, e) {
     const drawer = card.querySelector('.bc-item-drawer');
     if (drawer) {
         drawer.style.display = !isExp ? 'block' : 'none';
+    }
+    const phoneEl = card.querySelector('.bc-phone');
+    if (phoneEl) {
+        phoneEl.style.display = !isExp ? 'inline-flex' : 'none';
     }
 }
 
@@ -2566,28 +2650,38 @@ function renderBookContentItems(isAppending = false) {
 function toggleBookContentMastered(word, isShiCi, btnEl) {
     if (!word) return;
     const nowMastered = isShiCi
-        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
-        : isWordMastered(word);
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : (typeof isWordMastered === 'function' ? isWordMastered(word) : false))
+        : (typeof isWordMastered === 'function' ? isWordMastered(word) : false);
 
     if (nowMastered) {
         if (isShiCi && typeof ShiCiEbbinghausEngine !== 'undefined') {
             ShiCiEbbinghausEngine.unmarkMastered(word);
             ShiCiEbbinghausEngine.updateDueBadge();
         }
-        unmarkWordAsMastered(word);
+        if (typeof removeWordMastered === 'function') {
+            removeWordMastered(word);
+        } else if (typeof unmarkWordAsMastered === 'function') {
+            unmarkWordAsMastered(word);
+        }
         if (btnEl) {
             btnEl.classList.remove('mastered');
-            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle_outline</span><span>熟词</span>`;
+            btnEl.title = '标为熟词';
+            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle_outline</span>`;
         }
     } else {
         if (isShiCi && typeof ShiCiEbbinghausEngine !== 'undefined') {
             ShiCiEbbinghausEngine.recordWord(word, '', '', true, true);
             ShiCiEbbinghausEngine.updateDueBadge();
         }
-        markWordAsMastered(word);
+        if (typeof ensureWordMastered === 'function') {
+            ensureWordMastered(word);
+        } else if (typeof markWordAsMastered === 'function') {
+            markWordAsMastered(word);
+        }
         if (btnEl) {
             btnEl.classList.add('mastered');
-            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle</span><span>已掌握</span>`;
+            btnEl.title = '已掌握（点击取消）';
+            btnEl.innerHTML = `<span class="material-symbols-rounded">check_circle</span>`;
         }
     }
 
@@ -3515,24 +3609,10 @@ function handleSectionDropdownChange() {
         }
     });
 
-    let matchedCount = 0;
-    const totalCount = currentDropdownSectionWords.length;
-
-    currentDropdownSectionWords.forEach(w => {
-        if (!w) return;
-        let sec = (w.section || '').trim().toLowerCase();
-        if (!sec && w.word) {
-            const first = w.word.trim().charAt(0).toLowerCase();
-            if (/^[a-z]$/.test(first)) sec = first;
-        }
-        if (sec && !selectedSections.has(sec)) return;
-        matchedCount++;
-    });
-
     const summaryEl = document.getElementById('sf-sec-dropdown-matched');
     if (summaryEl) {
-        summaryEl.textContent = `共 ${matchedCount} / ${totalCount} 词`;
-        summaryEl.style.color = (matchedCount === 0) ? 'var(--md-sys-color-error, #ba1a1a)' : 'var(--md-sys-color-primary)';
+        summaryEl.textContent = '';
+        summaryEl.style.display = 'none';
     }
 }
 
@@ -3548,7 +3628,7 @@ function applyBookSectionDropdown() {
     const selectedSections = sectionCbs.filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
 
     if (totalCount > 0 && selectedSections.length === 0) {
-        showToast('请至少勾选一个分类');
+        if (typeof showToast === 'function') showToast('请至少勾选一个分类');
         return;
     }
 
@@ -3569,7 +3649,9 @@ function applyBookSectionDropdown() {
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
 
-    showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
+    if (typeof showToast === 'function') {
+        showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
+    }
 }
 
 /* ==========================================================================
@@ -3608,20 +3690,13 @@ async function toggleBookTypeDropdown(event, bookId) {
 
     const savedFilter = (typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(bookId) : null;
 
-    let wordCount = 0;
-    let phraseCount = 0;
-    currentDropdownTypeWords.forEach(w => {
-        if (!w) return;
-        if (w.itemType === 'phrase') phraseCount++;
-        else wordCount++;
-    });
-
     const isAllSelected = !savedFilter || !savedFilter.types || savedFilter.types.length === 0 || savedFilter.types.length === 2;
     const isWordSelected = isAllSelected || (savedFilter.types && savedFilter.types.includes('word'));
     const isPhraseSelected = isAllSelected || (savedFilter.types && savedFilter.types.includes('phrase'));
 
     const listEl = document.getElementById('sf-dropdown-types-list');
     if (listEl) {
+        // 用户要求：选择类型菜单不用显示每个类型的词数，删除分割线和共...词
         listEl.innerHTML = `
             <div class="book-dd-header">
                 <span class="book-dd-title"><span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">category</span>选择类型</span>
@@ -3629,16 +3704,11 @@ async function toggleBookTypeDropdown(event, bookId) {
             <label class="book-dd-check-row ${isWordSelected ? 'active' : ''}">
                 <input type="checkbox" id="sf-type-opt-word" ${isWordSelected ? 'checked' : ''} onchange="handleTypeDropdownRowChange()" class="book-dd-checkbox">
                 <span class="book-dd-row-name">单词</span>
-                <span class="book-dd-row-count">${wordCount} 词</span>
             </label>
             <label class="book-dd-check-row ${isPhraseSelected ? 'active' : ''}">
                 <input type="checkbox" id="sf-type-opt-phrase" ${isPhraseSelected ? 'checked' : ''} onchange="handleTypeDropdownRowChange()" class="book-dd-checkbox">
                 <span class="book-dd-row-name">词组</span>
-                <span class="book-dd-row-count">${phraseCount} 词</span>
             </label>
-            <div class="book-dd-footer">
-                <span id="sf-type-dropdown-matched" class="book-dd-summary">共 ${currentDropdownTypeWords.length} / ${currentDropdownTypeWords.length} 词</span>
-            </div>
         `;
     }
 
@@ -3676,21 +3746,6 @@ function handleTypeDropdownRowChange() {
     const phraseRow = phraseCb.closest('.book-dd-check-row');
     if (wordRow) wordRow.classList.toggle('active', allowWord);
     if (phraseRow) phraseRow.classList.toggle('active', allowPhrase);
-
-    let matchedCount = 0;
-    const totalCount = currentDropdownTypeWords.length;
-    currentDropdownTypeWords.forEach(w => {
-        if (!w) return;
-        const isPhrase = (w.itemType === 'phrase');
-        if (isPhrase && !allowPhrase) return;
-        if (!isPhrase && !allowWord) return;
-        matchedCount++;
-    });
-
-    const summaryEl = document.getElementById('sf-type-dropdown-matched');
-    if (summaryEl) {
-        summaryEl.textContent = `共 ${matchedCount} / ${totalCount} 词`;
-    }
 
     // 实时保存并刷新卡片
     const bookId = currentDropdownTypeBookId;
@@ -3791,3 +3846,109 @@ window.closeBookSectionFilterDropdown = closeBookSectionDropdown;
 window.applyBookSectionFilterDropdown = applyBookSectionDropdown;
 window.openBookSectionFilterModal = toggleBookSectionDropdown;
 window.closeBookSectionFilterModal = closeBookSectionDropdown;
+
+/**
+ * 词书内容工具栏：一键展开/收起全部词条
+ */
+function toggleBookContentExpandAll() {
+    bookContentState.allExpanded = !bookContentState.allExpanded;
+    if (bookContentState.allExpanded) {
+        bookContentState.expandedItemKeys.clear();
+        (bookContentState.filteredWords || []).forEach((w, idx) => {
+            const word = w.word || '';
+            const safeKey = `bc_${idx}_${encodeURIComponent(word).replace(/%/g, '_')}`;
+            bookContentState.expandedItemKeys.add(safeKey);
+        });
+    } else {
+        bookContentState.expandedItemKeys.clear();
+    }
+    const expandIcon = document.getElementById('icon-bc-expand-all');
+    const expandText = document.getElementById('text-bc-expand-all');
+    if (expandIcon) expandIcon.textContent = bookContentState.allExpanded ? 'unfold_less' : 'unfold_more';
+    if (expandText) expandText.textContent = bookContentState.allExpanded ? '收起全部' : '展开全部';
+    renderBookContentItems();
+}
+window.toggleBookContentExpandAll = toggleBookContentExpandAll;
+
+function setBookContentTypeFilter(type) {
+    bookContentState.activeType = type;
+    document.querySelectorAll('#bc-toolbar-type-tabs .settings-cat-tab').forEach(ch => {
+        ch.classList.toggle('active', ch.getAttribute('data-type') === type);
+    });
+    document.querySelectorAll('#bc-toolbar-type-chips .md3-chip').forEach(ch => {
+        ch.classList.toggle('selected', ch.getAttribute('data-type') === type);
+    });
+    applyBookContentFilters();
+}
+window.setBookContentTypeFilter = setBookContentTypeFilter;
+
+function setBookContentSectionFilter(sec) {
+    bookContentState.activeSection = sec;
+    applyBookContentFilters();
+}
+window.setBookContentSectionFilter = setBookContentSectionFilter;
+
+function toggleBookContentDisplayMode() {
+    bookContentState.collapsedDisplayMode = (bookContentState.collapsedDisplayMode === "zh") ? "en" : "zh";
+    const text = document.getElementById("text-bc-display-mode");
+    const btn = document.getElementById("btn-bc-toggle-display-mode");
+    const isZh = (bookContentState.collapsedDisplayMode === "zh");
+    if (text) text.textContent = isZh ? "展示英文" : "展示释义";
+    if (btn) btn.classList.toggle("active", isZh);
+    renderBookContentItems();
+}
+window.toggleBookContentDisplayMode = toggleBookContentDisplayMode;
+
+/**
+ * 一键更新全部词书：检查并更新所有已下载云端词书
+ */
+async function handleUpdateAllBooks() {
+    if (typeof BookManager === 'undefined') return;
+    if (typeof showToast === 'function') showToast('正在检查全部词书更新...');
+    try {
+        await BookManager.fetchBookList();
+    } catch (e) { }
+
+    const candidates = (BookManager.availableBooks || []).filter(b => b && b.isCloud && b.syncStatus === 'update_available');
+    if (candidates.length === 0) {
+        if (typeof showToast === 'function') showToast('暂无需要更新的词书');
+        return;
+    }
+
+    let updatedCount = 0;
+    for (let i = 0; i < candidates.length; i++) {
+        const b = candidates[i];
+        try {
+            if (typeof showToast === 'function') showToast(`正在更新《${b.name}》(${i + 1}/${candidates.length})...`);
+            await BookManager.downloadBook(b.id);
+            updatedCount++;
+        } catch (e) { }
+    }
+
+    if (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.invalidateProgressCache) {
+        EbbinghausEngine.invalidateProgressCache();
+    }
+
+    if (typeof showToast === 'function') showToast(`词书更新完成，共更新 ${updatedCount} 本词书`);
+    if (typeof updateAllBooksButtonVisibility === "function") updateAllBooksButtonVisibility();
+
+    if (typeof currentView !== 'undefined') {
+        if (currentView === 'view-book-selector' && typeof renderBookSelectorPage === 'function') {
+            renderBookSelectorPage();
+        } else if (currentView === 'view-manage-books' && typeof renderManageBooksPage === 'function') {
+            renderManageBooksPage();
+        }
+    }
+}
+window.handleUpdateAllBooks = handleUpdateAllBooks;
+
+function updateAllBooksButtonVisibility() {
+    const hasUpdates = Boolean(
+        typeof BookManager !== "undefined" && Array.isArray(BookManager.availableBooks) &&
+        BookManager.availableBooks.some(b => b && b.isCloud && b.syncStatus === "update_available")
+    );
+    document.querySelectorAll(".btn-update-all-books").forEach(btn => {
+        btn.style.display = hasUpdates ? "inline-flex" : "none";
+    });
+}
+window.updateAllBooksButtonVisibility = updateAllBooksButtonVisibility;

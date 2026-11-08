@@ -116,6 +116,7 @@ function updateGlobalNetworkBadge(status) {
         case 'SUBSCRIBED':
         case 'connected':
         case 'open':
+        case 'online':
             currentConnectionQuality = 'connected';
             badge.className = 'network-status-badge online';
             badgeText.innerText = '在线';
@@ -905,6 +906,14 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'));
     if (!isRegisteredUser) return;
 
+    // 检查自动同步设置：关闭自动同步后，非强制手动同步 (force) 不执行后台上传
+    const autoSyncAllowed = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+    if (!options.force && !autoSyncAllowed) {
+        return { success: true, skipped: true, reason: 'auto_sync_disabled' };
+    }
+
     let stats = null;
     try {
         if (typeof userStats !== 'undefined' && currentUser === u) {
@@ -984,6 +993,36 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         updated_at: new Date().toISOString()
     };
 
+    // 计算核心学习数据指纹，避免数据无变动时频繁全量上传浪费流量
+    const hashPayload = {
+        stats: payload.stats,
+        cloudMastery: payload.cloud_books_mastery,
+        rank: payload.rank_data,
+        ebbinghaus: payload.ebbinghaus,
+        daily_logs: payload.daily_logs,
+        mastered_words: payload.mastered_words,
+        wordle_history: payload.wordle_history,
+        shici_progress: payload.shici_progress,
+        level: payload.level,
+        score: payload.score
+    };
+    let currentHash = null;
+    try {
+        const str = JSON.stringify(hashPayload);
+        let h = 0;
+        for (let i = 0; i < str.length; i++) {
+            h = ((h << 5) - h) + str.charCodeAt(i);
+            h |= 0;
+        }
+        currentHash = (h >>> 0).toString(16) + '_' + str.length;
+    } catch (e) {}
+
+    if (!window._lastCloudSyncHash) window._lastCloudSyncHash = {};
+    if (!options.force && currentHash && window._lastCloudSyncHash[u] === currentHash) {
+        // 数据未发生实际变动，安全跳过重复上传
+        return { success: true, skipped: true, reason: 'data_unchanged' };
+    }
+
     const updateObj = {
         user_data: payload,
         level: payload.level,
@@ -1058,6 +1097,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 console.warn('[Wordle] daily_wordle_records sync warning:', wordleSyncErr);
             }
 
+            if (currentHash) { window._lastCloudSyncHash[u] = currentHash; }
             window.lastCloudSyncTimestamp = Date.now();
             if (typeof updateSyncButtonStatus === 'function') {
                 updateSyncButtonStatus(true);

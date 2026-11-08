@@ -1030,8 +1030,37 @@ function updateSearchSetting(key, val) {
         }
     }
     const phrasesBlock = document.getElementById('search-phrases-block');
-    if (phrasesBlock) {
-        phrasesBlock.style.display = cfg.enablePhrases !== false ? 'block' : 'none';
+    if (key === 'enablePhrases' && window._lastSearchPhrasesContext) {
+        const ctx = window._lastSearchPhrasesContext;
+        const allP = [];
+        const seen = new Set();
+        (ctx.phrasesResults || []).forEach(p => {
+            const pKey = p.phrase.toLowerCase();
+            if (!seen.has(pKey)) { seen.add(pKey); allP.push(p); }
+        });
+        if (cfg.enablePhrases !== false) {
+            (ctx.youdaoPhrases || []).forEach(yp => {
+                const pKey = yp.phrase.toLowerCase();
+                if (!seen.has(pKey)) { seen.add(pKey); allP.push(yp); }
+            });
+        }
+        const phrasesContent = document.getElementById('search-phrases-content');
+        if (phrasesContent) {
+            if (allP.length > 0) {
+                phrasesContent.innerHTML = allP.map(p => `
+                    <div class="search-phrase-item" onclick="executeHubSearch('${escapeHtml(p.phrase)}', true, true)">
+                        <div style="flex:1; min-width:0;">
+                            <div class="search-phrase-name">${highlightPhraseKeyword(p.phrase, ctx.clean)}</div>
+                            <div class="search-phrase-meaning">${escapeHtml(p.meaning)}</div>
+                        </div>
+                        <span class="badge" style="font-size:0.75rem;">${p.bookName ? `《${escapeHtml(p.bookName)}》` : '有道词典'}</span>
+                    </div>
+                `).join('');
+            } else {
+                phrasesContent.innerHTML = '<div style="font-size:0.9rem; color:var(--md-sys-color-outline); padding:10px 14px; background:var(--md-sys-color-surface-container-low); border-radius:12px;">未找到相关词组</div>';
+            }
+        }
+        if (phrasesBlock) phrasesBlock.style.display = allP.length > 0 ? 'block' : 'none';
     }
     const relatedBlock = document.getElementById('search-related-block');
     if (relatedBlock) {
@@ -2360,7 +2389,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
     isInlineAddToBookOpen = false;
     inlineSelectedChipIds.clear();
 
-    // 3. 相关词组 (过滤合并)
+    // 3. 相关词组 (过滤合并：设置开关“显示相关词组”仅针对有道词典词组)
     const allPhrases = [];
     const seenPhraseName = new Set();
     phrasesResults.forEach(p => {
@@ -2370,13 +2399,16 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
             allPhrases.push(p);
         }
     });
-    youdaoPhrases.forEach(yp => {
-        const pKey = yp.phrase.toLowerCase();
-        if (!seenPhraseName.has(pKey)) {
-            seenPhraseName.add(pKey);
-            allPhrases.push(yp);
-        }
-    });
+    if (searchConfig.enablePhrases !== false) {
+        youdaoPhrases.forEach(yp => {
+            const pKey = yp.phrase.toLowerCase();
+            if (!seenPhraseName.has(pKey)) {
+                seenPhraseName.add(pKey);
+                allPhrases.push(yp);
+            }
+        });
+    }
+    window._lastSearchPhrasesContext = { phrasesResults, youdaoPhrases, clean };
 
     let phrasesHtml = '';
     if (allPhrases.length > 0) {
@@ -2454,7 +2486,7 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                     <div id="search-gaokao-extra-sections" class="search-gaokao-extra-container" style="display:none;"></div>
 
                     <!-- 3. 相关词组 (受设置开关控制，已去除个数) -->
-                    <div class="search-section-block" id="search-phrases-block" style="${searchConfig.enablePhrases !== false ? '' : 'display:none;'}">
+                    <div class="search-section-block" id="search-phrases-block" style="${allPhrases.length > 0 ? '' : 'display:none;'}">
                         <div class="search-section-header" onclick="toggleSectionCollapse('search-phrases-content', this)" style="cursor:pointer; user-select:none;">
                             <div class="search-section-title">
                                 <span class="material-symbols-rounded" style="color:#7c3aed; font-size:20px;">link</span>
@@ -2733,10 +2765,7 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
                             <div class="gaokao-sense-example-item">
                                 <div class="gaokao-sense-example-en-row">
                                     <span class="gaokao-sense-example-en">${escapeHtml(ex.en || '')}</span>
-                                    <button type="button" class="gaokao-example-audio-btn" onclick="if(typeof playWordAudio==='function') playWordAudio('${escapeJsStr(ex.en || '')}')" title="播放例句发音">
-                                        <span class="material-symbols-rounded" style="font-size:16px;">volume_up</span>
-                                    </button>
-                                </div>
+                                                                    </div>
                                 ${ex.zh ? `<div class="gaokao-sense-example-zh">${escapeHtml(ex.zh)}</div>` : ''}
                             </div>
                         `).join('')}
