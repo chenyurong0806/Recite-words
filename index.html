@@ -1320,21 +1320,21 @@
                 </div>
                 <div class="settings-card" style="padding: 16px 20px;">
                     <div class="me-data-center-grid">
-                        <div class="me-data-stat-box">
+                        <div class="me-data-stat-box stat-accent-1">
                             <div class="me-data-stat-label">今日学习 & 复习</div>
-                            <div class="me-data-stat-val"><span id="me-stat-today-words">0</span><small>词</small></div>
+                            <div class="me-data-stat-val"><span class="stat-num" id="me-stat-today-words">0</span><small>词</small></div>
                         </div>
-                        <div class="me-data-stat-box">
+                        <div class="me-data-stat-box stat-accent-2">
                             <div class="me-data-stat-label">累计学习 & 复习</div>
-                            <div class="me-data-stat-val"><span id="me-stat-total-words">0</span><small>词</small></div>
+                            <div class="me-data-stat-val"><span class="stat-num" id="me-stat-total-words">0</span><small>词</small></div>
                         </div>
-                        <div class="me-data-stat-box">
+                        <div class="me-data-stat-box stat-accent-3">
                             <div class="me-data-stat-label">今日学习时长</div>
-                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-today-duration">0分钟</div>
+                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-today-duration"><span class="stat-num">0</span><small>分钟</small></div>
                         </div>
-                        <div class="me-data-stat-box">
+                        <div class="me-data-stat-box stat-accent-4">
                             <div class="me-data-stat-label">累计学习时长</div>
-                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-total-duration">0分钟</div>
+                            <div class="me-data-stat-val me-data-stat-dur" id="me-stat-total-duration"><span class="stat-num">0</span><small>分钟</small></div>
                         </div>
                     </div>
 
@@ -1368,13 +1368,13 @@
                             </div>
                             <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
-                        <div class="settings-row me-account-action-row" style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="settings-row me-auto-sync-row">
                             <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                 <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">cloud_sync</span>
                                 <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">自动同步</span>
                             </div>
                             <label class="md3-switch" id="switch-auto-sync-label">
-                                <input type="checkbox" id="switch-auto-sync" onchange="toggleAutoSyncSetting(this.checked)">
+                                <input type="checkbox" id="switch-auto-sync" role="switch" onchange="toggleAutoSyncSetting(this.checked)">
                                 <span class="md3-switch-track">
                                     <span class="md3-switch-thumb"></span>
                                 </span>
@@ -1486,12 +1486,12 @@
                     </div>
                     <div class="book-content-toolbar-right">
                         <div class="bc-expandable-search-wrap" id="mastered-expandable-search-wrap">
-                            <button type="button" class="btn btn-tonal btn-sm bc-expandable-search-btn" onclick="toggleExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')" title="搜索熟词">
+                            <button type="button" class="bc-search-icon-btn" onclick="toggleExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')" title="搜索熟词" aria-label="搜索熟词">
                                 <span class="material-symbols-rounded" style="font-size:18px;">search</span>
                             </button>
-                            <div class="bc-expandable-search-input-box">
-                                <input type="text" id="settings-mastered-search" class="bc-search-input-field" placeholder="搜索熟词..." autocomplete="off" oninput="filterMasteredWordsDisplay()">
-                                <button type="button" class="bc-search-close-btn" onclick="closeExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')">
+                            <div class="bc-search-input-box">
+                                <input type="text" id="settings-mastered-search" class="book-content-search-field" placeholder="搜索熟词..." autocomplete="off" oninput="filterMasteredWordsDisplay()">
+                                <button type="button" class="book-content-search-clear" onclick="closeExpandableSearch('mastered-expandable-search-wrap', 'settings-mastered-search')" title="收起或清空" aria-label="收起或清空">
                                     <span class="material-symbols-rounded" style="font-size:16px;">close</span>
                                 </button>
                             </div>
@@ -1499,7 +1499,7 @@
                     </div>
                 </div>
 
-                <div class="book-content-unified-wrapper" style="max-height: 620px; overflow-y: auto;">
+                <div class="book-content-unified-wrapper">
                     <div id="settings-mastered-container" class="book-content-unified-card"></div>
                 </div>
             </div>
@@ -1529,12 +1529,12 @@
                     </div>
                     <div class="book-content-toolbar-right">
                         <div class="bc-expandable-search-wrap" id="trash-expandable-search-wrap">
-                            <button type="button" class="btn btn-tonal btn-sm bc-expandable-search-btn" onclick="toggleExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')" title="搜索已删词汇">
+                            <button type="button" class="bc-search-icon-btn" onclick="toggleExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')" title="搜索已删词汇" aria-label="搜索已删词汇">
                                 <span class="material-symbols-rounded" style="font-size:18px;">search</span>
                             </button>
-                            <div class="bc-expandable-search-input-box">
-                                <input type="text" id="settings-trash-search" class="bc-search-input-field" placeholder="搜索已删词汇..." autocomplete="off" oninput="filterTrashWordsDisplay()">
-                                <button type="button" class="bc-search-close-btn" onclick="closeExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')">
+                            <div class="bc-search-input-box">
+                                <input type="text" id="settings-trash-search" class="book-content-search-field" placeholder="搜索已删词汇..." autocomplete="off" oninput="filterTrashWordsDisplay()">
+                                <button type="button" class="book-content-search-clear" onclick="closeExpandableSearch('trash-expandable-search-wrap', 'settings-trash-search')" title="收起或清空" aria-label="收起或清空">
                                     <span class="material-symbols-rounded" style="font-size:16px;">close</span>
                                 </button>
                             </div>
@@ -1542,7 +1542,7 @@
                     </div>
                 </div>
 
-                <div class="book-content-unified-wrapper" style="max-height: 620px; overflow-y: auto;">
+                <div class="book-content-unified-wrapper">
                     <div id="settings-trash-container" class="book-content-unified-card"></div>
                 </div>
             </div>
@@ -1920,9 +1920,9 @@
                             <h3 style="margin:0; font-size:1.15rem; font-weight:700;">详细数据</h3>
                         </div>
                     </div>
-                    <div class="settings-category-tabs" id="detailed-stats-range-tabs" style="margin:0;">
-                        <button type="button" class="settings-cat-tab md3-seg-btn active" data-range="week" onclick="switchDetailedStatsRange('week')">近 7 天 (周)</button>
-                        <button type="button" class="settings-cat-tab md3-seg-btn" data-range="month" onclick="switchDetailedStatsRange('month')">近 30 天 (月)</button>
+                    <div class="settings-category-tabs bc-type-tabs" id="detailed-stats-range-tabs" role="tablist" aria-label="统计时间范围" style="margin:0;">
+                        <button type="button" class="settings-cat-tab active" role="tab" aria-selected="true" data-range="week" onclick="switchDetailedStatsRange('week')">近 7 天 (周)</button>
+                        <button type="button" class="settings-cat-tab" role="tab" aria-selected="false" data-range="month" onclick="switchDetailedStatsRange('month')">近 30 天 (月)</button>
                     </div>
                 </div>
 
@@ -1940,29 +1940,22 @@
                             <h3 style="margin:0; font-size:1.15rem; font-weight:800;">复习计划</h3>
                         </div>
                     </div>
+                    <div id="review-plan-header-actions" class="review-plan-header-actions"></div>
                 </div>
 
-                <!-- 顶部总览状态条 -->
-                <div id="review-plan-summary-banner" class="review-plan-summary-banner"></div>
-
-                <!-- 快捷日期筛选 Chips 与日期选择器 -->
+                <!-- 快捷日期筛选 Tabs -->
                 <div class="review-plan-filter-bar">
-                    <div id="review-plan-filter-chips" class="review-plan-filter-chips">
-                        <button type="button" class="md3-chip active" data-filter="all" onclick="filterReviewPlanByDate('all')">全部</button>
-                        <button type="button" class="md3-chip" data-filter="due" onclick="filterReviewPlanByDate('due')">待立即复习</button>
-                        <button type="button" class="md3-chip" data-filter="today" onclick="filterReviewPlanByDate('today')">今日</button>
-                        <button type="button" class="md3-chip" data-filter="tomorrow" onclick="filterReviewPlanByDate('tomorrow')">明日</button>
-                        <button type="button" class="md3-chip" data-filter="week" onclick="filterReviewPlanByDate('week')">未来7天</button>
-                    </div>
-                    <div class="review-plan-date-picker-wrap">
-                        <span class="material-symbols-rounded" style="font-size:17px; color:var(--md-sys-color-primary);">calendar_month</span>
-                        <input type="date" id="review-plan-custom-date" class="review-plan-date-input" onchange="filterReviewPlanByDate(this.value)" title="选择日期筛选">
+                    <div class="settings-category-tabs bc-type-tabs" id="review-plan-filter-tabs" role="tablist" aria-label="复习日期筛选">
+                        <button type="button" class="settings-cat-tab active" data-filter="today" onclick="filterReviewPlanByDate('today')" role="tab" aria-selected="true">今天</button>
+                        <button type="button" class="settings-cat-tab" data-filter="tomorrow" onclick="filterReviewPlanByDate('tomorrow')" role="tab" aria-selected="false">明天</button>
+                        <button type="button" class="settings-cat-tab" data-filter="dayAfterTomorrow" onclick="filterReviewPlanByDate('dayAfterTomorrow')" role="tab" aria-selected="false">后天</button>
+                        <button type="button" class="settings-cat-tab" data-filter="all" onclick="filterReviewPlanByDate('all')" role="tab" aria-selected="false">全部</button>
                     </div>
                 </div>
 
-                <!-- 待复习词汇列表容器 -->
-                <div class="review-plan-list-wrapper">
-                    <div id="review-plan-list-container" class="review-plan-list-container"></div>
+                <!-- 待复习词汇统一列表容器 -->
+                <div class="book-content-unified-wrapper review-plan-list-wrapper">
+                    <div id="review-plan-list-container" class="book-content-unified-card"></div>
                 </div>
             </div>
         </div>
@@ -2266,15 +2259,19 @@
 
                         <!-- 右侧常驻工具栏（无折叠按钮，图标全部直接显示） -->
                         <div class="card-toolbar-cluster" id="single-card-toolbar-cluster">
-                            <button type="button" class="card-tool-btn card-tool-btn-labeled" id="btn-card-prev"
-                                onclick="viewPreviousSingleQuestion()" title="查看上一个词" disabled style="opacity: 0.35; cursor: not-allowed;">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span>
-                                <span>上一个</span>
+                            <button type="button" class="card-tool-btn" id="btn-card-prev"
+                                onclick="viewPreviousSingleQuestion()" aria-label="上一个" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="9 14 4 9 9 4"></polyline>
+                                    <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+                                </svg>
                             </button>
-                            <button type="button" class="card-tool-btn card-tool-btn-labeled return-highlight" id="btn-card-return"
-                                onclick="returnToCurrentSingleQuestion()" title="返回最新单词" style="display:none;">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">redo</span>
-                                <span>返回</span>
+                            <button type="button" class="card-tool-btn" id="btn-card-return"
+                                onclick="returnToCurrentSingleQuestion()" aria-label="下一个" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="15 14 20 9 15 4"></polyline>
+                                    <path d="M4 20v-7a4 4 0 0 1 4-4h12"></path>
+                                </svg>
                             </button>
                             <button type="button" class="card-tool-btn" id="btn-card-audio"
                                 onclick="playCurrentSingleWordAudio()" title="朗读发音">
@@ -2790,8 +2787,8 @@
                                 <span class="material-symbols-rounded" style="font-size: 18px;">search</span>
                             </button>
                             <button type="button" class="card-tool-btn" id="btn-dictation-tool-master"
-                                onclick="toggleDictationMasteredWord()" title="标注为熟词" disabled style="opacity: 0.35; cursor: not-allowed;">
-                                <span class="material-symbols-rounded" id="icon-dictation-tool-master" style="font-size: 18px;">check_circle</span>
+                                onclick="toggleDictationMasteredWord()" title="标注熟词（不再抽取）">
+                                <span class="material-symbols-rounded" id="icon-dictation-tool-master" style="font-size: 18px;">check_circle_outline</span>
                             </button>
                         </div>
                     </div>
@@ -2890,15 +2887,19 @@
                             </div>
                         </div>
                         <div class="card-toolbar-cluster" id="shici-card-toolbar-cluster">
-                            <button type="button" class="card-tool-btn card-tool-btn-labeled" id="btn-shici-prev"
-                                onclick="viewPreviousShiCiQuestion()" title="查看上一个实词" disabled style="opacity: 0.35; cursor: not-allowed;">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span>
-                                <span>上一个</span>
+                            <button type="button" class="card-tool-btn" id="btn-shici-prev"
+                                onclick="viewPreviousShiCiQuestion()" aria-label="上一个" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="9 14 4 9 9 4"></polyline>
+                                    <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+                                </svg>
                             </button>
-                            <button type="button" class="card-tool-btn card-tool-btn-labeled return-highlight" id="btn-shici-return"
-                                onclick="returnToCurrentShiCiQuestion()" title="返回最新实词" style="display:none;">
-                                <span class="material-symbols-rounded" style="font-size: 16px;">redo</span>
-                                <span>返回</span>
+                            <button type="button" class="card-tool-btn" id="btn-shici-return"
+                                onclick="returnToCurrentShiCiQuestion()" aria-label="下一个" disabled style="opacity: 0.35; cursor: not-allowed;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="15 14 20 9 15 4"></polyline>
+                                    <path d="M4 20v-7a4 4 0 0 1 4-4h12"></path>
+                                </svg>
                             </button>
                             <button type="button" class="card-tool-btn" id="btn-shici-master"
                                 onclick="toggleCurrentShiCiMastered()" title="标注熟词（不再抽取）">
@@ -3395,33 +3396,28 @@
         <!-- VIEW 17: 独立词书内容浏览页面 (自适应不同词书结构：详尽词典 / 双音标词汇 / 短语搭配 / 翻译句式 / 文言实词 / 精简词表) -->
         <div id="view-book-content" class="view">
             <div class="book-content-page-container">
-                <div class="book-content-header-dock">
-                    <div class="book-content-top-bar">
-                        <button type="button" class="nav-back-btn" onclick="exitBookContentPage()" title="返回">
-                            <span class="material-symbols-rounded">arrow_back</span>
-                        </button>
-                        <div class="book-content-title-wrap">
-                            <div class="book-content-title-row">
-                                <h2 class="book-content-title" id="book-content-page-title">词书内容</h2>
-                            </div>
-                            <div class="book-content-subtitle" id="book-content-page-subtitle">共 0 词</div>
+                <div class="book-content-top-bar">
+                    <button type="button" class="nav-back-btn" onclick="exitBookContentPage()" title="返回">
+                        <span class="material-symbols-rounded">arrow_back</span>
+                    </button>
+                    <div class="book-content-title-wrap">
+                        <div class="book-content-title-row">
+                            <h2 class="book-content-title" id="book-content-page-title">词书内容</h2>
                         </div>
-                        <div class="book-content-top-actions">
-                            <button type="button" class="btn btn-filled btn-sm" id="btn-book-content-add-word" onclick="openManualAddWordModal()" style="display:none;">
-                                <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                                <span class="btn-label-text">添加词汇</span>
-                            </button>
-                        </div>
+                        <div class="book-content-subtitle" id="book-content-page-subtitle">共 0 词</div>
                     </div>
+                    <div class="book-content-top-actions">
+                        <button type="button" class="btn btn-filled btn-sm" id="btn-book-content-add-word" onclick="openManualAddWordModal()" style="display:none;">
+                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                            <span class="btn-label-text">添加词汇</span>
+                        </button>
+                    </div>
+                </div>
 
-                    <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 可伸展搜索框 + 中英切换 + 展开收起) -->
+                <div class="book-content-header-dock">
+                    <!-- 词书内容操作工具栏 (分类下拉 + 右侧类型切换Tab + 可伸展搜索框 + 展示模式Tabs + 展开收起) -->
                     <div class="book-content-toolbar-row" id="book-content-toolbar-row">
                         <div class="book-content-toolbar-left">
-                            <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs">
-                                <button type="button" class="settings-cat-tab active" data-type="all" onclick="setBookContentTypeFilter('all')">全部</button>
-                                <button type="button" class="settings-cat-tab" data-type="word" onclick="setBookContentTypeFilter('word')">单词</button>
-                                <button type="button" class="settings-cat-tab" data-type="phrase" onclick="setBookContentTypeFilter('phrase')">词组</button>
-                            </div>
                             <div class="md3-custom-select" id="bc-toolbar-section-wrap" style="display:none; position:relative;">
                                 <button type="button" class="md3-custom-select-trigger bc-section-select-trigger" id="bc-toolbar-section-trigger" onclick="toggleMd3Select('bc-toolbar-section', event)">
                                     <span id="bc-toolbar-section-label">全部分类</span>
@@ -3431,23 +3427,27 @@
                             </div>
                         </div>
                         <div class="book-content-toolbar-right">
-                            <!-- 可伸展搜索框：默认显示为搜索图标，点击后向左伸展为搜索框 -->
+                            <!-- 可伸展搜索框：位于类型筛选左侧，默认显示为搜索图标，点击后平滑展开 -->
                             <div class="bc-expandable-search-wrap" id="bc-expandable-search-wrap">
-                                <button type="button" class="btn btn-tonal btn-sm bc-search-icon-btn" id="btn-bc-search-trigger" onclick="toggleBookContentSearchExpand(true, event)" title="搜索词条" aria-label="搜索">
+                                <button type="button" class="bc-search-icon-btn" id="btn-bc-search-trigger" onclick="toggleBookContentSearchExpand(true, event)" title="搜索词条" aria-label="搜索">
                                     <span class="material-symbols-rounded" style="font-size:18px;">search</span>
                                 </button>
                                 <div class="bc-search-input-box">
-                                    <span class="material-symbols-rounded bc-search-inner-icon" style="font-size:17px; color:var(--md-sys-color-outline);">search</span>
                                     <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)" onblur="handleBookContentSearchBlur()">
                                     <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch(event)" title="清空或收起" aria-label="清空或收起">
                                         <span class="material-symbols-rounded" style="font-size:16px;">close</span>
                                     </button>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-tonal btn-sm bc-toggle-display-btn" id="btn-bc-toggle-display-mode" onclick="toggleBookContentDisplayMode()" title="切换收起时展示英文或释义">
-                                <span class="material-symbols-rounded" style="font-size:17px;">translate</span>
-                                <span id="text-bc-display-mode">展示释义</span>
-                            </button>
+                            <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs" role="tablist" aria-label="词条类型筛选">
+                                <button type="button" class="settings-cat-tab active" data-type="all" onclick="setBookContentTypeFilter('all')" role="tab" aria-selected="true">全部</button>
+                                <button type="button" class="settings-cat-tab" data-type="word" onclick="setBookContentTypeFilter('word')" role="tab" aria-selected="false">单词</button>
+                                <button type="button" class="settings-cat-tab" data-type="phrase" onclick="setBookContentTypeFilter('phrase')" role="tab" aria-selected="false">词组</button>
+                            </div>
+                            <div class="settings-category-tabs bc-type-tabs" id="bc-display-mode-tabs" role="tablist" aria-label="收起时展示内容">
+                                <button type="button" class="settings-cat-tab active" data-mode="en" onclick="setBookContentDisplayMode('en')" role="tab" aria-selected="true">展示英文</button>
+                                <button type="button" class="settings-cat-tab" data-mode="zh" onclick="setBookContentDisplayMode('zh')" role="tab" aria-selected="false">展示释义</button>
+                            </div>
                             <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-book-content-expand-all" onclick="toggleBookContentExpandAll()">
                                 <span class="material-symbols-rounded" id="icon-bc-expand-all" style="font-size:18px;">unfold_more</span>
                                 <span id="text-bc-expand-all">展开全部</span>
@@ -4613,6 +4613,9 @@
         <div id="sf-dropdown-types-list" class="book-dd-list"></div>
     </div>
 
+    <!-- “我”页面最近学习词书站内学习范围弹出菜单 -->
+    <div id="me-recent-book-scope-menu" class="book-anchored-dropdown book-actions-dropdown" style="display:none; width:260px;" onclick="event.stopPropagation()"></div>
+
     <!-- 创建自定义词书弹窗 -->
     <div id="modal-create-custom-book" class="modal-overlay">
         <div class="modal-card" style="max-width: 440px;">
@@ -5107,19 +5110,20 @@
     <div id="modal-book-actions-menu" class="book-anchored-dropdown book-actions-dropdown" style="display:none;" onclick="event.stopPropagation()">
         <div class="book-dd-list">
             <button type="button" class="book-dd-action-item" onclick="actionViewBookContent(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
-                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">menu_book</span>
+                <span class="material-symbols-rounded">visibility</span>
                 <span>查看内容</span>
             </button>
             <button type="button" class="book-dd-action-item" id="btn-action-move-book" onclick="actionMoveBook(this.closest('#modal-book-actions-menu')?.dataset?.bookId)" style="display:none;">
-                <span class="material-symbols-rounded" style="color:var(--md-sys-color-secondary, #475569);">drive_file_move</span>
+                <span class="material-symbols-rounded">drive_file_move</span>
                 <span>移动分类</span>
             </button>
             <button type="button" class="book-dd-action-item" onclick="actionResetBookProgress(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
-                <span class="material-symbols-rounded" style="color:#d97706;">restart_alt</span>
+                <span class="material-symbols-rounded">restart_alt</span>
                 <span>重学词书</span>
             </button>
+            <div class="book-dd-divider"></div>
             <button type="button" class="book-dd-action-item danger" onclick="actionDeleteBook(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
-                <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
+                <span class="material-symbols-rounded">delete</span>
                 <span>删除词书</span>
             </button>
         </div>

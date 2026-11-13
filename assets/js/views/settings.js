@@ -1706,7 +1706,7 @@ function toggleExpandableSearch(wrapId, inputId) {
         wrap.classList.add('expanded');
         const input = document.getElementById(inputId);
         if (input) {
-            input.focus();
+            setTimeout(() => input.focus(), 60);
         }
     }
 }
@@ -1723,6 +1723,36 @@ function closeExpandableSearch(wrapId, inputId) {
     }
 }
 window.closeExpandableSearch = closeExpandableSearch;
+
+function buildMasteredWordRowHtml(item) {
+    const word = typeof item === 'string' ? item : item.word;
+    const phone = typeof item === 'string' ? '' : (item.phone || '');
+    const meaning = typeof item === 'string' ? '' : (item.meaning || '');
+    const isShiCi = isShiCiItem(item);
+
+    return `
+        <div class="bc-unified-item no-expand">
+            <div class="bc-item-header"${meaning ? ' style="padding-bottom:4px;"' : ''}>
+                <div class="bc-item-title-meta">
+                    <span class="bc-headword">${escapeHtml(word)}</span>
+                    ${phone ? `<span class="bc-phone">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
+                    ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
+                </div>
+                <div class="bc-item-actions">
+                    ${!isShiCi ? `
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    ` : ''}
+                    <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                        <span class="material-symbols-rounded">check_circle</span>
+                    </button>
+                </div>
+            </div>
+            ${meaning ? `<div class="bc-sub-meaning-row"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+        </div>
+    `;
+}
 
 /* Settings 熟词本页面渲染逻辑 */
 function renderMasteredWordsInSettings() {
@@ -1752,35 +1782,7 @@ function renderMasteredWordsInSettings() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = list.map((item, idx) => {
-        const word = typeof item === 'string' ? item : item.word;
-        const phone = typeof item === 'string' ? '' : (item.phone || '');
-        const meaning = typeof item === 'string' ? '' : (item.meaning || '');
-        const isShiCi = isShiCiItem(item);
-
-        return `
-            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
-                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                    </div>
-                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                        ${!isShiCi ? `
-                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                            <span class="material-symbols-rounded">volume_up</span>
-                        </button>
-                        ` : ''}
-                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
-                        </button>
-                    </div>
-                </div>
-                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = list.map(buildMasteredWordRowHtml).join('');
 }
 
 function handleUnmarkMastered(word) {
@@ -1829,35 +1831,31 @@ function filterMasteredWordsDisplay() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = filtered.map((item, idx) => {
-        const word = typeof item === 'string' ? item : item.word;
-        const phone = typeof item === 'string' ? '' : (item.phone || '');
-        const meaning = typeof item === 'string' ? '' : (item.meaning || '');
-        const isShiCi = isShiCiItem(item);
+    container.innerHTML = filtered.map(buildMasteredWordRowHtml).join('');
+}
 
-        return `
-            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
-                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                    </div>
-                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                        ${!isShiCi ? `
-                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                            <span class="material-symbols-rounded">volume_up</span>
-                        </button>
-                        ` : ''}
-                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
-                        </button>
-                    </div>
+function buildTrashWordRowHtml(item) {
+    const bookNameClean = (item.originalBookName || '原词书').replace(/^[📂📁\s]+/, '');
+    return `
+        <div class="bc-unified-item no-expand">
+            <div class="bc-item-header"${item.meaning ? ' style="padding-bottom:4px;"' : ''}>
+                <div class="bc-item-title-meta">
+                    <span class="bc-headword">${escapeHtml(item.word)}</span>
+                    ${item.phone ? `<span class="bc-phone">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
+                    <span class="bc-source-badge">来源：${escapeHtml(bookNameClean)}</span>
                 </div>
-                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+                <div class="bc-item-actions">
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
+                    </button>
+                </div>
             </div>
-        `;
-    }).join('');
+            ${item.meaning ? `<div class="bc-sub-meaning-row"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
+        </div>
+    `;
 }
 
 /* 渲染回收站完整列表 */
@@ -1885,26 +1883,7 @@ function renderTrashWordsInSettings() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = trash.map(item => `
-        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
-                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
-                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
-                </div>
-                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
-                        <span class="material-symbols-rounded">volume_up</span>
-                    </button>
-                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
-                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
-                    </button>
-                </div>
-            </div>
-            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
-        </div>
-    `).join('');
+    container.innerHTML = trash.map(buildTrashWordRowHtml).join('');
 }
 
 /* 搜索过滤回收站词汇 */
@@ -1939,26 +1918,7 @@ function filterTrashWordsDisplay() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = filtered.map(item => `
-        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
-                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
-                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
-                </div>
-                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
-                        <span class="material-symbols-rounded">volume_up</span>
-                    </button>
-                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
-                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
-                    </button>
-                </div>
-            </div>
-            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
-        </div>
-    `).join('');
+    container.innerHTML = filtered.map(buildTrashWordRowHtml).join('');
 }
 
 var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.11.0';

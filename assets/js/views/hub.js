@@ -305,11 +305,12 @@ function applyHomeLayoutConfig() {
         appBarSearchBtn.style.display = cfg.collapseSearchBar ? 'inline-flex' : 'none';
     }
 
-    // 2. 活动和排行榜禁止隐藏，强制保持显示
+    // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     const actCard = document.getElementById('hub-activity-entry-card');
-    if (actCard) actCard.style.display = '';
+    if (actCard) actCard.style.display = isOffline ? 'none' : 'flex';
     const lbCard = document.getElementById('hub-leaderboard-entry-card');
-    if (lbCard) lbCard.style.display = '';
+    if (lbCard) lbCard.style.display = 'flex';
 
     // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
     const onlineCard = document.getElementById('hub-online-players-card');

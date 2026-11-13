@@ -404,10 +404,13 @@
 
         // 删除已过期的道具
         async deleteItem(itemId) {
-            if (!itemId) return;
+            if (itemId === undefined || itemId === null || itemId === '') return false;
+            const targetIdStr = String(itemId).trim();
             const u = this.getCurrentUsername();
             const items = this.getUserItems(u);
-            const nextItems = items.filter(it => it.id !== itemId);
+            const targetItem = items.find(it => String(it.id) === targetIdStr);
+            const nextItems = items.filter(it => String(it.id) !== targetIdStr);
+
             this._itemsCache = nextItems;
             this._itemsCacheUser = u;
             this._saveLocalCache(u, nextItems);
@@ -415,16 +418,57 @@
             this.renderItemsView();
 
             const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
-            if (!isOffline && window.supabaseClient && u && !u.startsWith('游客') && !String(itemId).startsWith('local_')) {
+            const canUseCloud = !isOffline &&
+                typeof sbClient !== 'undefined' &&
+                sbClient &&
+                typeof sbClient.from === 'function' &&
+                u &&
+                !u.startsWith('游客') &&
+                !targetIdStr.startsWith('local_');
+
+            if (canUseCloud) {
                 try {
-                    await window.supabaseClient.from('user_items').delete().eq('id', itemId);
+                    const dbId = /^\d+$/.test(targetIdStr) ? Number(targetIdStr) : targetIdStr;
+                    let query = sbClient
+                        .from('user_items')
+                        .delete()
+                        .eq('id', dbId);
+                    if (targetItem && targetItem.username) {
+                        query = query.eq('username', targetItem.username);
+                    } else {
+                        query = query.eq('username', u);
+                    }
+                    const { data, error } = await query.select('id');
+                    if (error || !Array.isArray(data) || data.length === 0) {
+                        console.warn('[ItemManager] deleteItem cloud delete blocked or failed:', { error, data, itemId: targetIdStr });
+                        // 云端未实际删除（常见原因：Supabase user_items 表缺少 DELETE RLS 策略）
+                        this._itemsCache = items;
+                        this._itemsCacheUser = u;
+                        this._saveLocalCache(u, items);
+                        this.updateBadge();
+                        this.renderItemsView();
+                        if (typeof showToast === 'function') {
+                            showToast('云端删除失败：请检查 Supabase user_items 表的 DELETE 权限策略');
+                        }
+                        return false;
+                    }
                 } catch (e) {
                     console.warn('[ItemManager] deleteItem cloud error:', e);
+                    this._itemsCache = items;
+                    this._itemsCacheUser = u;
+                    this._saveLocalCache(u, items);
+                    this.updateBadge();
+                    this.renderItemsView();
+                    if (typeof showToast === 'function') {
+                        showToast('云端删除失败，请稍后重试');
+                    }
+                    return false;
                 }
             }
             if (typeof showToast === 'function') {
                 showToast('已删除过期道具');
             }
+            return true;
         },
 
         // 空实现，兼容旧模块调用

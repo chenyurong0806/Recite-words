@@ -598,7 +598,12 @@ function skipDictationQuestion() {
     if (!dictationState.currentQ) return;
     const q = dictationState.currentQ;
 
-    if (dictationState.answered) {
+    const isMasteredUnanswered = Boolean(!dictationState.answered && typeof isWordMastered === 'function' && isWordMastered(q.word));
+    if (dictationState.answered || isMasteredUnanswered) {
+        if (isMasteredUnanswered) {
+            q.isCorrect = true;
+            q.skippedAsMastered = true;
+        }
         dictationState.currentIdx++;
         renderDictationQuestion();
         return;
@@ -695,18 +700,32 @@ function updateDictationToolbar() {
         searchBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
     }
 
-    // 标注熟词：答题前禁用
+    // 标注熟词：未答题前也支持标注
     if (masterBtn) {
-        masterBtn.disabled = !answered;
-        masterBtn.style.opacity = answered ? '1' : '0.35';
-        masterBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+        masterBtn.disabled = false;
+        masterBtn.style.opacity = '1';
+        masterBtn.style.cursor = 'pointer';
 
+        let isMastered = false;
         if (q && q.word) {
-            const isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
+            isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
             masterBtn.classList.toggle('active', isMastered);
+            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
             if (masterIcon) {
                 masterIcon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
                 masterIcon.style.color = '';
+            }
+        }
+
+        // 未答题且已标为熟词时，“看答案”按钮切换为直接跳往“下一题”，同时保留“确认”按钮可继续作答
+        const skipBtn = document.getElementById('btn-dictation-skip');
+        if (skipBtn && !answered) {
+            if (isMastered) {
+                skipBtn.className = 'btn btn-tonal btn-sm';
+                skipBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:18px;">arrow_forward</span>';
+            } else {
+                skipBtn.className = 'btn btn-tonal btn-sm';
+                skipBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">skip_next</span><span class="btn-label-text">看答案</span>';
             }
         }
     }
@@ -714,14 +733,18 @@ function updateDictationToolbar() {
 window.updateDictationToolbar = updateDictationToolbar;
 
 function toggleDictationMasteredWord() {
-    if (!dictationState || !dictationState.answered) {
-        showToast('答题后方可标注熟词');
-        return;
-    }
-    if (!dictationState.currentQ) return;
+    if (!dictationState || !dictationState.currentQ) return;
     const q = dictationState.currentQ;
     if (typeof toggleMasteredWord === 'function') {
-        toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
+        const nowMastered = toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
+        if (nowMastered && Array.isArray(dictationState.pool)) {
+            const targetClean = (q.word || '').trim().toLowerCase();
+            const curIdx = dictationState.currentIdx;
+            const head = dictationState.pool.slice(0, curIdx + 1);
+            const tail = dictationState.pool.slice(curIdx + 1).filter(it => (it.word || '').trim().toLowerCase() !== targetClean);
+            dictationState.pool = head.concat(tail);
+            if (typeof updateDictationProgressDisplay === 'function') updateDictationProgressDisplay();
+        }
         updateDictationToolbar();
     }
 }
@@ -749,6 +772,10 @@ function endDictationSession() {
     const totalCount = pool.length;
     let mistakeCount = 0;
     pool.forEach(q => {
+        if (q.skippedAsMastered) {
+            q.isCorrect = true;
+            return;
+        }
         if (sessionMistakes.includes(q.word.trim().toLowerCase()) || !q.isCorrect) {
             mistakeCount++;
             q.isCorrect = false;

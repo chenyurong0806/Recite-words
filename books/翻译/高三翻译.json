@@ -1,0 +1,5355 @@
+{
+  "Daily 5": [
+    {
+      "name": "put up a new notice",
+      "trans": [
+        "张贴新告示",
+        "张贴告示"
+      ],
+      "mistake": [
+        "post",
+        "paste",
+        "on",
+        "set"
+      ],
+      "examples": [
+        {
+          "en": "The park management (has) put up a new notice, calling on (appealing to) people to be civilized / responsible when walking their dogs.",
+          "zh": "公园的管理方张贴了新告示，呼吁人们文明遛狗。"
+        }
+      ]
+    },
+    {
+      "name": "call on sb. to do sth.",
+      "trans": [
+        "呼吁某人做某事",
+        "号召某人做某事"
+      ],
+      "mistake": [
+        "for",
+        "at",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "The park management (has) put up a new notice, calling on (appealing to) people to be civilized / responsible when walking their dogs.",
+          "zh": "公园的管理方张贴了新告示，呼吁人们文明遛狗。"
+        }
+      ]
+    },
+    {
+      "name": "appeal to sb. to do sth.",
+      "trans": [
+        "呼吁某人做某事"
+      ],
+      "mistake": [
+        "for",
+        "on",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "The park management (has) put up a new notice, calling on (appealing to) people to be civilized / responsible when walking their dogs.",
+          "zh": "公园的管理方张贴了新告示，呼吁人们文明遛狗。"
+        }
+      ]
+    },
+    {
+      "name": "walk the dog",
+      "trans": [
+        "遛狗"
+      ],
+      "mistake": [
+        "run",
+        "lead",
+        "take"
+      ],
+      "examples": [
+        {
+          "en": "The park management (has) put up a new notice, calling on people to be civilized / responsible when walking their dogs.",
+          "zh": "公园的管理方张贴了新告示，呼吁人们文明遛狗。"
+        }
+      ]
+    },
+    {
+      "name": "be curious about sth.",
+      "trans": [
+        "对某事充满好奇"
+      ],
+      "mistake": [
+        "of",
+        "at",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "He has / had been curious about the ocean since childhood, and when he grew up, he actually became a sailor.",
+          "zh": "他打小就对海洋充满好奇，长大后竟真的成为了一名水手。"
+        }
+      ]
+    },
+    {
+      "name": "since childhood",
+      "trans": [
+        "打小",
+        "自童年起"
+      ],
+      "mistake": [
+        "from",
+        "in",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "He has / had been curious about the ocean since childhood, and when he grew up, he actually became a sailor.",
+          "zh": "他打小就对海洋充满好奇，长大后竟真的成为了一名水手。"
+        }
+      ]
+    },
+    {
+      "name": "grow up",
+      "trans": [
+        "长大",
+        "成长"
+      ],
+      "mistake": [
+        "raise",
+        "bring",
+        "born"
+      ],
+      "examples": [
+        {
+          "en": "He has / had been curious about the ocean since childhood, and when he grew up, he actually became a sailor.",
+          "zh": "他打小就对海洋充满好奇，长大后竟真的成为了一名水手。"
+        }
+      ]
+    },
+    {
+      "name": "upgrade old urban neighborhoods",
+      "trans": [
+        "推进老旧小区改造",
+        "改造市区老旧小区"
+      ],
+      "mistake": [
+        "update",
+        "reform",
+        "renew"
+      ],
+      "examples": [
+        {
+          "en": "When upgrading old urban neighborhoods, we should not only beautify the city's appearance but also improve/enhance the well-being of residents.",
+          "zh": "推进市区老旧小区改造，既要扮靓城市“面子”，更要夯实民生“里子”。"
+        }
+      ]
+    },
+    {
+      "name": "beautify the city's appearance",
+      "trans": [
+        "扮靓城市外貌",
+        "美化城市面貌"
+      ],
+      "mistake": [
+        "beautiful",
+        "beauty",
+        "surface"
+      ],
+      "examples": [
+        {
+          "en": "When upgrading old urban neighborhoods, we should not only beautify the city's appearance but also improve/enhance the well-being of residents.",
+          "zh": "推进市区老旧小区改造，既要扮靓城市“面子”，更要夯实民生“里子”。"
+        }
+      ]
+    },
+    {
+      "name": "improve/enhance the well-being of residents",
+      "trans": [
+        "改善/增进居民福祉",
+        "夯实民生"
+      ],
+      "mistake": [
+        "increase",
+        "benefit",
+        "welfare"
+      ],
+      "examples": [
+        {
+          "en": "When upgrading old urban neighborhoods, we should not only beautify the city's appearance but also improve/enhance the well-being of residents.",
+          "zh": "推进市区老旧小区改造，既要扮靓城市“面子”，更要夯实民生“里子”。"
+        }
+      ]
+    },
+    {
+      "name": "with the deepening of sth.",
+      "trans": [
+        "随着……的加深"
+      ],
+      "mistake": [
+        "as",
+        "by",
+        "under"
+      ],
+      "examples": [
+        {
+          "en": "With the deepening of global economic integration / economic globalization, many companies find themselves trapped / caught in a situation where the risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "随着全球经济一体化的加深，许多企业发现自己正陷入一种境地：过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "global economic integration",
+      "trans": [
+        "全球经济一体化"
+      ],
+      "mistake": [
+        "globalization",
+        "unification",
+        "combine"
+      ],
+      "examples": [
+        {
+          "en": "With the deepening of global economic integration / economic globalization, many companies find themselves trapped / caught in a situation where the risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "随着全球经济一体化的加深，许多企业发现自己正陷入一种境地：过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "economic globalization",
+      "trans": [
+        "经济全球化"
+      ],
+      "mistake": [
+        "integration",
+        "globe",
+        "global"
+      ],
+      "examples": [
+        {
+          "en": "With the deepening of global economic integration / economic globalization, many companies find themselves trapped / caught in a situation where the risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "随着全球经济一体化的加深，许多企业发现自己正陷入一种境地：过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "be trapped/caught in a situation where ...",
+      "trans": [
+        "陷入一种……的境地"
+      ],
+      "mistake": [
+        "which",
+        "that",
+        "into"
+      ],
+      "examples": [
+        {
+          "en": "Many companies find themselves trapped / caught in a situation where the risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "许多企业发现自己正陷入一种境地：过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "excessive expansion",
+      "trans": [
+        "过度扩张"
+      ],
+      "mistake": [
+        "over",
+        "extra",
+        "expand"
+      ],
+      "examples": [
+        {
+          "en": "The risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "go beyond sth.",
+      "trans": [
+        "超出某事",
+        "超过某事"
+      ],
+      "mistake": [
+        "over",
+        "past",
+        "above"
+      ],
+      "examples": [
+        {
+          "en": "The risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "outweigh sth.",
+      "trans": [
+        "超过某事",
+        "比……更重要",
+        "重于"
+      ],
+      "mistake": [
+        "overweigh",
+        "exceed",
+        "beyond"
+      ],
+      "examples": [
+        {
+          "en": "The risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    },
+    {
+      "name": "potential profits/rewards",
+      "trans": [
+        "潜在的获利空间",
+        "潜在利润"
+      ],
+      "mistake": [
+        "possibly",
+        "benefit",
+        "income"
+      ],
+      "examples": [
+        {
+          "en": "The risks of excessive expansion often go beyond / outweigh the potential profits / rewards.",
+          "zh": "过度扩张的风险往往超过了潜在的获利空间。"
+        }
+      ]
+    }
+  ],
+  "Weekly 4": [
+    {
+      "name": "brightly coloured",
+      "trans": [
+        "色泽鲜亮的",
+        "色彩鲜艳的"
+      ],
+      "mistake": [
+        "bright",
+        "color",
+        "vivid"
+      ],
+      "examples": [
+        {
+          "en": "Brightly coloured, juicy tomatoes are on display / are displayed everywhere at the fruit and vegetable market / the farmers' market / fresh produce market.",
+          "zh": "农贸市场里，色泽鲜亮、汁水充足的西红柿随处可见。"
+        }
+      ]
+    },
+    {
+      "name": "juicy",
+      "trans": [
+        "汁水充足的",
+        "多汁的"
+      ],
+      "examples": [
+        {
+          "en": "Brightly coloured, juicy tomatoes are on display / are displayed everywhere at the fruit and vegetable market.",
+          "zh": "农贸市场里，色泽鲜亮、汁水充足的西红柿随处可见。"
+        }
+      ]
+    },
+    {
+      "name": "be on display",
+      "trans": [
+        "陈列着",
+        "被展示",
+        "随处可见"
+      ],
+      "mistake": [
+        "in",
+        "at",
+        "show"
+      ],
+      "examples": [
+        {
+          "en": "Brightly coloured, juicy tomatoes are on display / are displayed everywhere at the fruit and vegetable market.",
+          "zh": "农贸市场里，色泽鲜亮、汁水充足的西红柿随处可见。"
+        }
+      ]
+    },
+    {
+      "name": "the farmers' market",
+      "trans": [
+        "农贸市场"
+      ],
+      "mistake": [
+        "farm",
+        "farmer",
+        "fair"
+      ],
+      "examples": [
+        {
+          "en": "Brightly coloured, juicy tomatoes are on display everywhere at the farmers' market / fresh produce market.",
+          "zh": "农贸市场里，色泽鲜亮、汁水充足的西红柿随处可见。"
+        }
+      ]
+    },
+    {
+      "name": "fresh produce market",
+      "trans": [
+        "生鲜农产品市场",
+        "农贸市场"
+      ],
+      "mistake": [
+        "product",
+        "production",
+        "fruit"
+      ],
+      "examples": [
+        {
+          "en": "Brightly coloured, juicy tomatoes are on display everywhere at the fresh produce market.",
+          "zh": "农贸市场里，色泽鲜亮、汁水充足的西红柿随处可见。"
+        }
+      ]
+    },
+    {
+      "name": "be inspired by sth.",
+      "trans": [
+        "从……中汲取灵感",
+        "受……启发"
+      ],
+      "mistake": [
+        "inspiring",
+        "from",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "Inspired by traditional knitting/weaving techniques, the brand has launched/launched a Spring Festival collection for the Year of the Horse.",
+          "zh": "该品牌从传统编织工艺中汲取灵感，推出了马年新春系列。"
+        }
+      ]
+    },
+    {
+      "name": "traditional knitting/weaving techniques",
+      "trans": [
+        "传统编织工艺"
+      ],
+      "mistake": [
+        "technology",
+        "skill",
+        "method"
+      ],
+      "examples": [
+        {
+          "en": "Inspired by traditional knitting/weaving techniques, the brand has launched a Spring Festival collection for the Year of the Horse.",
+          "zh": "该品牌从传统编织工艺中汲取灵感，推出了马年新春系列。"
+        }
+      ]
+    },
+    {
+      "name": "launch a collection",
+      "trans": [
+        "推出一个系列"
+      ],
+      "mistake": [
+        "publish",
+        "release",
+        "series"
+      ],
+      "examples": [
+        {
+          "en": "Inspired by traditional knitting/weaving techniques, the brand has launched a Spring Festival collection for the Year of the Horse.",
+          "zh": "该品牌从传统编织工艺中汲取灵感，推出了马年新春系列。"
+        }
+      ]
+    },
+    {
+      "name": "the Year of the Horse",
+      "trans": [
+        "马年"
+      ],
+      "mistake": [
+        "horse's",
+        "for",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "The brand has launched a Spring Festival collection for the Year of the Horse.",
+          "zh": "该品牌推出了马年新春系列。"
+        }
+      ]
+    },
+    {
+      "name": "an increasing number of ...",
+      "trans": [
+        "越来越多的……"
+      ],
+      "mistake": [
+        "amount",
+        "the",
+        "plenty"
+      ],
+      "examples": [
+        {
+          "en": "An increasing number of / More and more coffee shops offer discounts for customers who bring their own cups.",
+          "zh": "越来越多咖啡店推出自带杯优惠。"
+        }
+      ]
+    },
+    {
+      "name": "offer discounts for sb.",
+      "trans": [
+        "为某人提供折扣/优惠"
+      ],
+      "mistake": [
+        "give",
+        "provide",
+        "sale"
+      ],
+      "examples": [
+        {
+          "en": "An increasing number of coffee shops offer discounts for customers who bring their own cups.",
+          "zh": "越来越多咖啡店为自带杯的顾客提供优惠。"
+        }
+      ]
+    },
+    {
+      "name": "bring one's own cup",
+      "trans": [
+        "自带杯"
+      ],
+      "mistake": [
+        "take",
+        "carry",
+        "fetch"
+      ],
+      "examples": [
+        {
+          "en": "More and more coffee shops offer discounts for customers who bring their own cups.",
+          "zh": "越来越多咖啡店推出自带杯优惠。"
+        }
+      ]
+    },
+    {
+      "name": "save a lot on monthly spending",
+      "trans": [
+        "每月省下不少开销"
+      ],
+      "mistake": [
+        "in",
+        "for",
+        "cost"
+      ],
+      "examples": [
+        {
+          "en": "Coffee lovers can save a lot on their monthly spending / save a good amount each month / cut their monthly expenses by quite a bit.",
+          "zh": "咖啡爱好者每月都能省下一笔不小的开销。"
+        }
+      ]
+    },
+    {
+      "name": "cut one's monthly expenses",
+      "trans": [
+        "削减每月开支",
+        "省下每月开销"
+      ],
+      "mistake": [
+        "reduce",
+        "price",
+        "spending"
+      ],
+      "examples": [
+        {
+          "en": "Coffee lovers can cut their monthly expenses by quite a bit.",
+          "zh": "咖啡爱好者每月都能省下一笔不小的开销。"
+        }
+      ]
+    },
+    {
+      "name": "promote education reform",
+      "trans": [
+        "推动教育改革"
+      ],
+      "mistake": [
+        "push",
+        "improve",
+        "change"
+      ],
+      "examples": [
+        {
+          "en": "To promote education reform, Professor Li founded the Automation Technology Research Centre and introduced a robotics course, so that students could learn by doing and innovate through exploration.",
+          "zh": "为推动教育改革，李教授创立了自动化技术研究中心，开设机器人课程，以便学生在做中学，在探索中创新。"
+        }
+      ]
+    },
+    {
+      "name": "found a research centre",
+      "trans": [
+        "创立研究中心"
+      ],
+      "mistake": [
+        "find",
+        "build",
+        "founded"
+      ],
+      "examples": [
+        {
+          "en": "Professor Li founded the Automation Technology Research Centre and introduced a robotics course.",
+          "zh": "李教授创立了自动化技术研究中心，开设机器人课程。"
+        }
+      ]
+    },
+    {
+      "name": "introduce a robotics course",
+      "trans": [
+        "开设机器人课程"
+      ],
+      "mistake": [
+        "open",
+        "set",
+        "robot"
+      ],
+      "examples": [
+        {
+          "en": "Professor Li founded the Automation Technology Research Centre and introduced a robotics course.",
+          "zh": "李教授创立了自动化技术研究中心，开设机器人课程。"
+        }
+      ]
+    },
+    {
+      "name": "so that ...",
+      "trans": [
+        "以便……",
+        "为了……"
+      ],
+      "mistake": [
+        "in order",
+        "for",
+        "which"
+      ],
+      "examples": [
+        {
+          "en": "Professor Li introduced a robotics course, so that students could learn by doing and innovate through exploration.",
+          "zh": "李教授开设机器人课程，以便学生在做中学，在探索中创新。"
+        }
+      ]
+    },
+    {
+      "name": "learn by doing",
+      "trans": [
+        "在做中学"
+      ],
+      "mistake": [
+        "through",
+        "in",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "Students could learn by doing and innovate through exploration.",
+          "zh": "学生在做中学，在探索中创新。"
+        }
+      ]
+    },
+    {
+      "name": "innovate through exploration",
+      "trans": [
+        "在探索中创新"
+      ],
+      "mistake": [
+        "by",
+        "in",
+        "explore"
+      ],
+      "examples": [
+        {
+          "en": "Students could learn by doing and innovate through exploration.",
+          "zh": "学生在做中学，在探索中创新。"
+        }
+      ]
+    }
+  ],
+  "Wordbank 1": [
+    {
+      "name": "national health care reform",
+      "trans": [
+        "全国医疗改革"
+      ],
+      "mistake": [
+        "medical",
+        "reformation",
+        "cure"
+      ],
+      "examples": [
+        {
+          "en": "The national health care reform enables the people in the country to have access to the modern medical facilities.",
+          "zh": "全国医疗改革使得农村居民也有机会享用现代医疗设施。"
+        }
+      ]
+    },
+    {
+      "name": "enable sb. to do sth.",
+      "trans": [
+        "使某人能够做某事"
+      ],
+      "mistake": [
+        "make",
+        "let",
+        "allow"
+      ],
+      "examples": [
+        {
+          "en": "The national health care reform enables the people in the country to have access to the modern medical facilities.",
+          "zh": "全国医疗改革使得农村居民也有机会享用现代医疗设施。"
+        }
+      ]
+    },
+    {
+      "name": "have access to sth.",
+      "trans": [
+        "有机会享用某物",
+        "可以使用/获得某物"
+      ],
+      "mistake": [
+        "in",
+        "of",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "The national health care reform enables the people in the country to have access to the modern medical facilities.",
+          "zh": "全国医疗改革使得农村居民也有机会享用现代医疗设施。"
+        }
+      ]
+    },
+    {
+      "name": "modern medical facilities",
+      "trans": [
+        "现代医疗设施"
+      ],
+      "mistake": [
+        "equipment",
+        "instruments",
+        "machine"
+      ],
+      "examples": [
+        {
+          "en": "The national health care reform enables the people in the country to have access to the modern medical facilities.",
+          "zh": "全国医疗改革使得农村居民也有机会享用现代医疗设施。"
+        }
+      ]
+    },
+    {
+      "name": "I would appreciate it if ...",
+      "trans": [
+        "如果……我将不胜感激"
+      ],
+      "mistake": [
+        "thank",
+        "grateful",
+        "that"
+      ],
+      "examples": [
+        {
+          "en": "I would appreciate it very much if you could fetch the parcel for me from the post office.",
+          "zh": "如果你能帮我去邮局取回那个包裹，我将不胜感激。"
+        }
+      ]
+    },
+    {
+      "name": "fetch the parcel",
+      "trans": [
+        "取回包裹"
+      ],
+      "mistake": [
+        "take",
+        "bring",
+        "carry"
+      ],
+      "examples": [
+        {
+          "en": "I would appreciate it very much if you could fetch the parcel for me from the post office.",
+          "zh": "如果你能帮我去邮局取回那个包裹，我将不胜感激。"
+        }
+      ]
+    },
+    {
+      "name": "arrange for sb. to do sth.",
+      "trans": [
+        "安排某人做某事"
+      ],
+      "mistake": [
+        "to",
+        "with",
+        "plan"
+      ],
+      "examples": [
+        {
+          "en": "The tour guide arranged for the tourists to live in a peaceful and well-equipped hotel.",
+          "zh": "导游安排游客们住在一个宁静，设施完备的宾馆里。"
+        }
+      ]
+    },
+    {
+      "name": "well-equipped",
+      "trans": [
+        "设施完备的",
+        "装备精良的"
+      ],
+      "examples": [
+        {
+          "en": "The tour guide arranged for the tourists to live in a peaceful and well-equipped hotel.",
+          "zh": "导游安排游客们住在一个宁静，设施完备的宾馆里。"
+        }
+      ]
+    },
+    {
+      "name": "carry out sth.",
+      "trans": [
+        "实施某事",
+        "开展某事"
+      ],
+      "mistake": [
+        "on",
+        "with",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "In order to carry out the research project successfully, we should get prepared in advance.",
+          "zh": "为了成功实施这个研究项目，我们应该提前做好准备。"
+        }
+      ]
+    },
+    {
+      "name": "get prepared",
+      "trans": [
+        "做好准备"
+      ],
+      "mistake": [
+        "make",
+        "do",
+        "ready"
+      ],
+      "examples": [
+        {
+          "en": "In order to carry out the research project successfully, we should get prepared in advance.",
+          "zh": "为了成功实施这个研究项目，我们应该提前做好准备。"
+        }
+      ]
+    },
+    {
+      "name": "in advance",
+      "trans": [
+        "提前",
+        "事先"
+      ],
+      "mistake": [
+        "before",
+        "ahead",
+        "on"
+      ],
+      "examples": [
+        {
+          "en": "We should get prepared in advance.",
+          "zh": "我们应该提前做好准备。"
+        }
+      ]
+    },
+    {
+      "name": "on no account",
+      "trans": [
+        "绝不",
+        "切莫",
+        "决不"
+      ],
+      "mistake": [
+        "in",
+        "under",
+        "by"
+      ],
+      "examples": [
+        {
+          "en": "On no account will you give up halfway at the critical moment, or you will achieve nothing.",
+          "zh": "你绝不能在这个关键的时刻半途而废，否则你将一事无成。"
+        }
+      ]
+    },
+    {
+      "name": "give up halfway",
+      "trans": [
+        "半途而废"
+      ],
+      "mistake": [
+        "stop",
+        "drop",
+        "quit"
+      ],
+      "examples": [
+        {
+          "en": "On no account will you give up halfway at the critical moment, or you will achieve nothing.",
+          "zh": "你绝不能在这个关键的时刻半途而废，否则你将一事无成。"
+        }
+      ]
+    },
+    {
+      "name": "at the critical moment",
+      "trans": [
+        "在关键时刻"
+      ],
+      "mistake": [
+        "in",
+        "on",
+        "under"
+      ],
+      "examples": [
+        {
+          "en": "On no account will you give up halfway at the critical moment.",
+          "zh": "你绝不能在这个关键的时刻半途而废。"
+        }
+      ]
+    },
+    {
+      "name": "achieve nothing",
+      "trans": [
+        "一事无成"
+      ],
+      "mistake": [
+        "gain",
+        "get",
+        "reach"
+      ],
+      "examples": [
+        {
+          "en": "On no account will you give up halfway at the critical moment, or you will achieve nothing.",
+          "zh": "你绝不能在这个关键的时刻半途而废，否则你将一事无成。"
+        }
+      ]
+    },
+    {
+      "name": "It is estimated that ...",
+      "trans": [
+        "据估计……"
+      ],
+      "mistake": [
+        "estimating",
+        "estimates",
+        "what"
+      ],
+      "examples": [
+        {
+          "en": "It is estimated that the profits of this investment will add up to more than $10,000,000.",
+          "zh": "据估计这项投资的利润可达上千万美元。"
+        }
+      ]
+    },
+    {
+      "name": "add up to ...",
+      "trans": [
+        "总计达……",
+        "累计达……"
+      ],
+      "mistake": [
+        "in",
+        "on",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "It is estimated that the profits of this investment will add up to more than $10,000,000.",
+          "zh": "据估计这项投资的利润可达上千万美元。"
+        }
+      ]
+    },
+    {
+      "name": "achieve one's goal",
+      "trans": [
+        "达到自己的目标"
+      ],
+      "mistake": [
+        "reach",
+        "get",
+        "gain"
+      ],
+      "examples": [
+        {
+          "en": "Don't achieve one's own goal by taking advantage of others' failure.",
+          "zh": "不要利用别人的失败去达到自己的目的。"
+        }
+      ]
+    },
+    {
+      "name": "take advantage of sb./sth.",
+      "trans": [
+        "利用某人/某事",
+        "占某人便宜"
+      ],
+      "mistake": [
+        "use",
+        "make",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "Don't achieve one's own goal by taking advantage of others' failure.",
+          "zh": "不要利用别人的失败去达到自己的目的。"
+        }
+      ]
+    },
+    {
+      "name": "apologize to sb. for sth.",
+      "trans": [
+        "因某事向某人道歉"
+      ],
+      "mistake": [
+        "with",
+        "about",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "You must apologize to the innocent old man for what you have done.",
+          "zh": "你必须对你的所作所为向那位无辜的老人道歉。"
+        }
+      ]
+    },
+    {
+      "name": "innocent",
+      "trans": [
+        "无辜的",
+        "清白的"
+      ],
+      "examples": [
+        {
+          "en": "You must apologize to the innocent old man for what you have done.",
+          "zh": "你必须对你的所作所为向那位无辜的老人道歉。"
+        }
+      ]
+    },
+    {
+      "name": "cope with sth.",
+      "trans": [
+        "应对某事",
+        "处理某事"
+      ],
+      "mistake": [
+        "deal",
+        "in",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "To cope with the financial crisis, the Greek government applied to the World Bank for a loan.",
+          "zh": "为了应对经济危机，希腊政府向世界银行申请了贷款。"
+        }
+      ]
+    },
+    {
+      "name": "financial crisis",
+      "trans": [
+        "经济危机",
+        "金融危机"
+      ],
+      "mistake": [
+        "depression",
+        "economic",
+        "danger"
+      ],
+      "examples": [
+        {
+          "en": "To cope with the financial crisis, the Greek government applied to the World Bank for a loan.",
+          "zh": "为了应对经济危机，希腊政府向世界银行申请了贷款。"
+        }
+      ]
+    },
+    {
+      "name": "apply to sb. for sth.",
+      "trans": [
+        "向某人/机构申请某物"
+      ],
+      "mistake": [
+        "in",
+        "with",
+        "ask"
+      ],
+      "examples": [
+        {
+          "en": "To cope with the financial crisis, the Greek government applied to the World Bank for a loan.",
+          "zh": "为了应对经济危机，希腊政府向世界银行申请了贷款。"
+        }
+      ]
+    },
+    {
+      "name": "apply for a loan",
+      "trans": [
+        "申请贷款"
+      ],
+      "mistake": [
+        "to",
+        "borrow",
+        "lend"
+      ],
+      "examples": [
+        {
+          "en": "The Greek government applied to the World Bank for a loan.",
+          "zh": "希腊政府向世界银行申请了贷款。"
+        }
+      ]
+    },
+    {
+      "name": "make an attempt to do sth.",
+      "trans": [
+        "试图做某事",
+        "尝试做某事"
+      ],
+      "mistake": [
+        "take",
+        "do",
+        "have"
+      ],
+      "examples": [
+        {
+          "en": "He makes an attempt to break the world record, but I am afraid that he will fail.",
+          "zh": "他试图打破世界记录，但我担心他会失败。"
+        }
+      ]
+    },
+    {
+      "name": "break the world record",
+      "trans": [
+        "打破世界纪录"
+      ],
+      "mistake": [
+        "beat",
+        "ruin",
+        "destroy"
+      ],
+      "examples": [
+        {
+          "en": "He makes an attempt to break the world record, but I am afraid that he will fail.",
+          "zh": "他试图打破世界记录，但我担心他会失败。"
+        }
+      ]
+    },
+    {
+      "name": "account for sth.",
+      "trans": [
+        "说明某事",
+        "解释某事",
+        "占……比例"
+      ],
+      "mistake": [
+        "of",
+        "to",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "His childhood experiences can account for his being ready to help others.",
+          "zh": "他的童年经历可以说明他为什么如此乐于助人。"
+        }
+      ]
+    },
+    {
+      "name": "be ready to do sth.",
+      "trans": [
+        "乐于做某事",
+        "准备好做某事"
+      ],
+      "mistake": [
+        "for",
+        "about",
+        "willing"
+      ],
+      "examples": [
+        {
+          "en": "His childhood experiences can account for his being ready to help others.",
+          "zh": "他的童年经历可以说明他为什么如此乐于助人。"
+        }
+      ]
+    },
+    {
+      "name": "It is universally acknowledged that ...",
+      "trans": [
+        "人们普遍认为……"
+      ],
+      "mistake": [
+        "widely",
+        "general",
+        "recognized"
+      ],
+      "examples": [
+        {
+          "en": "It is universally acknowledged that being overweight will lead to many health problems, so doing sports regularly can help control the weight.",
+          "zh": "人们普遍认为超重会造成许多健康问题，因此经常进行体育锻炼有助于控制体重。"
+        }
+      ]
+    },
+    {
+      "name": "lead to sth.",
+      "trans": [
+        "导致某事",
+        "造成某事"
+      ],
+      "mistake": [
+        "in",
+        "for",
+        "cause"
+      ],
+      "examples": [
+        {
+          "en": "Being overweight will lead to many health problems.",
+          "zh": "超重会造成许多健康问题。"
+        }
+      ]
+    },
+    {
+      "name": "do sports regularly",
+      "trans": [
+        "经常进行体育锻炼"
+      ],
+      "mistake": [
+        "exercise",
+        "make",
+        "often"
+      ],
+      "examples": [
+        {
+          "en": "Doing sports regularly can help control the weight.",
+          "zh": "经常进行体育锻炼有助于控制体重。"
+        }
+      ]
+    },
+    {
+      "name": "non-commercial advertisement",
+      "trans": [
+        "公益广告"
+      ],
+      "mistake": [
+        "commercial",
+        "business",
+        "public"
+      ],
+      "examples": [
+        {
+          "en": "The non-commercial advertisement aims at appealing to more young people to engage in the charity cause after graduation from the university.",
+          "zh": "这个公益广告旨在呼吁更多的年轻人大学毕业后参与慈善事业。"
+        }
+      ]
+    },
+    {
+      "name": "aim at doing sth.",
+      "trans": [
+        "旨在做某事",
+        "目标是做某事"
+      ],
+      "mistake": [
+        "to",
+        "for",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "The non-commercial advertisement aims at appealing to more young people to engage in the charity cause.",
+          "zh": "这个公益广告旨在呼吁更多的年轻人参与慈善事业。"
+        }
+      ]
+    },
+    {
+      "name": "engage in sth.",
+      "trans": [
+        "参与某事",
+        "从事某事"
+      ],
+      "mistake": [
+        "with",
+        "into",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "The non-commercial advertisement aims at appealing to more young people to engage in the charity cause.",
+          "zh": "这个公益广告旨在呼吁更多的年轻人参与慈善事业。"
+        }
+      ]
+    },
+    {
+      "name": "charity cause",
+      "trans": [
+        "慈善事业"
+      ],
+      "mistake": [
+        "career",
+        "business",
+        "affair"
+      ],
+      "examples": [
+        {
+          "en": "Appeal to more young people to engage in the charity cause after graduation from the university.",
+          "zh": "呼吁更多的年轻人大学毕业后参与慈善事业。"
+        }
+      ]
+    },
+    {
+      "name": "graduate from ...",
+      "trans": [
+        "从……毕业"
+      ],
+      "mistake": [
+        "of",
+        "at",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "Engage in the charity cause after graduation from the university.",
+          "zh": "大学毕业后参与慈善事业。"
+        }
+      ]
+    }
+  ],
+  "Wordbank 3": [
+    {
+      "name": "claim to do sth.",
+      "trans": [
+        "声称做某事",
+        "自称做某事"
+      ],
+      "mistake": [
+        "for",
+        "about",
+        "that"
+      ],
+      "examples": [
+        {
+          "en": "He claimed to have a good command of biology, but he was ignorant of the latest discoveries in this field.",
+          "zh": "他声称自己精通生物学，但却对该领域最新的发现一无所知。"
+        }
+      ]
+    },
+    {
+      "name": "have a good command of sth.",
+      "trans": [
+        "精通某事",
+        "熟练掌握某事"
+      ],
+      "mistake": [
+        "in",
+        "at",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "He claimed to have a good command of biology.",
+          "zh": "他声称自己精通生物学。"
+        }
+      ]
+    },
+    {
+      "name": "be ignorant of sth.",
+      "trans": [
+        "对某事一无所知",
+        "不了解某事"
+      ],
+      "mistake": [
+        "about",
+        "to",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "He was ignorant of the latest discoveries in this field.",
+          "zh": "他对该领域最新的发现一无所知。"
+        }
+      ]
+    },
+    {
+      "name": "in this field",
+      "trans": [
+        "在该领域",
+        "在这个领域"
+      ],
+      "mistake": [
+        "on",
+        "at",
+        "area"
+      ],
+      "examples": [
+        {
+          "en": "He was ignorant of the latest discoveries in this field.",
+          "zh": "他对该领域最新的发现一无所知。"
+        }
+      ]
+    },
+    {
+      "name": "come to realize ...",
+      "trans": [
+        "渐渐意识到……",
+        "逐渐认识到……"
+      ],
+      "mistake": [
+        "go",
+        "get",
+        "become"
+      ],
+      "examples": [
+        {
+          "en": "Mike came to realize that the process of learning was more important compared with academic performance.",
+          "zh": "迈克渐渐意识到，与学习成绩相比，学习的过程更重要。"
+        }
+      ]
+    },
+    {
+      "name": "the process of sth.",
+      "trans": [
+        "……的过程"
+      ],
+      "mistake": [
+        "in",
+        "for",
+        "progress"
+      ],
+      "examples": [
+        {
+          "en": "Mike came to realize that the process of learning was more important compared with academic performance.",
+          "zh": "迈克渐渐意识到，与学习成绩相比，学习的过程更重要。"
+        }
+      ]
+    },
+    {
+      "name": "compared with/to sth.",
+      "trans": [
+        "与某事物相比"
+      ],
+      "mistake": [
+        "comparing",
+        "compare",
+        "by"
+      ],
+      "examples": [
+        {
+          "en": "The process of learning was more important compared with academic performance.",
+          "zh": "与学习成绩相比，学习的过程更重要。"
+        }
+      ]
+    },
+    {
+      "name": "academic performance",
+      "trans": [
+        "学业成绩",
+        "学业表现"
+      ],
+      "mistake": [
+        "score",
+        "grade",
+        "study"
+      ],
+      "examples": [
+        {
+          "en": "The process of learning was more important compared with academic performance.",
+          "zh": "与学习成绩相比，学习的过程更重要。"
+        }
+      ]
+    },
+    {
+      "name": "meet with sth.",
+      "trans": [
+        "遇到某事",
+        "经历某事"
+      ],
+      "mistake": [
+        "to",
+        "in",
+        "across"
+      ],
+      "examples": [
+        {
+          "en": "No matter what difficulty we meet with, we should be confident of our future.",
+          "zh": "无论遇到什么困难，我们都要对自己的未来充满信心。"
+        }
+      ]
+    },
+    {
+      "name": "be confident of/about sth.",
+      "trans": [
+        "对某事充满信心"
+      ],
+      "mistake": [
+        "in",
+        "with",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "No matter what difficulty we meet with, we should be confident of our future.",
+          "zh": "无论遇到什么困难，我们都要对自己的未来充满信心。"
+        }
+      ]
+    },
+    {
+      "name": "have little in common",
+      "trans": [
+        "几乎没有共同之处"
+      ],
+      "mistake": [
+        "with",
+        "of",
+        "same"
+      ],
+      "examples": [
+        {
+          "en": "Although they have little in common, they are the best friends.",
+          "zh": "尽管他们有许多不同之处，但却是最好的朋友。"
+        }
+      ]
+    },
+    {
+      "name": "under no circumstances",
+      "trans": [
+        "在任何情况下都不",
+        "决不"
+      ],
+      "mistake": [
+        "in",
+        "on",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "We have been told under no circumstances may we use the telephone in the office for private affairs.",
+          "zh": "我们已经被告知在任何情况下都不能因私使用办公室的电话。"
+        }
+      ]
+    },
+    {
+      "name": "for private affairs",
+      "trans": [
+        "因私",
+        "为了私事"
+      ],
+      "mistake": [
+        "with",
+        "in",
+        "personal"
+      ],
+      "examples": [
+        {
+          "en": "Under no circumstances may we use the telephone in the office for private affairs.",
+          "zh": "在任何情况下都不能因私使用办公室的电话。"
+        }
+      ]
+    },
+    {
+      "name": "be concerned about sth.",
+      "trans": [
+        "关心某事",
+        "担心某事"
+      ],
+      "mistake": [
+        "with",
+        "for",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "What he is concerned about is how to find the lost passengers as soon as possible.",
+          "zh": "他所关心的是如何能尽快找到失踪的乘客。"
+        }
+      ]
+    },
+    {
+      "name": "as soon as possible",
+      "trans": [
+        "尽快",
+        "尽可能快地"
+      ],
+      "mistake": [
+        "quick",
+        "fast",
+        "early"
+      ],
+      "examples": [
+        {
+          "en": "What he is concerned about is how to find the lost passengers as soon as possible.",
+          "zh": "他所关心的是如何能尽快找到失踪的乘客。"
+        }
+      ]
+    },
+    {
+      "name": "electrical appliance",
+      "trans": [
+        "电器",
+        "电气设备"
+      ],
+      "mistake": [
+        "electric",
+        "electronic",
+        "machine"
+      ],
+      "examples": [
+        {
+          "en": "Be careful when using electrical appliances in case a fire should break out/breaks out.",
+          "zh": "使用电器的时候小心点，万一发生火灾。"
+        }
+      ]
+    },
+    {
+      "name": "in case ...",
+      "trans": [
+        "万一……",
+        "以防……"
+      ],
+      "mistake": [
+        "if",
+        "lest",
+        "unless"
+      ],
+      "examples": [
+        {
+          "en": "Be careful when using electrical appliances in case a fire should break out/breaks out.",
+          "zh": "使用电器的时候小心点，万一发生火灾。"
+        }
+      ]
+    },
+    {
+      "name": "break out",
+      "trans": [
+        "爆发",
+        "突然发生"
+      ],
+      "mistake": [
+        "up",
+        "off",
+        "through"
+      ],
+      "examples": [
+        {
+          "en": "Be careful when using electrical appliances in case a fire should break out/breaks out.",
+          "zh": "使用电器的时候小心点，万一发生火灾。"
+        }
+      ]
+    },
+    {
+      "name": "complain to sb. about/of sth.",
+      "trans": [
+        "向某人投诉某事",
+        "向某人抱怨某事"
+      ],
+      "mistake": [
+        "at",
+        "for",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "These days, many consumers have complained to the TV station about the tourist agency's cheating tourists.",
+          "zh": "最近，许多消费者向电视台投诉这家旅行社欺骗游客。"
+        }
+      ]
+    },
+    {
+      "name": "travel/tourist agency",
+      "trans": [
+        "旅行社"
+      ],
+      "mistake": [
+        "office",
+        "bureau",
+        "company"
+      ],
+      "examples": [
+        {
+          "en": "Many consumers have complained to the TV station about the tourist agency's cheating tourists.",
+          "zh": "许多消费者向电视台投诉这家旅行社欺骗游客。"
+        }
+      ]
+    },
+    {
+      "name": "chances are that ...",
+      "trans": [
+        "有可能……",
+        "很有可能……"
+      ],
+      "mistake": [
+        "chance",
+        "probability",
+        "possibility"
+      ],
+      "examples": [
+        {
+          "en": "If the relationship between the two countries continues worsening, chances are that the government will cancel the trade cooperation.",
+          "zh": "如果两国关系继续恶化，有可能政府会取消贸易合作。"
+        }
+      ]
+    },
+    {
+      "name": "cancel trade cooperation",
+      "trans": [
+        "取消贸易合作"
+      ],
+      "mistake": [
+        "dismiss",
+        "remove",
+        "stop"
+      ],
+      "examples": [
+        {
+          "en": "Chances are that the government will cancel the trade cooperation.",
+          "zh": "有可能政府会取消贸易合作。"
+        }
+      ]
+    },
+    {
+      "name": "stay calm",
+      "trans": [
+        "保持冷静"
+      ],
+      "mistake": [
+        "quiet",
+        "silent",
+        "peaceful"
+      ],
+      "examples": [
+        {
+          "en": "As a candidate, the calmer he stays during the interview, the more competitive he may become.",
+          "zh": "作为一名求职者，在面试的过程中越保持冷静，越有竞争力。"
+        }
+      ]
+    },
+    {
+      "name": "as a candidate",
+      "trans": [
+        "作为一名求职者/候选人"
+      ],
+      "mistake": [
+        "applicant",
+        "like",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "As a candidate, the calmer he stays during the interview, the more competitive he may become.",
+          "zh": "作为一名求职者，在面试的过程中越保持冷静，越有竞争力。"
+        }
+      ]
+    },
+    {
+      "name": "pay a high compliment on sth.",
+      "trans": [
+        "高度赞赏某事物",
+        "十分赞赏某事物"
+      ],
+      "mistake": [
+        "give",
+        "make",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "At the charity fun fair, the teachers paid a high compliment on the environment-friendly bags made of waste cloth by the student.",
+          "zh": "在慈善义卖会上，老师十分赞赏同学们用废旧布料做的环保袋。"
+        }
+      ]
+    },
+    {
+      "name": "charity fun fair",
+      "trans": [
+        "慈善义卖会"
+      ],
+      "mistake": [
+        "sale",
+        "market",
+        "show"
+      ],
+      "examples": [
+        {
+          "en": "At the charity fun fair, the teachers paid a high compliment on the environment-friendly bags.",
+          "zh": "在慈善义卖会上，老师十分赞赏那些环保袋。"
+        }
+      ]
+    },
+    {
+      "name": "environment-friendly",
+      "trans": [
+        "环保的"
+      ],
+      "examples": [
+        {
+          "en": "The teachers paid a high compliment on the environment-friendly bags made of waste cloth by the student.",
+          "zh": "老师十分赞赏同学们用废旧布料做的环保袋。"
+        }
+      ]
+    },
+    {
+      "name": "launch a campaign",
+      "trans": [
+        "发起一场运动",
+        "开展活动"
+      ],
+      "mistake": [
+        "start",
+        "make",
+        "do"
+      ],
+      "examples": [
+        {
+          "en": "A campaign was launched by the Students' Union on campus to improve the service of the canteen and the quality of the meals.",
+          "zh": "学生会在校园里发起了一场运动，要求改善食堂的服务和饭菜质量。"
+        }
+      ]
+    },
+    {
+      "name": "Students' Union",
+      "trans": [
+        "学生会"
+      ],
+      "mistake": [
+        "association",
+        "club",
+        "group"
+      ],
+      "examples": [
+        {
+          "en": "A campaign was launched by the Students' Union on campus.",
+          "zh": "学生会在校园里发起了一场运动。"
+        }
+      ]
+    },
+    {
+      "name": "on campus",
+      "trans": [
+        "在校园里"
+      ],
+      "mistake": [
+        "in",
+        "at",
+        "school"
+      ],
+      "examples": [
+        {
+          "en": "A campaign was launched by the Students' Union on campus.",
+          "zh": "学生会在校园里发起了一场运动。"
+        }
+      ]
+    }
+  ],
+  "Wordbank 7": [
+    {
+      "name": "pay attention to sth.",
+      "trans": [
+        "关注某事",
+        "注意某事"
+      ],
+      "mistake": [
+        "for",
+        "on",
+        "give"
+      ],
+      "examples": [
+        {
+          "en": "The more attention you pay to the balance of diets, the more good it will do to your health.",
+          "zh": "你越关注饮食的平衡，对身体的好处就越多。"
+        }
+      ]
+    },
+    {
+      "name": "the balance of diets",
+      "trans": [
+        "饮食的平衡"
+      ],
+      "mistake": [
+        "food",
+        "equal",
+        "meal"
+      ],
+      "examples": [
+        {
+          "en": "The more attention you pay to the balance of diets, the more good it will do to your health.",
+          "zh": "你越关注饮食的平衡，对身体的好处就越多。"
+        }
+      ]
+    },
+    {
+      "name": "do good to sth.",
+      "trans": [
+        "对……有好处"
+      ],
+      "mistake": [
+        "make",
+        "benefit",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "The more attention you pay to the balance of diets, the more good it will do to your health.",
+          "zh": "你越关注饮食的平衡，对身体的好处就越多。"
+        }
+      ]
+    },
+    {
+      "name": "mean no harm",
+      "trans": [
+        "没有恶意"
+      ],
+      "mistake": [
+        "want",
+        "bad",
+        "hurt"
+      ],
+      "examples": [
+        {
+          "en": "Although you meant no harm, what you said just now did hurt your mother.",
+          "zh": "虽然你没有恶意，但是你刚才的话确实伤害了你的母亲。"
+        }
+      ]
+    },
+    {
+      "name": "be grateful to sb. for sth.",
+      "trans": [
+        "因某事非常感谢某人"
+      ],
+      "mistake": [
+        "thank",
+        "thankful",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "I'm really grateful to you for providing us with the chance to appreciate so many latest works of art, which greatly benefits us.",
+          "zh": "非常感谢你给我们提供机会欣赏到这么多最新的艺术品，这让我们受益匪浅。"
+        }
+      ]
+    },
+    {
+      "name": "provide sb. with sth.",
+      "trans": [
+        "为某人提供某物"
+      ],
+      "mistake": [
+        "offer",
+        "give",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "I'm really grateful to you for providing us with the chance to appreciate so many latest works of art.",
+          "zh": "非常感谢你给我们提供机会欣赏到这么多最新的艺术品。"
+        }
+      ]
+    },
+    {
+      "name": "works of art",
+      "trans": [
+        "艺术品"
+      ],
+      "mistake": [
+        "work",
+        "arts",
+        "pieces"
+      ],
+      "examples": [
+        {
+          "en": "Provide us with the chance to appreciate so many latest works of art, which greatly benefits us.",
+          "zh": "给我们提供机会欣赏到这么多最新的艺术品，这让我们受益匪浅。"
+        }
+      ]
+    },
+    {
+      "name": "benefit sb. greatly",
+      "trans": [
+        "使某人受益匪浅"
+      ],
+      "mistake": [
+        "from",
+        "to",
+        "advantage"
+      ],
+      "examples": [
+        {
+          "en": "Appreciate so many latest works of art, which greatly benefits us.",
+          "zh": "欣赏到这么多最新的艺术品，这让我们受益匪浅。"
+        }
+      ]
+    },
+    {
+      "name": "It was ... before ...",
+      "trans": [
+        "过了……才……"
+      ],
+      "mistake": [
+        "until",
+        "since",
+        "when"
+      ],
+      "examples": [
+        {
+          "en": "It was a whole year before he got over the shadow of the traffic accident.",
+          "zh": "过了整整一年他才克服了车祸的阴影。"
+        }
+      ]
+    },
+    {
+      "name": "get over sth.",
+      "trans": [
+        "克服……",
+        "从……中恢复"
+      ],
+      "mistake": [
+        "across",
+        "through",
+        "off"
+      ],
+      "examples": [
+        {
+          "en": "It was a whole year before he got over the shadow of the traffic accident.",
+          "zh": "过了整整一年他才克服了车祸的阴影。"
+        }
+      ]
+    },
+    {
+      "name": "the shadow of the traffic accident",
+      "trans": [
+        "车祸的阴影"
+      ],
+      "mistake": [
+        "shade",
+        "dark",
+        "car"
+      ],
+      "examples": [
+        {
+          "en": "It was a whole year before he got over the shadow of the traffic accident.",
+          "zh": "过了整整一年他才克服了车祸的阴影。"
+        }
+      ]
+    },
+    {
+      "name": "be in good health",
+      "trans": [
+        "身体健康"
+      ],
+      "mistake": [
+        "on",
+        "with",
+        "healthy"
+      ],
+      "examples": [
+        {
+          "en": "When you are not in good health, don't hesitate to consult your doctor.",
+          "zh": "当你身体不佳的时候，要主动向医生咨询。"
+        }
+      ]
+    },
+    {
+      "name": "don't hesitate to do sth.",
+      "trans": [
+        "毫不犹豫地做某事",
+        "主动做某事"
+      ],
+      "mistake": [
+        "doing",
+        "for",
+        "wait"
+      ],
+      "examples": [
+        {
+          "en": "When you are not in good health, don't hesitate to consult your doctor.",
+          "zh": "当你身体不佳的时候，要主动向医生咨询。"
+        }
+      ]
+    },
+    {
+      "name": "consult one's doctor",
+      "trans": [
+        "向医生咨询"
+      ],
+      "mistake": [
+        "ask",
+        "see",
+        "advice"
+      ],
+      "examples": [
+        {
+          "en": "When you are not in good health, don't hesitate to consult your doctor.",
+          "zh": "当你身体不佳的时候，要主动向医生咨询。"
+        }
+      ]
+    },
+    {
+      "name": "It so happened that ...",
+      "trans": [
+        "碰巧……",
+        "恰好……"
+      ],
+      "mistake": [
+        "occurred",
+        "chanced",
+        "which"
+      ],
+      "examples": [
+        {
+          "en": "It so happened that I was on a business trip to New York when the murder occurred.",
+          "zh": "碰巧当谋杀案发生时，我出差去了纽约。"
+        }
+      ]
+    },
+    {
+      "name": "be on a business trip to ...",
+      "trans": [
+        "去……出差"
+      ],
+      "mistake": [
+        "in",
+        "for",
+        "journey"
+      ],
+      "examples": [
+        {
+          "en": "It so happened that I was on a business trip to New York when the murder occurred.",
+          "zh": "碰巧当谋杀案发生时，我出差去了纽约。"
+        }
+      ]
+    },
+    {
+      "name": "It never occurred to sb. that ...",
+      "trans": [
+        "某人从未想到……"
+      ],
+      "mistake": [
+        "came",
+        "hit",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "It never occurred to us that this case would have something to do with the man of few words.",
+          "zh": "我们从未想到这个案子会与那个沉默寡言的人有关。"
+        }
+      ]
+    },
+    {
+      "name": "have something to do with sb.",
+      "trans": [
+        "与某人有关"
+      ],
+      "mistake": [
+        "make",
+        "about",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "It never occurred to us that this case would have something to do with the man of few words.",
+          "zh": "我们从未想到这个案子会与那个沉默寡言的人有关。"
+        }
+      ]
+    },
+    {
+      "name": "a man of few words",
+      "trans": [
+        "沉默寡言的人"
+      ],
+      "mistake": [
+        "little",
+        "less",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "This case would have something to do with the man of few words.",
+          "zh": "这个案子会与那个沉默寡言的人有关。"
+        }
+      ]
+    },
+    {
+      "name": "It's a great honour for sb. to do sth.",
+      "trans": [
+        "某人做某事很荣幸"
+      ],
+      "mistake": [
+        "of",
+        "pride",
+        "honor"
+      ],
+      "examples": [
+        {
+          "en": "It's a great honour for me to come to this beautiful country and communicate with the friends here about how to handle the worsening climate problems.",
+          "zh": "我很荣幸能来到这个美丽的国度并与这边的朋友们交流如何应对日益严重的气候问题。"
+        }
+      ]
+    },
+    {
+      "name": "communicate with sb. about sth.",
+      "trans": [
+        "与某人交流关于某事"
+      ],
+      "mistake": [
+        "to",
+        "on",
+        "talk"
+      ],
+      "examples": [
+        {
+          "en": "Communicate with the friends here about how to handle the worsening climate problems.",
+          "zh": "与这边的朋友们交流如何应对日益严重的气候问题。"
+        }
+      ]
+    },
+    {
+      "name": "handle the worsening climate problems",
+      "trans": [
+        "应对日益严重的气候问题"
+      ],
+      "mistake": [
+        "solve",
+        "worse",
+        "deal"
+      ],
+      "examples": [
+        {
+          "en": "Communicate with the friends here about how to handle the worsening climate problems.",
+          "zh": "与这边的朋友们交流如何应对日益严重的气候问题。"
+        }
+      ]
+    },
+    {
+      "name": "be faced with fierce competition",
+      "trans": [
+        "面对激烈的竞争"
+      ],
+      "mistake": [
+        "facing",
+        "strong",
+        "heavy"
+      ],
+      "examples": [
+        {
+          "en": "Faced with fierce competition, it is no good simply selling products at reduced prices.",
+          "zh": "面对激烈的竞争，纯粹将产品降价出售是没有好处的。"
+        }
+      ]
+    },
+    {
+      "name": "it is no good doing sth.",
+      "trans": [
+        "做某事是没有好处的"
+      ],
+      "mistake": [
+        "use",
+        "to",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "Faced with fierce competition, it is no good simply selling products at reduced prices.",
+          "zh": "面对激烈的竞争，纯粹将产品降价出售是没有好处的。"
+        }
+      ]
+    },
+    {
+      "name": "at reduced prices",
+      "trans": [
+        "以降低的价格",
+        "降价"
+      ],
+      "mistake": [
+        "in",
+        "low",
+        "cheap"
+      ],
+      "examples": [
+        {
+          "en": "It is no good simply selling products at reduced prices.",
+          "zh": "纯粹将产品降价出售是没有好处的。"
+        }
+      ]
+    },
+    {
+      "name": "take it for granted that ...",
+      "trans": [
+        "认为……是理所当然的"
+      ],
+      "mistake": [
+        "this",
+        "as",
+        "make"
+      ],
+      "examples": [
+        {
+          "en": "The Chinese take it for granted that children should support their aged parents when they grow up.",
+          "zh": "中国人认为子女长大后赡养年迈的父母是理所当然的。"
+        }
+      ]
+    },
+    {
+      "name": "support one's aged parents",
+      "trans": [
+        "赡养年迈的父母"
+      ],
+      "mistake": [
+        "raise",
+        "feed",
+        "old"
+      ],
+      "examples": [
+        {
+          "en": "Children should support their aged parents when they grow up.",
+          "zh": "子女长大后应该赡养年迈的父母。"
+        }
+      ]
+    },
+    {
+      "name": "lose heart",
+      "trans": [
+        "灰心",
+        "泄气"
+      ],
+      "mistake": [
+        "drop",
+        "miss",
+        "mind"
+      ],
+      "examples": [
+        {
+          "en": "However tough the task is, don't lose heart because your gift for leadership will help you achieve the goal eventually.",
+          "zh": "无论任务有多么棘手，别灰心，你在领导能力上的天赋会帮助你最终实现目标。"
+        }
+      ]
+    },
+    {
+      "name": "have a gift for leadership",
+      "trans": [
+        "有领导能力上的天赋"
+      ],
+      "mistake": [
+        "talent",
+        "in",
+        "of"
+      ],
+      "examples": [
+        {
+          "en": "Your gift for leadership will help you achieve the goal eventually.",
+          "zh": "你在领导能力上的天赋会帮助你最终实现目标。"
+        }
+      ]
+    },
+    {
+      "name": "live in harmony with nature",
+      "trans": [
+        "与自然和谐相处"
+      ],
+      "mistake": [
+        "peace",
+        "to",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "To live in harmony with nature, we must hold up all those developing plans which may upset the balance of nature.",
+          "zh": "为了与自然和谐相处，我们必须搁置所有那些有可能破坏自然平衡的开发计划。"
+        }
+      ]
+    },
+    {
+      "name": "hold up",
+      "trans": [
+        "搁置",
+        "阻碍",
+        "耽搁"
+      ],
+      "mistake": [
+        "put",
+        "off",
+        "back"
+      ],
+      "examples": [
+        {
+          "en": "We must hold up all those developing plans which may upset the balance of nature.",
+          "zh": "我们必须搁置所有那些有可能破坏自然平衡的开发计划。"
+        }
+      ]
+    },
+    {
+      "name": "upset the balance of nature",
+      "trans": [
+        "破坏自然平衡"
+      ],
+      "mistake": [
+        "break",
+        "destroy",
+        "ruin"
+      ],
+      "examples": [
+        {
+          "en": "We must hold up all those developing plans which may upset the balance of nature.",
+          "zh": "我们必须搁置所有那些有可能破坏自然平衡的开发计划。"
+        }
+      ]
+    }
+  ],
+  "Wordbank 8": [
+    {
+      "name": "have a general idea of sth.",
+      "trans": [
+        "对某事有个大概的了解"
+      ],
+      "mistake": [
+        "common",
+        "about",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "I think it essential that students should have a general idea of the holiday arrangements.",
+          "zh": "我认为学生有必要对假期安排有个大概的了解。"
+        }
+      ]
+    },
+    {
+      "name": "holiday arrangements",
+      "trans": [
+        "假期安排"
+      ],
+      "mistake": [
+        "plan",
+        "schedule",
+        "arrange"
+      ],
+      "examples": [
+        {
+          "en": "I think it essential that students should have a general idea of the holiday arrangements.",
+          "zh": "我认为学生有必要对假期安排有个大概的了解。"
+        }
+      ]
+    },
+    {
+      "name": "be infected with sth.",
+      "trans": [
+        "受到……感染"
+      ],
+      "mistake": [
+        "by",
+        "in",
+        "affected"
+      ],
+      "examples": [
+        {
+          "en": "Any medical workers who have been infected with the disease should be isolated from the patients.",
+          "zh": "任何受到疾病感染的医务工作者都要与病人隔离。"
+        }
+      ]
+    },
+    {
+      "name": "be isolated from sb.",
+      "trans": [
+        "与某人隔离"
+      ],
+      "mistake": [
+        "separated",
+        "with",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "Any medical workers who have been infected with the disease should be isolated from the patients.",
+          "zh": "任何受到疾病感染的医务工作者都要与病人隔离。"
+        }
+      ]
+    },
+    {
+      "name": "under the influence of sb.",
+      "trans": [
+        "在某人的影响下"
+      ],
+      "mistake": [
+        "in",
+        "with",
+        "by"
+      ],
+      "examples": [
+        {
+          "en": "Under the influence of his supervisor, he has devoted himself to educational innovation for many years.",
+          "zh": "在导师的影响下，多年来他致力于教育革新。"
+        }
+      ]
+    },
+    {
+      "name": "devote oneself to sth.",
+      "trans": [
+        "致力于某事",
+        "献身于某事"
+      ],
+      "mistake": [
+        "in",
+        "for",
+        "focus"
+      ],
+      "examples": [
+        {
+          "en": "He has devoted himself to educational innovation for many years.",
+          "zh": "多年来他致力于教育革新。"
+        }
+      ]
+    },
+    {
+      "name": "educational innovation",
+      "trans": [
+        "教育革新"
+      ],
+      "mistake": [
+        "education",
+        "reform",
+        "creative"
+      ],
+      "examples": [
+        {
+          "en": "He has devoted himself to educational innovation for many years.",
+          "zh": "多年来他致力于教育革新。"
+        }
+      ]
+    },
+    {
+      "name": "there is no point in doing sth.",
+      "trans": [
+        "做某事是毫无意义的"
+      ],
+      "mistake": [
+        "meaning",
+        "sense",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "There is no point in imposing your opinions on others, which will only cause them to speak ill of you.",
+          "zh": "把自己的想法强加于他人是毫无意义的，这只会导致别人背后说你坏话。"
+        }
+      ]
+    },
+    {
+      "name": "impose sth. on sb.",
+      "trans": [
+        "把某物强加于某人"
+      ],
+      "mistake": [
+        "to",
+        "force",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "There is no point in imposing your opinions on others.",
+          "zh": "把自己的想法强加于他人是毫无意义的。"
+        }
+      ]
+    },
+    {
+      "name": "speak ill of sb.",
+      "trans": [
+        "说某人坏话"
+      ],
+      "mistake": [
+        "bad",
+        "badly",
+        "about"
+      ],
+      "examples": [
+        {
+          "en": "Imposing your opinions on others will only cause them to speak ill of you.",
+          "zh": "把自己的想法强加于他人只会导致别人背后说你坏话。"
+        }
+      ]
+    },
+    {
+      "name": "have a negative impact on sth.",
+      "trans": [
+        "对……带来负面影响"
+      ],
+      "mistake": [
+        "to",
+        "in",
+        "affect"
+      ],
+      "examples": [
+        {
+          "en": "The bad behaviors of some citizens have a negative impact on the city image.",
+          "zh": "某些市民的不良行为给城市形象带来了负面影响。"
+        }
+      ]
+    },
+    {
+      "name": "keep to one's post",
+      "trans": [
+        "坚守岗位"
+      ],
+      "mistake": [
+        "on",
+        "in",
+        "stick"
+      ],
+      "examples": [
+        {
+          "en": "No matter how hard the rain falls and the wind blows, the police keep to their posts.",
+          "zh": "不管风多大，雨多急，警察一直坚守在自己的岗位上。"
+        }
+      ]
+    },
+    {
+      "name": "have a good knowledge of sth.",
+      "trans": [
+        "通晓某事",
+        "对某事学得很好"
+      ],
+      "mistake": [
+        "in",
+        "about",
+        "command"
+      ],
+      "examples": [
+        {
+          "en": "You can't take it for granted that those university students have a good knowledge of history.",
+          "zh": "你千万不要想当然地认为这些大学生历史都学得很好。"
+        }
+      ]
+    },
+    {
+      "name": "be ignorant of sth.",
+      "trans": [
+        "对某事一无所知"
+      ],
+      "mistake": [
+        "about",
+        "to",
+        "with"
+      ],
+      "examples": [
+        {
+          "en": "In fact, many of them are ignorant of history.",
+          "zh": "事实上，很多人对历史一无所知。"
+        }
+      ]
+    },
+    {
+      "name": "lack of courage",
+      "trans": [
+        "缺乏勇气"
+      ],
+      "mistake": [
+        "short",
+        "lacking",
+        "brave"
+      ],
+      "examples": [
+        {
+          "en": "Lack of courage kept this young man from realizing his dream.",
+          "zh": "缺乏勇气使得这个年轻人难以实现自己的梦想。"
+        }
+      ]
+    },
+    {
+      "name": "keep sb. from doing sth.",
+      "trans": [
+        "阻止/使得某人难以做某事"
+      ],
+      "mistake": [
+        "to",
+        "stop",
+        "out"
+      ],
+      "examples": [
+        {
+          "en": "Lack of courage kept this young man from realizing his dream.",
+          "zh": "缺乏勇气使得这个年轻人难以实现自己的梦想。"
+        }
+      ]
+    },
+    {
+      "name": "realize one's dream",
+      "trans": [
+        "实现自己的梦想"
+      ],
+      "mistake": [
+        "achieve",
+        "come",
+        "true"
+      ],
+      "examples": [
+        {
+          "en": "Lack of courage kept this young man from realizing his dream.",
+          "zh": "缺乏勇气使得这个年轻人难以实现自己的梦想。"
+        }
+      ]
+    },
+    {
+      "name": "can't have done sth.",
+      "trans": [
+        "不可能做过某事"
+      ],
+      "mistake": [
+        "mustn't",
+        "couldn't",
+        "do"
+      ],
+      "examples": [
+        {
+          "en": "He can't have watched the play in the newly-built opera house because it is inaccessible to the public.",
+          "zh": "他不可能在新建的剧院看过这部话剧，因为它还未向公众开放。"
+        }
+      ]
+    },
+    {
+      "name": "be inaccessible to the public",
+      "trans": [
+        "未向公众开放",
+        "公众无法进入"
+      ],
+      "mistake": [
+        "for",
+        "with",
+        "unavailable"
+      ],
+      "examples": [
+        {
+          "en": "He can't have watched the play in the newly-built opera house because it is inaccessible to the public.",
+          "zh": "他不可能在新建的剧院看过这部话剧，因为它还未向公众开放。"
+        }
+      ]
+    },
+    {
+      "name": "there is no knowing ...",
+      "trans": [
+        "没人知道……",
+        "无法得知……"
+      ],
+      "mistake": [
+        "know",
+        "known",
+        "telling"
+      ],
+      "examples": [
+        {
+          "en": "With so many problems to solve, there is no knowing when we can finish this project.",
+          "zh": "有那么多问题要解决，没人知道我们什么时候可以完成这个项目。"
+        }
+      ]
+    },
+    {
+      "name": "involve doing sth.",
+      "trans": [
+        "需要做某事",
+        "包含做某事"
+      ],
+      "mistake": [
+        "to",
+        "do",
+        "require"
+      ],
+      "examples": [
+        {
+          "en": "Being a policeman involves often fighting against suspects, so all the applicants must be physically fit.",
+          "zh": "做警察需要经常与嫌疑犯搏斗，因此所有申请人必须有强健的体魄。"
+        }
+      ]
+    },
+    {
+      "name": "fight against suspects",
+      "trans": [
+        "与嫌疑犯搏斗"
+      ],
+      "mistake": [
+        "with",
+        "for",
+        "criminal"
+      ],
+      "examples": [
+        {
+          "en": "Being a policeman involves often fighting against suspects.",
+          "zh": "做警察需要经常与嫌疑犯搏斗。"
+        }
+      ]
+    },
+    {
+      "name": "be physically fit",
+      "trans": [
+        "体格健壮",
+        "身体健康"
+      ],
+      "mistake": [
+        "physical",
+        "healthy",
+        "strong"
+      ],
+      "examples": [
+        {
+          "en": "All the applicants must be physically fit.",
+          "zh": "所有申请人必须有强健的体魄。"
+        }
+      ]
+    },
+    {
+      "name": "dump untreated wastewater into the river",
+      "trans": [
+        "将未经处理的废水排放入河流"
+      ],
+      "mistake": [
+        "pour",
+        "dirty",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "It's illegal for the chemical factory to dump untreated wastewater into the river directly, so the related department was making an investigation into the affair.",
+          "zh": "这家化工厂将未经处理的废水直接排放入河流是非法的，相关部门正对此事件展开调查。"
+        }
+      ]
+    },
+    {
+      "name": "make an investigation into sth.",
+      "trans": [
+        "对某事展开调查"
+      ],
+      "mistake": [
+        "for",
+        "about",
+        "of"
+      ],
+      "examples": [
+        {
+          "en": "The related department was making an investigation into the affair.",
+          "zh": "相关部门正对此事件展开调查。"
+        }
+      ]
+    },
+    {
+      "name": "complain about the failure",
+      "trans": [
+        "抱怨失败",
+        "怨天尤人"
+      ],
+      "mistake": [
+        "for",
+        "of",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "He didn't complain about the failure, but instead, he trained harder in order to win the next game.",
+          "zh": "他失败后，没有怨天尤人，而是更加刻苦训练，力求在下次比赛中获胜。"
+        }
+      ]
+    },
+    {
+      "name": "in order to do sth.",
+      "trans": [
+        "为了做某事",
+        "力求做某事"
+      ],
+      "mistake": [
+        "so",
+        "that",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "He trained harder in order to win the next game.",
+          "zh": "他更加刻苦训练，力求在下次比赛中获胜。"
+        }
+      ]
+    }
+  ],
+  "语法-名词性从句": [
+    {
+      "name": "It happens that ...",
+      "trans": [
+        "恰好……",
+        "碰巧……"
+      ],
+      "mistake": [
+        "occurs",
+        "appears",
+        "what"
+      ],
+      "examples": [
+        {
+          "en": "It happens that we can see the park across the street from the dining room of the apartment.",
+          "zh": "我们这个公寓的餐厅恰好能看见对面的公园。"
+        }
+      ]
+    },
+    {
+      "name": "outweigh the disadvantages",
+      "trans": [
+        "利大于弊",
+        "优点超过缺点"
+      ],
+      "mistake": [
+        "overweigh",
+        "exceed",
+        "shortcoming"
+      ],
+      "examples": [
+        {
+          "en": "It appears/seems that the advantages outweigh the disadvantages of ecotourism.",
+          "zh": "似乎生态旅游的利大于弊。"
+        }
+      ]
+    },
+    {
+      "name": "It is generally believed that ...",
+      "trans": [
+        "人们普遍认为……"
+      ],
+      "mistake": [
+        "wide",
+        "common",
+        "what"
+      ],
+      "examples": [
+        {
+          "en": "It is generally believed that the public can benefit from the new policy.",
+          "zh": "人们普遍认为公众能从新政中获益。"
+        }
+      ]
+    },
+    {
+      "name": "It remains to be seen whether ...",
+      "trans": [
+        "……还有待观察"
+      ],
+      "mistake": [
+        "stays",
+        "if",
+        "seeing"
+      ],
+      "examples": [
+        {
+          "en": "It remains to be seen whether or not this idea can be put into practice.",
+          "zh": "这一想法能否付诸于实践还有待于观察。"
+        }
+      ]
+    },
+    {
+      "name": "put sth. into practice",
+      "trans": [
+        "将某事付诸实践"
+      ],
+      "mistake": [
+        "in",
+        "to",
+        "action"
+      ],
+      "examples": [
+        {
+          "en": "It remains to be seen whether or not this idea can be put into practice.",
+          "zh": "这一想法能否付诸于实践还有待于观察。"
+        }
+      ]
+    },
+    {
+      "name": "become famous overnight",
+      "trans": [
+        "一炮打响",
+        "一夜成名"
+      ],
+      "mistake": [
+        "suddenly",
+        "over",
+        "well-known"
+      ],
+      "examples": [
+        {
+          "en": "It never occurred to us that a six-year-old boy should be famous overnight at the Chinese Poetry Conference.",
+          "zh": "我们都没想到一个六岁的男孩竟然在中国古诗词大会中一炮打响。"
+        }
+      ]
+    },
+    {
+      "name": "It's a pity that ...",
+      "trans": [
+        "遗憾的是……"
+      ],
+      "mistake": [
+        "what",
+        "shame",
+        "which"
+      ]
+    },
+    {
+      "name": "It turned out that ...",
+      "trans": [
+        "结果证明……",
+        "原来……"
+      ],
+      "mistake": [
+        "proved",
+        "up",
+        "what"
+      ]
+    },
+    {
+      "name": "find it satisfying that ...",
+      "trans": [
+        "觉得……令人满意"
+      ],
+      "mistake": [
+        "that",
+        "which",
+        "satisfied"
+      ],
+      "examples": [
+        {
+          "en": "I find it satisfying that I can do a productive job although it won't make me rich overnight.",
+          "zh": "我觉得能做一份有成效的工作很令人满意，尽管它不会让我一夜暴富。"
+        }
+      ]
+    },
+    {
+      "name": "feel it a great honour that ...",
+      "trans": [
+        "感到十分荣幸……"
+      ],
+      "mistake": [
+        "this",
+        "that",
+        "honor"
+      ],
+      "examples": [
+        {
+          "en": "I feel it a great honour that I can deliver a speech on behalf of our class.",
+          "zh": "我能代表班级演讲，感到十分荣幸。"
+        }
+      ]
+    },
+    {
+      "name": "deliver a speech on behalf of ...",
+      "trans": [
+        "代表……发表演讲"
+      ],
+      "mistake": [
+        "give",
+        "in",
+        "stand"
+      ],
+      "examples": [
+        {
+          "en": "I feel it a great honour that I can deliver a speech on behalf of our class.",
+          "zh": "我能代表班级演讲，感到十分荣幸。"
+        }
+      ]
+    },
+    {
+      "name": "make it a rule that ...",
+      "trans": [
+        "约定……",
+        "定下规矩……"
+      ],
+      "mistake": [
+        "law",
+        "this",
+        "that"
+      ],
+      "examples": [
+        {
+          "en": "Let's make it a rule that we mustn't speak Chinese in English class.",
+          "zh": "让我们来做个约定：英语课上不能说中文。"
+        }
+      ]
+    },
+    {
+      "name": "make it possible that ...",
+      "trans": [
+        "使得……成为可能"
+      ],
+      "mistake": [
+        "this",
+        "that",
+        "possibly"
+      ],
+      "examples": [
+        {
+          "en": "Online teaching makes it possible that students can study at their own pace.",
+          "zh": "网络教学使得学生可以按照自己的节奏学习。"
+        }
+      ]
+    },
+    {
+      "name": "at one's own pace",
+      "trans": [
+        "按照自己的节奏"
+      ],
+      "mistake": [
+        "in",
+        "with",
+        "speed"
+      ],
+      "examples": [
+        {
+          "en": "Online teaching makes it possible that students can study at their own pace.",
+          "zh": "网络教学使得学生可以按照自己的节奏学习。"
+        }
+      ]
+    },
+    {
+      "name": "be popular with sb.",
+      "trans": [
+        "受某人欢迎",
+        "受某人青睐"
+      ],
+      "mistake": [
+        "to",
+        "for",
+        "among"
+      ],
+      "examples": [
+        {
+          "en": "People take it for granted that those with good appearances / are good-looking / attractive are more likely to be popular with / to be favoured by the employers.",
+          "zh": "人们理所当然地认为颜值高的人更有可能受到雇主的青睐。"
+        }
+      ]
+    },
+    {
+      "name": "be favoured by sb.",
+      "trans": [
+        "受到某人青睐"
+      ],
+      "mistake": [
+        "to",
+        "with",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "Those with good appearances are more likely to be favoured by the employers.",
+          "zh": "颜值高的人更有可能受到雇主的青睐。"
+        }
+      ]
+    },
+    {
+      "name": "in what sb. called ...",
+      "trans": [
+        "在某人所谓的……中"
+      ],
+      "mistake": [
+        "that",
+        "which",
+        "where"
+      ],
+      "examples": [
+        {
+          "en": "Shortly after Ropa died, two dolphins were killed at the same aquarium in what the officials called a \"riot\".",
+          "zh": "Ropa 死后不久，两只海豚在同一个水族馆于官方所谓的“骚乱”中死亡。"
+        }
+      ]
+    },
+    {
+      "name": "give support to whoever needs help",
+      "trans": [
+        "向任何需要帮助的人提供支持"
+      ],
+      "mistake": [
+        "whomever",
+        "who",
+        "anyone"
+      ],
+      "examples": [
+        {
+          "en": "She will give enthusiastic support to whoever needs help.",
+          "zh": "她会向任何需要帮助的人提供热情的支持。"
+        }
+      ]
+    },
+    {
+      "name": "depend on whether ...",
+      "trans": [
+        "取决于是否……"
+      ],
+      "mistake": [
+        "if",
+        "that",
+        "which"
+      ],
+      "examples": [
+        {
+          "en": "Everything depends on whether Stella can get the train ticket back to Shanghai and come to her friend's wedding ceremony.",
+          "zh": "一切取决于 Stella 能否买到回上海的火车票并参加朋友的婚礼。"
+        }
+      ]
+    },
+    {
+      "name": "know nothing except that ...",
+      "trans": [
+        "除了知道……之外什么也不知道"
+      ],
+      "mistake": [
+        "but",
+        "what",
+        "besides"
+      ],
+      "examples": [
+        {
+          "en": "I fell asleep while watching the movie, and I knew nothing except that the criminal didn't escape being chased by the police.",
+          "zh": "我看电影的时候睡着了，除了知道通缉犯并没有逃过警方的抓捕之外什么也不知道。"
+        }
+      ]
+    },
+    {
+      "name": "escape being chased by the police",
+      "trans": [
+        "逃过警方的追捕/抓捕"
+      ],
+      "mistake": [
+        "to",
+        "from",
+        "caught"
+      ],
+      "examples": [
+        {
+          "en": "I knew nothing except that the criminal didn't escape being chased by the police.",
+          "zh": "除了知道通缉犯并没有逃过警方的抓捕之外什么也不知道。"
+        }
+      ]
+    },
+    {
+      "name": "spread the rumor",
+      "trans": [
+        "传播谣言"
+      ],
+      "mistake": [
+        "say",
+        "speak",
+        "news"
+      ],
+      "examples": [
+        {
+          "en": "The rumor that/which he spread everywhere turned out to be untrue.",
+          "zh": "他到处散播的谣言结果证明是不真实的。"
+        }
+      ]
+    },
+    {
+      "name": "turn out to be untrue",
+      "trans": [
+        "结果证明是不真实的"
+      ],
+      "mistake": [
+        "prove",
+        "in",
+        "false"
+      ],
+      "examples": [
+        {
+          "en": "The rumor that Tom was a thief turned out to be untrue.",
+          "zh": "汤姆是小偷的谣言结果证明是不真实的。"
+        }
+      ]
+    },
+    {
+      "name": "be reminded of sth.",
+      "trans": [
+        "想起某事",
+        "被提醒某事"
+      ],
+      "mistake": [
+        "about",
+        "to",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "Occasionally, I am reminded of how flexible they are when they meet with problems in reality.",
+          "zh": "偶尔我会想起他们在现实中遇到问题时有多么灵活。"
+        }
+      ]
+    },
+    {
+      "name": "in reality",
+      "trans": [
+        "在现实中",
+        "事实上"
+      ],
+      "mistake": [
+        "fact",
+        "on",
+        "at"
+      ],
+      "examples": [
+        {
+          "en": "Occasionally, I am reminded of how flexible they are when they meet with problems in reality.",
+          "zh": "偶尔我会想起他们在现实中遇到问题时有多么灵活。"
+        }
+      ]
+    },
+    {
+      "name": "leave sb. wondering ...",
+      "trans": [
+        "让某人思考……",
+        "让某人琢磨……"
+      ],
+      "mistake": [
+        "make",
+        "let",
+        "wonder"
+      ],
+      "examples": [
+        {
+          "en": "What he said left me wondering what my life goal was.",
+          "zh": "他的话让我思考我的人生目标是什么。"
+        }
+      ]
+    }
+  ],
+  "周测二": [
+    {
+      "name": "the plan to plant organic cabbages",
+      "trans": [
+        "种植有机卷心菜的方案"
+      ],
+      "mistake": [
+        "grow",
+        "for",
+        "planting"
+      ],
+      "examples": [
+        {
+          "en": "The plan to plant organic cabbages should be submitted before next Thursday.",
+          "zh": "种植有机卷心菜的方案须在下周四前提交。"
+        }
+      ]
+    },
+    {
+      "name": "submit the plan",
+      "trans": [
+        "提交方案"
+      ],
+      "mistake": [
+        "hand",
+        "give",
+        "send"
+      ],
+      "examples": [
+        {
+          "en": "The plan to plant organic cabbages should be submitted before next Thursday.",
+          "zh": "种植有机卷心菜的方案须在下周四前提交。"
+        }
+      ]
+    },
+    {
+      "name": "before/by next Thursday",
+      "trans": [
+        "在下周四前"
+      ],
+      "mistake": [
+        "in",
+        "on",
+        "until"
+      ],
+      "examples": [
+        {
+          "en": "The plan to plant organic cabbages should be submitted before next Thursday.",
+          "zh": "种植有机卷心菜的方案须在下周四前提交。"
+        }
+      ]
+    },
+    {
+      "name": "a distant/remote relative",
+      "trans": [
+        "远房亲戚"
+      ],
+      "mistake": [
+        "far",
+        "away",
+        "relation"
+      ],
+      "examples": [
+        {
+          "en": "It happened that a distant relative of the journalist was thoroughly familiar with every detail of the village's development.",
+          "zh": "巧的是，这个记者的一个远房亲戚对村庄发展的丝丝脉络都了如指掌。"
+        }
+      ]
+    },
+    {
+      "name": "be thoroughly familiar with sth.",
+      "trans": [
+        "对……了如指掌"
+      ],
+      "mistake": [
+        "to",
+        "about",
+        "know"
+      ],
+      "examples": [
+        {
+          "en": "A distant relative of the journalist was thoroughly familiar with every detail of the village's development.",
+          "zh": "这个记者的一个远房亲戚对村庄发展的丝丝脉络都了如指掌。"
+        }
+      ]
+    },
+    {
+      "name": "every detail of the village's development",
+      "trans": [
+        "村庄发展的丝丝脉络",
+        "乡村发展的每个细节"
+      ],
+      "mistake": [
+        "aspect",
+        "trace",
+        "develop"
+      ],
+      "examples": [
+        {
+          "en": "A distant relative of the journalist was thoroughly familiar with every detail of the village's development.",
+          "zh": "这个记者的一个远房亲戚对村庄发展的丝丝脉络都了如指掌。"
+        }
+      ]
+    },
+    {
+      "name": "two-storey hotel",
+      "trans": [
+        "两层楼酒店"
+      ],
+      "mistake": [
+        "two-storeys",
+        "floor",
+        "story"
+      ],
+      "examples": [
+        {
+          "en": "The two-storey hotel with unique flavours lies halfway up the hill, whose guests can reach the hilltop easily and visit the memorial hall during the off-peak hours.",
+          "zh": "这家两层楼酒店古色古香，坐落于半山腰，住店客人可以轻松登顶，错峰参观纪念馆。"
+        }
+      ]
+    },
+    {
+      "name": "with unique flavours",
+      "trans": [
+        "古色古香的",
+        "别具风味的"
+      ],
+      "mistake": [
+        "style",
+        "taste",
+        "in"
+      ],
+      "examples": [
+        {
+          "en": "The two-storey hotel with unique flavours lies halfway up the hill.",
+          "zh": "这家两层楼酒店古色古香，坐落于半山腰。"
+        }
+      ]
+    },
+    {
+      "name": "lie halfway up the hill",
+      "trans": [
+        "坐落于半山腰"
+      ],
+      "mistake": [
+        "locate",
+        "in",
+        "on"
+      ],
+      "examples": [
+        {
+          "en": "The two-storey hotel with unique flavours lies halfway up the hill.",
+          "zh": "这家两层楼酒店古色古香，坐落于半山腰。"
+        }
+      ]
+    },
+    {
+      "name": "visit the memorial hall",
+      "trans": [
+        "参观纪念馆"
+      ],
+      "mistake": [
+        "memory",
+        "museum",
+        "look"
+      ],
+      "examples": [
+        {
+          "en": "Whose guests can reach the hilltop easily and visit the memorial hall during the off-peak hours.",
+          "zh": "住店客人可以轻松登顶，错峰参观纪念馆。"
+        }
+      ]
+    },
+    {
+      "name": "during the off-peak hours",
+      "trans": [
+        "在错峰时段",
+        "错峰"
+      ],
+      "mistake": [
+        "in",
+        "non-peak",
+        "time"
+      ],
+      "examples": [
+        {
+          "en": "Guests can visit the memorial hall during the off-peak hours.",
+          "zh": "客人可以错峰参观纪念馆。"
+        }
+      ]
+    }
+  ],
+  "Wordbank 9": [
+    {
+      "name": "leave the light on",
+      "trans": [
+        "让灯一直开着"
+      ],
+      "mistake": [
+        "let",
+        "keep",
+        "open"
+      ],
+      "examples": [
+        {
+          "en": "Don't leave the light on when you leave home.",
+          "zh": "离家的时候，不要让灯一直开着。"
+        }
+      ]
+    },
+    {
+      "name": "make a large fortune",
+      "trans": [
+        "发大财",
+        "发财"
+      ],
+      "mistake": [
+        "earn",
+        "rich",
+        "wealth"
+      ],
+      "examples": [
+        {
+          "en": "It is really silly to have the idea of making a large fortune by means of gambling.",
+          "zh": "靠赌博来发财的想法实在是太愚蠢了。"
+        }
+      ]
+    },
+    {
+      "name": "by means of sth.",
+      "trans": [
+        "通过某种方式",
+        "靠……"
+      ],
+      "mistake": [
+        "in",
+        "with",
+        "way"
+      ],
+      "examples": [
+        {
+          "en": "It is really silly to have the idea of making a large fortune by means of gambling.",
+          "zh": "靠赌博来发财的想法实在是太愚蠢了。"
+        }
+      ]
+    },
+    {
+      "name": "miss a golden chance",
+      "trans": [
+        "坐失良机"
+      ],
+      "mistake": [
+        "lose",
+        "gold",
+        "opportunity"
+      ],
+      "examples": [
+        {
+          "en": "When you miss a golden chance, there is no need to regret so much.",
+          "zh": "当你坐失良机时，没有必要后悔不已。"
+        }
+      ]
+    },
+    {
+      "name": "there is no need to do sth.",
+      "trans": [
+        "没有必要做某事"
+      ],
+      "mistake": [
+        "necessary",
+        "point",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "When you miss a golden chance, there is no need to regret so much.",
+          "zh": "当你坐失良机时，没有必要后悔不已。"
+        }
+      ]
+    },
+    {
+      "name": "what matters is ...",
+      "trans": [
+        "重要的是……"
+      ],
+      "mistake": [
+        "which",
+        "that",
+        "important"
+      ],
+      "examples": [
+        {
+          "en": "What matters is to learn something from it.",
+          "zh": "重要的是要从中吸取教训。"
+        }
+      ]
+    },
+    {
+      "name": "learn something from it",
+      "trans": [
+        "从中吸取教训",
+        "从中学到东西"
+      ],
+      "mistake": [
+        "by",
+        "in",
+        "lesson"
+      ],
+      "examples": [
+        {
+          "en": "What matters is to learn something from it.",
+          "zh": "重要的是要从中吸取教训。"
+        }
+      ]
+    },
+    {
+      "name": "lie in the fact that ...",
+      "trans": [
+        "在于……",
+        "关键在于……"
+      ],
+      "mistake": [
+        "on",
+        "at",
+        "which"
+      ],
+      "examples": [
+        {
+          "en": "His success lies in the fact that diligence can make up for lack of intelligence.",
+          "zh": "勤能补拙是他成功的关键。"
+        }
+      ]
+    },
+    {
+      "name": "make up for sth.",
+      "trans": [
+        "弥补某事",
+        "补偿某事"
+      ],
+      "mistake": [
+        "to",
+        "with",
+        "cover"
+      ],
+      "examples": [
+        {
+          "en": "His success lies in the fact that diligence can make up for lack of intelligence.",
+          "zh": "勤能补拙是他成功的关键。"
+        }
+      ]
+    },
+    {
+      "name": "lack of intelligence",
+      "trans": [
+        "缺乏才智",
+        "愚拙"
+      ],
+      "mistake": [
+        "short",
+        "clever",
+        "wise"
+      ],
+      "examples": [
+        {
+          "en": "Diligence can make up for lack of intelligence.",
+          "zh": "勤能补拙。"
+        }
+      ]
+    },
+    {
+      "name": "bad manners",
+      "trans": [
+        "很不礼貌",
+        "不礼貌的行为"
+      ],
+      "mistake": [
+        "manner",
+        "polite",
+        "rude"
+      ],
+      "examples": [
+        {
+          "en": "My parents have taught me since I was a child that it was bad manners to speak with the mouth full.",
+          "zh": "父母从小就教导我，吃东西时讲话是很不礼貌的。"
+        }
+      ]
+    },
+    {
+      "name": "with the mouth full",
+      "trans": [
+        "吃东西时",
+        "嘴里塞满食物时"
+      ],
+      "mistake": [
+        "in",
+        "filled",
+        "by"
+      ],
+      "examples": [
+        {
+          "en": "It was bad manners to speak with the mouth full.",
+          "zh": "吃东西时讲话是很不礼貌的。"
+        }
+      ]
+    },
+    {
+      "name": "make no difference",
+      "trans": [
+        "都一样",
+        "没有区别",
+        "没有影响"
+      ],
+      "mistake": [
+        "different",
+        "same",
+        "do"
+      ],
+      "examples": [
+        {
+          "en": "It makes no difference whether you use an electronic dictionary or a traditional one.",
+          "zh": "你用电子词典也好，传统词典也好，都一样。"
+        }
+      ]
+    },
+    {
+      "name": "electronic dictionary",
+      "trans": [
+        "电子词典"
+      ],
+      "mistake": [
+        "electric",
+        "electrical",
+        "digital"
+      ],
+      "examples": [
+        {
+          "en": "It makes no difference whether you use an electronic dictionary or a traditional one.",
+          "zh": "你用电子词典也好，传统词典也好，都一样。"
+        }
+      ]
+    },
+    {
+      "name": "in memory of sb.",
+      "trans": [
+        "为了纪念某人"
+      ],
+      "mistake": [
+        "for",
+        "to",
+        "memorize"
+      ],
+      "examples": [
+        {
+          "en": "They built a memorial in memory of all the heroes who sacrificed their lives for the liberation of our nation.",
+          "zh": "他们修建了一座纪念碑，以纪念那些为了民族解放而牺牲自己生命的英雄们。"
+        }
+      ]
+    },
+    {
+      "name": "sacrifice one's life for sth.",
+      "trans": [
+        "为某事牺牲生命"
+      ],
+      "mistake": [
+        "give",
+        "cost",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "All the heroes who sacrificed their lives for the liberation of our nation.",
+          "zh": "所有为了民族解放而牺牲自己生命的英雄们。"
+        }
+      ]
+    },
+    {
+      "name": "the liberation of our nation",
+      "trans": [
+        "民族解放"
+      ],
+      "mistake": [
+        "freedom",
+        "country",
+        "people"
+      ],
+      "examples": [
+        {
+          "en": "They built a memorial in memory of all the heroes who sacrificed their lives for the liberation of our nation.",
+          "zh": "他们修建了一座纪念碑，以纪念那些为了民族解放而牺牲自己生命的英雄们。"
+        }
+      ]
+    },
+    {
+      "name": "put forward a question",
+      "trans": [
+        "提出一个问题"
+      ],
+      "mistake": [
+        "up",
+        "out",
+        "raise"
+      ],
+      "examples": [
+        {
+          "en": "The simple question put forward by the little boy made all the people present lost in thought.",
+          "zh": "小男孩提出的那个简单的问题使所有在场的人陷入了沉思。"
+        }
+      ]
+    },
+    {
+      "name": "people present",
+      "trans": [
+        "在场的人"
+      ],
+      "mistake": [
+        "presented",
+        "attended",
+        "here"
+      ],
+      "examples": [
+        {
+          "en": "The simple question put forward by the little boy made all the people present lost in thought.",
+          "zh": "小男孩提出的那个简单的问题使所有在场的人陷入了沉思。"
+        }
+      ]
+    },
+    {
+      "name": "be lost in thought",
+      "trans": [
+        "陷入沉思"
+      ],
+      "mistake": [
+        "lose",
+        "losing",
+        "deep"
+      ],
+      "examples": [
+        {
+          "en": "Made all the people present lost in thought.",
+          "zh": "使所有在场的人陷入了沉思。"
+        }
+      ]
+    },
+    {
+      "name": "take the lead in doing sth.",
+      "trans": [
+        "带头做某事"
+      ],
+      "mistake": [
+        "make",
+        "on",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "At the conference, leaders from various countries agreed to take the lead in fighting against climate change.",
+          "zh": "在大会上，各国的领导人一致同意带头对抗气候变化。"
+        }
+      ]
+    },
+    {
+      "name": "fight against climate change",
+      "trans": [
+        "对抗气候变化"
+      ],
+      "mistake": [
+        "with",
+        "for",
+        "weather"
+      ],
+      "examples": [
+        {
+          "en": "Leaders from various countries agreed to take the lead in fighting against climate change.",
+          "zh": "各国领导人一致同意带头对抗气候变化。"
+        }
+      ]
+    },
+    {
+      "name": "be one's priority",
+      "trans": [
+        "是某人的头等大事/首要任务"
+      ],
+      "mistake": [
+        "first",
+        "important",
+        "major"
+      ],
+      "examples": [
+        {
+          "en": "No matter how rapidly economy develops, it will always be our priority to maintain law and order and obey the law of nature.",
+          "zh": "无论经济发展如何迅速，维护法秩和遵循自然规律将永远是我们的头等大事。"
+        }
+      ]
+    },
+    {
+      "name": "maintain law and order",
+      "trans": [
+        "维护法制秩序",
+        "维护法秩"
+      ],
+      "mistake": [
+        "keep",
+        "rules",
+        "peace"
+      ],
+      "examples": [
+        {
+          "en": "It will always be our priority to maintain law and order and obey the law of nature.",
+          "zh": "维护法秩和遵循自然规律将永远是我们的头等大事。"
+        }
+      ]
+    },
+    {
+      "name": "obey the law of nature",
+      "trans": [
+        "遵循自然规律"
+      ],
+      "mistake": [
+        "follow",
+        "rule",
+        "natural"
+      ],
+      "examples": [
+        {
+          "en": "It will always be our priority to maintain law and order and obey the law of nature.",
+          "zh": "维护法秩和遵循自然规律将永远是我们的头等大事。"
+        }
+      ]
+    }
+  ],
+  "概要写作": [
+    {
+      "name": "inspired by biological systems",
+      "trans": [
+        "受生物系统启发"
+      ],
+      "mistake": [
+        "from",
+        "biology",
+        "inspiring"
+      ],
+      "examples": [
+        {
+          "en": "Inspired by biological systems, self-healing materials can automatically repair damage.",
+          "zh": "受生物系统的启发，自愈合材料能够自动修复损伤。"
+        }
+      ]
+    },
+    {
+      "name": "self-healing materials",
+      "trans": [
+        "自愈合材料"
+      ],
+      "mistake": [
+        "self-cure",
+        "repair",
+        "matter"
+      ],
+      "examples": [
+        {
+          "en": "Inspired by biological systems, self-healing materials can automatically repair damage.",
+          "zh": "受生物系统的启发，自愈合材料能够自动修复损伤。"
+        }
+      ]
+    },
+    {
+      "name": "repair damage",
+      "trans": [
+        "修复损伤"
+      ],
+      "mistake": [
+        "fix",
+        "damages",
+        "mend"
+      ],
+      "examples": [
+        {
+          "en": "Self-healing materials can automatically repair damage.",
+          "zh": "自愈合材料能够自动修复损伤。"
+        }
+      ]
+    },
+    {
+      "name": "release chemical agents",
+      "trans": [
+        "释放化学药剂"
+      ],
+      "mistake": [
+        "give",
+        "chemistry",
+        "medicine"
+      ],
+      "examples": [
+        {
+          "en": "Microencapsulation involves releasing chemical agents that seal cracks and recover much of their strength.",
+          "zh": "微胶囊技术涉及释放化学药剂，以封合裂缝并恢复大部分强度。"
+        }
+      ]
+    },
+    {
+      "name": "seal cracks",
+      "trans": [
+        "封合裂缝",
+        "修补裂纹"
+      ],
+      "mistake": [
+        "close",
+        "break",
+        "gap"
+      ],
+      "examples": [
+        {
+          "en": "Microencapsulation involves releasing chemical agents that seal cracks and recover much of their strength.",
+          "zh": "微胶囊技术涉及释放化学药剂以封合裂缝并恢复大部分强度。"
+        }
+      ]
+    },
+    {
+      "name": "recover strength",
+      "trans": [
+        "恢复强度"
+      ],
+      "mistake": [
+        "regain",
+        "power",
+        "strong"
+      ],
+      "examples": [
+        {
+          "en": "Releasing chemical agents that seal cracks and recover much of their strength.",
+          "zh": "释放能够封合裂缝并恢复大部分强度的化学药剂。"
+        }
+      ]
+    },
+    {
+      "name": "increase sustainability",
+      "trans": [
+        "提升可持续性"
+      ],
+      "mistake": [
+        "sustainable",
+        "keep",
+        "grow"
+      ],
+      "examples": [
+        {
+          "en": "Besides, self-healing concrete helps increase sustainability.",
+          "zh": "此外，自愈合混凝土有助于提升可持续性。"
+        }
+      ]
+    },
+    {
+      "name": "widespread use",
+      "trans": [
+        "大规模使用",
+        "广泛使用"
+      ],
+      "mistake": [
+        "widely",
+        "broad",
+        "common"
+      ],
+      "examples": [
+        {
+          "en": "However, their widespread use is limited by high production costs and potentially compromised original strengths.",
+          "zh": "然而，它们的大规模使用受到高生产成本以及原有强度可能被削弱的限制。"
+        }
+      ]
+    },
+    {
+      "name": "high production costs",
+      "trans": [
+        "高生产成本"
+      ],
+      "mistake": [
+        "produce",
+        "price",
+        "expensive"
+      ],
+      "examples": [
+        {
+          "en": "However, their widespread use is limited by high production costs and potentially compromised original strengths.",
+          "zh": "然而，它们的大规模使用受到高生产成本以及原有强度可能被削弱的限制。"
+        }
+      ]
+    },
+    {
+      "name": "compromise original strengths",
+      "trans": [
+        "削弱原有强度"
+      ],
+      "mistake": [
+        "reduce",
+        "first",
+        "power"
+      ],
+      "examples": [
+        {
+          "en": "Their widespread use is limited by high production costs and potentially compromised original strengths.",
+          "zh": "它们的大规模使用受限于高生产成本和可能被削弱的原有强度。"
+        }
+      ]
+    },
+    {
+      "name": "resource-saving",
+      "trans": [
+        "节约资源的"
+      ],
+      "examples": [
+        {
+          "en": "Solving these core problems helps build a more resource-saving world.",
+          "zh": "解决这些核心问题有助于建设一个更加节约资源的世界。"
+        }
+      ]
+    }
+  ],
+  "11月期中考试": [
+    {
+      "name": "be too cold to grow rice",
+      "trans": [
+        "太冷不能种水稻"
+      ],
+      "mistake": [
+        "so",
+        "very",
+        "planting"
+      ],
+      "examples": [
+        {
+          "en": "Potatoes can be planted/grown (in places) where it is too cold to grow rice.",
+          "zh": "有些地方太冷不能种水稻，但可以种马铃薯。"
+        }
+      ]
+    },
+    {
+      "name": "grow/plant potatoes",
+      "trans": [
+        "种马铃薯"
+      ],
+      "mistake": [
+        "tomatoes",
+        "rice",
+        "corn"
+      ],
+      "examples": [
+        {
+          "en": "It is too cold to grow rice in places where potatoes can be planted/grown.",
+          "zh": "有些地方太冷不能种水稻，但可以种马铃薯。"
+        }
+      ]
+    },
+    {
+      "name": "take a nap",
+      "trans": [
+        "打盹",
+        "小睡"
+      ],
+      "mistake": [
+        "have",
+        "make",
+        "sleep"
+      ],
+      "examples": [
+        {
+          "en": "The worker who took a nap during the working hours is to blame for the accident.",
+          "zh": "上班时间打盹的那个员工应该为此事故负责。"
+        }
+      ]
+    },
+    {
+      "name": "doze off",
+      "trans": [
+        "打瞌睡",
+        "打盹"
+      ],
+      "mistake": [
+        "sleep",
+        "away",
+        "out"
+      ],
+      "examples": [
+        {
+          "en": "The employee who dozed off during working hours is to blame for the accident.",
+          "zh": "上班时间打盹的那个员工应该为此事故负责。"
+        }
+      ]
+    },
+    {
+      "name": "during working hours",
+      "trans": [
+        "在上班时间"
+      ],
+      "mistake": [
+        "in",
+        "at",
+        "work"
+      ],
+      "examples": [
+        {
+          "en": "The worker who took a nap during the working hours is to blame for the accident.",
+          "zh": "上班时间打盹的那个员工应该为此事故负责。"
+        }
+      ]
+    },
+    {
+      "name": "be to blame for sth.",
+      "trans": [
+        "应对某事负责",
+        "应受责备"
+      ],
+      "mistake": [
+        "blamed",
+        "of",
+        "on"
+      ],
+      "examples": [
+        {
+          "en": "The worker who took a nap during the working hours is to blame for the accident.",
+          "zh": "上班时间打盹的那个员工应该为此事故负责。"
+        }
+      ]
+    },
+    {
+      "name": "be presented to sb.",
+      "trans": [
+        "被赠予某人/机构"
+      ],
+      "mistake": [
+        "given",
+        "for",
+        "memorize"
+      ],
+      "examples": [
+        {
+          "en": "A statue/sculpture was presented to the City Museum / the museum in this city in honour of / in memory of the valuable friendship between the two cities.",
+          "zh": "一件雕塑被赠予该市博物馆，以纪念两座城市间的珍贵友谊。"
+        }
+      ]
+    },
+    {
+      "name": "be presented with sth.",
+      "trans": [
+        "获赠某物",
+        "被授予某物"
+      ],
+      "mistake": [
+        "to",
+        "for",
+        "of"
+      ],
+      "examples": [
+        {
+          "en": "The City Museum was presented with a statue in memory of the valuable friendship between the two cities.",
+          "zh": "该市博物馆获赠一件雕塑，以纪念两座城市间的珍贵友谊。"
+        }
+      ]
+    },
+    {
+      "name": "in honour of sth.",
+      "trans": [
+        "为纪念……",
+        "向……致敬"
+      ],
+      "mistake": [
+        "for",
+        "to",
+        "memorize"
+      ],
+      "examples": [
+        {
+          "en": "A statue/sculpture was presented to the City Museum in honour of / in memory of the valuable friendship between the two cities.",
+          "zh": "一件雕塑被赠予该市博物馆，以纪念两座城市间的珍贵友谊。"
+        }
+      ]
+    },
+    {
+      "name": "valuable/precious friendship",
+      "trans": [
+        "珍贵的友谊"
+      ],
+      "mistake": [
+        "invaluable",
+        "expensive",
+        "friend"
+      ],
+      "examples": [
+        {
+          "en": "In memory of the valuable friendship between the two cities.",
+          "zh": "以纪念两座城市间的珍贵友谊。"
+        }
+      ]
+    },
+    {
+      "name": "with the help of sth.",
+      "trans": [
+        "借助……",
+        "在……的帮助下"
+      ],
+      "mistake": [
+        "under",
+        "by",
+        "through"
+      ],
+      "examples": [
+        {
+          "en": "With the help of multimedia and live-streaming, young people have broken the barriers of time and space in sales, allowing agricultural products to move out of the countryside and enter larger markets.",
+          "zh": "借助多媒体和直播，年轻人打破了销售中的时空壁垒，使农产品走出乡村，进入更广阔的市场。"
+        }
+      ]
+    },
+    {
+      "name": "multimedia",
+      "trans": [
+        "多媒体"
+      ],
+      "examples": [
+        {
+          "en": "With the help of multimedia and live-streaming, young people have broken the barriers of time and space in sales.",
+          "zh": "借助多媒体和直播，年轻人打破了销售中的时空壁垒。"
+        }
+      ]
+    },
+    {
+      "name": "live-streaming",
+      "trans": [
+        "直播"
+      ],
+      "examples": [
+        {
+          "en": "With the help of multimedia and live-streaming, young people have broken the barriers of time and space in sales.",
+          "zh": "借助多媒体和直播，年轻人打破了销售中的时空壁垒。"
+        }
+      ]
+    },
+    {
+      "name": "break the barriers of time and space",
+      "trans": [
+        "打破时空壁垒"
+      ],
+      "mistake": [
+        "barrior",
+        "destroy",
+        "wall"
+      ],
+      "examples": [
+        {
+          "en": "Young people have broken the barriers of time and space in sales.",
+          "zh": "年轻人打破了销售中的时空壁垒。"
+        }
+      ]
+    },
+    {
+      "name": "agricultural products",
+      "trans": [
+        "农产品"
+      ],
+      "mistake": [
+        "agriculture",
+        "produce",
+        "farming"
+      ],
+      "examples": [
+        {
+          "en": "Allowing agricultural products to move out of the countryside and enter larger markets.",
+          "zh": "使农产品走出乡村，进入更广阔的市场。"
+        }
+      ]
+    },
+    {
+      "name": "move out of the countryside",
+      "trans": [
+        "走出乡村"
+      ],
+      "mistake": [
+        "away",
+        "villiage",
+        "from"
+      ],
+      "examples": [
+        {
+          "en": "Allowing agricultural products to move out of the countryside and enter larger markets.",
+          "zh": "使农产品走出乡村，进入更广阔的市场。"
+        }
+      ]
+    },
+    {
+      "name": "gain access to a broader market",
+      "trans": [
+        "进入更广阔的市场"
+      ],
+      "mistake": [
+        "enter",
+        "into",
+        "get"
+      ],
+      "examples": [
+        {
+          "en": "Enable farm products to reach beyond rural villages and gain access to a broader market.",
+          "zh": "使农产品走出乡村，进入更广阔的市场。"
+        }
+      ]
+    }
+  ],
+  "翻译加油站1": [
+    {
+      "name": "as expected",
+      "trans": [
+        "正如预期的那样"
+      ],
+      "mistake": [
+        "expecting",
+        "like",
+        "what"
+      ],
+      "examples": [
+        {
+          "en": "As expected, the art festival generated tourists' interest in folk culture.",
+          "zh": "正如预期的那样，艺术节引起了游客对于民俗文化的兴趣。"
+        }
+      ]
+    },
+    {
+      "name": "generate interest in sth.",
+      "trans": [
+        "引起对……的兴趣"
+      ],
+      "mistake": [
+        "arouse",
+        "attract",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "As expected, the art festival generated tourists' interest in folk culture.",
+          "zh": "正如预期的那样，艺术节引起了游客对于民俗文化的兴趣。"
+        }
+      ]
+    },
+    {
+      "name": "folk culture",
+      "trans": [
+        "民俗文化"
+      ],
+      "mistake": [
+        "people",
+        "traditional",
+        "custom"
+      ],
+      "examples": [
+        {
+          "en": "The art festival generated tourists' interest in folk culture.",
+          "zh": "艺术节引起了游客对于民俗文化的兴趣。"
+        }
+      ]
+    },
+    {
+      "name": "be aware that ...",
+      "trans": [
+        "意识到……"
+      ],
+      "mistake": [
+        "know",
+        "realize",
+        "of"
+      ],
+      "examples": [
+        {
+          "en": "Are you aware that each tribe in this region has its own unwritten rules?",
+          "zh": "你是否意识到这个地区的每个部落都有自己不成文的规定。"
+        }
+      ]
+    },
+    {
+      "name": "unwritten rules",
+      "trans": [
+        "不成文的规定"
+      ],
+      "mistake": [
+        "unwrote",
+        "written",
+        "law"
+      ],
+      "examples": [
+        {
+          "en": "Are you aware that each tribe in this region has its own unwritten rules?",
+          "zh": "你是否意识到这个地区的每个部落都有自己不成文的规定。"
+        }
+      ]
+    },
+    {
+      "name": "sign a cooperation agreement with sb.",
+      "trans": [
+        "与某人签订合作协议"
+      ],
+      "mistake": [
+        "write",
+        "make",
+        "to"
+      ],
+      "examples": [
+        {
+          "en": "The key laboratory will sign a cooperation agreement with local vocational schools to provide students with an extraordinary experience.",
+          "zh": "这所重点实验室将与当地的职业学校签订合作协议，为学生提供不一般的体验。"
+        }
+      ]
+    },
+    {
+      "name": "local vocational schools",
+      "trans": [
+        "当地的职业学校"
+      ],
+      "mistake": [
+        "profession",
+        "job",
+        "technical"
+      ],
+      "examples": [
+        {
+          "en": "The key laboratory will sign a cooperation agreement with local vocational schools.",
+          "zh": "这所重点实验室将与当地的职业学校签订合作协议。"
+        }
+      ]
+    },
+    {
+      "name": "an extraordinary experience",
+      "trans": [
+        "不一般的体验"
+      ],
+      "mistake": [
+        "ordinary",
+        "unusual",
+        "feeling"
+      ],
+      "examples": [
+        {
+          "en": "To provide students with an extraordinary experience.",
+          "zh": "为学生提供不一般的体验。"
+        }
+      ]
+    },
+    {
+      "name": "the plot of the TV series",
+      "trans": [
+        "电视剧的剧情"
+      ],
+      "mistake": [
+        "story",
+        "serial",
+        "line"
+      ],
+      "examples": [
+        {
+          "en": "The plot of the TV series revolves around a certain virtual city in southern China, where the car industry has always been the pride.",
+          "zh": "这部电视剧连续剧的剧情围绕某个虚拟的华南城市展开，在剧中汽车产业一直是该城市的骄傲。"
+        }
+      ]
+    },
+    {
+      "name": "revolve around sth.",
+      "trans": [
+        "围绕某事展开"
+      ],
+      "mistake": [
+        "circle",
+        "about",
+        "center"
+      ],
+      "examples": [
+        {
+          "en": "The plot of the TV series revolves around a certain virtual city in southern China.",
+          "zh": "这部电视剧连续剧的剧情围绕某个虚拟的华南城市展开。"
+        }
+      ]
+    },
+    {
+      "name": "take measures to do sth.",
+      "trans": [
+        "采取措施做某事"
+      ],
+      "mistake": [
+        "make",
+        "do",
+        "steps"
+      ],
+      "examples": [
+        {
+          "en": "What measures should the new government take to eliminate poverty?",
+          "zh": "这届新政府应该采取什么措施来消除贫困呢？"
+        }
+      ]
+    },
+    {
+      "name": "eliminate poverty",
+      "trans": [
+        "消除贫困"
+      ],
+      "mistake": [
+        "remove",
+        "cancel",
+        "poor"
+      ],
+      "examples": [
+        {
+          "en": "What measures should the new government take to eliminate poverty?",
+          "zh": "这届新政府应该采取什么措施来消除贫困呢？"
+        }
+      ]
+    },
+    {
+      "name": "lay emphasis on sth.",
+      "trans": [
+        "注重某事",
+        "强调某事"
+      ],
+      "mistake": [
+        "put",
+        "in",
+        "focus"
+      ],
+      "examples": [
+        {
+          "en": "The enterprise lays emphasis on technological innovation, which gives it a competitive edge.",
+          "zh": "这家企业注重技术创新，为它在竞争中带来优势。"
+        }
+      ]
+    },
+    {
+      "name": "technological innovation",
+      "trans": [
+        "技术创新"
+      ],
+      "mistake": [
+        "technology",
+        "technical",
+        "create"
+      ],
+      "examples": [
+        {
+          "en": "The enterprise lays emphasis on technological innovation.",
+          "zh": "这家企业注重技术创新。"
+        }
+      ]
+    },
+    {
+      "name": "give sb. a competitive edge",
+      "trans": [
+        "为某人带来竞争优势"
+      ],
+      "mistake": [
+        "advantage",
+        "benefit",
+        "corner"
+      ],
+      "examples": [
+        {
+          "en": "The enterprise lays emphasis on technological innovation, which gives it a competitive edge.",
+          "zh": "这家企业注重技术创新，为它在竞争中带来优势。"
+        }
+      ]
+    },
+    {
+      "name": "a pleasant climate",
+      "trans": [
+        "宜人的气候"
+      ],
+      "mistake": [
+        "pleased",
+        "weather",
+        "nice"
+      ],
+      "examples": [
+        {
+          "en": "With a pleasant climate and a beautiful environment, the island has become many people's first choice for holiday.",
+          "zh": "这个岛屿气候宜人，环境优美，是许多人度假的首选。"
+        }
+      ]
+    },
+    {
+      "name": "first choice for holiday",
+      "trans": [
+        "度假的首选"
+      ],
+      "mistake": [
+        "choose",
+        "vacation",
+        "best"
+      ],
+      "examples": [
+        {
+          "en": "The island has become many people's first choice for holiday.",
+          "zh": "这个岛屿是许多人度假的首选。"
+        }
+      ]
+    },
+    {
+      "name": "make progress",
+      "trans": [
+        "取得进步"
+      ],
+      "mistake": [
+        "take",
+        "get",
+        "advance"
+      ],
+      "examples": [
+        {
+          "en": "As a philosopher said, one can only make progress when he thinks big, and move forward when he looks far.",
+          "zh": "正如一位哲学家所言，志向远大方能进步，目光长远才能前行。"
+        }
+      ]
+    },
+    {
+      "name": "think big",
+      "trans": [
+        "志向远大",
+        "有远大抱负"
+      ],
+      "mistake": [
+        "large",
+        "high",
+        "far"
+      ],
+      "examples": [
+        {
+          "en": "One can only make progress when he thinks big, and move forward when he looks far.",
+          "zh": "志向远大方能进步，目光长远才能前行。"
+        }
+      ]
+    },
+    {
+      "name": "move forward",
+      "trans": [
+        "前行",
+        "向前迈进"
+      ],
+      "mistake": [
+        "ahead",
+        "on",
+        "go"
+      ],
+      "examples": [
+        {
+          "en": "One can only make progress when he thinks big, and move forward when he looks far.",
+          "zh": "志向远大方能进步，目光长远才能前行。"
+        }
+      ]
+    },
+    {
+      "name": "look far",
+      "trans": [
+        "目光长远"
+      ],
+      "mistake": [
+        "long",
+        "wide",
+        "deep"
+      ],
+      "examples": [
+        {
+          "en": "One can only make progress when he thinks big, and move forward when he looks far.",
+          "zh": "志向远大方能进步，目光长远才能前行。"
+        }
+      ]
+    },
+    {
+      "name": "queue at the gate",
+      "trans": [
+        "在门口排队"
+      ],
+      "mistake": [
+        "line",
+        "stand",
+        "wait"
+      ],
+      "examples": [
+        {
+          "en": "Consumers are never aware that some restaurants hire some people especially to queue at the gate, leaving a false impression that their business is prosperous.",
+          "zh": "消费者从未意识到有些饭店专门雇人在门口排队，造成生意兴隆的假象。"
+        }
+      ]
+    },
+    {
+      "name": "leave a false impression",
+      "trans": [
+        "造成假象",
+        "留下错误印象"
+      ],
+      "mistake": [
+        "make",
+        "give",
+        "fake"
+      ],
+      "examples": [
+        {
+          "en": "Leaving a false impression that their business is prosperous.",
+          "zh": "造成生意兴隆的假象。"
+        }
+      ]
+    },
+    {
+      "name": "feel like doing sth.",
+      "trans": [
+        "想要做某事"
+      ],
+      "mistake": [
+        "want",
+        "to",
+        "would"
+      ],
+      "examples": [
+        {
+          "en": "If you feel like having your living room repainted, work out the color that best suits your personality instead of starting in a hurry.",
+          "zh": "如果你想要重新粉刷你的起居室，不要急着开工，先找出最适合你性格的颜色。"
+        }
+      ]
+    },
+    {
+      "name": "have sth. repainted",
+      "trans": [
+        "让人重新粉刷某物"
+      ],
+      "mistake": [
+        "repaint",
+        "repainting",
+        "make"
+      ],
+      "examples": [
+        {
+          "en": "If you feel like having your living room repainted, work out the color that best suits your personality.",
+          "zh": "如果你想要重新粉刷你的起居室，先找出最适合你性格的颜色。"
+        }
+      ]
+    },
+    {
+      "name": "suit one's personality",
+      "trans": [
+        "适合某人的性格"
+      ],
+      "mistake": [
+        "fit",
+        "match",
+        "character"
+      ],
+      "examples": [
+        {
+          "en": "Work out the color that best suits your personality instead of starting in a hurry.",
+          "zh": "先找出最适合你性格的颜色，不要急着开工。"
+        }
+      ]
+    },
+    {
+      "name": "in a hurry",
+      "trans": [
+        "急着",
+        "匆忙地"
+      ],
+      "mistake": [
+        "on",
+        "with",
+        "rush"
+      ],
+      "examples": [
+        {
+          "en": "Work out the color that best suits your personality instead of starting in a hurry.",
+          "zh": "先找出最适合你性格的颜色，不要急着开工。"
+        }
+      ]
+    }
+  ],
+  "翻译加油站2": [
+    {
+      "name": "be informed that ...",
+      "trans": [
+        "接到通知……",
+        "被告知……"
+      ],
+      "mistake": [
+        "told",
+        "noticed",
+        "what"
+      ],
+      "examples": [
+        {
+          "en": "He was informed that the results of the experiment would not be available for the time being / for a while.",
+          "zh": "他接到通知，实验结果一时半会儿出不来。"
+        }
+      ]
+    },
+    {
+      "name": "for the time being",
+      "trans": [
+        "暂时",
+        "一时半会儿"
+      ],
+      "mistake": [
+        "in",
+        "at",
+        "now"
+      ],
+      "examples": [
+        {
+          "en": "He was informed that the results of the experiment would not be available for the time being / for a while.",
+          "zh": "他接到通知，实验结果一时半会儿出不来。"
+        }
+      ]
+    },
+    {
+      "name": "a fleeting glance",
+      "trans": [
+        "走马观花",
+        "匆匆一瞥"
+      ],
+      "mistake": [
+        "quick",
+        "look",
+        "sight"
+      ],
+      "examples": [
+        {
+          "en": "If not carefully arranged / planned, tomorrow's visit to the art gallery will become a mere rush / a fleeting glance (at everything).",
+          "zh": "如果不精心安排，明天的美术馆之旅将会变成走马观花。"
+        }
+      ]
+    },
+    {
+      "name": "nothing but",
+      "trans": [
+        "只不过",
+        "仅仅"
+      ],
+      "mistake": [
+        "only",
+        "just",
+        "except"
+      ],
+      "examples": [
+        {
+          "en": "If it is not well arranged, tomorrow's trip to the art museum will be nothing but a cursory visit.",
+          "zh": "如果不精心安排，明天的美术馆之旅将会变成走马观花。"
+        }
+      ]
+    },
+    {
+      "name": "a cursory visit",
+      "trans": [
+        "走马观花的参观",
+        "草草浏览"
+      ],
+      "mistake": [
+        "fast",
+        "hurry",
+        "brief"
+      ],
+      "examples": [
+        {
+          "en": "Tomorrow's trip to the art museum will be nothing but a cursory visit.",
+          "zh": "明天的美术馆之旅将会变成走马观花。"
+        }
+      ]
+    },
+    {
+      "name": "nothing more rewarding/satisfying than ...",
+      "trans": [
+        "没有什么比……更有成就感"
+      ],
+      "mistake": [
+        "rewarded",
+        "as",
+        "much"
+      ],
+      "examples": [
+        {
+          "en": "For a comedian, there is nothing more rewarding / satisfying than hearing bursts of laughter from the audience during a performance.",
+          "zh": "对于喜剧演员来说，没有什么比在表演中听到观众的阵阵笑声更有成就感的了。"
+        }
+      ]
+    },
+    {
+      "name": "bursts of laughter",
+      "trans": [
+        "阵阵笑声"
+      ],
+      "mistake": [
+        "laugh",
+        "smile",
+        "crowd"
+      ],
+      "examples": [
+        {
+          "en": "Hearing bursts of laughter from the audience during a performance.",
+          "zh": "在表演中听到观众的阵阵笑声。"
+        }
+      ]
+    },
+    {
+      "name": "take office",
+      "trans": [
+        "上任",
+        "就职"
+      ],
+      "mistake": [
+        "on",
+        "get",
+        "post"
+      ],
+      "examples": [
+        {
+          "en": "Since taking office, the town mayor has always made learning about people's livelihood and listening to public opinion his top priority.",
+          "zh": "上任以来，镇长始终将了解民生、听取民意作为重中之重。"
+        }
+      ]
+    },
+    {
+      "name": "people's livelihood",
+      "trans": [
+        "民生"
+      ],
+      "mistake": [
+        "life",
+        "living",
+        "lives"
+      ],
+      "examples": [
+        {
+          "en": "The town mayor has always made learning about people's livelihood and listening to public opinion his top priority.",
+          "zh": "镇长始终将了解民生、听取民意作为重中之重。"
+        }
+      ]
+    },
+    {
+      "name": "public opinion",
+      "trans": [
+        "民意",
+        "公众舆论"
+      ],
+      "mistake": [
+        "people",
+        "advice",
+        "idea"
+      ],
+      "examples": [
+        {
+          "en": "Learning about people's livelihood and listening to public opinion.",
+          "zh": "了解民生、听取民意。"
+        }
+      ]
+    },
+    {
+      "name": "top priority",
+      "trans": [
+        "重中之重",
+        "首要任务"
+      ],
+      "mistake": [
+        "first",
+        "most",
+        "important"
+      ],
+      "examples": [
+        {
+          "en": "The town mayor has always made learning about people's livelihood and listening to public opinion his top priority.",
+          "zh": "镇长始终将了解民生、听取民意作为重中之重。"
+        }
+      ]
+    },
+    {
+      "name": "call on every household",
+      "trans": [
+        "走访每家每户"
+      ],
+      "mistake": [
+        "at",
+        "visit",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "And (has) called on every household in the town in his spare time.",
+          "zh": "利用工作之余走访了小镇上的每家每户。"
+        }
+      ]
+    },
+    {
+      "name": "in one's spare time",
+      "trans": [
+        "在某人业余/工作之余时间"
+      ],
+      "mistake": [
+        "on",
+        "at",
+        "free"
+      ],
+      "examples": [
+        {
+          "en": "Called on every household in the town in his spare time.",
+          "zh": "利用工作之余走访了小镇上的每家每户。"
+        }
+      ]
+    },
+    {
+      "name": "do volunteer work",
+      "trans": [
+        "做义工"
+      ],
+      "mistake": [
+        "make",
+        "voluntary",
+        "service"
+      ],
+      "examples": [
+        {
+          "en": "When (we are) doing volunteer work, we give priority to others' needs.",
+          "zh": "当我们做义工时，我们优先考虑的是他人的需求。"
+        }
+      ]
+    },
+    {
+      "name": "give priority to sth.",
+      "trans": [
+        "优先考虑某事"
+      ],
+      "mistake": [
+        "put",
+        "for",
+        "on"
+      ],
+      "examples": [
+        {
+          "en": "When (we are) doing volunteer work, we give priority to others' needs.",
+          "zh": "当我们做义工时，我们优先考虑的是他人的需求。"
+        }
+      ]
+    },
+    {
+      "name": "fail to find sth.",
+      "trans": [
+        "找不到某物"
+      ],
+      "mistake": [
+        "miss",
+        "lose",
+        "finding"
+      ],
+      "examples": [
+        {
+          "en": "There is nothing more annoying / frustrating than failing to find what you need early in the morning.",
+          "zh": "一大早，没有比找不到你需要的东西更令人头疼的了。"
+        }
+      ]
+    },
+    {
+      "name": "avoid doing sth.",
+      "trans": [
+        "避免做某事"
+      ],
+      "mistake": [
+        "to",
+        "prevent",
+        "stop"
+      ],
+      "examples": [
+        {
+          "en": "Construction workers should avoid making noise that interferes with the normal daily life of the residents around.",
+          "zh": "建筑工人们在施工时应避免制造噪音，影响周边居民的正常生活。"
+        }
+      ]
+    },
+    {
+      "name": "interfere with sth.",
+      "trans": [
+        "干扰某事",
+        "影响某事"
+      ],
+      "mistake": [
+        "in",
+        "into",
+        "disturb"
+      ],
+      "examples": [
+        {
+          "en": "Construction workers should avoid making noise that interferes with the normal daily life of the residents around.",
+          "zh": "建筑工人们在施工时应避免制造噪音，影响周边居民的正常生活。"
+        }
+      ]
+    },
+    {
+      "name": "normal daily life",
+      "trans": [
+        "正常日常生活"
+      ],
+      "mistake": [
+        "usual",
+        "common",
+        "ordinary"
+      ],
+      "examples": [
+        {
+          "en": "Noise that interferes with the normal daily life of the residents around (the construction site).",
+          "zh": "影响周边居民正常生活的噪音。"
+        }
+      ]
+    },
+    {
+      "name": "take responsibility to do sth.",
+      "trans": [
+        "担起责任做某事"
+      ],
+      "mistake": [
+        "make",
+        "charge",
+        "duty"
+      ],
+      "examples": [
+        {
+          "en": "As long as everyone takes responsibility to protect the environment, the days when blue skies and fresh air are available for us to enjoy are just around the corner.",
+          "zh": "只要人人担起责任保护环境，我们享受蔚蓝天空和清新空气的日子指日可待。"
+        }
+      ]
+    },
+    {
+      "name": "be available for sb.",
+      "trans": [
+        "可供某人享用",
+        "可获得的"
+      ],
+      "mistake": [
+        "to",
+        "with",
+        "useful"
+      ],
+      "examples": [
+        {
+          "en": "The days when blue skies and fresh air are available for us to enjoy are just around the corner.",
+          "zh": "我们享受蔚蓝天空和清新空气的日子指日可待。"
+        }
+      ]
+    },
+    {
+      "name": "just around the corner",
+      "trans": [
+        "指日可待",
+        "即将来临"
+      ],
+      "mistake": [
+        "near",
+        "at",
+        "coming"
+      ],
+      "examples": [
+        {
+          "en": "The days when blue skies and fresh air are available for us to enjoy are just around the corner.",
+          "zh": "我们享受蔚蓝天空和清新空气的日子指日可待。"
+        }
+      ]
+    },
+    {
+      "name": "as days went by",
+      "trans": [
+        "日子一天天地过去了"
+      ],
+      "mistake": [
+        "with",
+        "past",
+        "pass"
+      ],
+      "examples": [
+        {
+          "en": "As days went by, there was still no news of the ship, which made the families of the passengers extremely anxious.",
+          "zh": "日子一天天地过去了，但是这艘船还是杳无音讯，这使得乘客的家属们焦虑万分。"
+        }
+      ]
+    },
+    {
+      "name": "extremely anxious",
+      "trans": [
+        "焦虑万分"
+      ],
+      "mistake": [
+        "very",
+        "eager",
+        "worried"
+      ],
+      "examples": [
+        {
+          "en": "Which made the families of the passengers extremely anxious.",
+          "zh": "这使得乘客的家属们焦虑万分。"
+        }
+      ]
+    },
+    {
+      "name": "the impact of sth. on sth.",
+      "trans": [
+        "……对……的影响"
+      ],
+      "mistake": [
+        "to",
+        "in",
+        "affect"
+      ],
+      "examples": [
+        {
+          "en": "In many areas, the impact of tourism on the environment is shocking, but people tend to turn a blind eye to it because of the economic benefits (that) tourism brings.",
+          "zh": "在很多地区，旅游业对环境的影响简直触目惊心，但人们往往因为旅游业带来的经济利益而对此置若罔闻。"
+        }
+      ]
+    },
+    {
+      "name": "tend to do sth.",
+      "trans": [
+        "往往会做某事",
+        "倾向于做某事"
+      ],
+      "mistake": [
+        "doing",
+        "usually",
+        "likely"
+      ],
+      "examples": [
+        {
+          "en": "People tend to turn a blind eye to it because of the economic benefits (that) tourism brings.",
+          "zh": "人们往往因为旅游业带来的经济利益而对此置若罔闻。"
+        }
+      ]
+    },
+    {
+      "name": "turn a blind eye to sth.",
+      "trans": [
+        "对某事置若罔闻",
+        "视而不见"
+      ],
+      "mistake": [
+        "close",
+        "shut",
+        "for"
+      ],
+      "examples": [
+        {
+          "en": "People tend to turn a blind eye to it because of the economic benefits (that) tourism brings.",
+          "zh": "人们往往因为旅游业带来的经济利益而对此置若罔闻。"
+        }
+      ]
+    },
+    {
+      "name": "economic benefits",
+      "trans": [
+        "经济利益"
+      ],
+      "mistake": [
+        "economical",
+        "profit",
+        "income"
+      ],
+      "examples": [
+        {
+          "en": "Because of the economic benefits (that) tourism brings.",
+          "zh": "因为旅游业带来的经济利益。"
+        }
+      ]
+    }
+  ]
+}

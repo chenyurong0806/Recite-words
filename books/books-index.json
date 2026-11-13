@@ -1,6 +1,6 @@
 {
   "version": "2.10.0",
-  "generatedAt": 1793539490396,
+  "generatedAt": 1794586841332,
   "categories": [
     "高中",
     "初中",
@@ -117,6 +117,15 @@
       "count": 300,
       "size": 494200,
       "updatedAt": 1789290228192
+    },
+    {
+      "id": "books/翻译/高三翻译.json",
+      "name": "高三翻译",
+      "category": "翻译",
+      "path": "books/翻译/高三翻译.json",
+      "count": 309,
+      "size": 134974,
+      "updatedAt": 1794586768293
     },
     {
       "id": "books/翻译/高中翻译.json",

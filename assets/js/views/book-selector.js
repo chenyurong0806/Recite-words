@@ -1385,10 +1385,10 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
     const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
     const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
 
-    // 管理词书页面严格不展示学习范围按钮，仅在选择词书页面显示
-    const hasSections = !isManageMode && doesBookSupportSections(b);
-    const hasTypes = !isManageMode && doesBookSupportTypes(b);
-    const studyFilter = (!isManageMode && typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(b.id) : null;
+    // 选择词书与管理词书页面均支持设置学习范围
+    const hasSections = doesBookSupportSections(b);
+    const hasTypes = doesBookSupportTypes(b);
+    const studyFilter = (typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(b.id) : null;
     const hasActiveSecFilter = Boolean(studyFilter && !studyFilter.isAll && Array.isArray(studyFilter.sections) && studyFilter.sections.length > 0);
     const hasActiveTypeFilter = Boolean(studyFilter && !studyFilter.isAll && Array.isArray(studyFilter.types) && studyFilter.types.length === 1);
     const secSummary = hasSections ? getBookSectionFilterSummaryText(b.id) : '';
@@ -1488,9 +1488,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                                 <span class="material-symbols-rounded" style="font-size:13px;">cloud_download</span>
                                 <span>下载</span>
                             </button>
-                        ` : `
-                            ${(hasSections && hasTypes) ? '' : `<span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>`}
-                        `)}
+                        ` : '')}
                     </div>
                 </div>
 
@@ -1819,8 +1817,10 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const folder = triggerBtn.closest('.local-tree-folder');
     if (folder) folder.classList.add('dropdown-open-folder');
 
-    // 先重置位置与高度约束以便准确测量菜单自然尺寸
+    // 重置样式后进行实时坐标标定，彻底消除 body.style.zoom / transform 带来的定位偏移
     menuEl.style.maxHeight = '';
+    menuEl.style.overflowY = '';
+    menuEl.style.transform = 'none';
     menuEl.style.top = '0px';
     menuEl.style.left = '0px';
     menuEl.style.right = 'auto';
@@ -1830,43 +1830,60 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     menuEl.style.position = 'fixed';
     menuEl.style.zIndex = '10050';
 
+    const r0 = menuEl.getBoundingClientRect();
+    menuEl.style.top = '100px';
+    menuEl.style.left = '100px';
+    const r100 = menuEl.getBoundingClientRect();
+    const scaleY = (Math.abs(r100.top - r0.top) > 10) ? ((r100.top - r0.top) / 100) : 1;
+    const scaleX = (Math.abs(r100.left - r0.left) > 10) ? ((r100.left - r0.left) / 100) : 1;
+
     const btnRect = triggerBtn.getBoundingClientRect();
-    const menuWidth = menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240);
-    const naturalHeight = menuEl.scrollHeight || menuEl.offsetHeight || 240;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const menuWidth = r0.width || ((menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240)) * scaleX);
+    const naturalHeight = r0.height || ((menuEl.scrollHeight || menuEl.offsetHeight || 220) * scaleY);
 
     const spaceBelow = viewportHeight - btnRect.bottom - 12;
     const spaceAbove = btnRect.top - 12;
-    let top = 0;
-    if (spaceBelow < Math.min(220, naturalHeight) && spaceAbove > spaceBelow) {
-        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceAbove - 8));
-        top = Math.max(10, btnRect.top - fitHeight - 6);
+    let desiredTop = 0;
+
+    if (spaceBelow < naturalHeight && spaceAbove > spaceBelow) {
+        const fitHeight = Math.max(120, spaceAbove - 8);
+        const usedHeight = Math.min(naturalHeight, fitHeight);
+        desiredTop = Math.max(10, btnRect.top - usedHeight - 6);
         menuEl.classList.add('flip-up');
-        menuEl.style.maxHeight = `${fitHeight}px`;
+        if (naturalHeight > fitHeight) {
+            menuEl.style.maxHeight = `${Math.floor(fitHeight / scaleY)}px`;
+            menuEl.style.overflowY = 'auto';
+        }
     } else {
-        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceBelow - 8));
-        top = btnRect.bottom + 6;
+        const fitHeight = Math.max(120, spaceBelow - 8);
+        desiredTop = Math.min(viewportHeight - Math.min(naturalHeight, fitHeight) - 10, btnRect.bottom + 6);
+        desiredTop = Math.max(10, desiredTop);
         menuEl.classList.remove('flip-up');
-        menuEl.style.maxHeight = `${fitHeight}px`;
+        if (naturalHeight > fitHeight) {
+            menuEl.style.maxHeight = `${Math.floor(fitHeight / scaleY)}px`;
+            menuEl.style.overflowY = 'auto';
+        }
     }
-    let left = 0;
+
+    let desiredLeft = 0;
     if (defaultAlign === 'right') {
-        left = btnRect.right - menuWidth;
-        if (left + menuWidth > viewportWidth - 10) left = viewportWidth - menuWidth - 10;
-        if (left < 10) left = 10;
+        desiredLeft = btnRect.right - menuWidth;
+        if (desiredLeft + menuWidth > viewportWidth - 10) desiredLeft = viewportWidth - menuWidth - 10;
+        if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.add('align-right');
     } else {
-        left = btnRect.left;
-        if (left + menuWidth > viewportWidth - 10) {
-            left = Math.max(10, btnRect.right - menuWidth);
+        desiredLeft = btnRect.left;
+        if (desiredLeft + menuWidth > viewportWidth - 10) {
+            desiredLeft = Math.max(10, btnRect.right - menuWidth);
         }
-        if (left < 10) left = 10;
+        if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.remove('align-right');
     }
 
-    menuEl.style.top = `${Math.round(top)}px`;
-    menuEl.style.left = `${Math.round(left)}px`;
+    menuEl.style.top = `${Math.round((desiredTop - r0.top) / scaleY * 10) / 10}px`;
+    menuEl.style.left = `${Math.round((desiredLeft - r0.left) / scaleX * 10) / 10}px`;
     menuEl.style.right = 'auto';
     menuEl.style.bottom = 'auto';
     menuEl.style.visibility = 'visible';
@@ -2144,10 +2161,7 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
         ch.classList.toggle('selected', ch.getAttribute('data-type') === 'all');
     });
     bookContentState.collapsedDisplayMode = 'en';
-    const dispModeText = document.getElementById('text-bc-display-mode');
-    if (dispModeText) dispModeText.textContent = '展示英文';
-    const dispModeBtn = document.getElementById('btn-bc-toggle-display-mode');
-    if (dispModeBtn) dispModeBtn.classList.remove('active');
+    updateBookContentDisplayModeUI();
     const expandIcon = document.getElementById('icon-bc-expand-all');
     const expandText = document.getElementById('text-bc-expand-all');
     if (expandIcon) expandIcon.textContent = 'unfold_more';
@@ -2518,27 +2532,58 @@ function formatExamplesHtml(examplesList, targetWord = '') {
 }
 
 /**
- * 统一词条行渲染器
- * - 展示英文状态时：所有卡片（含已展开）上方展示英文+音标，详情框中展示每个词性及释义
- * - 展示释义状态时：所有卡片（含已展开）上方展示每个词性和对应释义（直接用空格分隔，不显示|和音标），详情框中展示单词本身和音标
+ * 从已加载词书、默认词库或自定义词书中查找完整词条数据（用于复习计划/小结详情展开）
  */
-function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
-    const word = w.word || w.name || '';
-    const safeKey = `bc_${idx}_${String(word).replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const isMastered = isShiCi
-        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
-        : isWordMastered(word);
-    const isExp = bookContentState.allExpanded || bookContentState.expandedItemKeys.has(safeKey);
+function findWordEntryForDrawer(wordText, isShiCi = false) {
+    const raw = String(wordText || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
 
+    if (isShiCi && typeof ShiCiManager !== 'undefined' && Array.isArray(ShiCiManager.words)) {
+        const hit = ShiCiManager.words.find(item => item && String(item.word || '').trim() === raw);
+        if (hit) return hit;
+    }
+
+    if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+        const values = Object.values(BookManager.bookCache);
+        for (let i = 0; i < values.length; i++) {
+            const list = values[i];
+            if (!Array.isArray(list)) continue;
+            const hit = list.find(item => item && String(item.word || item.name || '').trim().toLowerCase() === lower);
+            if (hit) return hit;
+        }
+    }
+
+    if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+        const hit = DEFAULT_WORDS.find(item => item && String(item.word || '').trim().toLowerCase() === lower);
+        if (hit) return hit;
+    }
+
+    if (Array.isArray(window.customBooks)) {
+        for (let i = 0; i < window.customBooks.length; i++) {
+            const cb = window.customBooks[i];
+            if (!cb || !Array.isArray(cb.words)) continue;
+            const hit = cb.words.find(item => item && String(item.word || item.name || '').trim().toLowerCase() === lower);
+            if (hit) return hit;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 构建统一词条抽屉所需的音标、释义与拓展区块 HTML
+ */
+function buildUnifiedWordDetailData(w, isShiCi = false) {
+    const word = w.word || w.name || '';
     let phoneDisplay = '';
     if (isShiCi) {
         phoneDisplay = w.pinyin || '';
     } else {
         const phone = w.phone || w.ukphone || w.usphone || '';
-        phoneDisplay = formatPhonetic(phone);
+        phoneDisplay = typeof formatPhonetic === 'function' ? formatPhonetic(phone) : phone;
     }
 
-    // 收集所有例句
     const examplesList = [];
     if (Array.isArray(w.examples)) {
         w.examples.forEach(ex => {
@@ -2560,7 +2605,6 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         });
     }
 
-    // 格式化释义
     let meaningsHtml = '';
     let flatMeaning = '';
     let topZhHeaderHtml = '';
@@ -2608,10 +2652,9 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                 <span class="bc-meaning-text">${escapeHtml(g.texts.join('； '))}</span>
             </div>
         `).join('');
-        // 不同词性之间直接用空格分隔，不使用 |
         flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('   ');
         topZhHeaderHtml = posMap.map(g => `<span class="bc-top-sense-seg">${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span> ` : ''}${escapeHtml(g.texts.join('； '))}</span>`).join(' ');
-    } else if (w.meanings && Array.isArray(w.meanings)) {
+    } else if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) {
         meaningsHtml = w.meanings.map(m => `
             <div class="bc-meaning-row">
                 ${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span>` : ''}
@@ -2622,7 +2665,23 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         topZhHeaderHtml = w.meanings.map(m => `<span class="bc-top-sense-seg">${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span> ` : ''}${escapeHtml(m.meaning || '')}</span>`).join(' ');
     } else {
         const rawM = w.meaning || (Array.isArray(w.trans) ? w.trans.join('； ') : (w.trans || '暂无释义'));
-        meaningsHtml = `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+        const splitParts = (typeof rawM === 'string' && rawM.includes(' '))
+            ? rawM.split(/\s+(?=(?:n|v|vt|vi|adj|adv|a|ad|prep|conj|pron|num|art|int|aux|pl)\.)/g).map(s => s.trim()).filter(Boolean)
+            : [];
+        if (splitParts.length > 1) {
+            meaningsHtml = splitParts.map(part => {
+                const match = part.match(/^([a-zA-Z]+\.)\s*(.*)$/);
+                if (match) {
+                    return `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
+                }
+                return `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
+            }).join('');
+        } else {
+            const match = typeof rawM === 'string' ? rawM.match(/^([a-zA-Z]+\.)\s*(.+)$/) : null;
+            meaningsHtml = match
+                ? `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
+                : `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+        }
         flatMeaning = rawM;
         topZhHeaderHtml = `<span class="bc-top-sense-seg">${escapeHtml(rawM)}</span>`;
     }
@@ -2636,9 +2695,40 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
            </div>`
         : '';
     const antonymsHtml = formatAntonymsHtml(w.antonyms);
+    const noteHtml = w.note
+        ? `<div class="bc-word-note"><span class="material-symbols-rounded" style="font-size:14px; margin-right:4px;">info</span><span>${escapeHtml(w.note)}</span></div>`
+        : '';
 
-    // 所有词条均支持点击展开（包含词组、简明词条等）
-    const hasExpandableContent = true;
+    return {
+        word,
+        phoneDisplay,
+        meaningsHtml,
+        flatMeaning,
+        topZhHeaderHtml,
+        noteHtml,
+        examplesHtml,
+        derivativesHtml,
+        discriminationsHtml,
+        antonymsHtml,
+        extraDrawerHtml: `${noteHtml}${examplesHtml}${derivativesHtml}${discriminationsHtml}${antonymsHtml}`
+    };
+}
+
+/**
+ * 统一词条行渲染器
+ * - 展示英文状态时：所有卡片（含已展开）上方展示英文+音标，详情框中展示每个词性及释义
+ * - 展示释义状态时：所有卡片（含已展开）上方展示每个词性和对应释义（直接用空格分隔，不显示|和音标），详情框中展示单词本身和音标
+ */
+function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
+    const word = w.word || w.name || '';
+    const safeKey = `bc_${idx}_${String(word).replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const isMastered = isShiCi
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
+        : isWordMastered(word);
+    const isExp = bookContentState.allExpanded || bookContentState.expandedItemKeys.has(safeKey);
+
+    const detail = buildUnifiedWordDetailData(w, isShiCi);
+    const { phoneDisplay, meaningsHtml, flatMeaning, topZhHeaderHtml, extraDrawerHtml } = detail;
 
     const isZhMode = (bookContentState.collapsedDisplayMode === 'zh');
 
@@ -2646,7 +2736,7 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
     const headerTitleHtml = isZhMode
         ? `<span class="bc-headword bc-headword-zh" title="${escapeHtml(flatMeaning || word)}">${topZhHeaderHtml || escapeHtml(word)}</span>`
         : `<span class="bc-headword" title="${escapeHtml(word)}">${escapeHtml(word)}</span>
-           ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : `<span class="bc-phone" style="display:none;">${escapeHtml(phoneDisplay)}</span>`}`;
+           ${phoneDisplay ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}`;
 
     // 展开框内部第一栏：展示英文模式显示“词性 + 释义”；展示释义模式显示“单词本身 + 音标”
     const drawerPrimaryBoxHtml = isZhMode
@@ -2684,11 +2774,7 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                 <div class="bc-meanings-group">
                     ${drawerPrimaryBoxHtml}
                 </div>
-                ${w.note ? `<div class="bc-word-note"><span class="material-symbols-rounded" style="font-size:14px; margin-right:4px;">info</span><span>${escapeHtml(w.note)}</span></div>` : ''}
-                ${examplesHtml}
-                ${derivativesHtml}
-                ${discriminationsHtml}
-                ${antonymsHtml}
+                ${extraDrawerHtml}
             </div>
         </div>
     `;
@@ -3717,7 +3803,7 @@ async function toggleBookSectionDropdown(event, bookId) {
     }
 
     currentDropdownSectionBookId = bookId;
-    activeSectionTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn')) || event.target) : null;
+    activeSectionTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn, .me-recent-book-scope-pill')) || event.target) : null;
 
     const titleEl = document.getElementById('sf-sec-dropdown-title');
     if (titleEl) {
@@ -3873,6 +3959,7 @@ function applyBookSectionDropdown() {
     if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
 
     if (typeof showToast === 'function') {
         showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
@@ -3903,7 +3990,7 @@ async function toggleBookTypeDropdown(event, bookId) {
     }
 
     currentDropdownTypeBookId = bookId;
-    activeTypeTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn')) || event.target) : null;
+    activeTypeTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn, .me-recent-book-scope-pill')) || event.target) : null;
 
     mountAnchoredBookDropdown(menuEl, activeTypeTriggerBtn, 'left');
 
@@ -3993,12 +4080,13 @@ function handleTypeDropdownRowChange() {
             }
             activeTypeTriggerBtn.classList.toggle('has-filter', !isAllTypes);
         }
+        if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
     }
 }
 
 // 统一监听全局点击，点击空白处自动关闭下拉筛选菜单与更多菜单
 document.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.book-anchored-dropdown') || e.target.closest('.book-card-filter-btn') || e.target.closest('.book-card-more-btn')) {
+    if (e.target.closest('.book-anchored-dropdown') || e.target.closest('.book-card-filter-btn') || e.target.closest('.book-card-more-btn') || e.target.closest('.me-recent-book-scope-pill')) {
         return;
     }
     closeBookSectionDropdown();
@@ -4046,6 +4134,7 @@ window.doesBookSupportFilter = doesBookSupportFilter;
 window.getBookSectionFilterSummaryText = getBookSectionFilterSummaryText;
 window.getBookTypeFilterSummaryText = getBookTypeFilterSummaryText;
 window.getBookFilterSummaryText = getBookFilterSummaryText;
+window.mountAnchoredBookDropdown = mountAnchoredBookDropdown;
 window.toggleBookSectionDropdown = toggleBookSectionDropdown;
 window.closeBookSectionDropdown = closeBookSectionDropdown;
 window.toggleAllDropdownSections = toggleAllDropdownSections;
@@ -4065,6 +4154,8 @@ window.toggleBookContentMastered = toggleBookContentMastered;
 window.deleteWordFromBookContent = deleteWordFromBookContent;
 window.loadMoreBookContent = loadMoreBookContent;
 window.parkBookDropdownMenus = parkBookDropdownMenus;
+window.findWordEntryForDrawer = findWordEntryForDrawer;
+window.buildUnifiedWordDetailData = buildUnifiedWordDetailData;
 // 兼容性保留别名
 window.toggleBookSectionFilterDropdown = toggleBookSectionDropdown;
 window.closeBookSectionFilterDropdown = closeBookSectionDropdown;
@@ -4113,14 +4204,26 @@ function setBookContentSectionFilter(sec) {
 }
 window.setBookContentSectionFilter = setBookContentSectionFilter;
 
-function toggleBookContentDisplayMode() {
-    bookContentState.collapsedDisplayMode = (bookContentState.collapsedDisplayMode === "zh") ? "en" : "zh";
-    const text = document.getElementById("text-bc-display-mode");
-    const btn = document.getElementById("btn-bc-toggle-display-mode");
-    const isZh = (bookContentState.collapsedDisplayMode === "zh");
-    if (text) text.textContent = isZh ? "展示释义" : "展示英文";
-    if (btn) btn.classList.toggle("active", isZh);
+function updateBookContentDisplayModeUI() {
+    const mode = (bookContentState.collapsedDisplayMode === 'zh') ? 'zh' : 'en';
+    document.querySelectorAll('#bc-display-mode-tabs .settings-cat-tab').forEach(tab => {
+        const active = tab.getAttribute('data-mode') === mode;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+}
+
+function setBookContentDisplayMode(mode) {
+    const nextMode = (mode === 'zh') ? 'zh' : 'en';
+    if (bookContentState.collapsedDisplayMode === nextMode) return;
+    bookContentState.collapsedDisplayMode = nextMode;
+    updateBookContentDisplayModeUI();
     renderBookContentItems();
+}
+window.setBookContentDisplayMode = setBookContentDisplayMode;
+
+function toggleBookContentDisplayMode() {
+    setBookContentDisplayMode(bookContentState.collapsedDisplayMode === 'zh' ? 'en' : 'zh');
 }
 window.toggleBookContentDisplayMode = toggleBookContentDisplayMode;
 

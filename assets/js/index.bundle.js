@@ -7450,10 +7450,13 @@ window.LevelManager = LevelManager;
 
         // 删除已过期的道具
         async deleteItem(itemId) {
-            if (!itemId) return;
+            if (itemId === undefined || itemId === null || itemId === '') return false;
+            const targetIdStr = String(itemId).trim();
             const u = this.getCurrentUsername();
             const items = this.getUserItems(u);
-            const nextItems = items.filter(it => it.id !== itemId);
+            const targetItem = items.find(it => String(it.id) === targetIdStr);
+            const nextItems = items.filter(it => String(it.id) !== targetIdStr);
+
             this._itemsCache = nextItems;
             this._itemsCacheUser = u;
             this._saveLocalCache(u, nextItems);
@@ -7461,16 +7464,57 @@ window.LevelManager = LevelManager;
             this.renderItemsView();
 
             const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
-            if (!isOffline && window.supabaseClient && u && !u.startsWith('游客') && !String(itemId).startsWith('local_')) {
+            const canUseCloud = !isOffline &&
+                typeof sbClient !== 'undefined' &&
+                sbClient &&
+                typeof sbClient.from === 'function' &&
+                u &&
+                !u.startsWith('游客') &&
+                !targetIdStr.startsWith('local_');
+
+            if (canUseCloud) {
                 try {
-                    await window.supabaseClient.from('user_items').delete().eq('id', itemId);
+                    const dbId = /^\d+$/.test(targetIdStr) ? Number(targetIdStr) : targetIdStr;
+                    let query = sbClient
+                        .from('user_items')
+                        .delete()
+                        .eq('id', dbId);
+                    if (targetItem && targetItem.username) {
+                        query = query.eq('username', targetItem.username);
+                    } else {
+                        query = query.eq('username', u);
+                    }
+                    const { data, error } = await query.select('id');
+                    if (error || !Array.isArray(data) || data.length === 0) {
+                        console.warn('[ItemManager] deleteItem cloud delete blocked or failed:', { error, data, itemId: targetIdStr });
+                        // 云端未实际删除（常见原因：Supabase user_items 表缺少 DELETE RLS 策略）
+                        this._itemsCache = items;
+                        this._itemsCacheUser = u;
+                        this._saveLocalCache(u, items);
+                        this.updateBadge();
+                        this.renderItemsView();
+                        if (typeof showToast === 'function') {
+                            showToast('云端删除失败：请检查 Supabase user_items 表的 DELETE 权限策略');
+                        }
+                        return false;
+                    }
                 } catch (e) {
                     console.warn('[ItemManager] deleteItem cloud error:', e);
+                    this._itemsCache = items;
+                    this._itemsCacheUser = u;
+                    this._saveLocalCache(u, items);
+                    this.updateBadge();
+                    this.renderItemsView();
+                    if (typeof showToast === 'function') {
+                        showToast('云端删除失败，请稍后重试');
+                    }
+                    return false;
                 }
             }
             if (typeof showToast === 'function') {
                 showToast('已删除过期道具');
             }
+            return true;
         },
 
         // 空实现，兼容旧模块调用
@@ -14057,11 +14101,12 @@ function applyHomeLayoutConfig() {
         appBarSearchBtn.style.display = cfg.collapseSearchBar ? 'inline-flex' : 'none';
     }
 
-    // 2. 活动和排行榜禁止隐藏，强制保持显示
+    // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
+    const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     const actCard = document.getElementById('hub-activity-entry-card');
-    if (actCard) actCard.style.display = '';
+    if (actCard) actCard.style.display = isOffline ? 'none' : 'flex';
     const lbCard = document.getElementById('hub-leaderboard-entry-card');
-    if (lbCard) lbCard.style.display = '';
+    if (lbCard) lbCard.style.display = 'flex';
 
     // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
     const onlineCard = document.getElementById('hub-online-players-card');
@@ -15974,10 +16019,10 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
     const coverUrl = (b.cover && typeof b.cover === 'string' && b.cover.trim()) ? b.cover.trim() : null;
     const isBlockedForWordle = (bookSelectorMode === 'riddle' && isWordleUnsupportedBook(b));
 
-    // 管理词书页面严格不展示学习范围按钮，仅在选择词书页面显示
-    const hasSections = !isManageMode && doesBookSupportSections(b);
-    const hasTypes = !isManageMode && doesBookSupportTypes(b);
-    const studyFilter = (!isManageMode && typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(b.id) : null;
+    // 选择词书与管理词书页面均支持设置学习范围
+    const hasSections = doesBookSupportSections(b);
+    const hasTypes = doesBookSupportTypes(b);
+    const studyFilter = (typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(b.id) : null;
     const hasActiveSecFilter = Boolean(studyFilter && !studyFilter.isAll && Array.isArray(studyFilter.sections) && studyFilter.sections.length > 0);
     const hasActiveTypeFilter = Boolean(studyFilter && !studyFilter.isAll && Array.isArray(studyFilter.types) && studyFilter.types.length === 1);
     const secSummary = hasSections ? getBookSectionFilterSummaryText(b.id) : '';
@@ -16077,9 +16122,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                                 <span class="material-symbols-rounded" style="font-size:13px;">cloud_download</span>
                                 <span>下载</span>
                             </button>
-                        ` : `
-                            ${(hasSections && hasTypes) ? '' : `<span class="book-card-word-count">${b.count ? `${b.count} 词` : ''}</span>`}
-                        `)}
+                        ` : '')}
                     </div>
                 </div>
 
@@ -16408,8 +16451,10 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const folder = triggerBtn.closest('.local-tree-folder');
     if (folder) folder.classList.add('dropdown-open-folder');
 
-    // 先重置位置与高度约束以便准确测量菜单自然尺寸
+    // 重置样式后进行实时坐标标定，彻底消除 body.style.zoom / transform 带来的定位偏移
     menuEl.style.maxHeight = '';
+    menuEl.style.overflowY = '';
+    menuEl.style.transform = 'none';
     menuEl.style.top = '0px';
     menuEl.style.left = '0px';
     menuEl.style.right = 'auto';
@@ -16419,43 +16464,60 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     menuEl.style.position = 'fixed';
     menuEl.style.zIndex = '10050';
 
+    const r0 = menuEl.getBoundingClientRect();
+    menuEl.style.top = '100px';
+    menuEl.style.left = '100px';
+    const r100 = menuEl.getBoundingClientRect();
+    const scaleY = (Math.abs(r100.top - r0.top) > 10) ? ((r100.top - r0.top) / 100) : 1;
+    const scaleX = (Math.abs(r100.left - r0.left) > 10) ? ((r100.left - r0.left) / 100) : 1;
+
     const btnRect = triggerBtn.getBoundingClientRect();
-    const menuWidth = menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240);
-    const naturalHeight = menuEl.scrollHeight || menuEl.offsetHeight || 240;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const menuWidth = r0.width || ((menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240)) * scaleX);
+    const naturalHeight = r0.height || ((menuEl.scrollHeight || menuEl.offsetHeight || 220) * scaleY);
 
     const spaceBelow = viewportHeight - btnRect.bottom - 12;
     const spaceAbove = btnRect.top - 12;
-    let top = 0;
-    if (spaceBelow < Math.min(220, naturalHeight) && spaceAbove > spaceBelow) {
-        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceAbove - 8));
-        top = Math.max(10, btnRect.top - fitHeight - 6);
+    let desiredTop = 0;
+
+    if (spaceBelow < naturalHeight && spaceAbove > spaceBelow) {
+        const fitHeight = Math.max(120, spaceAbove - 8);
+        const usedHeight = Math.min(naturalHeight, fitHeight);
+        desiredTop = Math.max(10, btnRect.top - usedHeight - 6);
         menuEl.classList.add('flip-up');
-        menuEl.style.maxHeight = `${fitHeight}px`;
+        if (naturalHeight > fitHeight) {
+            menuEl.style.maxHeight = `${Math.floor(fitHeight / scaleY)}px`;
+            menuEl.style.overflowY = 'auto';
+        }
     } else {
-        const fitHeight = Math.min(naturalHeight, Math.max(150, spaceBelow - 8));
-        top = btnRect.bottom + 6;
+        const fitHeight = Math.max(120, spaceBelow - 8);
+        desiredTop = Math.min(viewportHeight - Math.min(naturalHeight, fitHeight) - 10, btnRect.bottom + 6);
+        desiredTop = Math.max(10, desiredTop);
         menuEl.classList.remove('flip-up');
-        menuEl.style.maxHeight = `${fitHeight}px`;
+        if (naturalHeight > fitHeight) {
+            menuEl.style.maxHeight = `${Math.floor(fitHeight / scaleY)}px`;
+            menuEl.style.overflowY = 'auto';
+        }
     }
-    let left = 0;
+
+    let desiredLeft = 0;
     if (defaultAlign === 'right') {
-        left = btnRect.right - menuWidth;
-        if (left + menuWidth > viewportWidth - 10) left = viewportWidth - menuWidth - 10;
-        if (left < 10) left = 10;
+        desiredLeft = btnRect.right - menuWidth;
+        if (desiredLeft + menuWidth > viewportWidth - 10) desiredLeft = viewportWidth - menuWidth - 10;
+        if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.add('align-right');
     } else {
-        left = btnRect.left;
-        if (left + menuWidth > viewportWidth - 10) {
-            left = Math.max(10, btnRect.right - menuWidth);
+        desiredLeft = btnRect.left;
+        if (desiredLeft + menuWidth > viewportWidth - 10) {
+            desiredLeft = Math.max(10, btnRect.right - menuWidth);
         }
-        if (left < 10) left = 10;
+        if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.remove('align-right');
     }
 
-    menuEl.style.top = `${Math.round(top)}px`;
-    menuEl.style.left = `${Math.round(left)}px`;
+    menuEl.style.top = `${Math.round((desiredTop - r0.top) / scaleY * 10) / 10}px`;
+    menuEl.style.left = `${Math.round((desiredLeft - r0.left) / scaleX * 10) / 10}px`;
     menuEl.style.right = 'auto';
     menuEl.style.bottom = 'auto';
     menuEl.style.visibility = 'visible';
@@ -16733,10 +16795,7 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
         ch.classList.toggle('selected', ch.getAttribute('data-type') === 'all');
     });
     bookContentState.collapsedDisplayMode = 'en';
-    const dispModeText = document.getElementById('text-bc-display-mode');
-    if (dispModeText) dispModeText.textContent = '展示英文';
-    const dispModeBtn = document.getElementById('btn-bc-toggle-display-mode');
-    if (dispModeBtn) dispModeBtn.classList.remove('active');
+    updateBookContentDisplayModeUI();
     const expandIcon = document.getElementById('icon-bc-expand-all');
     const expandText = document.getElementById('text-bc-expand-all');
     if (expandIcon) expandIcon.textContent = 'unfold_more';
@@ -17107,27 +17166,58 @@ function formatExamplesHtml(examplesList, targetWord = '') {
 }
 
 /**
- * 统一词条行渲染器
- * - 展示英文状态时：所有卡片（含已展开）上方展示英文+音标，详情框中展示每个词性及释义
- * - 展示释义状态时：所有卡片（含已展开）上方展示每个词性和对应释义（直接用空格分隔，不显示|和音标），详情框中展示单词本身和音标
+ * 从已加载词书、默认词库或自定义词书中查找完整词条数据（用于复习计划/小结详情展开）
  */
-function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
-    const word = w.word || w.name || '';
-    const safeKey = `bc_${idx}_${String(word).replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const isMastered = isShiCi
-        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
-        : isWordMastered(word);
-    const isExp = bookContentState.allExpanded || bookContentState.expandedItemKeys.has(safeKey);
+function findWordEntryForDrawer(wordText, isShiCi = false) {
+    const raw = String(wordText || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
 
+    if (isShiCi && typeof ShiCiManager !== 'undefined' && Array.isArray(ShiCiManager.words)) {
+        const hit = ShiCiManager.words.find(item => item && String(item.word || '').trim() === raw);
+        if (hit) return hit;
+    }
+
+    if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
+        const values = Object.values(BookManager.bookCache);
+        for (let i = 0; i < values.length; i++) {
+            const list = values[i];
+            if (!Array.isArray(list)) continue;
+            const hit = list.find(item => item && String(item.word || item.name || '').trim().toLowerCase() === lower);
+            if (hit) return hit;
+        }
+    }
+
+    if (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS)) {
+        const hit = DEFAULT_WORDS.find(item => item && String(item.word || '').trim().toLowerCase() === lower);
+        if (hit) return hit;
+    }
+
+    if (Array.isArray(window.customBooks)) {
+        for (let i = 0; i < window.customBooks.length; i++) {
+            const cb = window.customBooks[i];
+            if (!cb || !Array.isArray(cb.words)) continue;
+            const hit = cb.words.find(item => item && String(item.word || item.name || '').trim().toLowerCase() === lower);
+            if (hit) return hit;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 构建统一词条抽屉所需的音标、释义与拓展区块 HTML
+ */
+function buildUnifiedWordDetailData(w, isShiCi = false) {
+    const word = w.word || w.name || '';
     let phoneDisplay = '';
     if (isShiCi) {
         phoneDisplay = w.pinyin || '';
     } else {
         const phone = w.phone || w.ukphone || w.usphone || '';
-        phoneDisplay = formatPhonetic(phone);
+        phoneDisplay = typeof formatPhonetic === 'function' ? formatPhonetic(phone) : phone;
     }
 
-    // 收集所有例句
     const examplesList = [];
     if (Array.isArray(w.examples)) {
         w.examples.forEach(ex => {
@@ -17149,7 +17239,6 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         });
     }
 
-    // 格式化释义
     let meaningsHtml = '';
     let flatMeaning = '';
     let topZhHeaderHtml = '';
@@ -17197,10 +17286,9 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                 <span class="bc-meaning-text">${escapeHtml(g.texts.join('； '))}</span>
             </div>
         `).join('');
-        // 不同词性之间直接用空格分隔，不使用 |
         flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('   ');
         topZhHeaderHtml = posMap.map(g => `<span class="bc-top-sense-seg">${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span> ` : ''}${escapeHtml(g.texts.join('； '))}</span>`).join(' ');
-    } else if (w.meanings && Array.isArray(w.meanings)) {
+    } else if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) {
         meaningsHtml = w.meanings.map(m => `
             <div class="bc-meaning-row">
                 ${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span>` : ''}
@@ -17211,7 +17299,23 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
         topZhHeaderHtml = w.meanings.map(m => `<span class="bc-top-sense-seg">${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span> ` : ''}${escapeHtml(m.meaning || '')}</span>`).join(' ');
     } else {
         const rawM = w.meaning || (Array.isArray(w.trans) ? w.trans.join('； ') : (w.trans || '暂无释义'));
-        meaningsHtml = `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+        const splitParts = (typeof rawM === 'string' && rawM.includes(' '))
+            ? rawM.split(/\s+(?=(?:n|v|vt|vi|adj|adv|a|ad|prep|conj|pron|num|art|int|aux|pl)\.)/g).map(s => s.trim()).filter(Boolean)
+            : [];
+        if (splitParts.length > 1) {
+            meaningsHtml = splitParts.map(part => {
+                const match = part.match(/^([a-zA-Z]+\.)\s*(.*)$/);
+                if (match) {
+                    return `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
+                }
+                return `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
+            }).join('');
+        } else {
+            const match = typeof rawM === 'string' ? rawM.match(/^([a-zA-Z]+\.)\s*(.+)$/) : null;
+            meaningsHtml = match
+                ? `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
+                : `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+        }
         flatMeaning = rawM;
         topZhHeaderHtml = `<span class="bc-top-sense-seg">${escapeHtml(rawM)}</span>`;
     }
@@ -17225,9 +17329,40 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
            </div>`
         : '';
     const antonymsHtml = formatAntonymsHtml(w.antonyms);
+    const noteHtml = w.note
+        ? `<div class="bc-word-note"><span class="material-symbols-rounded" style="font-size:14px; margin-right:4px;">info</span><span>${escapeHtml(w.note)}</span></div>`
+        : '';
 
-    // 所有词条均支持点击展开（包含词组、简明词条等）
-    const hasExpandableContent = true;
+    return {
+        word,
+        phoneDisplay,
+        meaningsHtml,
+        flatMeaning,
+        topZhHeaderHtml,
+        noteHtml,
+        examplesHtml,
+        derivativesHtml,
+        discriminationsHtml,
+        antonymsHtml,
+        extraDrawerHtml: `${noteHtml}${examplesHtml}${derivativesHtml}${discriminationsHtml}${antonymsHtml}`
+    };
+}
+
+/**
+ * 统一词条行渲染器
+ * - 展示英文状态时：所有卡片（含已展开）上方展示英文+音标，详情框中展示每个词性及释义
+ * - 展示释义状态时：所有卡片（含已展开）上方展示每个词性和对应释义（直接用空格分隔，不显示|和音标），详情框中展示单词本身和音标
+ */
+function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
+    const word = w.word || w.name || '';
+    const safeKey = `bc_${idx}_${String(word).replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const isMastered = isShiCi
+        ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.isWordMastered(word) : isWordMastered(word))
+        : isWordMastered(word);
+    const isExp = bookContentState.allExpanded || bookContentState.expandedItemKeys.has(safeKey);
+
+    const detail = buildUnifiedWordDetailData(w, isShiCi);
+    const { phoneDisplay, meaningsHtml, flatMeaning, topZhHeaderHtml, extraDrawerHtml } = detail;
 
     const isZhMode = (bookContentState.collapsedDisplayMode === 'zh');
 
@@ -17235,7 +17370,7 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
     const headerTitleHtml = isZhMode
         ? `<span class="bc-headword bc-headword-zh" title="${escapeHtml(flatMeaning || word)}">${topZhHeaderHtml || escapeHtml(word)}</span>`
         : `<span class="bc-headword" title="${escapeHtml(word)}">${escapeHtml(word)}</span>
-           ${(isExp && phoneDisplay) ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : `<span class="bc-phone" style="display:none;">${escapeHtml(phoneDisplay)}</span>`}`;
+           ${phoneDisplay ? `<span class="bc-phone">${escapeHtml(phoneDisplay)}</span>` : ''}`;
 
     // 展开框内部第一栏：展示英文模式显示“词性 + 释义”；展示释义模式显示“单词本身 + 音标”
     const drawerPrimaryBoxHtml = isZhMode
@@ -17273,11 +17408,7 @@ function renderBookContentUnifiedCard(w, idx, isCustomLocal, isShiCi) {
                 <div class="bc-meanings-group">
                     ${drawerPrimaryBoxHtml}
                 </div>
-                ${w.note ? `<div class="bc-word-note"><span class="material-symbols-rounded" style="font-size:14px; margin-right:4px;">info</span><span>${escapeHtml(w.note)}</span></div>` : ''}
-                ${examplesHtml}
-                ${derivativesHtml}
-                ${discriminationsHtml}
-                ${antonymsHtml}
+                ${extraDrawerHtml}
             </div>
         </div>
     `;
@@ -18306,7 +18437,7 @@ async function toggleBookSectionDropdown(event, bookId) {
     }
 
     currentDropdownSectionBookId = bookId;
-    activeSectionTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn')) || event.target) : null;
+    activeSectionTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn, .me-recent-book-scope-pill')) || event.target) : null;
 
     const titleEl = document.getElementById('sf-sec-dropdown-title');
     if (titleEl) {
@@ -18462,6 +18593,7 @@ function applyBookSectionDropdown() {
     if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
     if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
     if (typeof renderSingleBookList === 'function') renderSingleBookList();
+    if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
 
     if (typeof showToast === 'function') {
         showToast(isAllSections ? '已选择全部板块' : `已选择 ${selectedSections.length} 个板块`);
@@ -18492,7 +18624,7 @@ async function toggleBookTypeDropdown(event, bookId) {
     }
 
     currentDropdownTypeBookId = bookId;
-    activeTypeTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn')) || event.target) : null;
+    activeTypeTriggerBtn = event ? (event.currentTarget || (event.target && event.target.closest('.book-card-filter-btn, .me-recent-book-scope-pill')) || event.target) : null;
 
     mountAnchoredBookDropdown(menuEl, activeTypeTriggerBtn, 'left');
 
@@ -18582,12 +18714,13 @@ function handleTypeDropdownRowChange() {
             }
             activeTypeTriggerBtn.classList.toggle('has-filter', !isAllTypes);
         }
+        if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
     }
 }
 
 // 统一监听全局点击，点击空白处自动关闭下拉筛选菜单与更多菜单
 document.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.book-anchored-dropdown') || e.target.closest('.book-card-filter-btn') || e.target.closest('.book-card-more-btn')) {
+    if (e.target.closest('.book-anchored-dropdown') || e.target.closest('.book-card-filter-btn') || e.target.closest('.book-card-more-btn') || e.target.closest('.me-recent-book-scope-pill')) {
         return;
     }
     closeBookSectionDropdown();
@@ -18635,6 +18768,7 @@ window.doesBookSupportFilter = doesBookSupportFilter;
 window.getBookSectionFilterSummaryText = getBookSectionFilterSummaryText;
 window.getBookTypeFilterSummaryText = getBookTypeFilterSummaryText;
 window.getBookFilterSummaryText = getBookFilterSummaryText;
+window.mountAnchoredBookDropdown = mountAnchoredBookDropdown;
 window.toggleBookSectionDropdown = toggleBookSectionDropdown;
 window.closeBookSectionDropdown = closeBookSectionDropdown;
 window.toggleAllDropdownSections = toggleAllDropdownSections;
@@ -18654,6 +18788,8 @@ window.toggleBookContentMastered = toggleBookContentMastered;
 window.deleteWordFromBookContent = deleteWordFromBookContent;
 window.loadMoreBookContent = loadMoreBookContent;
 window.parkBookDropdownMenus = parkBookDropdownMenus;
+window.findWordEntryForDrawer = findWordEntryForDrawer;
+window.buildUnifiedWordDetailData = buildUnifiedWordDetailData;
 // 兼容性保留别名
 window.toggleBookSectionFilterDropdown = toggleBookSectionDropdown;
 window.closeBookSectionFilterDropdown = closeBookSectionDropdown;
@@ -18702,14 +18838,26 @@ function setBookContentSectionFilter(sec) {
 }
 window.setBookContentSectionFilter = setBookContentSectionFilter;
 
-function toggleBookContentDisplayMode() {
-    bookContentState.collapsedDisplayMode = (bookContentState.collapsedDisplayMode === "zh") ? "en" : "zh";
-    const text = document.getElementById("text-bc-display-mode");
-    const btn = document.getElementById("btn-bc-toggle-display-mode");
-    const isZh = (bookContentState.collapsedDisplayMode === "zh");
-    if (text) text.textContent = isZh ? "展示释义" : "展示英文";
-    if (btn) btn.classList.toggle("active", isZh);
+function updateBookContentDisplayModeUI() {
+    const mode = (bookContentState.collapsedDisplayMode === 'zh') ? 'zh' : 'en';
+    document.querySelectorAll('#bc-display-mode-tabs .settings-cat-tab').forEach(tab => {
+        const active = tab.getAttribute('data-mode') === mode;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+}
+
+function setBookContentDisplayMode(mode) {
+    const nextMode = (mode === 'zh') ? 'zh' : 'en';
+    if (bookContentState.collapsedDisplayMode === nextMode) return;
+    bookContentState.collapsedDisplayMode = nextMode;
+    updateBookContentDisplayModeUI();
     renderBookContentItems();
+}
+window.setBookContentDisplayMode = setBookContentDisplayMode;
+
+function toggleBookContentDisplayMode() {
+    setBookContentDisplayMode(bookContentState.collapsedDisplayMode === 'zh' ? 'en' : 'zh');
 }
 window.toggleBookContentDisplayMode = toggleBookContentDisplayMode;
 
@@ -23958,21 +24106,16 @@ function removeWordMastered(word) {
 
 function toggleCurrentWordMastered() {
     if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
-    // 只有在答完题后才能标注熟词
-    if (!singleState.answered) {
-        if (typeof showToast === 'function') showToast('请先作答，答题后方可标注熟词');
-        return;
-    }
     const q = singleState.pool[singleState.currentIdx];
     if (!q || !q.word) return;
     const nowMastered = toggleMasteredWord(q.word, q.phone, q.meaning);
     updateSingleCardToolbar(q);
+    const targetClean = (q.word || '').trim().toLowerCase();
     if (nowMastered) {
-        // 标注熟词后播放加星动画，不立刻跳到下一题
+        // 标注熟词后播放加星动画，允许继续答题或直接点击“下一题”
         renderCardMasteryDiamonds(q.word, 'gain');
 
         // 标为熟词后，在本组学习中也不要再抽取：过滤后续待学 pool 中该词的所有项（含错题即时复测题）
-        const targetClean = (q.word || '').trim().toLowerCase();
         const currentIdx = singleState.currentIdx;
         const prevItems = singleState.pool.slice(0, currentIdx + 1);
         const remainingItems = singleState.pool.slice(currentIdx + 1).filter(item => (item.word || '').trim().toLowerCase() !== targetClean);
@@ -23988,7 +24131,26 @@ function toggleCurrentWordMastered() {
         }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
+        if (!q.answered && singleState.completedWords) {
+            singleState.completedWords.delete(targetClean);
+        }
         renderCardMasteryDiamonds(q.word, 'loss');
+        saveSingleProgress();
+    }
+
+    // 未答题状态下，若已标为熟词，底部按钮切换为“下一题”，取消标注则恢复“看答案”
+    if (!singleState.answered) {
+        const nextBtn = document.getElementById('single-next-btn');
+        if (nextBtn) {
+            nextBtn.style.display = 'flex';
+            if (nowMastered) {
+                nextBtn.className = 'single-next-btn';
+                nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
+            } else {
+                nextBtn.className = 'single-next-btn show-answer-mode';
+                nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">skip_next</span><span class="btn-label-text">看答案</span>';
+            }
+        }
     }
 }
 
@@ -24167,17 +24329,10 @@ function updateSingleCardToolbar(q) {
     const masterBtn = document.getElementById('btn-card-master');
     if (masterBtn) {
         masterBtn.classList.toggle('active', isMastered);
-        if (singleState && singleState.answered) {
-            masterBtn.disabled = false;
-            masterBtn.style.opacity = '1';
-            masterBtn.style.cursor = 'pointer';
-            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
-        } else {
-            masterBtn.disabled = true;
-            masterBtn.style.opacity = '0.35';
-            masterBtn.style.cursor = 'not-allowed';
-            masterBtn.title = '答题后方可标注熟词';
-        }
+        masterBtn.disabled = false;
+        masterBtn.style.opacity = '1';
+        masterBtn.style.cursor = 'pointer';
+        masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
         masterBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>`;
     }
 
@@ -24232,7 +24387,7 @@ function updateSingleCardToolbar(q) {
         }
     }
 
-    // 控制“上一个”与“返回”按钮
+    // 控制“上一个”与“下一个”按钮
     const prevBtn = document.getElementById('btn-card-prev');
     const returnBtn = document.getElementById('btn-card-return');
     if (singleState) {
@@ -24248,8 +24403,11 @@ function updateSingleCardToolbar(q) {
             prevBtn.style.cursor = canGoPrev ? 'pointer' : 'not-allowed';
         }
         if (returnBtn) {
-            returnBtn.style.display = canReturn ? 'inline-flex' : 'none';
+            returnBtn.style.display = 'inline-flex';
             returnBtn.disabled = !canReturn;
+            returnBtn.style.opacity = canReturn ? '1' : '0.35';
+            returnBtn.style.cursor = canReturn ? 'pointer' : 'not-allowed';
+            returnBtn.classList.toggle('return-highlight', canReturn);
         }
     }
 }
@@ -24275,7 +24433,7 @@ function returnToCurrentSingleQuestion() {
             clearTimeout(singlePhraseTimer);
             singlePhraseTimer = null;
         }
-        singleState.currentIdx = singleState.maxReachedIdx;
+        singleState.currentIdx++;
         renderSingleQuestion();
     }
 }
@@ -24393,7 +24551,8 @@ function renderSingleQuestion() {
     const nextBtn = document.getElementById('single-next-btn');
     if (nextBtn) {
         nextBtn.style.display = 'flex';
-        if (alreadyAnswered) {
+        const isPreMastered = !alreadyAnswered && typeof isWordMastered === 'function' && isWordMastered(q.word);
+        if (alreadyAnswered || isPreMastered) {
             nextBtn.className = 'single-next-btn';
             nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
         } else {
@@ -24991,7 +25150,13 @@ function nextSingleQuestion(forceAdvance = false) {
         clearTimeout(singlePhraseTimer);
         singlePhraseTimer = null;
     }
-    if (!forceAdvance && !singleState.answered) {
+    const q = (singleState && singleState.pool) ? singleState.pool[singleState.currentIdx] : null;
+    const isMasteredUnanswered = Boolean(q && !singleState.answered && typeof isWordMastered === 'function' && isWordMastered(q.word));
+    if (isMasteredUnanswered) {
+        q.answered = true;
+        q.isCorrect = true;
+        q.skippedAsMastered = true;
+    } else if (!forceAdvance && !singleState.answered) {
         revealSingleAnswer();
         return;
     }
@@ -25514,14 +25679,16 @@ function renderMeView() {
     if (elTodayWords) elTodayWords.innerText = todayW;
     if (elTotalWords) elTotalWords.innerText = totalW;
     if (elTodayDuration) {
-        elTodayDuration.innerText = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
+        const todayDurStr = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
             ? DailyStudyTracker.formatDuration(summaryStats.todayDurationSeconds || 0)
             : '0分钟';
+        elTodayDuration.innerHTML = formatDurationAccentHtml(todayDurStr);
     }
     if (elTotalDuration) {
-        elTotalDuration.innerText = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
+        const totalDurStr = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
             ? DailyStudyTracker.formatDuration(summaryStats.totalDurationSeconds || 0)
             : '0分钟';
+        elTotalDuration.innerHTML = formatDurationAccentHtml(totalDurStr);
     }
 
     // 兼容旧统计元素
@@ -25668,61 +25835,84 @@ function renderMeRecentBookCard() {
         : null;
     const hasUpdate = Boolean(bookMeta && bookMeta.isCloud && bookMeta.syncStatus === 'update_available');
 
+    const supportsSections = (typeof doesBookSupportSections === 'function') ? doesBookSupportSections(book) : false;
+    const supportsTypes = (typeof doesBookSupportTypes === 'function') ? doesBookSupportTypes(book) : false;
+    const sectionSummary = (supportsSections && typeof getBookSectionFilterSummaryText === 'function')
+        ? getBookSectionFilterSummaryText(book.id)
+        : '全部板块';
+    const typeSummary = (supportsTypes && typeof getBookTypeFilterSummaryText === 'function')
+        ? getBookTypeFilterSummaryText(book.id)
+        : '全部类型';
+
+    const scopeButtonsHtml = [
+        supportsSections
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
+                   <span class="material-symbols-rounded" style="font-size:13px;">segment</span>
+                   <span>${escapeHtml(sectionSummary)}</span>
+                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+               </button>`
+            : '',
+        supportsTypes
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
+                   <span class="material-symbols-rounded" style="font-size:13px;">filter_list</span>
+                   <span>${escapeHtml(typeSummary)}</span>
+                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+               </button>`
+            : ''
+    ].filter(Boolean).join('');
+
     container.innerHTML = `
         <div class="me-recent-book-card">
             <div class="me-recent-book-top">
-                <div class="book-cover-wrap me-recent-book-cover-wrap" onclick="openBookContentPage('${escapedId}')" title="点击查看词书内容" style="cursor:pointer; width:64px; height:86px; border-radius:8px; box-shadow:0 3px 10px rgba(0,0,0,0.15); flex-shrink:0;">
+                <div class="book-cover-wrap me-recent-book-cover-wrap" onclick="openBookContentPage('${escapedId}')" title="点击查看词书内容">
                     ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
                     <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
-                        <span class="book-cover-art-title" style="font-size:0.75rem;">${escapeHtml(title)}</span>
+                        <span class="book-cover-art-title">${escapeHtml(title)}</span>
                     </div>
                 </div>
-                <div class="me-recent-book-info" onclick="openBookContentPage('${escapedId}')" style="cursor:pointer;">
-                    <div class="me-recent-book-title-row">
+                <div class="me-recent-book-info">
+                    <div class="me-recent-book-title-row" onclick="openBookContentPage('${escapedId}')" style="cursor:pointer;">
                         <span class="me-recent-book-title">${escapeHtml(title)}</span>
-                        <span class="me-recent-book-badge">最近学习</span>
+                        <span class="material-symbols-rounded me-recent-book-title-arrow">chevron_right</span>
                     </div>
-                    <div class="me-recent-book-meta">
-                        <span>共 ${total} 词</span>
-                        ${scopeSummary ? `<span class="me-recent-book-scope-pill">${escapeHtml(scopeSummary)}</span>` : ''}
+                    ${scopeButtonsHtml ? `<div class="me-recent-book-meta">${scopeButtonsHtml}</div>` : ''}
+                    <div class="me-recent-book-inline-progress">
+                        <div class="me-recent-book-progress-labels">
+                            <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
+                            <span class="me-recent-book-progress-pct">${pct}%</span>
+                        </div>
+                        <div class="me-recent-book-progress-track">
+                            <div class="me-recent-book-progress-fill" style="width:${pct}%;"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="me-recent-book-actions-wrap" style="position:relative;">
-                    <button type="button" class="icon-btn me-recent-book-more-btn" onclick="toggleMeRecentBookMenu(event, '${escapedId}')" title="更多操作">
+                    <button type="button" id="me-recent-book-more-btn" class="icon-btn me-recent-book-more-btn" onclick="toggleMeRecentBookMenu(event, '${escapedId}')" title="更多操作">
                         <span class="material-symbols-rounded">more_horiz</span>
                     </button>
                     <div id="me-recent-book-more-menu" class="me-recent-book-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}', event)">
                             <span class="material-symbols-rounded">tune</span>
                             <span>选择学习范围</span>
                         </button>
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}', event)">
                             <span class="material-symbols-rounded">visibility</span>
                             <span>查看内容</span>
                         </button>
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('reset', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('reset', '${escapedId}', event)">
                             <span class="material-symbols-rounded">restart_alt</span>
                             <span>重学词书</span>
                         </button>
-                        <button type="button" class="book-action-item" ${!hasUpdate ? 'disabled style="opacity:0.45; cursor:not-allowed;" title="已是最新版本"' : `onclick="handleMeRecentBookAction('update', '${escapedId}')"`}>
+                        <button type="button" class="book-action-item" ${!hasUpdate ? 'disabled style="opacity:0.45; cursor:not-allowed;" title="已是最新版本"' : `onclick="handleMeRecentBookAction('update', '${escapedId}', event)"`}>
                             <span class="material-symbols-rounded">cloud_sync</span>
                             <span>更新词书</span>
                         </button>
                         <div style="height:1px; background:var(--md-sys-color-outline-variant, #e2e8f0); margin:4px 6px;"></div>
-                        <button type="button" class="book-action-item danger" onclick="handleMeRecentBookAction('delete', '${escapedId}')">
+                        <button type="button" class="book-action-item danger" onclick="handleMeRecentBookAction('delete', '${escapedId}', event)">
                             <span class="material-symbols-rounded">delete</span>
                             <span>删除词书</span>
                         </button>
                     </div>
-                </div>
-            </div>
-            <div class="me-recent-book-progress-box">
-                <div class="me-recent-book-progress-labels">
-                    <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
-                    <span class="me-recent-book-progress-pct">${pct}%</span>
-                </div>
-                <div class="me-recent-book-progress-track">
-                    <div class="me-recent-book-progress-fill" style="width:${pct}%;"></div>
                 </div>
             </div>
         </div>
@@ -25730,11 +25920,216 @@ function renderMeRecentBookCard() {
 }
 window.renderMeRecentBookCard = renderMeRecentBookCard;
 
+function closeMeRecentBookScopeMenu() {
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (scopeMenu) {
+        scopeMenu.style.display = 'none';
+        scopeMenu.classList.remove('align-right', 'flip-up');
+    }
+}
+window.closeMeRecentBookScopeMenu = closeMeRecentBookScopeMenu;
+
+async function openMeRecentBookScopeMenu(bookId, anchorEl, event) {
+    if (event) {
+        event.stopPropagation();
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+    }
+    const moreMenu = document.getElementById('me-recent-book-more-menu');
+    if (moreMenu) moreMenu.style.display = 'none';
+
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (!scopeMenu || !bookId || typeof BookManager === 'undefined') return;
+
+    const book = BookManager.getBookMeta ? BookManager.getBookMeta(bookId) : null;
+    if (!book) return;
+
+    const supportsSections = typeof doesBookSupportSections === 'function' ? doesBookSupportSections(book) : false;
+    const supportsTypes = typeof doesBookSupportTypes === 'function' ? doesBookSupportTypes(book) : false;
+    if (!supportsSections && !supportsTypes) {
+        if (typeof showToast === 'function') showToast('该词书默认学习全部词汇');
+        return;
+    }
+
+    const anchor = anchorEl || document.getElementById('me-recent-book-more-btn');
+    scopeMenu.dataset.bookId = bookId;
+    scopeMenu.innerHTML = `<div style="padding:14px; text-align:center; font-size:0.82rem; color:var(--md-sys-color-outline);">加载范围中...</div>`;
+
+    if (typeof mountAnchoredBookDropdown === 'function' && anchor) {
+        mountAnchoredBookDropdown(scopeMenu, anchor, 'right');
+    } else {
+        scopeMenu.style.display = 'flex';
+    }
+
+    const words = supportsSections ? await BookManager.loadBookData(bookId) : [];
+    if (scopeMenu.dataset.bookId !== bookId) return;
+
+    const sectionCounts = {};
+    const sectionList = [];
+    if (supportsSections && Array.isArray(words)) {
+        words.forEach(w => {
+            if (!w) return;
+            const sec = (w.section || '').trim().toLowerCase();
+            if (sec) {
+                if (!sectionCounts[sec]) {
+                    sectionCounts[sec] = 0;
+                    sectionList.push(sec);
+                }
+                sectionCounts[sec]++;
+            }
+        });
+        if (sectionList.length === 0 && words.length > 0) {
+            const letterSet = new Set();
+            words.forEach(w => {
+                const first = (w.word || '').trim().charAt(0).toLowerCase();
+                if (/^[a-z]$/.test(first)) {
+                    letterSet.add(first);
+                    sectionCounts[first] = (sectionCounts[first] || 0) + 1;
+                }
+            });
+            if (letterSet.size >= 2) {
+                sectionList.push(...Array.from(letterSet).sort());
+            }
+        } else {
+            sectionList.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+    }
+
+    const savedFilter = BookManager.getBookStudyFilter(bookId) || {};
+    const escapedBookId = escapeHtml(bookId);
+    const hasSectionOpts = supportsSections && sectionList.length > 0;
+    const selectedSet = (savedFilter && Array.isArray(savedFilter.sections) && !savedFilter.isAll)
+        ? new Set(savedFilter.sections.map(s => s.toLowerCase()))
+        : null;
+    const isAllSecSelected = hasSectionOpts && (!selectedSet || selectedSet.size >= sectionList.length);
+
+    const isAllTypes = !savedFilter.types || savedFilter.types.length === 0 || savedFilter.types.length === 2;
+    const isWordChecked = isAllTypes || savedFilter.types.includes('word');
+    const isPhraseChecked = isAllTypes || savedFilter.types.includes('phrase');
+
+    scopeMenu.innerHTML = `
+        <div class="book-dd-header" style="padding:8px 10px 6px;">
+            <span class="book-dd-title"><span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">tune</span>选择学习范围</span>
+            ${hasSectionOpts ? `<label class="book-dd-select-all-chip" style="cursor:pointer;">
+                <input type="checkbox" id="me-scope-all-sections" ${isAllSecSelected ? 'checked' : ''} onchange="toggleAllMeScopeSections('${escapedBookId}', this.checked)">
+                <span>全选分类</span>
+            </label>` : ''}
+        </div>
+        ${hasSectionOpts ? `
+        <div class="me-scope-section-title">词书分类</div>
+        <div class="me-scope-sections-list">
+            ${sectionList.map(sec => {
+                const checked = selectedSet ? selectedSet.has(sec) : true;
+                return `<label class="book-dd-check-row ${checked ? 'active' : ''}">
+                    <input type="checkbox" class="me-scope-sec-cb book-dd-checkbox" value="${escapeHtml(sec)}" ${checked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}')">
+                    <span class="book-dd-row-name">${escapeHtml(sec.toUpperCase())}</span>
+                    <span class="book-dd-row-count">${sectionCounts[sec] || 0} 词</span>
+                </label>`;
+            }).join('')}
+        </div>` : ''}
+        ${supportsTypes ? `
+        <div class="me-scope-section-title">词条类型</div>
+        <div class="me-scope-types-list">
+            <label class="book-dd-check-row ${isWordChecked ? 'active' : ''}">
+                <input type="checkbox" id="me-scope-type-word" class="book-dd-checkbox" ${isWordChecked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}', 'word')">
+                <span class="book-dd-row-name">单词</span>
+            </label>
+            <label class="book-dd-check-row ${isPhraseChecked ? 'active' : ''}">
+                <input type="checkbox" id="me-scope-type-phrase" class="book-dd-checkbox" ${isPhraseChecked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}', 'phrase')">
+                <span class="book-dd-row-name">词组</span>
+            </label>
+        </div>` : ''}
+        <div class="me-scope-footer">
+            <button type="button" class="btn btn-filled btn-sm" style="width:100%; height:32px; border-radius:99px;" onclick="closeMeRecentBookScopeMenu()">完成</button>
+        </div>
+    `;
+
+    if (typeof mountAnchoredBookDropdown === 'function' && anchor) {
+        mountAnchoredBookDropdown(scopeMenu, anchor, 'right');
+    }
+}
+window.openMeRecentBookScopeMenu = openMeRecentBookScopeMenu;
+
+function toggleAllMeScopeSections(bookId, checked) {
+    const cbs = Array.from(document.querySelectorAll('#me-recent-book-scope-menu .me-scope-sec-cb'));
+    if (cbs.length === 0) return;
+    if (!checked && cbs.length > 0) {
+        // 至少保留第一项，避免空选
+        cbs.forEach((cb, i) => {
+            cb.checked = i === 0;
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.toggle('active', cb.checked);
+        });
+    } else {
+        cbs.forEach(cb => {
+            cb.checked = true;
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.add('active');
+        });
+    }
+    handleMeScopeOptionChange(bookId);
+}
+window.toggleAllMeScopeSections = toggleAllMeScopeSections;
+
+function handleMeScopeOptionChange(bookId, changedType = null) {
+    if (!bookId || typeof BookManager === 'undefined') return;
+    const secCbs = Array.from(document.querySelectorAll('#me-recent-book-scope-menu .me-scope-sec-cb'));
+    if (secCbs.length > 0) {
+        const checkedSec = secCbs.filter(cb => cb.checked);
+        if (checkedSec.length === 0) {
+            secCbs[0].checked = true;
+        }
+        secCbs.forEach(cb => {
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.toggle('active', cb.checked);
+        });
+        const allSecCb = document.getElementById('me-scope-all-sections');
+        if (allSecCb) {
+            allSecCb.checked = secCbs.every(cb => cb.checked);
+        }
+    }
+
+    const wordCb = document.getElementById('me-scope-type-word');
+    const phraseCb = document.getElementById('me-scope-type-phrase');
+    if (wordCb && phraseCb) {
+        if (!wordCb.checked && !phraseCb.checked) {
+            if (changedType === 'word') phraseCb.checked = true;
+            else wordCb.checked = true;
+        }
+        const wordRow = wordCb.closest('.book-dd-check-row');
+        const phraseRow = phraseCb.closest('.book-dd-check-row');
+        if (wordRow) wordRow.classList.toggle('active', wordCb.checked);
+        if (phraseRow) phraseRow.classList.toggle('active', phraseCb.checked);
+    }
+
+    const curFilter = BookManager.getBookStudyFilter(bookId) || {};
+    if (secCbs.length > 0) {
+        const selectedSections = secCbs.filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
+        const isAllSecs = selectedSections.length === secCbs.length;
+        curFilter.sections = isAllSecs ? null : selectedSections;
+    }
+    if (wordCb && phraseCb) {
+        const allowW = wordCb.checked;
+        const allowP = phraseCb.checked;
+        curFilter.types = (allowW && allowP) ? null : [allowW ? 'word' : null, allowP ? 'phrase' : null].filter(Boolean);
+    }
+    const isAllSecsFinal = !curFilter.sections || curFilter.sections.length === 0;
+    const isAllTypesFinal = !curFilter.types || curFilter.types.length === 0 || curFilter.types.length === 2;
+    curFilter.isAll = isAllSecsFinal && isAllTypesFinal;
+
+    BookManager.setBookStudyFilter(bookId, curFilter);
+    renderMeRecentBookCard();
+    if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+    if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+}
+window.handleMeScopeOptionChange = handleMeScopeOptionChange;
+
 function toggleMeRecentBookMenu(event, bookId) {
     if (event) {
         event.stopPropagation();
         if (typeof event.preventDefault === 'function') event.preventDefault();
     }
+    closeMeRecentBookScopeMenu();
     const menu = document.getElementById('me-recent-book-more-menu');
     if (!menu) return;
     const isVisible = menu.style.display === 'flex';
@@ -25750,17 +26145,23 @@ document.addEventListener('pointerdown', (e) => {
             menu.style.display = 'none';
         }
     }
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (scopeMenu && scopeMenu.style.display !== 'none') {
+        if (!scopeMenu.contains(e.target) && !(e.target.closest && e.target.closest('.me-recent-book-scope-pill'))) {
+            closeMeRecentBookScopeMenu();
+        }
+    }
 });
 
-async function handleMeRecentBookAction(action, bookId) {
+async function handleMeRecentBookAction(action, bookId, event) {
+    if (event) event.stopPropagation();
     const menu = document.getElementById('me-recent-book-more-menu');
     if (menu) menu.style.display = 'none';
     if (!bookId) return;
 
     if (action === 'scope') {
-        if (typeof openBookScopeModalForBook === 'function') {
-            openBookScopeModalForBook(bookId);
-        }
+        const btn = document.getElementById('me-recent-book-more-btn');
+        await openMeRecentBookScopeMenu(bookId, btn, event);
     } else if (action === 'content') {
         if (typeof openBookContentPage === 'function') {
             openBookContentPage(bookId);
@@ -25872,166 +26273,349 @@ function switchDetailedStatsRange(range) {
 }
 window.switchDetailedStatsRange = switchDetailedStatsRange;
 
+function formatDurationAccentHtml(durText) {
+    const raw = String(durText || '0分钟');
+    return escapeHtml(raw).replace(/(\d+(?:\.\d+)?)/g, '<span class="stat-num">$1</span>').replace(/([^\d<>]+)(?=<span|$)/g, (m) => {
+        if (m.includes('stat-num')) return m;
+        return m ? `<small>${m}</small>` : '';
+    });
+}
+
+const detailedChartLabelState = {
+    words: true,
+    duration: false
+};
+let detailedStatsSelectedDateKey = null;
+
+function toggleDetailedChartLabels(chartType, checked) {
+    if (chartType !== 'words' && chartType !== 'duration') return;
+    detailedChartLabelState[chartType] = Boolean(checked);
+    renderDetailedStatsSubview(currentDetailedStatsRange);
+}
+window.toggleDetailedChartLabels = toggleDetailedChartLabels;
+
+function selectDetailedStatsDay(dateKey) {
+    if (!dateKey || detailedStatsSelectedDateKey === dateKey) {
+        detailedStatsSelectedDateKey = null;
+    } else {
+        detailedStatsSelectedDateKey = dateKey;
+    }
+    renderDetailedStatsSubview(currentDetailedStatsRange);
+}
+window.selectDetailedStatsDay = selectDetailedStatsDay;
+
+function computeNiceAxisCeiling(rawMax, minFloor = 10) {
+    const v = Math.max(minFloor, rawMax || 0);
+    if (v <= 10) return 10;
+    if (v <= 20) return 20;
+    if (v <= 50) return Math.ceil(v / 10) * 10;
+    if (v <= 200) return Math.ceil(v / 20) * 20;
+    if (v <= 500) return Math.ceil(v / 50) * 50;
+    return Math.ceil(v / 100) * 100;
+}
+
+function renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal, unitSuffix = '' }) {
+    const midVal = Math.round(maxVal / 2);
+    const baselineY = padT + plotH;
+    const midY = padT + plotH / 2;
+    return `
+        <line x1="${padL}" y1="${padT}" x2="${svgW - padR}" y2="${padT}" stroke="#e2e8f0" stroke-dasharray="3 3" />
+        <line x1="${padL}" y1="${midY}" x2="${svgW - padR}" y2="${midY}" stroke="#e2e8f0" stroke-dasharray="3 3" />
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${baselineY}" stroke="#cbd5e1" stroke-width="1" />
+        <line x1="${padL}" y1="${baselineY}" x2="${svgW - padR}" y2="${baselineY}" stroke="#cbd5e1" stroke-width="1.2" />
+        <text x="${padL - 8}" y="${padT + 4}" text-anchor="end" class="detailed-axis-text">${maxVal}${unitSuffix}</text>
+        <text x="${padL - 8}" y="${midY + 4}" text-anchor="end" class="detailed-axis-text">${midVal}${unitSuffix}</text>
+        <text x="${padL - 8}" y="${baselineY + 4}" text-anchor="end" class="detailed-axis-text">0${unitSuffix}</text>
+    `;
+}
+
 function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
-    currentDetailedStatsRange = range || 'week';
+    const nextRange = range || 'week';
+    if (nextRange !== currentDetailedStatsRange) {
+        detailedStatsSelectedDateKey = null;
+    }
+    currentDetailedStatsRange = nextRange;
     const container = document.getElementById('detailed-stats-content');
     if (!container) return;
 
-    document.querySelectorAll('#detailed-stats-range-tabs .md3-seg-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-range') === currentDetailedStatsRange);
+    document.querySelectorAll('#detailed-stats-range-tabs .settings-cat-tab').forEach(btn => {
+        const isActive = btn.getAttribute('data-range') === currentDetailedStatsRange;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
     const daysCount = currentDetailedStatsRange === 'month' ? 30 : 7;
+    const rangeLabel = currentDetailedStatsRange === 'month' ? '近30天' : '近7天';
     const series = (window.DailyStudyTracker && typeof DailyStudyTracker.getRangeSeries === 'function')
         ? DailyStudyTracker.getRangeSeries(daysCount)
         : [];
-    const summary = (window.DailyStudyTracker && typeof DailyStudyTracker.getSummaryStats === 'function')
-        ? DailyStudyTracker.getSummaryStats()
-        : { todayWords: 0, totalWords: 0, todayDurationSeconds: 0, totalDurationSeconds: 0 };
+
+    if (detailedStatsSelectedDateKey && !series.some(d => d.dateKey === detailedStatsSelectedDateKey)) {
+        detailedStatsSelectedDateKey = null;
+    }
+    const selectedDay = detailedStatsSelectedDateKey
+        ? series.find(d => d.dateKey === detailedStatsSelectedDateKey) || null
+        : null;
 
     const periodDurationSec = series.reduce((acc, d) => acc + (d.durationSeconds || 0), 0);
     const periodLearned = series.reduce((acc, d) => acc + (d.learned || 0) + (d.shici || 0), 0);
     const periodReviewed = series.reduce((acc, d) => acc + (d.reviewed || 0), 0);
-    const periodRiddle = series.reduce((acc, d) => acc + (d.riddle || 0), 0);
     const activeDays = series.filter(d => (d.durationSeconds || 0) > 0 || (d.learned || 0) + (d.reviewed || 0) + (d.shici || 0) + (d.riddle || 0) > 0).length;
 
     const formatDur = (sec) => (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
         ? DailyStudyTracker.formatDuration(sec)
         : `${Math.round(sec / 60)}分钟`;
 
-    // 1. 学习时长趋势折线面积图 (SVG)
-    const maxDurMin = Math.max(10, ...series.map(d => Math.round((d.durationSeconds || 0) / 60)));
-    const svgW = 600;
-    const svgH = 170;
-    const padL = 36;
+    const svgW = 620;
+    const svgH = 225;
+    const padL = 44;
     const padR = 16;
-    const padT = 20;
+    const padT = 26;
     const padB = 30;
     const plotW = svgW - padL - padR;
     const plotH = svgH - padT - padB;
+    const baselineY = padT + plotH;
+    const labelStep = series.length > 10 ? 5 : 1;
+    const svgMonthClass = series.length > 10 ? ' detailed-chart-svg--month' : '';
+
+    // 1. 每日新学与复习词数 SVG 堆叠柱状图
+    const rawMaxWords = Math.max(0, ...series.map(d => (d.learned || 0) + (d.shici || 0) + (d.reviewed || 0)));
+    const niceMaxWords = computeNiceAxisCeiling(rawMaxWords, 10);
+    const slotW = series.length > 0 ? plotW / series.length : plotW;
+    const barW = series.length <= 10 ? Math.min(34, slotW * 0.44) : Math.max(11, Math.min(16, slotW * 0.68));
+    const showWordNums = detailedChartLabelState.words;
+
+    const wordBarsSvg = series.map((d, idx) => {
+        const learnCnt = (d.learned || 0) + (d.shici || 0);
+        const revCnt = d.reviewed || 0;
+        const totalCnt = learnCnt + revCnt;
+        const cx = padL + (idx + 0.5) * slotW;
+        const bx = cx - barW / 2;
+        const isSelected = Boolean(detailedStatsSelectedDateKey && d.dateKey === detailedStatsSelectedDateKey);
+
+        let learnH = learnCnt > 0 ? Math.max(4, (learnCnt / niceMaxWords) * plotH) : 0;
+        let revH = revCnt > 0 ? Math.max(4, (revCnt / niceMaxWords) * plotH) : 0;
+        if (learnH + revH > plotH && (learnH + revH) > 0) {
+            const scale = plotH / (learnH + revH);
+            learnH *= scale;
+            revH *= scale;
+        }
+
+        const gap = (learnH > 0 && revH > 0) ? 1.5 : 0;
+        const yLearn = baselineY - learnH;
+        const yRev = baselineY - learnH - gap - revH;
+        const topY = revH > 0 ? yRev : yLearn;
+        const barFontSize = series.length <= 10 ? 10.5 : 8.5;
+
+        let numLabelsSvg = '';
+        if (showWordNums && totalCnt > 0) {
+            const shortParts = [];
+            if (learnCnt > 0) {
+                if (learnH >= 15) {
+                    numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${(yLearn + learnH / 2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#ffffff">${learnCnt}</text>`;
+                } else {
+                    shortParts.push({ val: learnCnt, color: '#0061a4' });
+                }
+            }
+            if (revCnt > 0) {
+                if (revH >= 15) {
+                    numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${(yRev + revH / 2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#ffffff">${revCnt}</text>`;
+                } else {
+                    shortParts.push({ val: revCnt, color: '#0d9488' });
+                }
+            }
+            if (shortParts.length === 1) {
+                numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${Math.max(padT - 6, topY - 4).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="${shortParts[0].color}">${shortParts[0].val}</text>`;
+            } else if (shortParts.length === 2) {
+                numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${Math.max(padT - 6, topY - 4).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#0f172a">${learnCnt}+${revCnt}</text>`;
+            }
+        }
+
+        const xTickSvg = (idx % labelStep === 0 || idx === series.length - 1 || isSelected)
+            ? `<text x="${cx.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${d.label}</text>`
+            : '';
+
+        return `
+            <g class="detailed-svg-bar-col" onclick="selectDetailedStatsDay('${d.dateKey}')">
+                <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词（点击查看当日详细数据）</title>
+                ${isSelected ? `<rect x="${(cx - slotW * 0.45).toFixed(1)}" y="${padT - 4}" width="${(slotW * 0.9).toFixed(1)}" height="${plotH + 6}" rx="6" fill="rgba(0, 97, 164, 0.08)" stroke="rgba(0, 97, 164, 0.25)" stroke-width="1" />` : ''}
+                ${learnH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yLearn.toFixed(1)}" width="${barW.toFixed(1)}" height="${learnH.toFixed(1)}" rx="3" fill="#0061a4" />` : ''}
+                ${revH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yRev.toFixed(1)}" width="${barW.toFixed(1)}" height="${revH.toFixed(1)}" rx="3" fill="#0d9488" />` : ''}
+                ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.9' : '0.6'}" />` : ''}
+                ${numLabelsSvg}
+                ${xTickSvg}
+                <rect x="${(cx - slotW / 2).toFixed(1)}" y="${padT - 6}" width="${slotW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
+            </g>
+        `;
+    }).join('');
+
+    // 2. 学习时长趋势折线面积图 (SVG)
+    const rawMaxDurMin = Math.max(0, ...series.map(d => (d.durationSeconds || 0) / 60));
+    const niceMaxDur = computeNiceAxisCeiling(Math.ceil(rawMaxDurMin), 10);
+    const avgDurMinRaw = (periodDurationSec / 60) / Math.max(1, daysCount);
+    const avgDurMin = Math.round(avgDurMinRaw * 10) / 10;
+    const avgDisplay = Number.isInteger(avgDurMin) ? `${avgDurMin}` : avgDurMin.toFixed(1);
+    const avgY = padT + plotH - Math.min(1, avgDurMin / niceMaxDur) * plotH;
 
     const points = series.map((d, i) => {
         const mins = Math.round(((d.durationSeconds || 0) / 60) * 10) / 10;
         const x = padL + (series.length > 1 ? (i / (series.length - 1)) * plotW : plotW / 2);
-        const y = padT + plotH - Math.min(1, mins / maxDurMin) * plotH;
+        const y = padT + plotH - Math.min(1, mins / niceMaxDur) * plotH;
         return { x, y, mins, label: d.label, dateKey: d.dateKey };
     });
 
     const polylinePoints = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const areaPath = points.length > 0
-        ? `M ${points[0].x.toFixed(1)},${(padT + plotH).toFixed(1)} L ` +
+        ? `M ${points[0].x.toFixed(1)},${baselineY.toFixed(1)} L ` +
           points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') +
-          ` L ${points[points.length - 1].x.toFixed(1)},${(padT + plotH).toFixed(1)} Z`
+          ` L ${points[points.length - 1].x.toFixed(1)},${baselineY.toFixed(1)} Z`
         : '';
+    const showDurNums = detailedChartLabelState.duration;
+    const pointStepW = series.length > 1 ? plotW / (series.length - 1) : plotW;
 
-    const labelStep = series.length > 10 ? 5 : 1;
-
-    // 1. 每日学习与复习词数柱状图 (放在学习时长趋势前面)
-    const maxWordsDay = Math.max(10, ...series.map(d => (d.learned || 0) + (d.shici || 0) + (d.reviewed || 0)));
+    const selLearn = selectedDay ? ((selectedDay.learned || 0) + (selectedDay.shici || 0)) : periodLearned;
+    const selRev = selectedDay ? (selectedDay.reviewed || 0) : periodReviewed;
+    const selDurSec = selectedDay ? (selectedDay.durationSeconds || 0) : periodDurationSec;
+    const wordsFooterPrefix = selectedDay ? `${selectedDay.label} ` : rangeLabel;
+    const durFooterLabel = selectedDay ? `${selectedDay.label} 学习时长` : `${rangeLabel}总时长`;
 
     container.innerHTML = `
-        <div class="detailed-stats-overview-grid">
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天总时长' : '近7天总时长'}</span>
-                <span class="detailed-stat-pill-val">${formatDur(periodDurationSec)}</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天新学' : '近7天新学'}</span>
-                <span class="detailed-stat-pill-val">${periodLearned} 词</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天复习' : '近7天复习'}</span>
-                <span class="detailed-stat-pill-val">${periodReviewed} 词</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">活跃打卡天数</span>
-                <span class="detailed-stat-pill-val">${activeDays} / ${daysCount} 天</span>
-            </div>
-        </div>
-
-        <!-- 图表1：每日学习与复习词数柱状图 -->
+        <!-- 图表1：每日新学与复习词数 -->
         <div class="detailed-chart-card">
             <div class="detailed-chart-header">
-                <div>
-                    <div class="detailed-chart-title">每日新学与复习词数</div>
-                    <div class="detailed-chart-sub">蓝色为新学词数，青色为复习词数</div>
+                <div class="detailed-chart-title">每日新学与复习词数</div>
+                <div class="detailed-chart-controls detailed-chart-controls--stacked">
+                    <label class="detailed-chart-toggle-label">
+                        <span>显示详细数据</span>
+                        <span class="md3-switch detailed-chart-switch">
+                            <input type="checkbox" role="switch" ${showWordNums ? 'checked' : ''} onchange="toggleDetailedChartLabels('words', this.checked)">
+                            <span class="md3-switch-track"><span class="md3-switch-thumb"></span></span>
+                        </span>
+                    </label>
+                    <div class="detailed-chart-legend">
+                        <span><i style="background:#0061a4;"></i>新学</span>
+                        <span><i style="background:#0d9488;"></i>复习</span>
+                    </div>
                 </div>
-                <div class="detailed-chart-legend">
-                    <span><i style="background:#0061a4;"></i>新学</span>
-                    <span><i style="background:#0d9488;"></i>复习</span>
-                </div>
-            </div>
-            <div class="detailed-bars-scroll">
-                <div class="detailed-bars-row" style="min-width:${series.length > 10 ? series.length * 26 : 100}px;">
-                    ${series.map((d, idx) => {
-                        const learnCnt = (d.learned || 0) + (d.shici || 0);
-                        const revCnt = d.reviewed || 0;
-                        const totalCnt = learnCnt + revCnt;
-                        const learnH = Math.round((learnCnt / maxWordsDay) * 110);
-                        const revH = Math.round((revCnt / maxWordsDay) * 110);
-                        return `
-                            <div class="detailed-bar-col" title="${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词">
-                                <div class="detailed-bar-val">${totalCnt > 0 ? totalCnt : ''}</div>
-                                <div class="detailed-bar-stack">
-                                    ${revH > 0 ? `<div class="detailed-bar-seg review" style="height:${Math.max(4, revH)}px;"></div>` : ''}
-                                    ${learnH > 0 ? `<div class="detailed-bar-seg learn" style="height:${Math.max(4, learnH)}px;"></div>` : ''}
-                                    ${totalCnt === 0 ? `<div class="detailed-bar-seg empty" style="height:3px;"></div>` : ''}
-                                </div>
-                                <div class="detailed-bar-label">${(idx % labelStep === 0 || idx === series.length - 1) ? d.label : ''}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        </div>
-
-        <!-- 图表2：学习时长趋势折线面积图 -->
-        <div class="detailed-chart-card">
-            <div class="detailed-chart-header">
-                <div>
-                    <div class="detailed-chart-title">学习时长趋势 (分钟)</div>
-                    <div class="detailed-chart-sub">日均学习 ${formatDur(Math.round(periodDurationSec / daysCount))}</div>
-                </div>
-                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">schedule</span>
             </div>
             <div class="detailed-svg-wrap">
-                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-line-svg">
+                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-chart-svg${svgMonthClass}">
+                    ${renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal: niceMaxWords, unitSuffix: '' })}
+                    ${wordBarsSvg}
+                </svg>
+            </div>
+            <div class="detailed-chart-footer">
+                <div class="detailed-chart-footer-metrics">
+                    <div class="detailed-chart-footer-item stat-accent-2">
+                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}新学</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${selLearn}</span><small>词</small></span>
+                    </div>
+                    <div class="detailed-chart-footer-item stat-accent-3">
+                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}复习</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${selRev}</span><small>词</small></span>
+                    </div>
+                </div>
+                <div class="detailed-chart-selected-hint">
+                    ${selectedDay
+                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
+                        : '<span>点击任意柱条查看当日详细数据</span>'
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表2：学习时长趋势 (分钟) -->
+        <div class="detailed-chart-card">
+            <div class="detailed-chart-header">
+                <div class="detailed-chart-title">学习时长趋势 (分钟)</div>
+                <div class="detailed-chart-controls">
+                    <label class="detailed-chart-toggle-label">
+                        <span>显示详细数据</span>
+                        <span class="md3-switch detailed-chart-switch">
+                            <input type="checkbox" role="switch" ${showDurNums ? 'checked' : ''} onchange="toggleDetailedChartLabels('duration', this.checked)">
+                            <span class="md3-switch-track"><span class="md3-switch-thumb"></span></span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="detailed-svg-wrap">
+                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-chart-svg${svgMonthClass}">
                     <defs>
                         <linearGradient id="durAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.28"/>
+                            <stop offset="0%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.26"/>
                             <stop offset="100%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.02"/>
                         </linearGradient>
                     </defs>
-                    <!-- 水平参考线 -->
-                    <line x1="${padL}" y1="${padT}" x2="${svgW - padR}" y2="${padT}" stroke="#e2e8f0" stroke-dasharray="3 3" />
-                    <line x1="${padL}" y1="${padT + plotH / 2}" x2="${svgW - padR}" y2="${padT + plotH / 2}" stroke="#e2e8f0" stroke-dasharray="3 3" />
-                    <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="#cbd5e1" />
-                    <text x="${padL - 6}" y="${padT + 4}" text-anchor="end" font-size="10" fill="#64748b">${maxDurMin}m</text>
-                    <text x="${padL - 6}" y="${padT + plotH / 2 + 4}" text-anchor="end" font-size="10" fill="#64748b">${Math.round(maxDurMin / 2)}m</text>
-                    <text x="${padL - 6}" y="${padT + plotH + 4}" text-anchor="end" font-size="10" fill="#64748b">0m</text>
+                    ${renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal: niceMaxDur, unitSuffix: 'm' })}
                     <path d="${areaPath}" fill="url(#durAreaGrad)" />
+                    <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${svgW - padR}" y2="${avgY.toFixed(1)}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 4" />
+                    ${avgDurMin > 0 ? `<text x="${padL - 8}" y="${Math.max(padT + 10, Math.min(baselineY - 6, avgY + 3.5)).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="700" fill="#d97706">${avgDisplay}m</text>` : ''}
                     <polyline fill="none" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${polylinePoints}" />
-                    ${points.map((p, idx) => `
-                        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${series.length > 14 ? 2.5 : 4}" fill="#fff" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="2">
-                            <title>${p.dateKey}: ${p.mins} 分钟</title>
-                        </circle>
-                        ${(idx % labelStep === 0 || idx === points.length - 1) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" font-size="10" fill="#64748b">${p.label}</text>` : ''}
-                    `).join('')}
+                    ${points.map((p, idx) => {
+                        const valText = Number.isInteger(p.mins) ? `${p.mins}` : p.mins.toFixed(1);
+                        const isSelected = Boolean(detailedStatsSelectedDateKey && p.dateKey === detailedStatsSelectedDateKey);
+                        const shouldShowPtNum = isSelected || (showDurNums && (p.mins > 0 || series.length <= 10));
+                        const ptRadius = isSelected ? 5.5 : (series.length > 14 ? 2.6 : 4);
+                        return `
+                        <g class="detailed-svg-point-col" onclick="selectDetailedStatsDay('${p.dateKey}')">
+                            <title>${p.dateKey}: ${p.mins} 分钟（点击查看当日详细数据）</title>
+                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${padT}" x2="${p.x.toFixed(1)}" y2="${baselineY}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
+                            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ptRadius}" fill="${isSelected ? '#0061a4' : '#fff'}" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="${isSelected ? 2.5 : 2}" />
+                            ${shouldShowPtNum ? `<text x="${p.x.toFixed(1)}" y="${Math.max(padT - 5, p.y - 9).toFixed(1)}" text-anchor="middle" font-size="${(series.length <= 10 || isSelected) ? 10.5 : 8.5}" font-weight="${isSelected ? 800 : 700}" fill="#0061a4">${valText}${isSelected ? 'm' : ''}</text>` : ''}
+                            ${(idx % labelStep === 0 || idx === points.length - 1 || isSelected) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>` : ''}
+                            <rect x="${(p.x - pointStepW / 2).toFixed(1)}" y="${padT - 6}" width="${pointStepW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
+                        </g>
+                        `;
+                    }).join('')}
                 </svg>
+            </div>
+            <div class="detailed-chart-footer">
+                <div class="detailed-chart-footer-metrics">
+                    <div class="detailed-chart-footer-item stat-accent-1">
+                        <span class="detailed-chart-footer-label">${escapeHtml(durFooterLabel)}</span>
+                        <span class="detailed-chart-footer-val">${formatDurationAccentHtml(formatDur(selDurSec))}</span>
+                    </div>
+                    <div class="detailed-chart-footer-item stat-accent-4">
+                        <span class="detailed-chart-footer-label">活跃打卡天数</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${activeDays}</span><small>/ ${daysCount} 天</small></span>
+                    </div>
+                    <div class="detailed-chart-footer-item">
+                        <span class="detailed-chart-footer-label">日均</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num" style="color:#d97706;">${avgDisplay}</span><small>分钟</small></span>
+                    </div>
+                </div>
+                <div class="detailed-chart-selected-hint">
+                    ${selectedDay
+                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
+                        : '<span>点击曲线节点查看当日详细数据</span>'
+                    }
+                </div>
             </div>
         </div>
     `;
 }
 window.renderDetailedStatsSubview = renderDetailedStatsSubview;
 
-// ----------------- 复习计划子页面 (列出所有待复习的词与具体时间，支持日期筛选) -----------------
-let currentReviewPlanDateFilter = 'all'; // 'all' | 'due' | 'today' | 'tomorrow' | 'week' | 'YYYY-MM-DD'
+// ----------------- 复习计划子页面 (列出所有待复习的词，与词书内容列表风格统一，支持展开查看) -----------------
+let currentReviewPlanDateFilter = 'today'; // 'today' | 'tomorrow' | 'dayAfterTomorrow' | 'all'
 
 function filterReviewPlanByDate(filterVal) {
-    currentReviewPlanDateFilter = filterVal || 'all';
+    currentReviewPlanDateFilter = filterVal || 'today';
     renderReviewPlanSubview(currentReviewPlanDateFilter);
 }
 window.filterReviewPlanByDate = filterReviewPlanByDate;
+
+function toggleReviewPlanItemDetail(cardEl, e) {
+    if (!cardEl) return;
+    if (e && e.target && e.target.closest('.btn-circle-icon-action')) return;
+    const isExp = cardEl.classList.contains('expanded');
+    cardEl.classList.toggle('expanded', !isExp);
+    const drawer = cardEl.querySelector('.bc-item-drawer');
+    if (drawer) {
+        drawer.style.display = !isExp ? 'block' : 'none';
+    }
+}
+window.toggleReviewPlanItemDetail = toggleReviewPlanItemDetail;
 
 function formatReviewPlanTime(ts, nowMs) {
     const d = new Date(ts);
@@ -26056,23 +26640,16 @@ function formatReviewPlanTime(ts, nowMs) {
 }
 
 function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
-    currentReviewPlanDateFilter = dateFilter || 'all';
+    currentReviewPlanDateFilter = dateFilter || 'today';
     const listContainer = document.getElementById('review-plan-list-container');
-    const summaryBanner = document.getElementById('review-plan-summary-banner');
+    const headerActions = document.getElementById('review-plan-header-actions');
     if (!listContainer) return;
 
-    document.querySelectorAll('#review-plan-filter-chips .md3-chip').forEach(chip => {
-        const isMatch = chip.getAttribute('data-filter') === currentReviewPlanDateFilter;
-        chip.classList.toggle('active', isMatch);
-        chip.classList.toggle('selected', isMatch);
+    document.querySelectorAll('#review-plan-filter-tabs .settings-cat-tab').forEach(tab => {
+        const isMatch = tab.getAttribute('data-filter') === currentReviewPlanDateFilter;
+        tab.classList.toggle('active', isMatch);
+        tab.setAttribute('aria-selected', isMatch ? 'true' : 'false');
     });
-
-    const dateInput = document.getElementById('review-plan-custom-date');
-    if (dateInput && !['all', 'due', 'today', 'tomorrow', 'week'].includes(currentReviewPlanDateFilter)) {
-        dateInput.value = currentReviewPlanDateFilter;
-    } else if (dateInput && ['all', 'due', 'today', 'tomorrow', 'week'].includes(currentReviewPlanDateFilter)) {
-        dateInput.value = '';
-    }
 
     const allScheduled = (window.EbbinghausEngine && typeof EbbinghausEngine.getScheduledReviewWords === 'function')
         ? EbbinghausEngine.getScheduledReviewWords()
@@ -26083,40 +26660,27 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
     const pad = (n) => String(n).padStart(2, '0');
     const toDateKey = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
     const todayKey = toDateKey(todayDate);
-    const tomorrowDate = new Date(now + 86400000);
-    const tomorrowKey = toDateKey(tomorrowDate);
-    const weekEndMs = now + 7 * 86400000;
+    const tomorrowKey = toDateKey(new Date(now + 86400000));
+    const dayAfterTomorrowKey = toDateKey(new Date(now + 2 * 86400000));
+
+    if (headerActions) {
+        const dueCount = allScheduled.filter(i => i.nextReview <= now).length;
+        headerActions.innerHTML = dueCount > 0 ? `
+            <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
+                <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
+                <span class="btn-label-text">开始复习 (${dueCount})</span>
+            </button>
+        ` : '';
+    }
 
     const filtered = allScheduled.filter(item => {
         const itemDateKey = toDateKey(new Date(item.nextReview));
         if (currentReviewPlanDateFilter === 'all') return true;
-        if (currentReviewPlanDateFilter === 'due') return item.nextReview <= now;
         if (currentReviewPlanDateFilter === 'today') return item.nextReview <= now || itemDateKey === todayKey;
         if (currentReviewPlanDateFilter === 'tomorrow') return itemDateKey === tomorrowKey;
-        if (currentReviewPlanDateFilter === 'week') return item.nextReview <= weekEndMs;
+        if (currentReviewPlanDateFilter === 'dayAfterTomorrow') return itemDateKey === dayAfterTomorrowKey;
         return itemDateKey === currentReviewPlanDateFilter;
     });
-
-    if (summaryBanner) {
-        const dueCount = allScheduled.filter(i => i.nextReview <= now).length;
-        summaryBanner.innerHTML = `
-            <div class="review-plan-banner-left">
-                <div class="review-plan-banner-title">
-                    <span>计划复习词汇</span>
-                    <span class="review-plan-banner-badge">${filtered.length} 词</span>
-                </div>
-                <div class="review-plan-banner-meta">
-                    总计划 ${allScheduled.length} 词 · 当前待立即复习 <strong style="color:var(--md-sys-color-primary, #0061a4);">${dueCount}</strong> 词
-                </div>
-            </div>
-            ${dueCount > 0 ? `
-                <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
-                    <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
-                    <span class="btn-label-text">开始复习 (${dueCount})</span>
-                </button>
-            ` : ''}
-        `;
-    }
 
     if (filtered.length === 0) {
         listContainer.innerHTML = `
@@ -26131,22 +26695,39 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
 
     listContainer.innerHTML = filtered.slice(0, 300).map(item => {
         const tInfo = formatReviewPlanTime(item.nextReview, now);
+        const fullEntry = (typeof findWordEntryForDrawer === 'function') ? findWordEntryForDrawer(item.word, false) : null;
+        const wordObj = fullEntry ? { ...fullEntry, phone: fullEntry.phone || item.phone || '', meaning: fullEntry.meaning || item.meaning || '' } : item;
+        const detail = (typeof buildUnifiedWordDetailData === 'function')
+            ? buildUnifiedWordDetailData(wordObj, false)
+            : {
+                phoneDisplay: item.phone || '',
+                meaningsHtml: `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(item.meaning || '暂无释义')}</span></div>`,
+                extraDrawerHtml: ''
+            };
+
         return `
-            <div class="review-plan-word-item">
-                <div class="review-plan-word-main">
-                    <div class="review-plan-word-top">
-                        <span class="review-plan-word-text">${escapeHtml(item.word)}</span>
-                        ${item.phone ? `<span class="review-plan-word-phone">${escapeHtml(item.phone)}</span>` : ''}
-                        <button type="button" class="icon-btn review-plan-audio-btn" data-word="${escapeHtml(item.word)}" onclick="event.stopPropagation(); if (typeof playAudio === 'function') playAudio(this.getAttribute('data-word'));" title="发音">
+            <div class="bc-unified-item" onclick="toggleReviewPlanItemDetail(this, event)">
+                <div class="bc-item-header">
+                    <div class="bc-item-title-meta">
+                        <span class="bc-headword">${escapeHtml(item.word)}</span>
+                        ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
+                        <span class="review-plan-stage-tag">第${item.stage}阶段</span>
+                        <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}" title="${tInfo.detail}">${tInfo.badge}</span>
+                    </div>
+                    <div class="bc-item-actions" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">
+                            <span class="material-symbols-rounded">search</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof playAudio === 'function') playAudio(this.dataset.word);" title="发音" aria-label="发音">
                             <span class="material-symbols-rounded">volume_up</span>
                         </button>
-                        <span class="review-plan-stage-tag">第${item.stage}阶段</span>
                     </div>
-                    <div class="review-plan-word-meaning">${escapeHtml(item.meaning || '暂无释义')}</div>
                 </div>
-                <div class="review-plan-time-col">
-                    <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}">${tInfo.badge}</span>
-                    <span class="review-plan-time-exact">${tInfo.detail}</span>
+                <div class="bc-item-drawer" style="display:none;">
+                    <div class="bc-meanings-group">
+                        ${detail.meaningsHtml}
+                    </div>
+                    ${detail.extraDrawerHtml || ''}
                 </div>
             </div>
         `;
@@ -34425,7 +35006,12 @@ function skipDictationQuestion() {
     if (!dictationState.currentQ) return;
     const q = dictationState.currentQ;
 
-    if (dictationState.answered) {
+    const isMasteredUnanswered = Boolean(!dictationState.answered && typeof isWordMastered === 'function' && isWordMastered(q.word));
+    if (dictationState.answered || isMasteredUnanswered) {
+        if (isMasteredUnanswered) {
+            q.isCorrect = true;
+            q.skippedAsMastered = true;
+        }
         dictationState.currentIdx++;
         renderDictationQuestion();
         return;
@@ -34522,18 +35108,32 @@ function updateDictationToolbar() {
         searchBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
     }
 
-    // 标注熟词：答题前禁用
+    // 标注熟词：未答题前也支持标注
     if (masterBtn) {
-        masterBtn.disabled = !answered;
-        masterBtn.style.opacity = answered ? '1' : '0.35';
-        masterBtn.style.cursor = answered ? 'pointer' : 'not-allowed';
+        masterBtn.disabled = false;
+        masterBtn.style.opacity = '1';
+        masterBtn.style.cursor = 'pointer';
 
+        let isMastered = false;
         if (q && q.word) {
-            const isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
+            isMastered = typeof isWordMastered === 'function' ? isWordMastered(q.word) : false;
             masterBtn.classList.toggle('active', isMastered);
+            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
             if (masterIcon) {
                 masterIcon.innerText = isMastered ? 'check_circle' : 'check_circle_outline';
                 masterIcon.style.color = '';
+            }
+        }
+
+        // 未答题且已标为熟词时，“看答案”按钮切换为直接跳往“下一题”，同时保留“确认”按钮可继续作答
+        const skipBtn = document.getElementById('btn-dictation-skip');
+        if (skipBtn && !answered) {
+            if (isMastered) {
+                skipBtn.className = 'btn btn-tonal btn-sm';
+                skipBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:18px;">arrow_forward</span>';
+            } else {
+                skipBtn.className = 'btn btn-tonal btn-sm';
+                skipBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:18px;">skip_next</span><span class="btn-label-text">看答案</span>';
             }
         }
     }
@@ -34541,14 +35141,18 @@ function updateDictationToolbar() {
 window.updateDictationToolbar = updateDictationToolbar;
 
 function toggleDictationMasteredWord() {
-    if (!dictationState || !dictationState.answered) {
-        showToast('答题后方可标注熟词');
-        return;
-    }
-    if (!dictationState.currentQ) return;
+    if (!dictationState || !dictationState.currentQ) return;
     const q = dictationState.currentQ;
     if (typeof toggleMasteredWord === 'function') {
-        toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
+        const nowMastered = toggleMasteredWord(q.word, q.phone || '', q.meaning || '');
+        if (nowMastered && Array.isArray(dictationState.pool)) {
+            const targetClean = (q.word || '').trim().toLowerCase();
+            const curIdx = dictationState.currentIdx;
+            const head = dictationState.pool.slice(0, curIdx + 1);
+            const tail = dictationState.pool.slice(curIdx + 1).filter(it => (it.word || '').trim().toLowerCase() !== targetClean);
+            dictationState.pool = head.concat(tail);
+            if (typeof updateDictationProgressDisplay === 'function') updateDictationProgressDisplay();
+        }
         updateDictationToolbar();
     }
 }
@@ -34576,6 +35180,10 @@ function endDictationSession() {
     const totalCount = pool.length;
     let mistakeCount = 0;
     pool.forEach(q => {
+        if (q.skippedAsMastered) {
+            q.isCorrect = true;
+            return;
+        }
         if (sessionMistakes.includes(q.word.trim().toLowerCase()) || !q.isCorrect) {
             mistakeCount++;
             q.isCorrect = false;
@@ -34738,10 +35346,16 @@ function formatSettlementMeaningsLines(q) {
     return splitParts.length > 0 ? splitParts : [raw];
 }
 
-function toggleSettlementRowExpand(rowEl) {
+function toggleSettlementRowExpand(rowEl, e) {
     if (!rowEl) return;
-    rowEl.classList.toggle('expanded');
-    syncSettlementEyeBtnState();
+    if (e && e.target && e.target.closest('.btn-circle-icon-action')) return;
+    const isExp = rowEl.classList.contains('expanded');
+    rowEl.classList.toggle('expanded', !isExp);
+    const drawer = rowEl.querySelector('.bc-item-drawer');
+    if (drawer) {
+        drawer.style.display = !isExp ? 'block' : 'none';
+    }
+    syncSettlementExpandAllBtnState();
 }
 window.toggleSettlementRowExpand = toggleSettlementRowExpand;
 
@@ -34750,39 +35364,66 @@ function toggleSettlementWordsMask(btnEl) {
     if (!list) return;
     const masked = list.classList.toggle('mask-words');
     if (btnEl) {
-        btnEl.classList.toggle('active', !masked);
+        btnEl.classList.toggle('active', masked);
+        const icon = btnEl.querySelector('.material-symbols-rounded');
+        const label = btnEl.querySelector('span:last-child');
+        if (icon) icon.innerText = masked ? 'visibility' : 'visibility_off';
+        if (label) label.innerText = masked ? '显示单词' : '遮挡单词';
     }
 }
 window.toggleSettlementWordsMask = toggleSettlementWordsMask;
 
+function setSettlementFilterMode(mode, tabBtn) {
+    const list = document.getElementById('settlement-list-container');
+    if (!list) return;
+    document.querySelectorAll('#settlement-filter-tabs .settings-cat-tab').forEach(btn => {
+        const active = btn === tabBtn || btn.getAttribute('data-filter') === mode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    list.querySelectorAll('.bc-unified-item').forEach(row => {
+        const isMistake = row.getAttribute('data-mistake') === '1';
+        row.classList.toggle('is-hidden-by-filter', mode === 'mistakes' && !isMistake);
+    });
+    syncSettlementExpandAllBtnState();
+}
+window.setSettlementFilterMode = setSettlementFilterMode;
+
 function toggleSettlementMeaningsAll(btnEl) {
     const list = document.getElementById('settlement-list-container');
     if (!list) return;
-    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
+    const rows = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
     const allExpanded = rows.length > 0 && rows.every(r => r.classList.contains('expanded'));
     const targetExpand = !allExpanded;
-    rows.forEach(r => r.classList.toggle('expanded', targetExpand));
-    syncSettlementEyeBtnState();
+    rows.forEach(r => {
+        r.classList.toggle('expanded', targetExpand);
+        const drawer = r.querySelector('.bc-item-drawer');
+        if (drawer) drawer.style.display = targetExpand ? 'block' : 'none';
+    });
+    syncSettlementExpandAllBtnState();
 }
 window.toggleSettlementMeaningsAll = toggleSettlementMeaningsAll;
 
-function syncSettlementEyeBtnState() {
+function syncSettlementExpandAllBtnState() {
     const list = document.getElementById('settlement-list-container');
     const btn = document.getElementById('btn-settlement-toggle-meanings');
     if (!list || !btn) return;
-    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
-    const anyExpanded = rows.some(r => r.classList.contains('expanded'));
-    btn.classList.toggle('active', anyExpanded);
-    const closedSvg = btn.querySelector('.eye-closed-svg');
-    const openSvg = btn.querySelector('.eye-open-svg');
-    if (closedSvg && openSvg) {
-        closedSvg.style.display = anyExpanded ? 'none' : 'block';
-        openSvg.style.display = anyExpanded ? 'block' : 'none';
-    }
+    const rows = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
+    const allExpanded = rows.length > 0 && rows.every(r => r.classList.contains('expanded'));
+    const icon = btn.querySelector('.material-symbols-rounded');
+    const label = btn.querySelector('span:last-child');
+    if (icon) icon.innerText = allExpanded ? 'unfold_less' : 'unfold_more';
+    if (label) label.innerText = allExpanded ? '收起全部' : '展开全部';
 }
 
-function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = false) {
+function toggleSettlementWordMastered(btnEl) {
+    if (!btnEl) return;
+    const word = btnEl.dataset.word || '';
+    const phone = btnEl.dataset.phone || '';
+    const meaning = btnEl.dataset.meaning || '';
+    const isShiCi = btnEl.dataset.shici === '1';
     if (!word) return;
+
     let nowMastered = false;
     if (isShiCi) {
         if (!shiciProgress.masteredWords) shiciProgress.masteredWords = {};
@@ -34802,18 +35443,20 @@ function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = fal
         nowMastered = toggleMasteredWord(word, phone, meaning);
     }
 
-    const rowEl = btnEl ? btnEl.closest('.settlement-minimal-row') : null;
-    if (btnEl) {
-        btnEl.classList.toggle('active', nowMastered);
-        const icon = btnEl.querySelector('.material-symbols-rounded');
-        if (icon) icon.innerText = nowMastered ? 'star' : 'star_outline';
-    }
+    const rowEl = btnEl.closest('.bc-unified-item');
+    btnEl.classList.toggle('mastered', nowMastered);
+    btnEl.title = nowMastered ? '已掌握（点击取消）' : '标为熟词';
+    const icon = btnEl.querySelector('.material-symbols-rounded');
+    if (icon) icon.innerText = nowMastered ? 'check_circle' : 'check_circle_outline';
+
     if (rowEl) {
-        const statusEl = rowEl.querySelector('.settlement-minimal-status');
+        const statusEl = rowEl.querySelector('.settlement-word-status-tag');
         if (statusEl) {
             const st = getWordSettlementReviewStatus(word, isShiCi);
-            statusEl.innerText = st.text;
+            const isMistake = rowEl.getAttribute('data-mistake') === '1';
+            statusEl.innerText = (!st.isMastered && isMistake) ? '错题' : st.text;
             statusEl.classList.toggle('is-mastered', st.isMastered);
+            statusEl.classList.toggle('is-mistake', !st.isMastered && isMistake);
         }
     }
 }
@@ -34824,71 +35467,95 @@ function buildMinimalSummaryLayoutHtml(items) {
     const correctCount = Math.max(0, items.length - mistakeCount);
 
     const rowsHtml = items.map(item => {
-        const cleanPhone = String(item.phone || '').replace(/^\/+|\/+$/g, '').trim();
-        const phoneHtml = cleanPhone
-            ? (item.isShiCi ? `<span class="settlement-minimal-phonetic">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phonetic">/${escapeHtml(cleanPhone)}/</span>`)
-            : '';
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
         const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
-        const safeWord = escapeHtml((item.word || '').replace(/'/g, "\\'"));
-        const safePhone = escapeHtml((item.phone || '').replace(/'/g, "\\'"));
-        const safeMeaning = escapeHtml((lines.join('；') || '').replace(/'/g, "\\'"));
-        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-wrong' : '');
+        const fullEntry = (typeof findWordEntryForDrawer === 'function')
+            ? findWordEntryForDrawer(item.word, item.isShiCi)
+            : null;
+        const wordObj = fullEntry
+            ? { ...(item.rawObj || {}), ...fullEntry, phone: fullEntry.phone || item.phone || '', pinyin: fullEntry.pinyin || item.phone || '' }
+            : (item.rawObj || { word: item.word, phone: item.phone, pinyin: item.phone, meaning: lines.join('；') });
+
+        const detail = (typeof buildUnifiedWordDetailData === 'function')
+            ? buildUnifiedWordDetailData(wordObj, item.isShiCi)
+            : {
+                phoneDisplay: item.phone || '',
+                meaningsHtml: lines.map(line => `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
+                extraDrawerHtml: ''
+            };
+
+        const isExp = Boolean(item.isMistake);
+        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
+        const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
 
         return `
-            <div class="settlement-minimal-row ${item.isMistake ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this)" data-mistake="${item.isMistake ? '1' : '0'}">
-                <div class="settlement-minimal-row-main">
-                    <div class="settlement-minimal-word-group">
-                        <span class="settlement-minimal-word ${item.isMistake ? 'is-mistake' : ''}" onclick="if(this.closest('.settlement-minimal-row').classList.contains('expanded')){event.stopPropagation(); playWordAudio('${safeWord}');}">${escapeHtml(item.word)}</span>
-                        ${phoneHtml}
+            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
+                <div class="bc-item-header">
+                    <div class="bc-item-title-meta">
+                        <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
+                        ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
+                        <span class="settlement-word-status-tag ${statusCls}">${escapeHtml(statusLabel)}</span>
                     </div>
-                    <span class="settlement-minimal-status ${statusCls}">${escapeHtml(statusInfo.text)}</span>
+                    <div class="bc-item-actions" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">
+                            <span class="material-symbols-rounded">search</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof playWordAudio === 'function') playWordAudio(this.dataset.word);" title="发音" aria-label="发音">
+                            <span class="material-symbols-rounded">volume_up</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action bc-mastered-btn ${statusInfo.isMastered ? 'mastered' : ''}" data-word="${escapeHtml(item.word)}" data-phone="${escapeHtml(detail.phoneDisplay || item.phone || '')}" data-meaning="${escapeHtml(lines.join('；'))}" data-shici="${item.isShiCi ? '1' : '0'}" onclick="toggleSettlementWordMastered(this)" title="${statusInfo.isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
+                            <span class="material-symbols-rounded">${statusInfo.isMastered ? 'check_circle' : 'check_circle_outline'}</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="settlement-minimal-detail">
-                    <div class="settlement-minimal-meanings">
-                        ${lines.map(line => `<div class="settlement-minimal-meaning-line">${escapeHtml(line)}</div>`).join('')}
+                <div class="bc-item-drawer" style="display:${isExp ? 'block' : 'none'};">
+                    <div class="bc-meanings-group">
+                        ${detail.meaningsHtml}
                     </div>
-                    <button type="button" class="settlement-minimal-star-btn ${statusInfo.isMastered ? 'active' : ''}" onclick="event.stopPropagation(); toggleSettlementWordMastered('${safeWord}', '${safePhone}', '${safeMeaning}', this, ${item.isShiCi ? 'true' : 'false'});" title="${statusInfo.isMastered ? '取消标熟' : '标为熟词'}">
-                        <span class="material-symbols-rounded">${statusInfo.isMastered ? 'star' : 'star_outline'}</span>
-                    </button>
+                    ${detail.extraDrawerHtml || ''}
                 </div>
             </div>
         `;
     }).join('');
 
-    const anyExpanded = items.some(i => i.isMistake);
+    const allExpanded = items.length > 0 && items.every(i => i.isMistake);
 
     return `
-        <div class="settlement-minimal-page">
-            <div class="settlement-minimal-topbar">
-                <button type="button" class="settlement-minimal-back" onclick="handleResultBackToHub()" title="返回">
-                    <span class="material-symbols-rounded">arrow_back_ios_new</span>
-                </button>
-                <div class="settlement-minimal-title-group">
-                    <span class="settlement-minimal-title">小结</span>
-                    <span class="settlement-minimal-meta">${items.length} 词 · 正确 ${correctCount}${mistakeCount > 0 ? ` · 错题 ${mistakeCount}` : ''}</span>
-                </div>
-                <div class="settlement-minimal-tools">
-                    <button type="button" class="settlement-minimal-tool active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
-                        <span class="settlement-abc-text">ab<u class="settlement-abc-u">c</u></span>
+        <div class="settlement-summary-page">
+            <div class="settlement-summary-header">
+                <div class="settlement-summary-title-wrap">
+                    <button type="button" class="nav-back-btn" onclick="handleResultBackToHub()" title="返回主页">
+                        <span class="material-symbols-rounded">arrow_back</span>
                     </button>
-                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-tool ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
-                        <svg class="settlement-eye-svg eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 10c3.5 4.5 8 6 10 6s6.5-1.5 10-6"/>
-                            <path d="M5 13l-2 3"/>
-                            <path d="M9.5 15.5l-1 3.5"/>
-                            <path d="M14.5 15.5l1 3.5"/>
-                            <path d="M19 13l2 3"/>
-                        </svg>
-                        <svg class="settlement-eye-svg eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-                            <circle cx="12" cy="12" r="3"/>
-                        </svg>
+                    <h3 class="settlement-summary-title">小结</h3>
+                    <span class="settlement-summary-stats-badge">
+                        <span>${items.length} 词</span>
+                        <span>·</span>
+                        <span>正确 ${correctCount}</span>
+                        ${mistakeCount > 0 ? `<span>·</span><span class="mistake-cnt">错题 ${mistakeCount}</span>` : ''}
+                    </span>
+                </div>
+                <div class="settlement-summary-toolbar">
+                    ${mistakeCount > 0 ? `
+                        <div class="settings-category-tabs bc-type-tabs" id="settlement-filter-tabs" role="tablist" aria-label="小结筛选">
+                            <button type="button" class="settings-cat-tab active" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="true">全部 (${items.length})</button>
+                            <button type="button" class="settings-cat-tab" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="false">仅错题 (${mistakeCount})</button>
+                        </div>
+                    ` : ''}
+                    <button type="button" class="settlement-mask-btn" id="btn-settlement-mask-words" onclick="toggleSettlementWordsMask(this)" title="遮挡/显示单词">
+                        <span class="material-symbols-rounded" style="font-size:17px;">visibility_off</span>
+                        <span>遮挡单词</span>
+                    </button>
+                    <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                        <span>${allExpanded ? '收起全部' : '展开全部'}</span>
                     </button>
                 </div>
             </div>
-            <div class="settlement-minimal-list" id="settlement-list-container">
-                ${rowsHtml}
+            <div class="book-content-unified-wrapper">
+                <div class="book-content-unified-card settlement-summary-list" id="settlement-list-container">
+                    ${rowsHtml}
+                </div>
             </div>
         </div>
     `;
@@ -34924,7 +35591,8 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         phone: q.phone || '',
         lines: formatSettlementMeaningsLines(q),
         isMistake: !q.isCorrect,
-        isShiCi: false
+        isShiCi: false,
+        rawObj: q
     }));
 
     return buildMinimalSummaryLayoutHtml(items);
@@ -34950,7 +35618,8 @@ function renderShiCiSummaryHtml(pool) {
         phone: q.pinyin || '',
         lines: formatSettlementMeaningsLines({ ...q, isShiCi: true }),
         isMistake: !q.isCorrect,
-        isShiCi: true
+        isShiCi: true,
+        rawObj: q
     }));
 
     return buildMinimalSummaryLayoutHtml(items);
@@ -35840,8 +36509,11 @@ function updateShiCiNavButtons() {
         prevBtn.style.cursor = canPrev ? 'pointer' : 'not-allowed';
     }
     if (returnBtn) {
-        returnBtn.style.display = canReturn ? 'inline-flex' : 'none';
+        returnBtn.style.display = 'inline-flex';
         returnBtn.disabled = !canReturn;
+        returnBtn.style.opacity = canReturn ? '1' : '0.35';
+        returnBtn.style.cursor = canReturn ? 'pointer' : 'not-allowed';
+        returnBtn.classList.toggle('return-highlight', canReturn);
     }
 }
 
@@ -35858,7 +36530,7 @@ window.viewPreviousShiCiQuestion = viewPreviousShiCiQuestion;
 function returnToCurrentShiCiQuestion() {
     if (!shiciState || !shiciState.pool) return;
     if (typeof shiciState.maxReachedIdx === 'number' && shiciState.currentIdx < shiciState.maxReachedIdx) {
-        shiciState.currentIdx = shiciState.maxReachedIdx;
+        shiciState.currentIdx++;
         renderShiCiQuestion();
     }
 }
@@ -35931,8 +36603,17 @@ function renderShiCiQuestion() {
     const expCard = document.getElementById('shici-explanation-card');
     const actionBtn = document.getElementById('btn-shici-action');
     const actionText = document.getElementById('btn-shici-action-text');
+    const isPreMastered = !alreadyAnswered && Boolean(shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
     if (alreadyAnswered) {
         displayShiCiExplanation(q, Boolean(q.isCorrect));
+        const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+        if (actionBtn) {
+            actionBtn.className = 'single-next-btn';
+            actionBtn.style.display = 'flex';
+        }
+        if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+    } else if (isPreMastered) {
+        if (expCard) expCard.style.display = 'none';
         const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
         if (actionBtn) {
             actionBtn.className = 'single-next-btn';
@@ -36069,6 +36750,15 @@ function revealShiCiAnswer() {
 }
 
 function handleShiCiActionClick() {
+    const q = (shiciState && shiciState.pool) ? shiciState.pool[shiciState.currentIdx] : null;
+    const isPreMastered = Boolean(q && !shiciState.answered && shiciProgress && shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
+    if (isPreMastered) {
+        q.answered = true;
+        q.isCorrect = true;
+        q.skippedAsMastered = true;
+        nextShiCiQuestion();
+        return;
+    }
     if (!shiciState.answered) {
         revealShiCiAnswer();
     } else {
@@ -36186,6 +36876,19 @@ function toggleCurrentShiCiMastered() {
     }
     saveShiCiState();
     updateShiCiMasterBtn(isNow);
+
+    if (!shiciState.answered) {
+        const actionBtn = document.getElementById('btn-shici-action');
+        const actionText = document.getElementById('btn-shici-action-text');
+        const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+        if (isNow) {
+            if (actionBtn) actionBtn.className = 'single-next-btn';
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        } else {
+            if (actionBtn) actionBtn.className = 'single-next-btn show-answer-mode';
+            if (actionText) actionText.innerText = '看答案';
+        }
+    }
 
     // 同时与全局熟词本打通
     if (typeof toggleMasteredWord === 'function') {
@@ -38057,7 +38760,7 @@ function toggleExpandableSearch(wrapId, inputId) {
         wrap.classList.add('expanded');
         const input = document.getElementById(inputId);
         if (input) {
-            input.focus();
+            setTimeout(() => input.focus(), 60);
         }
     }
 }
@@ -38074,6 +38777,36 @@ function closeExpandableSearch(wrapId, inputId) {
     }
 }
 window.closeExpandableSearch = closeExpandableSearch;
+
+function buildMasteredWordRowHtml(item) {
+    const word = typeof item === 'string' ? item : item.word;
+    const phone = typeof item === 'string' ? '' : (item.phone || '');
+    const meaning = typeof item === 'string' ? '' : (item.meaning || '');
+    const isShiCi = isShiCiItem(item);
+
+    return `
+        <div class="bc-unified-item no-expand">
+            <div class="bc-item-header"${meaning ? ' style="padding-bottom:4px;"' : ''}>
+                <div class="bc-item-title-meta">
+                    <span class="bc-headword">${escapeHtml(word)}</span>
+                    ${phone ? `<span class="bc-phone">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
+                    ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
+                </div>
+                <div class="bc-item-actions">
+                    ${!isShiCi ? `
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    ` : ''}
+                    <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
+                        <span class="material-symbols-rounded">check_circle</span>
+                    </button>
+                </div>
+            </div>
+            ${meaning ? `<div class="bc-sub-meaning-row"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+        </div>
+    `;
+}
 
 /* Settings 熟词本页面渲染逻辑 */
 function renderMasteredWordsInSettings() {
@@ -38103,35 +38836,7 @@ function renderMasteredWordsInSettings() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = list.map((item, idx) => {
-        const word = typeof item === 'string' ? item : item.word;
-        const phone = typeof item === 'string' ? '' : (item.phone || '');
-        const meaning = typeof item === 'string' ? '' : (item.meaning || '');
-        const isShiCi = isShiCiItem(item);
-
-        return `
-            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
-                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                    </div>
-                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                        ${!isShiCi ? `
-                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                            <span class="material-symbols-rounded">volume_up</span>
-                        </button>
-                        ` : ''}
-                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
-                        </button>
-                    </div>
-                </div>
-                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = list.map(buildMasteredWordRowHtml).join('');
 }
 
 function handleUnmarkMastered(word) {
@@ -38180,35 +38885,31 @@ function filterMasteredWordsDisplay() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = filtered.map((item, idx) => {
-        const word = typeof item === 'string' ? item : item.word;
-        const phone = typeof item === 'string' ? '' : (item.phone || '');
-        const meaning = typeof item === 'string' ? '' : (item.meaning || '');
-        const isShiCi = isShiCiItem(item);
+    container.innerHTML = filtered.map(buildMasteredWordRowHtml).join('');
+}
 
-        return `
-            <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-                <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                        <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(word)}</span>
-                        ${phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(phone))}</span>` : ''}
-                        ${isShiCi ? `<span class="badge" style="background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container); font-size:0.72rem; font-weight:700;">文言实词</span>` : ''}
-                    </div>
-                    <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                        ${!isShiCi ? `
-                        <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(word)}')" title="发音">
-                            <span class="material-symbols-rounded">volume_up</span>
-                        </button>
-                        ` : ''}
-                        <button type="button" class="btn-circle-icon-action bc-mastered-btn mastered" onclick="handleUnmarkMastered('${escapeHtml(word)}')" title="取消熟词标记">
-                            <span class="material-symbols-rounded" style="color:#16a34a;">check_circle</span>
-                        </button>
-                    </div>
+function buildTrashWordRowHtml(item) {
+    const bookNameClean = (item.originalBookName || '原词书').replace(/^[📂📁\s]+/, '');
+    return `
+        <div class="bc-unified-item no-expand">
+            <div class="bc-item-header"${item.meaning ? ' style="padding-bottom:4px;"' : ''}>
+                <div class="bc-item-title-meta">
+                    <span class="bc-headword">${escapeHtml(item.word)}</span>
+                    ${item.phone ? `<span class="bc-phone">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
+                    <span class="bc-source-badge">来源：${escapeHtml(bookNameClean)}</span>
                 </div>
-                ${meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(meaning)}</span></div>` : ''}
+                <div class="bc-item-actions">
+                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
+                        <span class="material-symbols-rounded">volume_up</span>
+                    </button>
+                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
+                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
+                    </button>
+                </div>
             </div>
-        `;
-    }).join('');
+            ${item.meaning ? `<div class="bc-sub-meaning-row"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
+        </div>
+    `;
 }
 
 /* 渲染回收站完整列表 */
@@ -38236,26 +38937,7 @@ function renderTrashWordsInSettings() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = trash.map(item => `
-        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
-                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
-                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
-                </div>
-                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
-                        <span class="material-symbols-rounded">volume_up</span>
-                    </button>
-                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
-                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
-                    </button>
-                </div>
-            </div>
-            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
-        </div>
-    `).join('');
+    container.innerHTML = trash.map(buildTrashWordRowHtml).join('');
 }
 
 /* 搜索过滤回收站词汇 */
@@ -38290,26 +38972,7 @@ function filterTrashWordsDisplay() {
     }
 
     container.className = 'book-content-unified-card';
-    container.innerHTML = filtered.map(item => `
-        <div class="bc-unified-item" style="padding: 12px 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);">
-            <div class="bc-item-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="bc-item-title-meta" style="display:flex; align-items:center; gap:8px;">
-                    <span class="bc-headword" style="font-size:1.05rem; font-weight:500; color:var(--md-sys-color-on-surface);">${escapeHtml(item.word)}</span>
-                    ${item.phone ? `<span class="bc-phone" style="font-size:0.8rem; color:var(--md-sys-color-outline); background:var(--md-sys-color-surface-container-high, #f1f5f9); padding:2px 8px; border-radius:12px;">${escapeHtml(formatPhonetic(item.phone))}</span>` : ''}
-                    <span style="font-size:0.75rem; color:var(--md-sys-color-outline);">来源：${escapeHtml((item.originalBookName || '原词书').replace(/^[📂📁\s]+/, ''))}</span>
-                </div>
-                <div class="bc-item-actions" style="display:flex; align-items:center; gap:6px;">
-                    <button type="button" class="btn-circle-icon-action" onclick="playWordAudio('${escapeHtml(item.word)}')" title="发音">
-                        <span class="material-symbols-rounded">volume_up</span>
-                    </button>
-                    <button type="button" class="btn-circle-icon-action" onclick="restoreTrashWord('${item.id}')" title="恢复至词书">
-                        <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">restore_from_trash</span>
-                    </button>
-                </div>
-            </div>
-            ${item.meaning ? `<div class="bc-meaning-row" style="margin-top:6px; font-size:0.88rem; color:var(--md-sys-color-on-surface-variant);"><span class="bc-meaning-text">${escapeHtml(item.meaning)}</span></div>` : ''}
-        </div>
-    `).join('');
+    container.innerHTML = filtered.map(buildTrashWordRowHtml).join('');
 }
 
 var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.11.0';

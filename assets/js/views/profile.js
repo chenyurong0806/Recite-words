@@ -89,21 +89,16 @@ function removeWordMastered(word) {
 
 function toggleCurrentWordMastered() {
     if (!singleState || !singleState.pool || singleState.currentIdx >= singleState.pool.length) return;
-    // 只有在答完题后才能标注熟词
-    if (!singleState.answered) {
-        if (typeof showToast === 'function') showToast('请先作答，答题后方可标注熟词');
-        return;
-    }
     const q = singleState.pool[singleState.currentIdx];
     if (!q || !q.word) return;
     const nowMastered = toggleMasteredWord(q.word, q.phone, q.meaning);
     updateSingleCardToolbar(q);
+    const targetClean = (q.word || '').trim().toLowerCase();
     if (nowMastered) {
-        // 标注熟词后播放加星动画，不立刻跳到下一题
+        // 标注熟词后播放加星动画，允许继续答题或直接点击“下一题”
         renderCardMasteryDiamonds(q.word, 'gain');
 
         // 标为熟词后，在本组学习中也不要再抽取：过滤后续待学 pool 中该词的所有项（含错题即时复测题）
-        const targetClean = (q.word || '').trim().toLowerCase();
         const currentIdx = singleState.currentIdx;
         const prevItems = singleState.pool.slice(0, currentIdx + 1);
         const remainingItems = singleState.pool.slice(currentIdx + 1).filter(item => (item.word || '').trim().toLowerCase() !== targetClean);
@@ -119,7 +114,26 @@ function toggleCurrentWordMastered() {
         }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
+        if (!q.answered && singleState.completedWords) {
+            singleState.completedWords.delete(targetClean);
+        }
         renderCardMasteryDiamonds(q.word, 'loss');
+        saveSingleProgress();
+    }
+
+    // 未答题状态下，若已标为熟词，底部按钮切换为“下一题”，取消标注则恢复“看答案”
+    if (!singleState.answered) {
+        const nextBtn = document.getElementById('single-next-btn');
+        if (nextBtn) {
+            nextBtn.style.display = 'flex';
+            if (nowMastered) {
+                nextBtn.className = 'single-next-btn';
+                nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
+            } else {
+                nextBtn.className = 'single-next-btn show-answer-mode';
+                nextBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;">skip_next</span><span class="btn-label-text">看答案</span>';
+            }
+        }
     }
 }
 
@@ -298,17 +312,10 @@ function updateSingleCardToolbar(q) {
     const masterBtn = document.getElementById('btn-card-master');
     if (masterBtn) {
         masterBtn.classList.toggle('active', isMastered);
-        if (singleState && singleState.answered) {
-            masterBtn.disabled = false;
-            masterBtn.style.opacity = '1';
-            masterBtn.style.cursor = 'pointer';
-            masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
-        } else {
-            masterBtn.disabled = true;
-            masterBtn.style.opacity = '0.35';
-            masterBtn.style.cursor = 'not-allowed';
-            masterBtn.title = '答题后方可标注熟词';
-        }
+        masterBtn.disabled = false;
+        masterBtn.style.opacity = '1';
+        masterBtn.style.cursor = 'pointer';
+        masterBtn.title = isMastered ? '已标注熟词（点击取消）' : '标注熟词（不再抽取）';
         masterBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">${isMastered ? 'check_circle' : 'check_circle_outline'}</span>`;
     }
 
@@ -363,7 +370,7 @@ function updateSingleCardToolbar(q) {
         }
     }
 
-    // 控制“上一个”与“返回”按钮
+    // 控制“上一个”与“下一个”按钮
     const prevBtn = document.getElementById('btn-card-prev');
     const returnBtn = document.getElementById('btn-card-return');
     if (singleState) {
@@ -379,8 +386,11 @@ function updateSingleCardToolbar(q) {
             prevBtn.style.cursor = canGoPrev ? 'pointer' : 'not-allowed';
         }
         if (returnBtn) {
-            returnBtn.style.display = canReturn ? 'inline-flex' : 'none';
+            returnBtn.style.display = 'inline-flex';
             returnBtn.disabled = !canReturn;
+            returnBtn.style.opacity = canReturn ? '1' : '0.35';
+            returnBtn.style.cursor = canReturn ? 'pointer' : 'not-allowed';
+            returnBtn.classList.toggle('return-highlight', canReturn);
         }
     }
 }
@@ -406,7 +416,7 @@ function returnToCurrentSingleQuestion() {
             clearTimeout(singlePhraseTimer);
             singlePhraseTimer = null;
         }
-        singleState.currentIdx = singleState.maxReachedIdx;
+        singleState.currentIdx++;
         renderSingleQuestion();
     }
 }
@@ -524,7 +534,8 @@ function renderSingleQuestion() {
     const nextBtn = document.getElementById('single-next-btn');
     if (nextBtn) {
         nextBtn.style.display = 'flex';
-        if (alreadyAnswered) {
+        const isPreMastered = !alreadyAnswered && typeof isWordMastered === 'function' && isWordMastered(q.word);
+        if (alreadyAnswered || isPreMastered) {
             nextBtn.className = 'single-next-btn';
             nextBtn.innerHTML = '<span class="btn-label-text">下一题</span><span class="material-symbols-rounded" style="font-size:20px;">arrow_forward</span>';
         } else {
@@ -1122,7 +1133,13 @@ function nextSingleQuestion(forceAdvance = false) {
         clearTimeout(singlePhraseTimer);
         singlePhraseTimer = null;
     }
-    if (!forceAdvance && !singleState.answered) {
+    const q = (singleState && singleState.pool) ? singleState.pool[singleState.currentIdx] : null;
+    const isMasteredUnanswered = Boolean(q && !singleState.answered && typeof isWordMastered === 'function' && isWordMastered(q.word));
+    if (isMasteredUnanswered) {
+        q.answered = true;
+        q.isCorrect = true;
+        q.skippedAsMastered = true;
+    } else if (!forceAdvance && !singleState.answered) {
         revealSingleAnswer();
         return;
     }
@@ -1645,14 +1662,16 @@ function renderMeView() {
     if (elTodayWords) elTodayWords.innerText = todayW;
     if (elTotalWords) elTotalWords.innerText = totalW;
     if (elTodayDuration) {
-        elTodayDuration.innerText = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
+        const todayDurStr = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
             ? DailyStudyTracker.formatDuration(summaryStats.todayDurationSeconds || 0)
             : '0分钟';
+        elTodayDuration.innerHTML = formatDurationAccentHtml(todayDurStr);
     }
     if (elTotalDuration) {
-        elTotalDuration.innerText = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
+        const totalDurStr = (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
             ? DailyStudyTracker.formatDuration(summaryStats.totalDurationSeconds || 0)
             : '0分钟';
+        elTotalDuration.innerHTML = formatDurationAccentHtml(totalDurStr);
     }
 
     // 兼容旧统计元素
@@ -1799,61 +1818,84 @@ function renderMeRecentBookCard() {
         : null;
     const hasUpdate = Boolean(bookMeta && bookMeta.isCloud && bookMeta.syncStatus === 'update_available');
 
+    const supportsSections = (typeof doesBookSupportSections === 'function') ? doesBookSupportSections(book) : false;
+    const supportsTypes = (typeof doesBookSupportTypes === 'function') ? doesBookSupportTypes(book) : false;
+    const sectionSummary = (supportsSections && typeof getBookSectionFilterSummaryText === 'function')
+        ? getBookSectionFilterSummaryText(book.id)
+        : '全部板块';
+    const typeSummary = (supportsTypes && typeof getBookTypeFilterSummaryText === 'function')
+        ? getBookTypeFilterSummaryText(book.id)
+        : '全部类型';
+
+    const scopeButtonsHtml = [
+        supportsSections
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
+                   <span class="material-symbols-rounded" style="font-size:13px;">segment</span>
+                   <span>${escapeHtml(sectionSummary)}</span>
+                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+               </button>`
+            : '',
+        supportsTypes
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
+                   <span class="material-symbols-rounded" style="font-size:13px;">filter_list</span>
+                   <span>${escapeHtml(typeSummary)}</span>
+                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+               </button>`
+            : ''
+    ].filter(Boolean).join('');
+
     container.innerHTML = `
         <div class="me-recent-book-card">
             <div class="me-recent-book-top">
-                <div class="book-cover-wrap me-recent-book-cover-wrap" onclick="openBookContentPage('${escapedId}')" title="点击查看词书内容" style="cursor:pointer; width:64px; height:86px; border-radius:8px; box-shadow:0 3px 10px rgba(0,0,0,0.15); flex-shrink:0;">
+                <div class="book-cover-wrap me-recent-book-cover-wrap" onclick="openBookContentPage('${escapedId}')" title="点击查看词书内容">
                     ${coverUrl ? `<img src="${coverUrl}" class="book-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
                     <div class="book-cover-art" style="background:${gradient}; ${coverUrl ? 'display:none;' : ''}">
-                        <span class="book-cover-art-title" style="font-size:0.75rem;">${escapeHtml(title)}</span>
+                        <span class="book-cover-art-title">${escapeHtml(title)}</span>
                     </div>
                 </div>
-                <div class="me-recent-book-info" onclick="openBookContentPage('${escapedId}')" style="cursor:pointer;">
-                    <div class="me-recent-book-title-row">
+                <div class="me-recent-book-info">
+                    <div class="me-recent-book-title-row" onclick="openBookContentPage('${escapedId}')" style="cursor:pointer;">
                         <span class="me-recent-book-title">${escapeHtml(title)}</span>
-                        <span class="me-recent-book-badge">最近学习</span>
+                        <span class="material-symbols-rounded me-recent-book-title-arrow">chevron_right</span>
                     </div>
-                    <div class="me-recent-book-meta">
-                        <span>共 ${total} 词</span>
-                        ${scopeSummary ? `<span class="me-recent-book-scope-pill">${escapeHtml(scopeSummary)}</span>` : ''}
+                    ${scopeButtonsHtml ? `<div class="me-recent-book-meta">${scopeButtonsHtml}</div>` : ''}
+                    <div class="me-recent-book-inline-progress">
+                        <div class="me-recent-book-progress-labels">
+                            <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
+                            <span class="me-recent-book-progress-pct">${pct}%</span>
+                        </div>
+                        <div class="me-recent-book-progress-track">
+                            <div class="me-recent-book-progress-fill" style="width:${pct}%;"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="me-recent-book-actions-wrap" style="position:relative;">
-                    <button type="button" class="icon-btn me-recent-book-more-btn" onclick="toggleMeRecentBookMenu(event, '${escapedId}')" title="更多操作">
+                    <button type="button" id="me-recent-book-more-btn" class="icon-btn me-recent-book-more-btn" onclick="toggleMeRecentBookMenu(event, '${escapedId}')" title="更多操作">
                         <span class="material-symbols-rounded">more_horiz</span>
                     </button>
                     <div id="me-recent-book-more-menu" class="me-recent-book-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}', event)">
                             <span class="material-symbols-rounded">tune</span>
                             <span>选择学习范围</span>
                         </button>
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}', event)">
                             <span class="material-symbols-rounded">visibility</span>
                             <span>查看内容</span>
                         </button>
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('reset', '${escapedId}')">
+                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('reset', '${escapedId}', event)">
                             <span class="material-symbols-rounded">restart_alt</span>
                             <span>重学词书</span>
                         </button>
-                        <button type="button" class="book-action-item" ${!hasUpdate ? 'disabled style="opacity:0.45; cursor:not-allowed;" title="已是最新版本"' : `onclick="handleMeRecentBookAction('update', '${escapedId}')"`}>
+                        <button type="button" class="book-action-item" ${!hasUpdate ? 'disabled style="opacity:0.45; cursor:not-allowed;" title="已是最新版本"' : `onclick="handleMeRecentBookAction('update', '${escapedId}', event)"`}>
                             <span class="material-symbols-rounded">cloud_sync</span>
                             <span>更新词书</span>
                         </button>
                         <div style="height:1px; background:var(--md-sys-color-outline-variant, #e2e8f0); margin:4px 6px;"></div>
-                        <button type="button" class="book-action-item danger" onclick="handleMeRecentBookAction('delete', '${escapedId}')">
+                        <button type="button" class="book-action-item danger" onclick="handleMeRecentBookAction('delete', '${escapedId}', event)">
                             <span class="material-symbols-rounded">delete</span>
                             <span>删除词书</span>
                         </button>
                     </div>
-                </div>
-            </div>
-            <div class="me-recent-book-progress-box">
-                <div class="me-recent-book-progress-labels">
-                    <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
-                    <span class="me-recent-book-progress-pct">${pct}%</span>
-                </div>
-                <div class="me-recent-book-progress-track">
-                    <div class="me-recent-book-progress-fill" style="width:${pct}%;"></div>
                 </div>
             </div>
         </div>
@@ -1861,11 +1903,216 @@ function renderMeRecentBookCard() {
 }
 window.renderMeRecentBookCard = renderMeRecentBookCard;
 
+function closeMeRecentBookScopeMenu() {
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (scopeMenu) {
+        scopeMenu.style.display = 'none';
+        scopeMenu.classList.remove('align-right', 'flip-up');
+    }
+}
+window.closeMeRecentBookScopeMenu = closeMeRecentBookScopeMenu;
+
+async function openMeRecentBookScopeMenu(bookId, anchorEl, event) {
+    if (event) {
+        event.stopPropagation();
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+    }
+    const moreMenu = document.getElementById('me-recent-book-more-menu');
+    if (moreMenu) moreMenu.style.display = 'none';
+
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (!scopeMenu || !bookId || typeof BookManager === 'undefined') return;
+
+    const book = BookManager.getBookMeta ? BookManager.getBookMeta(bookId) : null;
+    if (!book) return;
+
+    const supportsSections = typeof doesBookSupportSections === 'function' ? doesBookSupportSections(book) : false;
+    const supportsTypes = typeof doesBookSupportTypes === 'function' ? doesBookSupportTypes(book) : false;
+    if (!supportsSections && !supportsTypes) {
+        if (typeof showToast === 'function') showToast('该词书默认学习全部词汇');
+        return;
+    }
+
+    const anchor = anchorEl || document.getElementById('me-recent-book-more-btn');
+    scopeMenu.dataset.bookId = bookId;
+    scopeMenu.innerHTML = `<div style="padding:14px; text-align:center; font-size:0.82rem; color:var(--md-sys-color-outline);">加载范围中...</div>`;
+
+    if (typeof mountAnchoredBookDropdown === 'function' && anchor) {
+        mountAnchoredBookDropdown(scopeMenu, anchor, 'right');
+    } else {
+        scopeMenu.style.display = 'flex';
+    }
+
+    const words = supportsSections ? await BookManager.loadBookData(bookId) : [];
+    if (scopeMenu.dataset.bookId !== bookId) return;
+
+    const sectionCounts = {};
+    const sectionList = [];
+    if (supportsSections && Array.isArray(words)) {
+        words.forEach(w => {
+            if (!w) return;
+            const sec = (w.section || '').trim().toLowerCase();
+            if (sec) {
+                if (!sectionCounts[sec]) {
+                    sectionCounts[sec] = 0;
+                    sectionList.push(sec);
+                }
+                sectionCounts[sec]++;
+            }
+        });
+        if (sectionList.length === 0 && words.length > 0) {
+            const letterSet = new Set();
+            words.forEach(w => {
+                const first = (w.word || '').trim().charAt(0).toLowerCase();
+                if (/^[a-z]$/.test(first)) {
+                    letterSet.add(first);
+                    sectionCounts[first] = (sectionCounts[first] || 0) + 1;
+                }
+            });
+            if (letterSet.size >= 2) {
+                sectionList.push(...Array.from(letterSet).sort());
+            }
+        } else {
+            sectionList.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+    }
+
+    const savedFilter = BookManager.getBookStudyFilter(bookId) || {};
+    const escapedBookId = escapeHtml(bookId);
+    const hasSectionOpts = supportsSections && sectionList.length > 0;
+    const selectedSet = (savedFilter && Array.isArray(savedFilter.sections) && !savedFilter.isAll)
+        ? new Set(savedFilter.sections.map(s => s.toLowerCase()))
+        : null;
+    const isAllSecSelected = hasSectionOpts && (!selectedSet || selectedSet.size >= sectionList.length);
+
+    const isAllTypes = !savedFilter.types || savedFilter.types.length === 0 || savedFilter.types.length === 2;
+    const isWordChecked = isAllTypes || savedFilter.types.includes('word');
+    const isPhraseChecked = isAllTypes || savedFilter.types.includes('phrase');
+
+    scopeMenu.innerHTML = `
+        <div class="book-dd-header" style="padding:8px 10px 6px;">
+            <span class="book-dd-title"><span class="material-symbols-rounded" style="font-size:16px; margin-right:4px;">tune</span>选择学习范围</span>
+            ${hasSectionOpts ? `<label class="book-dd-select-all-chip" style="cursor:pointer;">
+                <input type="checkbox" id="me-scope-all-sections" ${isAllSecSelected ? 'checked' : ''} onchange="toggleAllMeScopeSections('${escapedBookId}', this.checked)">
+                <span>全选分类</span>
+            </label>` : ''}
+        </div>
+        ${hasSectionOpts ? `
+        <div class="me-scope-section-title">词书分类</div>
+        <div class="me-scope-sections-list">
+            ${sectionList.map(sec => {
+                const checked = selectedSet ? selectedSet.has(sec) : true;
+                return `<label class="book-dd-check-row ${checked ? 'active' : ''}">
+                    <input type="checkbox" class="me-scope-sec-cb book-dd-checkbox" value="${escapeHtml(sec)}" ${checked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}')">
+                    <span class="book-dd-row-name">${escapeHtml(sec.toUpperCase())}</span>
+                    <span class="book-dd-row-count">${sectionCounts[sec] || 0} 词</span>
+                </label>`;
+            }).join('')}
+        </div>` : ''}
+        ${supportsTypes ? `
+        <div class="me-scope-section-title">词条类型</div>
+        <div class="me-scope-types-list">
+            <label class="book-dd-check-row ${isWordChecked ? 'active' : ''}">
+                <input type="checkbox" id="me-scope-type-word" class="book-dd-checkbox" ${isWordChecked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}', 'word')">
+                <span class="book-dd-row-name">单词</span>
+            </label>
+            <label class="book-dd-check-row ${isPhraseChecked ? 'active' : ''}">
+                <input type="checkbox" id="me-scope-type-phrase" class="book-dd-checkbox" ${isPhraseChecked ? 'checked' : ''} onchange="handleMeScopeOptionChange('${escapedBookId}', 'phrase')">
+                <span class="book-dd-row-name">词组</span>
+            </label>
+        </div>` : ''}
+        <div class="me-scope-footer">
+            <button type="button" class="btn btn-filled btn-sm" style="width:100%; height:32px; border-radius:99px;" onclick="closeMeRecentBookScopeMenu()">完成</button>
+        </div>
+    `;
+
+    if (typeof mountAnchoredBookDropdown === 'function' && anchor) {
+        mountAnchoredBookDropdown(scopeMenu, anchor, 'right');
+    }
+}
+window.openMeRecentBookScopeMenu = openMeRecentBookScopeMenu;
+
+function toggleAllMeScopeSections(bookId, checked) {
+    const cbs = Array.from(document.querySelectorAll('#me-recent-book-scope-menu .me-scope-sec-cb'));
+    if (cbs.length === 0) return;
+    if (!checked && cbs.length > 0) {
+        // 至少保留第一项，避免空选
+        cbs.forEach((cb, i) => {
+            cb.checked = i === 0;
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.toggle('active', cb.checked);
+        });
+    } else {
+        cbs.forEach(cb => {
+            cb.checked = true;
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.add('active');
+        });
+    }
+    handleMeScopeOptionChange(bookId);
+}
+window.toggleAllMeScopeSections = toggleAllMeScopeSections;
+
+function handleMeScopeOptionChange(bookId, changedType = null) {
+    if (!bookId || typeof BookManager === 'undefined') return;
+    const secCbs = Array.from(document.querySelectorAll('#me-recent-book-scope-menu .me-scope-sec-cb'));
+    if (secCbs.length > 0) {
+        const checkedSec = secCbs.filter(cb => cb.checked);
+        if (checkedSec.length === 0) {
+            secCbs[0].checked = true;
+        }
+        secCbs.forEach(cb => {
+            const row = cb.closest('.book-dd-check-row');
+            if (row) row.classList.toggle('active', cb.checked);
+        });
+        const allSecCb = document.getElementById('me-scope-all-sections');
+        if (allSecCb) {
+            allSecCb.checked = secCbs.every(cb => cb.checked);
+        }
+    }
+
+    const wordCb = document.getElementById('me-scope-type-word');
+    const phraseCb = document.getElementById('me-scope-type-phrase');
+    if (wordCb && phraseCb) {
+        if (!wordCb.checked && !phraseCb.checked) {
+            if (changedType === 'word') phraseCb.checked = true;
+            else wordCb.checked = true;
+        }
+        const wordRow = wordCb.closest('.book-dd-check-row');
+        const phraseRow = phraseCb.closest('.book-dd-check-row');
+        if (wordRow) wordRow.classList.toggle('active', wordCb.checked);
+        if (phraseRow) phraseRow.classList.toggle('active', phraseCb.checked);
+    }
+
+    const curFilter = BookManager.getBookStudyFilter(bookId) || {};
+    if (secCbs.length > 0) {
+        const selectedSections = secCbs.filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
+        const isAllSecs = selectedSections.length === secCbs.length;
+        curFilter.sections = isAllSecs ? null : selectedSections;
+    }
+    if (wordCb && phraseCb) {
+        const allowW = wordCb.checked;
+        const allowP = phraseCb.checked;
+        curFilter.types = (allowW && allowP) ? null : [allowW ? 'word' : null, allowP ? 'phrase' : null].filter(Boolean);
+    }
+    const isAllSecsFinal = !curFilter.sections || curFilter.sections.length === 0;
+    const isAllTypesFinal = !curFilter.types || curFilter.types.length === 0 || curFilter.types.length === 2;
+    curFilter.isAll = isAllSecsFinal && isAllTypesFinal;
+
+    BookManager.setBookStudyFilter(bookId, curFilter);
+    renderMeRecentBookCard();
+    if (typeof renderBookSelectorPage === 'function') renderBookSelectorPage();
+    if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+    if (typeof renderSingleBookList === 'function') renderSingleBookList();
+}
+window.handleMeScopeOptionChange = handleMeScopeOptionChange;
+
 function toggleMeRecentBookMenu(event, bookId) {
     if (event) {
         event.stopPropagation();
         if (typeof event.preventDefault === 'function') event.preventDefault();
     }
+    closeMeRecentBookScopeMenu();
     const menu = document.getElementById('me-recent-book-more-menu');
     if (!menu) return;
     const isVisible = menu.style.display === 'flex';
@@ -1881,17 +2128,23 @@ document.addEventListener('pointerdown', (e) => {
             menu.style.display = 'none';
         }
     }
+    const scopeMenu = document.getElementById('me-recent-book-scope-menu');
+    if (scopeMenu && scopeMenu.style.display !== 'none') {
+        if (!scopeMenu.contains(e.target) && !(e.target.closest && e.target.closest('.me-recent-book-scope-pill'))) {
+            closeMeRecentBookScopeMenu();
+        }
+    }
 });
 
-async function handleMeRecentBookAction(action, bookId) {
+async function handleMeRecentBookAction(action, bookId, event) {
+    if (event) event.stopPropagation();
     const menu = document.getElementById('me-recent-book-more-menu');
     if (menu) menu.style.display = 'none';
     if (!bookId) return;
 
     if (action === 'scope') {
-        if (typeof openBookScopeModalForBook === 'function') {
-            openBookScopeModalForBook(bookId);
-        }
+        const btn = document.getElementById('me-recent-book-more-btn');
+        await openMeRecentBookScopeMenu(bookId, btn, event);
     } else if (action === 'content') {
         if (typeof openBookContentPage === 'function') {
             openBookContentPage(bookId);
@@ -2003,166 +2256,349 @@ function switchDetailedStatsRange(range) {
 }
 window.switchDetailedStatsRange = switchDetailedStatsRange;
 
+function formatDurationAccentHtml(durText) {
+    const raw = String(durText || '0分钟');
+    return escapeHtml(raw).replace(/(\d+(?:\.\d+)?)/g, '<span class="stat-num">$1</span>').replace(/([^\d<>]+)(?=<span|$)/g, (m) => {
+        if (m.includes('stat-num')) return m;
+        return m ? `<small>${m}</small>` : '';
+    });
+}
+
+const detailedChartLabelState = {
+    words: true,
+    duration: false
+};
+let detailedStatsSelectedDateKey = null;
+
+function toggleDetailedChartLabels(chartType, checked) {
+    if (chartType !== 'words' && chartType !== 'duration') return;
+    detailedChartLabelState[chartType] = Boolean(checked);
+    renderDetailedStatsSubview(currentDetailedStatsRange);
+}
+window.toggleDetailedChartLabels = toggleDetailedChartLabels;
+
+function selectDetailedStatsDay(dateKey) {
+    if (!dateKey || detailedStatsSelectedDateKey === dateKey) {
+        detailedStatsSelectedDateKey = null;
+    } else {
+        detailedStatsSelectedDateKey = dateKey;
+    }
+    renderDetailedStatsSubview(currentDetailedStatsRange);
+}
+window.selectDetailedStatsDay = selectDetailedStatsDay;
+
+function computeNiceAxisCeiling(rawMax, minFloor = 10) {
+    const v = Math.max(minFloor, rawMax || 0);
+    if (v <= 10) return 10;
+    if (v <= 20) return 20;
+    if (v <= 50) return Math.ceil(v / 10) * 10;
+    if (v <= 200) return Math.ceil(v / 20) * 20;
+    if (v <= 500) return Math.ceil(v / 50) * 50;
+    return Math.ceil(v / 100) * 100;
+}
+
+function renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal, unitSuffix = '' }) {
+    const midVal = Math.round(maxVal / 2);
+    const baselineY = padT + plotH;
+    const midY = padT + plotH / 2;
+    return `
+        <line x1="${padL}" y1="${padT}" x2="${svgW - padR}" y2="${padT}" stroke="#e2e8f0" stroke-dasharray="3 3" />
+        <line x1="${padL}" y1="${midY}" x2="${svgW - padR}" y2="${midY}" stroke="#e2e8f0" stroke-dasharray="3 3" />
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${baselineY}" stroke="#cbd5e1" stroke-width="1" />
+        <line x1="${padL}" y1="${baselineY}" x2="${svgW - padR}" y2="${baselineY}" stroke="#cbd5e1" stroke-width="1.2" />
+        <text x="${padL - 8}" y="${padT + 4}" text-anchor="end" class="detailed-axis-text">${maxVal}${unitSuffix}</text>
+        <text x="${padL - 8}" y="${midY + 4}" text-anchor="end" class="detailed-axis-text">${midVal}${unitSuffix}</text>
+        <text x="${padL - 8}" y="${baselineY + 4}" text-anchor="end" class="detailed-axis-text">0${unitSuffix}</text>
+    `;
+}
+
 function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
-    currentDetailedStatsRange = range || 'week';
+    const nextRange = range || 'week';
+    if (nextRange !== currentDetailedStatsRange) {
+        detailedStatsSelectedDateKey = null;
+    }
+    currentDetailedStatsRange = nextRange;
     const container = document.getElementById('detailed-stats-content');
     if (!container) return;
 
-    document.querySelectorAll('#detailed-stats-range-tabs .md3-seg-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-range') === currentDetailedStatsRange);
+    document.querySelectorAll('#detailed-stats-range-tabs .settings-cat-tab').forEach(btn => {
+        const isActive = btn.getAttribute('data-range') === currentDetailedStatsRange;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
     const daysCount = currentDetailedStatsRange === 'month' ? 30 : 7;
+    const rangeLabel = currentDetailedStatsRange === 'month' ? '近30天' : '近7天';
     const series = (window.DailyStudyTracker && typeof DailyStudyTracker.getRangeSeries === 'function')
         ? DailyStudyTracker.getRangeSeries(daysCount)
         : [];
-    const summary = (window.DailyStudyTracker && typeof DailyStudyTracker.getSummaryStats === 'function')
-        ? DailyStudyTracker.getSummaryStats()
-        : { todayWords: 0, totalWords: 0, todayDurationSeconds: 0, totalDurationSeconds: 0 };
+
+    if (detailedStatsSelectedDateKey && !series.some(d => d.dateKey === detailedStatsSelectedDateKey)) {
+        detailedStatsSelectedDateKey = null;
+    }
+    const selectedDay = detailedStatsSelectedDateKey
+        ? series.find(d => d.dateKey === detailedStatsSelectedDateKey) || null
+        : null;
 
     const periodDurationSec = series.reduce((acc, d) => acc + (d.durationSeconds || 0), 0);
     const periodLearned = series.reduce((acc, d) => acc + (d.learned || 0) + (d.shici || 0), 0);
     const periodReviewed = series.reduce((acc, d) => acc + (d.reviewed || 0), 0);
-    const periodRiddle = series.reduce((acc, d) => acc + (d.riddle || 0), 0);
     const activeDays = series.filter(d => (d.durationSeconds || 0) > 0 || (d.learned || 0) + (d.reviewed || 0) + (d.shici || 0) + (d.riddle || 0) > 0).length;
 
     const formatDur = (sec) => (window.DailyStudyTracker && typeof DailyStudyTracker.formatDuration === 'function')
         ? DailyStudyTracker.formatDuration(sec)
         : `${Math.round(sec / 60)}分钟`;
 
-    // 1. 学习时长趋势折线面积图 (SVG)
-    const maxDurMin = Math.max(10, ...series.map(d => Math.round((d.durationSeconds || 0) / 60)));
-    const svgW = 600;
-    const svgH = 170;
-    const padL = 36;
+    const svgW = 620;
+    const svgH = 225;
+    const padL = 44;
     const padR = 16;
-    const padT = 20;
+    const padT = 26;
     const padB = 30;
     const plotW = svgW - padL - padR;
     const plotH = svgH - padT - padB;
+    const baselineY = padT + plotH;
+    const labelStep = series.length > 10 ? 5 : 1;
+    const svgMonthClass = series.length > 10 ? ' detailed-chart-svg--month' : '';
+
+    // 1. 每日新学与复习词数 SVG 堆叠柱状图
+    const rawMaxWords = Math.max(0, ...series.map(d => (d.learned || 0) + (d.shici || 0) + (d.reviewed || 0)));
+    const niceMaxWords = computeNiceAxisCeiling(rawMaxWords, 10);
+    const slotW = series.length > 0 ? plotW / series.length : plotW;
+    const barW = series.length <= 10 ? Math.min(34, slotW * 0.44) : Math.max(11, Math.min(16, slotW * 0.68));
+    const showWordNums = detailedChartLabelState.words;
+
+    const wordBarsSvg = series.map((d, idx) => {
+        const learnCnt = (d.learned || 0) + (d.shici || 0);
+        const revCnt = d.reviewed || 0;
+        const totalCnt = learnCnt + revCnt;
+        const cx = padL + (idx + 0.5) * slotW;
+        const bx = cx - barW / 2;
+        const isSelected = Boolean(detailedStatsSelectedDateKey && d.dateKey === detailedStatsSelectedDateKey);
+
+        let learnH = learnCnt > 0 ? Math.max(4, (learnCnt / niceMaxWords) * plotH) : 0;
+        let revH = revCnt > 0 ? Math.max(4, (revCnt / niceMaxWords) * plotH) : 0;
+        if (learnH + revH > plotH && (learnH + revH) > 0) {
+            const scale = plotH / (learnH + revH);
+            learnH *= scale;
+            revH *= scale;
+        }
+
+        const gap = (learnH > 0 && revH > 0) ? 1.5 : 0;
+        const yLearn = baselineY - learnH;
+        const yRev = baselineY - learnH - gap - revH;
+        const topY = revH > 0 ? yRev : yLearn;
+        const barFontSize = series.length <= 10 ? 10.5 : 8.5;
+
+        let numLabelsSvg = '';
+        if (showWordNums && totalCnt > 0) {
+            const shortParts = [];
+            if (learnCnt > 0) {
+                if (learnH >= 15) {
+                    numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${(yLearn + learnH / 2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#ffffff">${learnCnt}</text>`;
+                } else {
+                    shortParts.push({ val: learnCnt, color: '#0061a4' });
+                }
+            }
+            if (revCnt > 0) {
+                if (revH >= 15) {
+                    numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${(yRev + revH / 2 + 3.5).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#ffffff">${revCnt}</text>`;
+                } else {
+                    shortParts.push({ val: revCnt, color: '#0d9488' });
+                }
+            }
+            if (shortParts.length === 1) {
+                numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${Math.max(padT - 6, topY - 4).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="${shortParts[0].color}">${shortParts[0].val}</text>`;
+            } else if (shortParts.length === 2) {
+                numLabelsSvg += `<text x="${cx.toFixed(1)}" y="${Math.max(padT - 6, topY - 4).toFixed(1)}" text-anchor="middle" font-size="${barFontSize}" font-weight="700" fill="#0f172a">${learnCnt}+${revCnt}</text>`;
+            }
+        }
+
+        const xTickSvg = (idx % labelStep === 0 || idx === series.length - 1 || isSelected)
+            ? `<text x="${cx.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${d.label}</text>`
+            : '';
+
+        return `
+            <g class="detailed-svg-bar-col" onclick="selectDetailedStatsDay('${d.dateKey}')">
+                <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词（点击查看当日详细数据）</title>
+                ${isSelected ? `<rect x="${(cx - slotW * 0.45).toFixed(1)}" y="${padT - 4}" width="${(slotW * 0.9).toFixed(1)}" height="${plotH + 6}" rx="6" fill="rgba(0, 97, 164, 0.08)" stroke="rgba(0, 97, 164, 0.25)" stroke-width="1" />` : ''}
+                ${learnH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yLearn.toFixed(1)}" width="${barW.toFixed(1)}" height="${learnH.toFixed(1)}" rx="3" fill="#0061a4" />` : ''}
+                ${revH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yRev.toFixed(1)}" width="${barW.toFixed(1)}" height="${revH.toFixed(1)}" rx="3" fill="#0d9488" />` : ''}
+                ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.9' : '0.6'}" />` : ''}
+                ${numLabelsSvg}
+                ${xTickSvg}
+                <rect x="${(cx - slotW / 2).toFixed(1)}" y="${padT - 6}" width="${slotW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
+            </g>
+        `;
+    }).join('');
+
+    // 2. 学习时长趋势折线面积图 (SVG)
+    const rawMaxDurMin = Math.max(0, ...series.map(d => (d.durationSeconds || 0) / 60));
+    const niceMaxDur = computeNiceAxisCeiling(Math.ceil(rawMaxDurMin), 10);
+    const avgDurMinRaw = (periodDurationSec / 60) / Math.max(1, daysCount);
+    const avgDurMin = Math.round(avgDurMinRaw * 10) / 10;
+    const avgDisplay = Number.isInteger(avgDurMin) ? `${avgDurMin}` : avgDurMin.toFixed(1);
+    const avgY = padT + plotH - Math.min(1, avgDurMin / niceMaxDur) * plotH;
 
     const points = series.map((d, i) => {
         const mins = Math.round(((d.durationSeconds || 0) / 60) * 10) / 10;
         const x = padL + (series.length > 1 ? (i / (series.length - 1)) * plotW : plotW / 2);
-        const y = padT + plotH - Math.min(1, mins / maxDurMin) * plotH;
+        const y = padT + plotH - Math.min(1, mins / niceMaxDur) * plotH;
         return { x, y, mins, label: d.label, dateKey: d.dateKey };
     });
 
     const polylinePoints = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const areaPath = points.length > 0
-        ? `M ${points[0].x.toFixed(1)},${(padT + plotH).toFixed(1)} L ` +
+        ? `M ${points[0].x.toFixed(1)},${baselineY.toFixed(1)} L ` +
           points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') +
-          ` L ${points[points.length - 1].x.toFixed(1)},${(padT + plotH).toFixed(1)} Z`
+          ` L ${points[points.length - 1].x.toFixed(1)},${baselineY.toFixed(1)} Z`
         : '';
+    const showDurNums = detailedChartLabelState.duration;
+    const pointStepW = series.length > 1 ? plotW / (series.length - 1) : plotW;
 
-    const labelStep = series.length > 10 ? 5 : 1;
-
-    // 1. 每日学习与复习词数柱状图 (放在学习时长趋势前面)
-    const maxWordsDay = Math.max(10, ...series.map(d => (d.learned || 0) + (d.shici || 0) + (d.reviewed || 0)));
+    const selLearn = selectedDay ? ((selectedDay.learned || 0) + (selectedDay.shici || 0)) : periodLearned;
+    const selRev = selectedDay ? (selectedDay.reviewed || 0) : periodReviewed;
+    const selDurSec = selectedDay ? (selectedDay.durationSeconds || 0) : periodDurationSec;
+    const wordsFooterPrefix = selectedDay ? `${selectedDay.label} ` : rangeLabel;
+    const durFooterLabel = selectedDay ? `${selectedDay.label} 学习时长` : `${rangeLabel}总时长`;
 
     container.innerHTML = `
-        <div class="detailed-stats-overview-grid">
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天总时长' : '近7天总时长'}</span>
-                <span class="detailed-stat-pill-val">${formatDur(periodDurationSec)}</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天新学' : '近7天新学'}</span>
-                <span class="detailed-stat-pill-val">${periodLearned} 词</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">${currentDetailedStatsRange === 'month' ? '近30天复习' : '近7天复习'}</span>
-                <span class="detailed-stat-pill-val">${periodReviewed} 词</span>
-            </div>
-            <div class="detailed-stat-pill">
-                <span class="detailed-stat-pill-label">活跃打卡天数</span>
-                <span class="detailed-stat-pill-val">${activeDays} / ${daysCount} 天</span>
-            </div>
-        </div>
-
-        <!-- 图表1：每日学习与复习词数柱状图 -->
+        <!-- 图表1：每日新学与复习词数 -->
         <div class="detailed-chart-card">
             <div class="detailed-chart-header">
-                <div>
-                    <div class="detailed-chart-title">每日新学与复习词数</div>
-                    <div class="detailed-chart-sub">蓝色为新学词数，青色为复习词数</div>
+                <div class="detailed-chart-title">每日新学与复习词数</div>
+                <div class="detailed-chart-controls detailed-chart-controls--stacked">
+                    <label class="detailed-chart-toggle-label">
+                        <span>显示详细数据</span>
+                        <span class="md3-switch detailed-chart-switch">
+                            <input type="checkbox" role="switch" ${showWordNums ? 'checked' : ''} onchange="toggleDetailedChartLabels('words', this.checked)">
+                            <span class="md3-switch-track"><span class="md3-switch-thumb"></span></span>
+                        </span>
+                    </label>
+                    <div class="detailed-chart-legend">
+                        <span><i style="background:#0061a4;"></i>新学</span>
+                        <span><i style="background:#0d9488;"></i>复习</span>
+                    </div>
                 </div>
-                <div class="detailed-chart-legend">
-                    <span><i style="background:#0061a4;"></i>新学</span>
-                    <span><i style="background:#0d9488;"></i>复习</span>
-                </div>
-            </div>
-            <div class="detailed-bars-scroll">
-                <div class="detailed-bars-row" style="min-width:${series.length > 10 ? series.length * 26 : 100}px;">
-                    ${series.map((d, idx) => {
-                        const learnCnt = (d.learned || 0) + (d.shici || 0);
-                        const revCnt = d.reviewed || 0;
-                        const totalCnt = learnCnt + revCnt;
-                        const learnH = Math.round((learnCnt / maxWordsDay) * 110);
-                        const revH = Math.round((revCnt / maxWordsDay) * 110);
-                        return `
-                            <div class="detailed-bar-col" title="${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词">
-                                <div class="detailed-bar-val">${totalCnt > 0 ? totalCnt : ''}</div>
-                                <div class="detailed-bar-stack">
-                                    ${revH > 0 ? `<div class="detailed-bar-seg review" style="height:${Math.max(4, revH)}px;"></div>` : ''}
-                                    ${learnH > 0 ? `<div class="detailed-bar-seg learn" style="height:${Math.max(4, learnH)}px;"></div>` : ''}
-                                    ${totalCnt === 0 ? `<div class="detailed-bar-seg empty" style="height:3px;"></div>` : ''}
-                                </div>
-                                <div class="detailed-bar-label">${(idx % labelStep === 0 || idx === series.length - 1) ? d.label : ''}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        </div>
-
-        <!-- 图表2：学习时长趋势折线面积图 -->
-        <div class="detailed-chart-card">
-            <div class="detailed-chart-header">
-                <div>
-                    <div class="detailed-chart-title">学习时长趋势 (分钟)</div>
-                    <div class="detailed-chart-sub">日均学习 ${formatDur(Math.round(periodDurationSec / daysCount))}</div>
-                </div>
-                <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">schedule</span>
             </div>
             <div class="detailed-svg-wrap">
-                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-line-svg">
+                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-chart-svg${svgMonthClass}">
+                    ${renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal: niceMaxWords, unitSuffix: '' })}
+                    ${wordBarsSvg}
+                </svg>
+            </div>
+            <div class="detailed-chart-footer">
+                <div class="detailed-chart-footer-metrics">
+                    <div class="detailed-chart-footer-item stat-accent-2">
+                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}新学</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${selLearn}</span><small>词</small></span>
+                    </div>
+                    <div class="detailed-chart-footer-item stat-accent-3">
+                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}复习</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${selRev}</span><small>词</small></span>
+                    </div>
+                </div>
+                <div class="detailed-chart-selected-hint">
+                    ${selectedDay
+                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
+                        : '<span>点击任意柱条查看当日详细数据</span>'
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表2：学习时长趋势 (分钟) -->
+        <div class="detailed-chart-card">
+            <div class="detailed-chart-header">
+                <div class="detailed-chart-title">学习时长趋势 (分钟)</div>
+                <div class="detailed-chart-controls">
+                    <label class="detailed-chart-toggle-label">
+                        <span>显示详细数据</span>
+                        <span class="md3-switch detailed-chart-switch">
+                            <input type="checkbox" role="switch" ${showDurNums ? 'checked' : ''} onchange="toggleDetailedChartLabels('duration', this.checked)">
+                            <span class="md3-switch-track"><span class="md3-switch-thumb"></span></span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="detailed-svg-wrap">
+                <svg viewBox="0 0 ${svgW} ${svgH}" class="detailed-chart-svg${svgMonthClass}">
                     <defs>
                         <linearGradient id="durAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.28"/>
+                            <stop offset="0%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.26"/>
                             <stop offset="100%" stop-color="var(--md-sys-color-primary, #0061a4)" stop-opacity="0.02"/>
                         </linearGradient>
                     </defs>
-                    <!-- 水平参考线 -->
-                    <line x1="${padL}" y1="${padT}" x2="${svgW - padR}" y2="${padT}" stroke="#e2e8f0" stroke-dasharray="3 3" />
-                    <line x1="${padL}" y1="${padT + plotH / 2}" x2="${svgW - padR}" y2="${padT + plotH / 2}" stroke="#e2e8f0" stroke-dasharray="3 3" />
-                    <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="#cbd5e1" />
-                    <text x="${padL - 6}" y="${padT + 4}" text-anchor="end" font-size="10" fill="#64748b">${maxDurMin}m</text>
-                    <text x="${padL - 6}" y="${padT + plotH / 2 + 4}" text-anchor="end" font-size="10" fill="#64748b">${Math.round(maxDurMin / 2)}m</text>
-                    <text x="${padL - 6}" y="${padT + plotH + 4}" text-anchor="end" font-size="10" fill="#64748b">0m</text>
+                    ${renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal: niceMaxDur, unitSuffix: 'm' })}
                     <path d="${areaPath}" fill="url(#durAreaGrad)" />
+                    <line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${svgW - padR}" y2="${avgY.toFixed(1)}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 4" />
+                    ${avgDurMin > 0 ? `<text x="${padL - 8}" y="${Math.max(padT + 10, Math.min(baselineY - 6, avgY + 3.5)).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="700" fill="#d97706">${avgDisplay}m</text>` : ''}
                     <polyline fill="none" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${polylinePoints}" />
-                    ${points.map((p, idx) => `
-                        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${series.length > 14 ? 2.5 : 4}" fill="#fff" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="2">
-                            <title>${p.dateKey}: ${p.mins} 分钟</title>
-                        </circle>
-                        ${(idx % labelStep === 0 || idx === points.length - 1) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" font-size="10" fill="#64748b">${p.label}</text>` : ''}
-                    `).join('')}
+                    ${points.map((p, idx) => {
+                        const valText = Number.isInteger(p.mins) ? `${p.mins}` : p.mins.toFixed(1);
+                        const isSelected = Boolean(detailedStatsSelectedDateKey && p.dateKey === detailedStatsSelectedDateKey);
+                        const shouldShowPtNum = isSelected || (showDurNums && (p.mins > 0 || series.length <= 10));
+                        const ptRadius = isSelected ? 5.5 : (series.length > 14 ? 2.6 : 4);
+                        return `
+                        <g class="detailed-svg-point-col" onclick="selectDetailedStatsDay('${p.dateKey}')">
+                            <title>${p.dateKey}: ${p.mins} 分钟（点击查看当日详细数据）</title>
+                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${padT}" x2="${p.x.toFixed(1)}" y2="${baselineY}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
+                            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ptRadius}" fill="${isSelected ? '#0061a4' : '#fff'}" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="${isSelected ? 2.5 : 2}" />
+                            ${shouldShowPtNum ? `<text x="${p.x.toFixed(1)}" y="${Math.max(padT - 5, p.y - 9).toFixed(1)}" text-anchor="middle" font-size="${(series.length <= 10 || isSelected) ? 10.5 : 8.5}" font-weight="${isSelected ? 800 : 700}" fill="#0061a4">${valText}${isSelected ? 'm' : ''}</text>` : ''}
+                            ${(idx % labelStep === 0 || idx === points.length - 1 || isSelected) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>` : ''}
+                            <rect x="${(p.x - pointStepW / 2).toFixed(1)}" y="${padT - 6}" width="${pointStepW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
+                        </g>
+                        `;
+                    }).join('')}
                 </svg>
+            </div>
+            <div class="detailed-chart-footer">
+                <div class="detailed-chart-footer-metrics">
+                    <div class="detailed-chart-footer-item stat-accent-1">
+                        <span class="detailed-chart-footer-label">${escapeHtml(durFooterLabel)}</span>
+                        <span class="detailed-chart-footer-val">${formatDurationAccentHtml(formatDur(selDurSec))}</span>
+                    </div>
+                    <div class="detailed-chart-footer-item stat-accent-4">
+                        <span class="detailed-chart-footer-label">活跃打卡天数</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num">${activeDays}</span><small>/ ${daysCount} 天</small></span>
+                    </div>
+                    <div class="detailed-chart-footer-item">
+                        <span class="detailed-chart-footer-label">日均</span>
+                        <span class="detailed-chart-footer-val"><span class="stat-num" style="color:#d97706;">${avgDisplay}</span><small>分钟</small></span>
+                    </div>
+                </div>
+                <div class="detailed-chart-selected-hint">
+                    ${selectedDay
+                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
+                        : '<span>点击曲线节点查看当日详细数据</span>'
+                    }
+                </div>
             </div>
         </div>
     `;
 }
 window.renderDetailedStatsSubview = renderDetailedStatsSubview;
 
-// ----------------- 复习计划子页面 (列出所有待复习的词与具体时间，支持日期筛选) -----------------
-let currentReviewPlanDateFilter = 'all'; // 'all' | 'due' | 'today' | 'tomorrow' | 'week' | 'YYYY-MM-DD'
+// ----------------- 复习计划子页面 (列出所有待复习的词，与词书内容列表风格统一，支持展开查看) -----------------
+let currentReviewPlanDateFilter = 'today'; // 'today' | 'tomorrow' | 'dayAfterTomorrow' | 'all'
 
 function filterReviewPlanByDate(filterVal) {
-    currentReviewPlanDateFilter = filterVal || 'all';
+    currentReviewPlanDateFilter = filterVal || 'today';
     renderReviewPlanSubview(currentReviewPlanDateFilter);
 }
 window.filterReviewPlanByDate = filterReviewPlanByDate;
+
+function toggleReviewPlanItemDetail(cardEl, e) {
+    if (!cardEl) return;
+    if (e && e.target && e.target.closest('.btn-circle-icon-action')) return;
+    const isExp = cardEl.classList.contains('expanded');
+    cardEl.classList.toggle('expanded', !isExp);
+    const drawer = cardEl.querySelector('.bc-item-drawer');
+    if (drawer) {
+        drawer.style.display = !isExp ? 'block' : 'none';
+    }
+}
+window.toggleReviewPlanItemDetail = toggleReviewPlanItemDetail;
 
 function formatReviewPlanTime(ts, nowMs) {
     const d = new Date(ts);
@@ -2187,23 +2623,16 @@ function formatReviewPlanTime(ts, nowMs) {
 }
 
 function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
-    currentReviewPlanDateFilter = dateFilter || 'all';
+    currentReviewPlanDateFilter = dateFilter || 'today';
     const listContainer = document.getElementById('review-plan-list-container');
-    const summaryBanner = document.getElementById('review-plan-summary-banner');
+    const headerActions = document.getElementById('review-plan-header-actions');
     if (!listContainer) return;
 
-    document.querySelectorAll('#review-plan-filter-chips .md3-chip').forEach(chip => {
-        const isMatch = chip.getAttribute('data-filter') === currentReviewPlanDateFilter;
-        chip.classList.toggle('active', isMatch);
-        chip.classList.toggle('selected', isMatch);
+    document.querySelectorAll('#review-plan-filter-tabs .settings-cat-tab').forEach(tab => {
+        const isMatch = tab.getAttribute('data-filter') === currentReviewPlanDateFilter;
+        tab.classList.toggle('active', isMatch);
+        tab.setAttribute('aria-selected', isMatch ? 'true' : 'false');
     });
-
-    const dateInput = document.getElementById('review-plan-custom-date');
-    if (dateInput && !['all', 'due', 'today', 'tomorrow', 'week'].includes(currentReviewPlanDateFilter)) {
-        dateInput.value = currentReviewPlanDateFilter;
-    } else if (dateInput && ['all', 'due', 'today', 'tomorrow', 'week'].includes(currentReviewPlanDateFilter)) {
-        dateInput.value = '';
-    }
 
     const allScheduled = (window.EbbinghausEngine && typeof EbbinghausEngine.getScheduledReviewWords === 'function')
         ? EbbinghausEngine.getScheduledReviewWords()
@@ -2214,40 +2643,27 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
     const pad = (n) => String(n).padStart(2, '0');
     const toDateKey = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
     const todayKey = toDateKey(todayDate);
-    const tomorrowDate = new Date(now + 86400000);
-    const tomorrowKey = toDateKey(tomorrowDate);
-    const weekEndMs = now + 7 * 86400000;
+    const tomorrowKey = toDateKey(new Date(now + 86400000));
+    const dayAfterTomorrowKey = toDateKey(new Date(now + 2 * 86400000));
+
+    if (headerActions) {
+        const dueCount = allScheduled.filter(i => i.nextReview <= now).length;
+        headerActions.innerHTML = dueCount > 0 ? `
+            <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
+                <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
+                <span class="btn-label-text">开始复习 (${dueCount})</span>
+            </button>
+        ` : '';
+    }
 
     const filtered = allScheduled.filter(item => {
         const itemDateKey = toDateKey(new Date(item.nextReview));
         if (currentReviewPlanDateFilter === 'all') return true;
-        if (currentReviewPlanDateFilter === 'due') return item.nextReview <= now;
         if (currentReviewPlanDateFilter === 'today') return item.nextReview <= now || itemDateKey === todayKey;
         if (currentReviewPlanDateFilter === 'tomorrow') return itemDateKey === tomorrowKey;
-        if (currentReviewPlanDateFilter === 'week') return item.nextReview <= weekEndMs;
+        if (currentReviewPlanDateFilter === 'dayAfterTomorrow') return itemDateKey === dayAfterTomorrowKey;
         return itemDateKey === currentReviewPlanDateFilter;
     });
-
-    if (summaryBanner) {
-        const dueCount = allScheduled.filter(i => i.nextReview <= now).length;
-        summaryBanner.innerHTML = `
-            <div class="review-plan-banner-left">
-                <div class="review-plan-banner-title">
-                    <span>计划复习词汇</span>
-                    <span class="review-plan-banner-badge">${filtered.length} 词</span>
-                </div>
-                <div class="review-plan-banner-meta">
-                    总计划 ${allScheduled.length} 词 · 当前待立即复习 <strong style="color:var(--md-sys-color-primary, #0061a4);">${dueCount}</strong> 词
-                </div>
-            </div>
-            ${dueCount > 0 ? `
-                <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
-                    <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
-                    <span class="btn-label-text">开始复习 (${dueCount})</span>
-                </button>
-            ` : ''}
-        `;
-    }
 
     if (filtered.length === 0) {
         listContainer.innerHTML = `
@@ -2262,22 +2678,39 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
 
     listContainer.innerHTML = filtered.slice(0, 300).map(item => {
         const tInfo = formatReviewPlanTime(item.nextReview, now);
+        const fullEntry = (typeof findWordEntryForDrawer === 'function') ? findWordEntryForDrawer(item.word, false) : null;
+        const wordObj = fullEntry ? { ...fullEntry, phone: fullEntry.phone || item.phone || '', meaning: fullEntry.meaning || item.meaning || '' } : item;
+        const detail = (typeof buildUnifiedWordDetailData === 'function')
+            ? buildUnifiedWordDetailData(wordObj, false)
+            : {
+                phoneDisplay: item.phone || '',
+                meaningsHtml: `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(item.meaning || '暂无释义')}</span></div>`,
+                extraDrawerHtml: ''
+            };
+
         return `
-            <div class="review-plan-word-item">
-                <div class="review-plan-word-main">
-                    <div class="review-plan-word-top">
-                        <span class="review-plan-word-text">${escapeHtml(item.word)}</span>
-                        ${item.phone ? `<span class="review-plan-word-phone">${escapeHtml(item.phone)}</span>` : ''}
-                        <button type="button" class="icon-btn review-plan-audio-btn" data-word="${escapeHtml(item.word)}" onclick="event.stopPropagation(); if (typeof playAudio === 'function') playAudio(this.getAttribute('data-word'));" title="发音">
+            <div class="bc-unified-item" onclick="toggleReviewPlanItemDetail(this, event)">
+                <div class="bc-item-header">
+                    <div class="bc-item-title-meta">
+                        <span class="bc-headword">${escapeHtml(item.word)}</span>
+                        ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
+                        <span class="review-plan-stage-tag">第${item.stage}阶段</span>
+                        <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}" title="${tInfo.detail}">${tInfo.badge}</span>
+                    </div>
+                    <div class="bc-item-actions" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">
+                            <span class="material-symbols-rounded">search</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof playAudio === 'function') playAudio(this.dataset.word);" title="发音" aria-label="发音">
                             <span class="material-symbols-rounded">volume_up</span>
                         </button>
-                        <span class="review-plan-stage-tag">第${item.stage}阶段</span>
                     </div>
-                    <div class="review-plan-word-meaning">${escapeHtml(item.meaning || '暂无释义')}</div>
                 </div>
-                <div class="review-plan-time-col">
-                    <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}">${tInfo.badge}</span>
-                    <span class="review-plan-time-exact">${tInfo.detail}</span>
+                <div class="bc-item-drawer" style="display:none;">
+                    <div class="bc-meanings-group">
+                        ${detail.meaningsHtml}
+                    </div>
+                    ${detail.extraDrawerHtml || ''}
                 </div>
             </div>
         `;

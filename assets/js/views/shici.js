@@ -69,10 +69,16 @@ function formatSettlementMeaningsLines(q) {
     return splitParts.length > 0 ? splitParts : [raw];
 }
 
-function toggleSettlementRowExpand(rowEl) {
+function toggleSettlementRowExpand(rowEl, e) {
     if (!rowEl) return;
-    rowEl.classList.toggle('expanded');
-    syncSettlementEyeBtnState();
+    if (e && e.target && e.target.closest('.btn-circle-icon-action')) return;
+    const isExp = rowEl.classList.contains('expanded');
+    rowEl.classList.toggle('expanded', !isExp);
+    const drawer = rowEl.querySelector('.bc-item-drawer');
+    if (drawer) {
+        drawer.style.display = !isExp ? 'block' : 'none';
+    }
+    syncSettlementExpandAllBtnState();
 }
 window.toggleSettlementRowExpand = toggleSettlementRowExpand;
 
@@ -81,39 +87,66 @@ function toggleSettlementWordsMask(btnEl) {
     if (!list) return;
     const masked = list.classList.toggle('mask-words');
     if (btnEl) {
-        btnEl.classList.toggle('active', !masked);
+        btnEl.classList.toggle('active', masked);
+        const icon = btnEl.querySelector('.material-symbols-rounded');
+        const label = btnEl.querySelector('span:last-child');
+        if (icon) icon.innerText = masked ? 'visibility' : 'visibility_off';
+        if (label) label.innerText = masked ? '显示单词' : '遮挡单词';
     }
 }
 window.toggleSettlementWordsMask = toggleSettlementWordsMask;
 
+function setSettlementFilterMode(mode, tabBtn) {
+    const list = document.getElementById('settlement-list-container');
+    if (!list) return;
+    document.querySelectorAll('#settlement-filter-tabs .settings-cat-tab').forEach(btn => {
+        const active = btn === tabBtn || btn.getAttribute('data-filter') === mode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    list.querySelectorAll('.bc-unified-item').forEach(row => {
+        const isMistake = row.getAttribute('data-mistake') === '1';
+        row.classList.toggle('is-hidden-by-filter', mode === 'mistakes' && !isMistake);
+    });
+    syncSettlementExpandAllBtnState();
+}
+window.setSettlementFilterMode = setSettlementFilterMode;
+
 function toggleSettlementMeaningsAll(btnEl) {
     const list = document.getElementById('settlement-list-container');
     if (!list) return;
-    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
+    const rows = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
     const allExpanded = rows.length > 0 && rows.every(r => r.classList.contains('expanded'));
     const targetExpand = !allExpanded;
-    rows.forEach(r => r.classList.toggle('expanded', targetExpand));
-    syncSettlementEyeBtnState();
+    rows.forEach(r => {
+        r.classList.toggle('expanded', targetExpand);
+        const drawer = r.querySelector('.bc-item-drawer');
+        if (drawer) drawer.style.display = targetExpand ? 'block' : 'none';
+    });
+    syncSettlementExpandAllBtnState();
 }
 window.toggleSettlementMeaningsAll = toggleSettlementMeaningsAll;
 
-function syncSettlementEyeBtnState() {
+function syncSettlementExpandAllBtnState() {
     const list = document.getElementById('settlement-list-container');
     const btn = document.getElementById('btn-settlement-toggle-meanings');
     if (!list || !btn) return;
-    const rows = Array.from(list.querySelectorAll('.settlement-minimal-row'));
-    const anyExpanded = rows.some(r => r.classList.contains('expanded'));
-    btn.classList.toggle('active', anyExpanded);
-    const closedSvg = btn.querySelector('.eye-closed-svg');
-    const openSvg = btn.querySelector('.eye-open-svg');
-    if (closedSvg && openSvg) {
-        closedSvg.style.display = anyExpanded ? 'none' : 'block';
-        openSvg.style.display = anyExpanded ? 'block' : 'none';
-    }
+    const rows = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
+    const allExpanded = rows.length > 0 && rows.every(r => r.classList.contains('expanded'));
+    const icon = btn.querySelector('.material-symbols-rounded');
+    const label = btn.querySelector('span:last-child');
+    if (icon) icon.innerText = allExpanded ? 'unfold_less' : 'unfold_more';
+    if (label) label.innerText = allExpanded ? '收起全部' : '展开全部';
 }
 
-function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = false) {
+function toggleSettlementWordMastered(btnEl) {
+    if (!btnEl) return;
+    const word = btnEl.dataset.word || '';
+    const phone = btnEl.dataset.phone || '';
+    const meaning = btnEl.dataset.meaning || '';
+    const isShiCi = btnEl.dataset.shici === '1';
     if (!word) return;
+
     let nowMastered = false;
     if (isShiCi) {
         if (!shiciProgress.masteredWords) shiciProgress.masteredWords = {};
@@ -133,18 +166,20 @@ function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = fal
         nowMastered = toggleMasteredWord(word, phone, meaning);
     }
 
-    const rowEl = btnEl ? btnEl.closest('.settlement-minimal-row') : null;
-    if (btnEl) {
-        btnEl.classList.toggle('active', nowMastered);
-        const icon = btnEl.querySelector('.material-symbols-rounded');
-        if (icon) icon.innerText = nowMastered ? 'star' : 'star_outline';
-    }
+    const rowEl = btnEl.closest('.bc-unified-item');
+    btnEl.classList.toggle('mastered', nowMastered);
+    btnEl.title = nowMastered ? '已掌握（点击取消）' : '标为熟词';
+    const icon = btnEl.querySelector('.material-symbols-rounded');
+    if (icon) icon.innerText = nowMastered ? 'check_circle' : 'check_circle_outline';
+
     if (rowEl) {
-        const statusEl = rowEl.querySelector('.settlement-minimal-status');
+        const statusEl = rowEl.querySelector('.settlement-word-status-tag');
         if (statusEl) {
             const st = getWordSettlementReviewStatus(word, isShiCi);
-            statusEl.innerText = st.text;
+            const isMistake = rowEl.getAttribute('data-mistake') === '1';
+            statusEl.innerText = (!st.isMastered && isMistake) ? '错题' : st.text;
             statusEl.classList.toggle('is-mastered', st.isMastered);
+            statusEl.classList.toggle('is-mistake', !st.isMastered && isMistake);
         }
     }
 }
@@ -155,71 +190,95 @@ function buildMinimalSummaryLayoutHtml(items) {
     const correctCount = Math.max(0, items.length - mistakeCount);
 
     const rowsHtml = items.map(item => {
-        const cleanPhone = String(item.phone || '').replace(/^\/+|\/+$/g, '').trim();
-        const phoneHtml = cleanPhone
-            ? (item.isShiCi ? `<span class="settlement-minimal-phonetic">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phonetic">/${escapeHtml(cleanPhone)}/</span>`)
-            : '';
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
         const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
-        const safeWord = escapeHtml((item.word || '').replace(/'/g, "\\'"));
-        const safePhone = escapeHtml((item.phone || '').replace(/'/g, "\\'"));
-        const safeMeaning = escapeHtml((lines.join('；') || '').replace(/'/g, "\\'"));
-        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-wrong' : '');
+        const fullEntry = (typeof findWordEntryForDrawer === 'function')
+            ? findWordEntryForDrawer(item.word, item.isShiCi)
+            : null;
+        const wordObj = fullEntry
+            ? { ...(item.rawObj || {}), ...fullEntry, phone: fullEntry.phone || item.phone || '', pinyin: fullEntry.pinyin || item.phone || '' }
+            : (item.rawObj || { word: item.word, phone: item.phone, pinyin: item.phone, meaning: lines.join('；') });
+
+        const detail = (typeof buildUnifiedWordDetailData === 'function')
+            ? buildUnifiedWordDetailData(wordObj, item.isShiCi)
+            : {
+                phoneDisplay: item.phone || '',
+                meaningsHtml: lines.map(line => `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
+                extraDrawerHtml: ''
+            };
+
+        const isExp = Boolean(item.isMistake);
+        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
+        const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
 
         return `
-            <div class="settlement-minimal-row ${item.isMistake ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this)" data-mistake="${item.isMistake ? '1' : '0'}">
-                <div class="settlement-minimal-row-main">
-                    <div class="settlement-minimal-word-group">
-                        <span class="settlement-minimal-word ${item.isMistake ? 'is-mistake' : ''}" onclick="if(this.closest('.settlement-minimal-row').classList.contains('expanded')){event.stopPropagation(); playWordAudio('${safeWord}');}">${escapeHtml(item.word)}</span>
-                        ${phoneHtml}
+            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
+                <div class="bc-item-header">
+                    <div class="bc-item-title-meta">
+                        <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
+                        ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
+                        <span class="settlement-word-status-tag ${statusCls}">${escapeHtml(statusLabel)}</span>
                     </div>
-                    <span class="settlement-minimal-status ${statusCls}">${escapeHtml(statusInfo.text)}</span>
+                    <div class="bc-item-actions" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">
+                            <span class="material-symbols-rounded">search</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof playWordAudio === 'function') playWordAudio(this.dataset.word);" title="发音" aria-label="发音">
+                            <span class="material-symbols-rounded">volume_up</span>
+                        </button>
+                        <button type="button" class="btn-circle-icon-action bc-mastered-btn ${statusInfo.isMastered ? 'mastered' : ''}" data-word="${escapeHtml(item.word)}" data-phone="${escapeHtml(detail.phoneDisplay || item.phone || '')}" data-meaning="${escapeHtml(lines.join('；'))}" data-shici="${item.isShiCi ? '1' : '0'}" onclick="toggleSettlementWordMastered(this)" title="${statusInfo.isMastered ? '已掌握（点击取消）' : '标为熟词'}" aria-label="熟词">
+                            <span class="material-symbols-rounded">${statusInfo.isMastered ? 'check_circle' : 'check_circle_outline'}</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="settlement-minimal-detail">
-                    <div class="settlement-minimal-meanings">
-                        ${lines.map(line => `<div class="settlement-minimal-meaning-line">${escapeHtml(line)}</div>`).join('')}
+                <div class="bc-item-drawer" style="display:${isExp ? 'block' : 'none'};">
+                    <div class="bc-meanings-group">
+                        ${detail.meaningsHtml}
                     </div>
-                    <button type="button" class="settlement-minimal-star-btn ${statusInfo.isMastered ? 'active' : ''}" onclick="event.stopPropagation(); toggleSettlementWordMastered('${safeWord}', '${safePhone}', '${safeMeaning}', this, ${item.isShiCi ? 'true' : 'false'});" title="${statusInfo.isMastered ? '取消标熟' : '标为熟词'}">
-                        <span class="material-symbols-rounded">${statusInfo.isMastered ? 'star' : 'star_outline'}</span>
-                    </button>
+                    ${detail.extraDrawerHtml || ''}
                 </div>
             </div>
         `;
     }).join('');
 
-    const anyExpanded = items.some(i => i.isMistake);
+    const allExpanded = items.length > 0 && items.every(i => i.isMistake);
 
     return `
-        <div class="settlement-minimal-page">
-            <div class="settlement-minimal-topbar">
-                <button type="button" class="settlement-minimal-back" onclick="handleResultBackToHub()" title="返回">
-                    <span class="material-symbols-rounded">arrow_back_ios_new</span>
-                </button>
-                <div class="settlement-minimal-title-group">
-                    <span class="settlement-minimal-title">小结</span>
-                    <span class="settlement-minimal-meta">${items.length} 词 · 正确 ${correctCount}${mistakeCount > 0 ? ` · 错题 ${mistakeCount}` : ''}</span>
-                </div>
-                <div class="settlement-minimal-tools">
-                    <button type="button" class="settlement-minimal-tool active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
-                        <span class="settlement-abc-text">ab<u class="settlement-abc-u">c</u></span>
+        <div class="settlement-summary-page">
+            <div class="settlement-summary-header">
+                <div class="settlement-summary-title-wrap">
+                    <button type="button" class="nav-back-btn" onclick="handleResultBackToHub()" title="返回主页">
+                        <span class="material-symbols-rounded">arrow_back</span>
                     </button>
-                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-tool ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
-                        <svg class="settlement-eye-svg eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 10c3.5 4.5 8 6 10 6s6.5-1.5 10-6"/>
-                            <path d="M5 13l-2 3"/>
-                            <path d="M9.5 15.5l-1 3.5"/>
-                            <path d="M14.5 15.5l1 3.5"/>
-                            <path d="M19 13l2 3"/>
-                        </svg>
-                        <svg class="settlement-eye-svg eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-                            <circle cx="12" cy="12" r="3"/>
-                        </svg>
+                    <h3 class="settlement-summary-title">小结</h3>
+                    <span class="settlement-summary-stats-badge">
+                        <span>${items.length} 词</span>
+                        <span>·</span>
+                        <span>正确 ${correctCount}</span>
+                        ${mistakeCount > 0 ? `<span>·</span><span class="mistake-cnt">错题 ${mistakeCount}</span>` : ''}
+                    </span>
+                </div>
+                <div class="settlement-summary-toolbar">
+                    ${mistakeCount > 0 ? `
+                        <div class="settings-category-tabs bc-type-tabs" id="settlement-filter-tabs" role="tablist" aria-label="小结筛选">
+                            <button type="button" class="settings-cat-tab active" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="true">全部 (${items.length})</button>
+                            <button type="button" class="settings-cat-tab" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="false">仅错题 (${mistakeCount})</button>
+                        </div>
+                    ` : ''}
+                    <button type="button" class="settlement-mask-btn" id="btn-settlement-mask-words" onclick="toggleSettlementWordsMask(this)" title="遮挡/显示单词">
+                        <span class="material-symbols-rounded" style="font-size:17px;">visibility_off</span>
+                        <span>遮挡单词</span>
+                    </button>
+                    <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                        <span>${allExpanded ? '收起全部' : '展开全部'}</span>
                     </button>
                 </div>
             </div>
-            <div class="settlement-minimal-list" id="settlement-list-container">
-                ${rowsHtml}
+            <div class="book-content-unified-wrapper">
+                <div class="book-content-unified-card settlement-summary-list" id="settlement-list-container">
+                    ${rowsHtml}
+                </div>
             </div>
         </div>
     `;
@@ -255,7 +314,8 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         phone: q.phone || '',
         lines: formatSettlementMeaningsLines(q),
         isMistake: !q.isCorrect,
-        isShiCi: false
+        isShiCi: false,
+        rawObj: q
     }));
 
     return buildMinimalSummaryLayoutHtml(items);
@@ -281,7 +341,8 @@ function renderShiCiSummaryHtml(pool) {
         phone: q.pinyin || '',
         lines: formatSettlementMeaningsLines({ ...q, isShiCi: true }),
         isMistake: !q.isCorrect,
-        isShiCi: true
+        isShiCi: true,
+        rawObj: q
     }));
 
     return buildMinimalSummaryLayoutHtml(items);
@@ -1171,8 +1232,11 @@ function updateShiCiNavButtons() {
         prevBtn.style.cursor = canPrev ? 'pointer' : 'not-allowed';
     }
     if (returnBtn) {
-        returnBtn.style.display = canReturn ? 'inline-flex' : 'none';
+        returnBtn.style.display = 'inline-flex';
         returnBtn.disabled = !canReturn;
+        returnBtn.style.opacity = canReturn ? '1' : '0.35';
+        returnBtn.style.cursor = canReturn ? 'pointer' : 'not-allowed';
+        returnBtn.classList.toggle('return-highlight', canReturn);
     }
 }
 
@@ -1189,7 +1253,7 @@ window.viewPreviousShiCiQuestion = viewPreviousShiCiQuestion;
 function returnToCurrentShiCiQuestion() {
     if (!shiciState || !shiciState.pool) return;
     if (typeof shiciState.maxReachedIdx === 'number' && shiciState.currentIdx < shiciState.maxReachedIdx) {
-        shiciState.currentIdx = shiciState.maxReachedIdx;
+        shiciState.currentIdx++;
         renderShiCiQuestion();
     }
 }
@@ -1262,8 +1326,17 @@ function renderShiCiQuestion() {
     const expCard = document.getElementById('shici-explanation-card');
     const actionBtn = document.getElementById('btn-shici-action');
     const actionText = document.getElementById('btn-shici-action-text');
+    const isPreMastered = !alreadyAnswered && Boolean(shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
     if (alreadyAnswered) {
         displayShiCiExplanation(q, Boolean(q.isCorrect));
+        const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+        if (actionBtn) {
+            actionBtn.className = 'single-next-btn';
+            actionBtn.style.display = 'flex';
+        }
+        if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+    } else if (isPreMastered) {
+        if (expCard) expCard.style.display = 'none';
         const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
         if (actionBtn) {
             actionBtn.className = 'single-next-btn';
@@ -1400,6 +1473,15 @@ function revealShiCiAnswer() {
 }
 
 function handleShiCiActionClick() {
+    const q = (shiciState && shiciState.pool) ? shiciState.pool[shiciState.currentIdx] : null;
+    const isPreMastered = Boolean(q && !shiciState.answered && shiciProgress && shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
+    if (isPreMastered) {
+        q.answered = true;
+        q.isCorrect = true;
+        q.skippedAsMastered = true;
+        nextShiCiQuestion();
+        return;
+    }
     if (!shiciState.answered) {
         revealShiCiAnswer();
     } else {
@@ -1517,6 +1599,19 @@ function toggleCurrentShiCiMastered() {
     }
     saveShiCiState();
     updateShiCiMasterBtn(isNow);
+
+    if (!shiciState.answered) {
+        const actionBtn = document.getElementById('btn-shici-action');
+        const actionText = document.getElementById('btn-shici-action-text');
+        const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+        if (isNow) {
+            if (actionBtn) actionBtn.className = 'single-next-btn';
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        } else {
+            if (actionBtn) actionBtn.className = 'single-next-btn show-answer-mode';
+            if (actionText) actionText.innerText = '看答案';
+        }
+    }
 
     // 同时与全局熟词本打通
     if (typeof toggleMasteredWord === 'function') {
