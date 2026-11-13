@@ -21,33 +21,40 @@ function saveMasteredWords(words) {
     localStorage.setItem(`vocab_mastered_words_${currentUser}`, JSON.stringify(words));
 }
 
+function _normMasteredKey(word) {
+    return typeof normalizeWordKey === 'function'
+        ? normalizeWordKey(word)
+        : String(word || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function isWordMastered(word) {
     if (!word) return false;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
     const list = getMasteredWords();
-    return list.some(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    return list.some(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
 }
 
 function toggleMasteredWord(word, phone = '', meaning = '') {
     if (!currentUser || !word) return false;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
+    const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    const existingIdx = list.findIndex(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
 
     let nowMastered = false;
     if (existingIdx >= 0) {
         list.splice(existingIdx, 1);
         nowMastered = false;
-        showToast(`已取消“${word}”的熟词标记`);
+        showToast(`已取消“${cleanWord}”的熟词标记`);
     } else {
         list.push({
-            word: word.trim(),
+            word: cleanWord,
             phone: phone || '',
             meaning: meaning || '',
             markedAt: Date.now()
         });
         nowMastered = true;
-        showToast(`已将“${word}”标为熟词`);
+        showToast(`已将“${cleanWord}”标为熟词`);
     }
     saveMasteredWords(list);
     return nowMastered;
@@ -55,12 +62,13 @@ function toggleMasteredWord(word, phone = '', meaning = '') {
 
 function ensureWordMastered(word, phone = '', meaning = '') {
     if (!currentUser || !word) return;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
+    const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    const existingIdx = list.findIndex(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
     if (existingIdx < 0) {
         list.push({
-            word: word.trim(),
+            word: cleanWord,
             phone: phone || '',
             meaning: meaning || '',
             markedAt: Date.now()
@@ -71,12 +79,11 @@ function ensureWordMastered(word, phone = '', meaning = '') {
 
 function removeWordMastered(word) {
     if (!currentUser || !word) return;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
-    if (existingIdx >= 0) {
-        list.splice(existingIdx, 1);
-        saveMasteredWords(list);
+    const nextList = list.filter(item => _normMasteredKey(typeof item === 'string' ? item : item.word) !== clean);
+    if (nextList.length !== list.length) {
+        saveMasteredWords(nextList);
     }
 }
 
@@ -863,11 +870,15 @@ function checkSinglePhraseAnswer() {
             return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
         const wKey = (q.word || '').trim().toLowerCase();
-        if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        const normKey = _normMasteredKey(q.word);
+        if (singleState.completedWords) {
+            singleState.completedWords.delete(wKey);
+            singleState.completedWords.delete(normKey);
+        }
         if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
         const isFirstWrongOnThisQ = !q._hasRecordedWrong;
         q._hasRecordedWrong = true;
-        singleState.sessionMistakes.add(wKey);
+        singleState.sessionMistakes.add(normKey);
         if (isFirstWrongOnThisQ) {
             EbbinghausEngine.recordWord(q.word, phraseMeaning, q.phone, false, currentBookId);
             renderCardMasteryDiamonds(q.word, 'loss');
@@ -923,9 +934,13 @@ function revealSingleAnswer() {
     q.answered = true;
 
     const wKey = (q.word || '').trim().toLowerCase();
-    if (singleState.completedWords) singleState.completedWords.delete(wKey);
+    const normKey = _normMasteredKey(q.word);
+    if (singleState.completedWords) {
+        singleState.completedWords.delete(wKey);
+        singleState.completedWords.delete(normKey);
+    }
     if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
-    singleState.sessionMistakes.add(wKey);
+    singleState.sessionMistakes.add(normKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
@@ -1060,9 +1075,13 @@ function handleSingleAnswer(idx) {
         }
     } else {
         const wKey = (q.word || '').trim().toLowerCase();
-        if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        const normKey = _normMasteredKey(q.word);
+        if (singleState.completedWords) {
+            singleState.completedWords.delete(wKey);
+            singleState.completedWords.delete(normKey);
+        }
         if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
-        singleState.sessionMistakes.add(wKey);
+        singleState.sessionMistakes.add(normKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);

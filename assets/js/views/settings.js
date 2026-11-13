@@ -43,8 +43,11 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 ? document.getElementById('me-subview-main')
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === subviewKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActive = (k === subviewKey);
+                el.classList.toggle('active', isActive);
+                el.inert = !isActive;
+                if (isActive) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (subviewKey === 'items' && typeof ItemManager !== 'undefined') {
@@ -78,20 +81,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    if (!skipTransition && document.startViewTransition) {
-        try {
-            const transition = document.startViewTransition(performSwitch);
-            if (transition) {
-                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
-                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
-                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
-            }
-        } catch (e) {
-            performSwitch();
-        }
-    } else {
-        performSwitch();
-    }
+    performSwitch();
 }
 
 function updateNavActive(current) {
@@ -226,8 +216,11 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         subviews.forEach(k => {
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === subviewKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActive = (k === subviewKey);
+                el.classList.toggle('active', isActive);
+                el.inert = !isActive;
+                if (isActive) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (subviewKey === 'main') {
@@ -242,20 +235,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    if (!skipTransition && document.startViewTransition) {
-        try {
-            const transition = document.startViewTransition(performSubviewSwitch);
-            if (transition) {
-                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
-                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
-                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
-            }
-        } catch (e) {
-            performSubviewSwitch();
-        }
-    } else {
-        performSubviewSwitch();
-    }
+    performSubviewSwitch();
 }
 
 function renderSettingsMain() {

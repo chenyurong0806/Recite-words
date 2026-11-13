@@ -73,13 +73,19 @@ function switchView(viewId) {
         updateNavActive(navKey);
     }
 
-    const prevActive = document.querySelectorAll('.view.active');
-    for (let i = 0; i < prevActive.length; i++) {
-        if (prevActive[i].id !== viewId) prevActive[i].classList.remove('active');
-    }
-    const target = document.getElementById(viewId);
-    if (target && !target.classList.contains('active')) {
-        target.classList.add('active');
+    const views = document.querySelectorAll('.view');
+    for (let i = 0; i < views.length; i++) {
+        const v = views[i];
+        const isTarget = (v.id === viewId);
+        if (isTarget) {
+            if (!v.classList.contains('active')) v.classList.add('active');
+            v.inert = false;
+            v.removeAttribute('aria-hidden');
+        } else {
+            if (v.classList.contains('active')) v.classList.remove('active');
+            v.inert = true;
+            v.setAttribute('aria-hidden', 'true');
+        }
     }
 
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -108,8 +114,11 @@ function switchView(viewId) {
                 ? document.getElementById('me-subview-main')
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === activeKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActiveSub = (k === activeKey);
+                el.classList.toggle('active', isActiveSub);
+                el.inert = !isActiveSub;
+                if (isActiveSub) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (activeKey === 'main' && typeof renderMeView === 'function') {

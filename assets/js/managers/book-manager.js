@@ -548,6 +548,11 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                 if (offlineBook && offlineBook.words && offlineBook.words.length > 0) {
                     const needsRefresh = isGaoKao && !offlineBook.words.some(w => w.derivatives || w.antonyms || w.mistake);
                     if (!needsRefresh) {
+                        offlineBook.words.forEach(w => {
+                            if (w && typeof w.word === 'string') {
+                                w.word = w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+                            }
+                        });
                         this.bookCache[bookId] = offlineBook.words;
                         if (isGaoKao) {
                             this.bookCache['books/高中/高中考纲.json'] = offlineBook.words;

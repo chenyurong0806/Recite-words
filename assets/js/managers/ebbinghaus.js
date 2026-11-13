@@ -3,6 +3,41 @@
  * Module: assets/js/managers/ebbinghaus.js
  */
 
+function normalizeWordKey(word) {
+    return String(word || '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function getEbbinghausRecordByWord(records, word) {
+    if (!records || !word) return null;
+    const normKey = normalizeWordKey(word);
+    const rawKey = String(word).trim().toLowerCase();
+    const recNorm = normKey ? records[normKey] : null;
+    const recRaw = (rawKey && rawKey !== normKey) ? records[rawKey] : null;
+    if (recNorm && recRaw) {
+        return ((recRaw.stage || 0) > (recNorm.stage || 0)) ? recRaw : recNorm;
+    }
+    return recNorm || recRaw || null;
+}
+
+function dedupeEbbinghausRecords(records) {
+    const byKey = new Map();
+    if (!records) return [];
+    Object.values(records).forEach(r => {
+        if (!r || !r.word) return;
+        const k = normalizeWordKey(r.word);
+        if (!k) return;
+        const existing = byKey.get(k);
+        if (!existing || (r.stage || 0) > (existing.stage || 0) || ((r.stage || 0) === (existing.stage || 0) && (r.lastPracticed || 0) > (existing.lastPracticed || 0))) {
+            byKey.set(k, r);
+        }
+    });
+    return Array.from(byKey.values());
+}
+
 const EBBINGHAUS_INTERVALS = [
     1 * 24 * 60 * 60 * 1000,   // 第 1 轮复习：1天后（第二天）
     4 * 24 * 60 * 60 * 1000,   // 第 2 轮复习：4天后
@@ -48,11 +83,11 @@ const EbbinghausEngine = {
     getDueWords() {
         const records = this.getRecords();
         const now = Date.now();
-        return Object.values(records).filter(r => r && r.stage >= 1 && r.stage < 5 && r.nextReview && now >= r.nextReview && !isWordMastered(r.word));
+        return dedupeEbbinghausRecords(records).filter(r => r && r.stage >= 1 && r.stage < 5 && r.nextReview && now >= r.nextReview && !isWordMastered(r.word));
     },
     getAllLearnedWords() {
         const records = this.getRecords();
-        return Object.values(records).filter(r => r && (r.stage >= 1 || isWordMastered(r.word)));
+        return dedupeEbbinghausRecords(records).filter(r => r && (r.stage >= 1 || isWordMastered(r.word)));
     },
     getDueWordsForBooks(bookIds = []) {
         if (!bookIds || bookIds.length === 0) return [];
@@ -77,13 +112,13 @@ const EbbinghausEngine = {
             }
             if (words && Array.isArray(words)) {
                 words.forEach(w => {
-                    if (w && w.word) wordSet.add(w.word.trim().toLowerCase());
+                    if (w && w.word) wordSet.add(normalizeWordKey(w.word));
                 });
             }
         });
 
         return allDue.filter(r => {
-            const key = (r.word || '').trim().toLowerCase();
+            const key = normalizeWordKey(r.word);
             if (wordSet.has(key)) return true;
             if (r.bookId) {
                 if (bookIds.includes(r.bookId)) return true;
@@ -133,9 +168,9 @@ const EbbinghausEngine = {
 
             words.forEach(w => {
                 if (!w || !w.word) return;
-                const k = w.word.trim().toLowerCase();
+                const k = normalizeWordKey(w.word);
                 const isMast = isWordMastered(k);
-                const rec = records[k];
+                const rec = getEbbinghausRecordByWord(records, w.word);
 
                 if (isMast || (rec && rec.stage >= 5)) {
                     learned++;
@@ -230,9 +265,11 @@ const EbbinghausEngine = {
         if (words && Array.isArray(words)) {
             words.forEach(w => {
                 if (!w || !w.word) return;
-                const k = w.word.trim().toLowerCase();
-                delete records[k];
-                if (typeof removeWordMastered === 'function') removeWordMastered(k);
+                const rawK = w.word.trim().toLowerCase();
+                const normK = normalizeWordKey(w.word);
+                delete records[normK];
+                if (rawK !== normK) delete records[rawK];
+                if (typeof removeWordMastered === 'function') removeWordMastered(w.word);
             });
         }
         Object.keys(records).forEach(k => {
@@ -265,7 +302,7 @@ const EbbinghausEngine = {
                     for (let i = 0; i < arr.length; i++) {
                         const it = arr[i];
                         if (it && it.word) {
-                            const k = it.word.trim().toLowerCase();
+                            const k = normalizeWordKey(it.word);
                             if (!fallbackWordMap.has(k)) fallbackWordMap.set(k, it);
                         }
                     }
@@ -278,10 +315,10 @@ const EbbinghausEngine = {
                     window.customBooks.forEach(cb => addWords(cb && cb.words));
                 }
             }
-            return fallbackWordMap.get(String(wText || '').trim().toLowerCase()) || null;
+            return fallbackWordMap.get(normalizeWordKey(wText)) || null;
         };
 
-        Object.values(records).forEach(r => {
+        dedupeEbbinghausRecords(records).forEach(r => {
             if (!r || !r.word) return;
             if (typeof isWordMastered === 'function' && isWordMastered(r.word)) return;
             if (r.stage >= 1 && r.stage < 5 && r.nextReview) {
@@ -335,14 +372,16 @@ const EbbinghausEngine = {
     },
     recordWord(word, meaning, phone, isSuccess, bookId = null) {
         if (!word) return;
-        const rawKey = word.trim().toLowerCase();
-        const normKey = rawKey.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+        const rawKey = String(word).trim().toLowerCase();
+        const normKey = normalizeWordKey(word);
+        if (!normKey) return;
         const records = this.getRecords();
         const now = Date.now();
-        const isMast = isWordMastered(rawKey) || isWordMastered(normKey);
+        const isMast = isWordMastered(word);
 
-        const record = records[normKey] || records[rawKey] || {
-            word: word.trim(),
+        const existing = getEbbinghausRecordByWord(records, word);
+        const record = existing ? { ...existing, word: String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim() } : {
+            word: String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim(),
             meaning: meaning || '',
             phone: phone || '',
             stage: isMast ? 5 : 0,
@@ -362,8 +401,8 @@ const EbbinghausEngine = {
                 record.stage = 2;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[1];
             } else {
-                record.stage = 0;
-                record.nextReview = 0;
+                record.stage = 1;
+                record.nextReview = now + EBBINGHAUS_INTERVALS[0];
             }
         } else {
             if (isSuccess) {
@@ -379,18 +418,18 @@ const EbbinghausEngine = {
                 } else {
                     record.stage = 5;
                     record.nextReview = 0;
-                    ensureWordMastered(word, phone, meaning);
+                    ensureWordMastered(record.word, phone, meaning);
                 }
             } else {
                 record.stage = 1;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[0];
-                removeWordMastered(word);
+                removeWordMastered(record.word);
             }
         }
 
         records[normKey] = record;
-        if (rawKey !== normKey) {
-            records[rawKey] = record;
+        if (rawKey && rawKey !== normKey && records[rawKey]) {
+            delete records[rawKey];
         }
         this.saveRecords(records);
         this.updateDueBadge();

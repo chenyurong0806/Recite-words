@@ -1443,7 +1443,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                     <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
                     <div class="book-card-top-slot">
                         ${showMoreAction ? `
-                            <button type="button" class="book-card-more-btn" onclick="openBookActionMenu(event, '${escapeHtml(b.id)}')" title="更多操作" aria-label="更多操作">
+                            <button type="button" class="book-card-more-btn" onclick="openBookActionMenu(event, this.closest('[data-book-id]')?.dataset.bookId)" title="更多操作" aria-label="更多操作">
                                 <span class="material-symbols-rounded" style="font-size:20px; line-height:1;">more_horiz</span>
                             </button>
                         ` : `
@@ -1873,6 +1873,13 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     menuEl.classList.add('active');
 }
 
+function getResolvedBookActionId(explicitBookId = null) {
+    if (typeof explicitBookId === 'string' && explicitBookId) return explicitBookId;
+    if (typeof activeActionBookId === 'string' && activeActionBookId) return activeActionBookId;
+    const menu = document.getElementById('modal-book-actions-menu');
+    return (menu && menu.dataset && menu.dataset.bookId) ? menu.dataset.bookId : null;
+}
+
 function openBookActionMenu(event, bookId) {
     if (event) {
         event.stopPropagation();
@@ -1880,6 +1887,12 @@ function openBookActionMenu(event, bookId) {
     }
     const menu = document.getElementById('modal-book-actions-menu');
     if (!menu) return;
+
+    if (!bookId && event && event.target && event.target.closest) {
+        const host = event.target.closest('[data-book-id]');
+        if (host && host.dataset) bookId = host.dataset.bookId;
+    }
+    if (!bookId) return;
 
     // 若重复点击同一卡片的操作按钮且已处于展开状态，则收起
     if (activeActionBookId === bookId && menu.style.display !== 'none' && menu.classList.contains('active')) {
@@ -1891,6 +1904,7 @@ function openBookActionMenu(event, bookId) {
     closeBookTypeDropdown();
 
     activeActionBookId = bookId;
+    menu.dataset.bookId = bookId;
     const bookMeta = BookManager.getBookMeta(bookId);
 
     const btnMove = document.getElementById('btn-action-move-book');
@@ -1905,11 +1919,12 @@ function openBookActionMenu(event, bookId) {
     mountAnchoredBookDropdown(menu, btn, 'right');
 }
 
-function closeBookActionMenu() {
+function closeBookActionMenu(clearDataset = false) {
     const menu = document.getElementById('modal-book-actions-menu');
     if (menu) {
         menu.style.display = 'none';
         menu.classList.remove('active', 'align-right', 'flip-up');
+        if (clearDataset) delete menu.dataset.bookId;
     }
     activeActionBookId = null;
     document.querySelectorAll('.book-cover-card.dropdown-open').forEach(c => c.classList.remove('dropdown-open'));
@@ -1919,9 +1934,9 @@ function closeBookActionMenu() {
 /**
  * 查看词书全部内容（在新页面 view-book-content 中打开，自适应结构适配）
  */
-async function actionViewBookContent() {
-    const bookId = activeActionBookId;
-    closeBookActionMenu();
+async function actionViewBookContent(explicitBookId = null) {
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
     openBookContentPage(bookId);
 }
@@ -2865,10 +2880,11 @@ function renderBookViewerList(wordsList) {
  * 重学词书：清空记忆算法记录与已背进度
  */
 async function actionResetBookProgress(explicitBookId = null) {
-    const bookId = (typeof explicitBookId === 'string' && explicitBookId) ? explicitBookId : (typeof activeActionBookId === 'string' ? activeActionBookId : null);
-    closeBookActionMenu();
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) {
         console.warn('actionResetBookProgress: 未找到要重学的词书ID');
+        if (typeof showToast === 'function') showToast('未找到要重学的词书');
         return;
     }
 
@@ -2950,8 +2966,8 @@ async function actionResetBookProgress(explicitBookId = null) {
  * 删除本地词书
  */
 async function actionDeleteBook(explicitBookId = null) {
-    const bookId = explicitBookId || activeActionBookId;
-    closeBookActionMenu();
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
 
     const bookMeta = BookManager.getBookMeta(bookId) || { id: bookId, name: bookId };
@@ -3067,9 +3083,9 @@ window.openBookScopeModalForBook = openBookScopeModalForBook;
 /**
  * 移动词书选项：打开分类文件夹选择弹窗
  */
-function actionMoveBook() {
-    const bookId = activeActionBookId;
-    closeBookActionMenu();
+function actionMoveBook(explicitBookId = null) {
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
 
     const bookMeta = BookManager.getBookMeta(bookId);

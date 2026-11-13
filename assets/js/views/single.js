@@ -206,18 +206,68 @@ function loadCustomShiCiBook(event) {
     event.target.value = '';
 }
 
-let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false,"order":"sequence","meaningMode":"all"}');
-if (singleConfig.immediateRetest === undefined) singleConfig.immediateRetest = true;
-if (singleConfig.autoPlayAudio === undefined) singleConfig.autoPlayAudio = false;
-if (singleConfig.order === undefined) singleConfig.order = 'sequence';
-if (singleConfig.meaningMode === undefined) singleConfig.meaningMode = 'all';
+const DEFAULT_SINGLE_CONFIG = {
+    learnBatch: 10,
+    reviewBatch: 20,
+    immediateRetest: true,
+    autoPlayAudio: false,
+    order: 'sequence',
+    meaningMode: 'all'
+};
+
+function normalizeSingleConfig(raw) {
+    const cfg = Object.assign({}, DEFAULT_SINGLE_CONFIG, raw || {});
+    cfg.learnBatch = parseInt(cfg.learnBatch, 10) || 10;
+    cfg.reviewBatch = parseInt(cfg.reviewBatch, 10) || 20;
+    cfg.immediateRetest = (cfg.immediateRetest !== false);
+    cfg.autoPlayAudio = (cfg.autoPlayAudio === true);
+    cfg.order = (cfg.order === 'random') ? 'random' : 'sequence';
+    cfg.meaningMode = (cfg.meaningMode === 'random') ? 'random' : 'all';
+    return cfg;
+}
+
+function loadSingleConfig() {
+    let raw = null;
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.getItem) {
+            raw = SafeStorage.getItem('vocab_single_config');
+        }
+        if (!raw && typeof localStorage !== 'undefined') {
+            raw = localStorage.getItem('vocab_single_config');
+        }
+        singleConfig = normalizeSingleConfig(raw ? JSON.parse(raw) : {});
+    } catch (e) {
+        singleConfig = normalizeSingleConfig({});
+    }
+    if (typeof updateSingleSettingsChips === 'function' && document.getElementById('modal-single-settings')) {
+        updateSingleSettingsChips();
+    }
+    return singleConfig;
+}
+window.loadSingleConfig = loadSingleConfig;
+
+function persistSingleConfig() {
+    singleConfig = normalizeSingleConfig(singleConfig);
+    const json = JSON.stringify(singleConfig);
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem('vocab_single_config', json);
+        } else if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('vocab_single_config', json);
+        }
+    } catch (e) { }
+}
+
+let singleConfig = normalizeSingleConfig();
+loadSingleConfig();
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
     if (!modal) return;
+    loadSingleConfig();
     const tip = document.getElementById('audio-online-tip');
     if (tip) {
-        tip.innerText = navigator.onLine ? '(需联网)' : '(离线不可用)';
+        tip.innerText = navigator.onLine ? '(需联网)' : '(离线待联网时自动发音)';
         tip.style.color = navigator.onLine ? 'var(--md-sys-color-outline)' : 'var(--md-sys-color-error)';
     }
     updateSingleSettingsChips();
@@ -338,7 +388,7 @@ function updateSingleSettingsChips() {
     if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
 
     const meaningAll = document.getElementById('chip-single-meaning-all');
-    const meaningRand = document.getElementById('chip-single-meaning-random');
+    const meaningRand = document.getElementById('chip-single-meaning-rand') || document.getElementById('chip-single-meaning-random');
     if (meaningAll) meaningAll.classList.toggle('selected', singleConfig.meaningMode !== 'random');
     if (meaningRand) meaningRand.classList.toggle('selected', singleConfig.meaningMode === 'random');
 
@@ -369,16 +419,16 @@ function updateSingleSettingsChips() {
 }
 
 function selectSingleOrder(order) {
-    singleConfig.order = order;
+    singleConfig.order = (order === 'random') ? 'random' : 'sequence';
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectSingleOrder = selectSingleOrder;
 
 function selectSingleMeaningMode(mode) {
     singleConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectSingleMeaningMode = selectSingleMeaningMode;
 
@@ -388,7 +438,7 @@ function handleSingleLearnBatchSlider(val) {
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
     }
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.handleSingleLearnBatchSlider = handleSingleLearnBatchSlider;
 
@@ -398,7 +448,7 @@ function handleSingleReviewBatchSlider(val) {
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
     }
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.handleSingleReviewBatchSlider = handleSingleReviewBatchSlider;
 
@@ -413,43 +463,47 @@ function selectReviewBatch(val) {
 function selectImmediateRetest(val) {
     singleConfig.immediateRetest = Boolean(val);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectImmediateRetest = selectImmediateRetest;
 
 function toggleSingleRetestSwitch(checked) {
     singleConfig.immediateRetest = Boolean(checked);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.toggleSingleRetestSwitch = toggleSingleRetestSwitch;
 
 function selectAutoPlayAudio(val) {
-    if (!navigator.onLine && val) {
-        showToast('当前未联网，无法开启发音');
-        updateSingleSettingsChips();
-        return;
-    }
     singleConfig.autoPlayAudio = Boolean(val);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
+    if (!navigator.onLine && singleConfig.autoPlayAudio) {
+        showToast('已保存自动发音开启状态（联网后生效）');
+    }
 }
 window.selectAutoPlayAudio = selectAutoPlayAudio;
 
 function toggleSingleAutoplaySwitch(checked) {
-    if (!navigator.onLine && checked) {
-        showToast('当前未联网，无法开启发音');
-        updateSingleSettingsChips();
-        return;
-    }
     singleConfig.autoPlayAudio = Boolean(checked);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
+    if (!navigator.onLine && singleConfig.autoPlayAudio) {
+        showToast('已保存自动发音开启状态（联网后生效）');
+    }
 }
 window.toggleSingleAutoplaySwitch = toggleSingleAutoplaySwitch;
 
 function saveSingleSettings() {
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    const retestSwitch = document.getElementById('switch-single-retest');
+    if (retestSwitch) {
+        singleConfig.immediateRetest = Boolean(retestSwitch.checked);
+    }
+    const autoplaySwitch = document.getElementById('switch-single-autoplay');
+    if (autoplaySwitch) {
+        singleConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
+    }
+    persistSingleConfig();
     closeSingleSettings();
     showToast('设置已保存');
 }
@@ -465,7 +519,9 @@ function renderCardMasteryDiamonds(word, animType = null) {
             targetStage = 5;
         } else {
             const records = EbbinghausEngine.getRecords();
-            const rec = records[word.trim().toLowerCase()];
+            const rec = (typeof getEbbinghausRecordByWord === 'function')
+                ? getEbbinghausRecordByWord(records, word)
+                : records[String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()];
             if (rec && typeof rec.stage === 'number') {
                 targetStage = rec.stage;
             }
@@ -552,6 +608,7 @@ function saveSingleProgress() {
     const dataToSave = {
         pool: singleState.pool,
         currentIdx: singleState.currentIdx,
+        maxReachedIdx: Math.max(singleState.maxReachedIdx || 0, singleState.currentIdx || 0),
         score: singleState.score,
         total: singleState.total,
         targetTotal: singleState.targetTotal,
@@ -581,9 +638,10 @@ async function startSingleLearning() {
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
+                        maxReachedIdx: Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0),
                         score: parsed.score || 0,
                         total: parsed.total || 0,
-                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
                         sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '新词学习',
@@ -616,13 +674,19 @@ async function startSingleLearning() {
         dictionary = words;
 
         const learnedMap = EbbinghausEngine.getRecords();
+        const seenCandidateKeys = new Set();
         const candidateWords = words.filter(w => {
             if (!w || !w.word) return false;
-            const rawK = w.word.trim().toLowerCase();
-            const normK = rawK.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
-            if (isWordMastered(rawK) || isWordMastered(normK)) return false;
-            const rec = learnedMap[rawK] || learnedMap[normK];
+            const normK = typeof normalizeWordKey === 'function'
+                ? normalizeWordKey(w.word)
+                : w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!normK || seenCandidateKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
             if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
             return true;
         });
 
@@ -635,7 +699,7 @@ async function startSingleLearning() {
         const targets = (singleConfig.order === 'random')
             ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize)
             : candidateWords.slice(0, batchSize);
-        const pool = generateShuffledPoolFromWords(targets, targets.length);
+        const pool = generateShuffledPoolFromWords(targets, targets.length, singleConfig.meaningMode || 'all');
 
         startSinglePlayerWithPool(pool, '新词学习');
     } catch (err) {
@@ -788,9 +852,10 @@ async function startSingleReview(specificBookId = null) {
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
+                        maxReachedIdx: Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0),
                         score: parsed.score || 0,
                         total: parsed.total || 0,
-                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
                         sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '智能复习',
@@ -836,31 +901,35 @@ async function startSingleReview(specificBookId = null) {
             words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
         }
 
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
         let wordMap = new Map();
         words.forEach(w => {
-            if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+            if (w && w.word) wordMap.set(_normKey(w.word), w);
         });
 
         let dueRecords = [];
         if (specificBookId === 'other_due') {
             const knownDueKeys = new Set();
             getBooksWithDueWords().forEach(b => {
-                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add((d.word || '').trim().toLowerCase()));
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add(_normKey(d.word)));
             });
-            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has((r.word || '').trim().toLowerCase()));
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has(_normKey(r.word)));
         } else if (specificBookId && specificBookId !== 'all') {
             dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
         } else {
             dueRecords = EbbinghausEngine.getDueWords();
         }
         // 关键修复：排除本轮会话已复习过的词汇
-        let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+        let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
 
         // 如果指定词书的到期待复习词已在本会话全部复习完毕，自动尝试切换下一本有待复习词的词书
         if (unreviewedDue.length === 0 && specificBookId && specificBookId !== 'all') {
             const allBooksWithDue = getBooksWithDueWords().filter(b => {
                 const dues = EbbinghausEngine.getDueWordsForBooks([b.id]);
-                return dues.some(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                return dues.some(r => !sessionReviewedWords.has(_normKey(r.word)));
             });
             if (allBooksWithDue.length > 0) {
                 const nextBook = allBooksWithDue.find(b => b.id !== specificBookId) || allBooksWithDue[0];
@@ -876,10 +945,10 @@ async function startSingleReview(specificBookId = null) {
                     if (reloadedWords && reloadedWords.length > 0) {
                         wordMap.clear();
                         reloadedWords.forEach(w => {
-                            if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+                            if (w && w.word) wordMap.set(_normKey(w.word), w);
                         });
                         dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
-                        unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                        unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
                         showToast(`《${oldName}》已复习完，自动继续复习《${nextName}》`);
                     }
                 }
@@ -892,11 +961,11 @@ async function startSingleReview(specificBookId = null) {
         } else {
             // 无急需待复习词汇时，抽取已学但尚未熟练掌握的词汇进行强化
             const allLearned = EbbinghausEngine.getAllLearnedWords().filter(r => {
-                const k = (r.word || '').trim().toLowerCase();
+                const k = _normKey(r.word);
                 return wordMap.has(k) && !isWordMastered(k);
             });
 
-            let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+            let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
 
             if (unreviewedLearned.length === 0) {
                 if (allLearned.length === 0) {
@@ -916,7 +985,7 @@ async function startSingleReview(specificBookId = null) {
         const selectedBatch = reviewTargets.slice(0, batchSize);
 
         const wordsList = selectedBatch.map(r => {
-            const existing = wordMap.get(r.word.toLowerCase());
+            const existing = wordMap.get(_normKey(r.word));
             const bId = r.bookId || (targetBookIds.length > 0 ? targetBookIds[0] : null);
             if (existing) {
                 return { ...existing, bookId: bId, bookName: '复习' };
@@ -954,13 +1023,20 @@ async function startSinglePlayerFromSelectedBooks() {
         const learnedMap = EbbinghausEngine.getRecords();
 
         // 核心修改：严格排除已经学过的词（已在记忆库中且 stage >= 1）以及熟词
+        const seenCandidateKeys = new Set();
         const candidateWords = words.filter(w => {
             if (!w || !w.word) return false;
-            const k = w.word.trim().toLowerCase();
-            if (isWordMastered(k)) return false;
-            const rec = learnedMap[k];
+            const normK = typeof normalizeWordKey === 'function'
+                ? normalizeWordKey(w.word)
+                : w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!normK || seenCandidateKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
             // stage >= 1 代表已经学过进入复习阶段，新学模式中不再抽取
             if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
             return true;
         });
 
@@ -991,10 +1067,11 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     resetAllGameAlertsAndFeedback();
     gameMode = 'single';
     const isRev = defaultBookName.includes('复习');
-    const targetTot = new Set((pool || []).map(q => (q.word || '').trim().toLowerCase())).size || (pool ? pool.length : 1);
+    const targetTot = new Set((pool || []).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || (pool ? pool.length : 1);
     singleState = {
         pool: pool,
         currentIdx: 0,
+        maxReachedIdx: 0,
         answered: false,
         selectedIdx: -1,
         score: 0,

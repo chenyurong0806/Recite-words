@@ -8,11 +8,16 @@
    ========================================================================== */
 async function bootstrapApp() {
     initDisplaySettings();
+    document.querySelectorAll('.view:not(.active)').forEach(v => {
+        v.inert = true;
+        v.setAttribute('aria-hidden', 'true');
+    });
 
     // 1. 首先初始化并等待 IndexedDB 本地数据库恢复所有离线 KV 数据 (解决 PWA/Toy 添加到主屏幕数据重置)
     if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.init === 'function') {
         try {
             await VocabOfflineDB.init();
+            if (typeof loadSingleConfig === 'function') loadSingleConfig();
         } catch (e) { }
     }
 

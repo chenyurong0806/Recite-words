@@ -3064,6 +3064,9 @@ function showConfirmModal({
     return new Promise(resolve => {
         appConfirmResolve = resolve;
         const modal = document.getElementById('modal-app-confirm');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
         const titleEl = document.getElementById('app-confirm-title');
         const msgEl = document.getElementById('app-confirm-message');
         const okTextEl = document.getElementById('app-confirm-ok-text');
@@ -3957,6 +3960,11 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
                 if (offlineBook && offlineBook.words && offlineBook.words.length > 0) {
                     const needsRefresh = isGaoKao && !offlineBook.words.some(w => w.derivatives || w.antonyms || w.mistake);
                     if (!needsRefresh) {
+                        offlineBook.words.forEach(w => {
+                            if (w && typeof w.word === 'string') {
+                                w.word = w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+                            }
+                        });
                         this.bookCache[bookId] = offlineBook.words;
                         if (isGaoKao) {
                             this.bookCache['books/高中/高中考纲.json'] = offlineBook.words;
@@ -6048,6 +6056,41 @@ function shiftCalendarWeek(direction) {
  * Module: assets/js/managers/ebbinghaus.js
  */
 
+function normalizeWordKey(word) {
+    return String(word || '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function getEbbinghausRecordByWord(records, word) {
+    if (!records || !word) return null;
+    const normKey = normalizeWordKey(word);
+    const rawKey = String(word).trim().toLowerCase();
+    const recNorm = normKey ? records[normKey] : null;
+    const recRaw = (rawKey && rawKey !== normKey) ? records[rawKey] : null;
+    if (recNorm && recRaw) {
+        return ((recRaw.stage || 0) > (recNorm.stage || 0)) ? recRaw : recNorm;
+    }
+    return recNorm || recRaw || null;
+}
+
+function dedupeEbbinghausRecords(records) {
+    const byKey = new Map();
+    if (!records) return [];
+    Object.values(records).forEach(r => {
+        if (!r || !r.word) return;
+        const k = normalizeWordKey(r.word);
+        if (!k) return;
+        const existing = byKey.get(k);
+        if (!existing || (r.stage || 0) > (existing.stage || 0) || ((r.stage || 0) === (existing.stage || 0) && (r.lastPracticed || 0) > (existing.lastPracticed || 0))) {
+            byKey.set(k, r);
+        }
+    });
+    return Array.from(byKey.values());
+}
+
 const EBBINGHAUS_INTERVALS = [
     1 * 24 * 60 * 60 * 1000,   // 第 1 轮复习：1天后（第二天）
     4 * 24 * 60 * 60 * 1000,   // 第 2 轮复习：4天后
@@ -6093,11 +6136,11 @@ const EbbinghausEngine = {
     getDueWords() {
         const records = this.getRecords();
         const now = Date.now();
-        return Object.values(records).filter(r => r && r.stage >= 1 && r.stage < 5 && r.nextReview && now >= r.nextReview && !isWordMastered(r.word));
+        return dedupeEbbinghausRecords(records).filter(r => r && r.stage >= 1 && r.stage < 5 && r.nextReview && now >= r.nextReview && !isWordMastered(r.word));
     },
     getAllLearnedWords() {
         const records = this.getRecords();
-        return Object.values(records).filter(r => r && (r.stage >= 1 || isWordMastered(r.word)));
+        return dedupeEbbinghausRecords(records).filter(r => r && (r.stage >= 1 || isWordMastered(r.word)));
     },
     getDueWordsForBooks(bookIds = []) {
         if (!bookIds || bookIds.length === 0) return [];
@@ -6122,13 +6165,13 @@ const EbbinghausEngine = {
             }
             if (words && Array.isArray(words)) {
                 words.forEach(w => {
-                    if (w && w.word) wordSet.add(w.word.trim().toLowerCase());
+                    if (w && w.word) wordSet.add(normalizeWordKey(w.word));
                 });
             }
         });
 
         return allDue.filter(r => {
-            const key = (r.word || '').trim().toLowerCase();
+            const key = normalizeWordKey(r.word);
             if (wordSet.has(key)) return true;
             if (r.bookId) {
                 if (bookIds.includes(r.bookId)) return true;
@@ -6178,9 +6221,9 @@ const EbbinghausEngine = {
 
             words.forEach(w => {
                 if (!w || !w.word) return;
-                const k = w.word.trim().toLowerCase();
+                const k = normalizeWordKey(w.word);
                 const isMast = isWordMastered(k);
-                const rec = records[k];
+                const rec = getEbbinghausRecordByWord(records, w.word);
 
                 if (isMast || (rec && rec.stage >= 5)) {
                     learned++;
@@ -6275,9 +6318,11 @@ const EbbinghausEngine = {
         if (words && Array.isArray(words)) {
             words.forEach(w => {
                 if (!w || !w.word) return;
-                const k = w.word.trim().toLowerCase();
-                delete records[k];
-                if (typeof removeWordMastered === 'function') removeWordMastered(k);
+                const rawK = w.word.trim().toLowerCase();
+                const normK = normalizeWordKey(w.word);
+                delete records[normK];
+                if (rawK !== normK) delete records[rawK];
+                if (typeof removeWordMastered === 'function') removeWordMastered(w.word);
             });
         }
         Object.keys(records).forEach(k => {
@@ -6310,7 +6355,7 @@ const EbbinghausEngine = {
                     for (let i = 0; i < arr.length; i++) {
                         const it = arr[i];
                         if (it && it.word) {
-                            const k = it.word.trim().toLowerCase();
+                            const k = normalizeWordKey(it.word);
                             if (!fallbackWordMap.has(k)) fallbackWordMap.set(k, it);
                         }
                     }
@@ -6323,10 +6368,10 @@ const EbbinghausEngine = {
                     window.customBooks.forEach(cb => addWords(cb && cb.words));
                 }
             }
-            return fallbackWordMap.get(String(wText || '').trim().toLowerCase()) || null;
+            return fallbackWordMap.get(normalizeWordKey(wText)) || null;
         };
 
-        Object.values(records).forEach(r => {
+        dedupeEbbinghausRecords(records).forEach(r => {
             if (!r || !r.word) return;
             if (typeof isWordMastered === 'function' && isWordMastered(r.word)) return;
             if (r.stage >= 1 && r.stage < 5 && r.nextReview) {
@@ -6380,14 +6425,16 @@ const EbbinghausEngine = {
     },
     recordWord(word, meaning, phone, isSuccess, bookId = null) {
         if (!word) return;
-        const rawKey = word.trim().toLowerCase();
-        const normKey = rawKey.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+        const rawKey = String(word).trim().toLowerCase();
+        const normKey = normalizeWordKey(word);
+        if (!normKey) return;
         const records = this.getRecords();
         const now = Date.now();
-        const isMast = isWordMastered(rawKey) || isWordMastered(normKey);
+        const isMast = isWordMastered(word);
 
-        const record = records[normKey] || records[rawKey] || {
-            word: word.trim(),
+        const existing = getEbbinghausRecordByWord(records, word);
+        const record = existing ? { ...existing, word: String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim() } : {
+            word: String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim(),
             meaning: meaning || '',
             phone: phone || '',
             stage: isMast ? 5 : 0,
@@ -6407,8 +6454,8 @@ const EbbinghausEngine = {
                 record.stage = 2;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[1];
             } else {
-                record.stage = 0;
-                record.nextReview = 0;
+                record.stage = 1;
+                record.nextReview = now + EBBINGHAUS_INTERVALS[0];
             }
         } else {
             if (isSuccess) {
@@ -6424,18 +6471,18 @@ const EbbinghausEngine = {
                 } else {
                     record.stage = 5;
                     record.nextReview = 0;
-                    ensureWordMastered(word, phone, meaning);
+                    ensureWordMastered(record.word, phone, meaning);
                 }
             } else {
                 record.stage = 1;
                 record.nextReview = now + EBBINGHAUS_INTERVALS[0];
-                removeWordMastered(word);
+                removeWordMastered(record.word);
             }
         }
 
         records[normKey] = record;
-        if (rawKey !== normKey) {
-            records[rawKey] = record;
+        if (rawKey && rawKey !== normKey && records[rawKey]) {
+            delete records[rawKey];
         }
         this.saveRecords(records);
         this.updateDueBadge();
@@ -13778,13 +13825,19 @@ function switchView(viewId) {
         updateNavActive(navKey);
     }
 
-    const prevActive = document.querySelectorAll('.view.active');
-    for (let i = 0; i < prevActive.length; i++) {
-        if (prevActive[i].id !== viewId) prevActive[i].classList.remove('active');
-    }
-    const target = document.getElementById(viewId);
-    if (target && !target.classList.contains('active')) {
-        target.classList.add('active');
+    const views = document.querySelectorAll('.view');
+    for (let i = 0; i < views.length; i++) {
+        const v = views[i];
+        const isTarget = (v.id === viewId);
+        if (isTarget) {
+            if (!v.classList.contains('active')) v.classList.add('active');
+            v.inert = false;
+            v.removeAttribute('aria-hidden');
+        } else {
+            if (v.classList.contains('active')) v.classList.remove('active');
+            v.inert = true;
+            v.setAttribute('aria-hidden', 'true');
+        }
     }
 
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -13813,8 +13866,11 @@ function switchView(viewId) {
                 ? document.getElementById('me-subview-main')
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === activeKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActiveSub = (k === activeKey);
+                el.classList.toggle('active', isActiveSub);
+                el.inert = !isActiveSub;
+                if (isActiveSub) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (activeKey === 'main' && typeof renderMeView === 'function') {
@@ -15976,7 +16032,7 @@ function renderBookCardItem(b, isManageMode = false, currentCategory = '') {
                     <div class="book-card-name" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
                     <div class="book-card-top-slot">
                         ${showMoreAction ? `
-                            <button type="button" class="book-card-more-btn" onclick="openBookActionMenu(event, '${escapeHtml(b.id)}')" title="更多操作" aria-label="更多操作">
+                            <button type="button" class="book-card-more-btn" onclick="openBookActionMenu(event, this.closest('[data-book-id]')?.dataset.bookId)" title="更多操作" aria-label="更多操作">
                                 <span class="material-symbols-rounded" style="font-size:20px; line-height:1;">more_horiz</span>
                             </button>
                         ` : `
@@ -16406,6 +16462,13 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     menuEl.classList.add('active');
 }
 
+function getResolvedBookActionId(explicitBookId = null) {
+    if (typeof explicitBookId === 'string' && explicitBookId) return explicitBookId;
+    if (typeof activeActionBookId === 'string' && activeActionBookId) return activeActionBookId;
+    const menu = document.getElementById('modal-book-actions-menu');
+    return (menu && menu.dataset && menu.dataset.bookId) ? menu.dataset.bookId : null;
+}
+
 function openBookActionMenu(event, bookId) {
     if (event) {
         event.stopPropagation();
@@ -16413,6 +16476,12 @@ function openBookActionMenu(event, bookId) {
     }
     const menu = document.getElementById('modal-book-actions-menu');
     if (!menu) return;
+
+    if (!bookId && event && event.target && event.target.closest) {
+        const host = event.target.closest('[data-book-id]');
+        if (host && host.dataset) bookId = host.dataset.bookId;
+    }
+    if (!bookId) return;
 
     // 若重复点击同一卡片的操作按钮且已处于展开状态，则收起
     if (activeActionBookId === bookId && menu.style.display !== 'none' && menu.classList.contains('active')) {
@@ -16424,6 +16493,7 @@ function openBookActionMenu(event, bookId) {
     closeBookTypeDropdown();
 
     activeActionBookId = bookId;
+    menu.dataset.bookId = bookId;
     const bookMeta = BookManager.getBookMeta(bookId);
 
     const btnMove = document.getElementById('btn-action-move-book');
@@ -16438,11 +16508,12 @@ function openBookActionMenu(event, bookId) {
     mountAnchoredBookDropdown(menu, btn, 'right');
 }
 
-function closeBookActionMenu() {
+function closeBookActionMenu(clearDataset = false) {
     const menu = document.getElementById('modal-book-actions-menu');
     if (menu) {
         menu.style.display = 'none';
         menu.classList.remove('active', 'align-right', 'flip-up');
+        if (clearDataset) delete menu.dataset.bookId;
     }
     activeActionBookId = null;
     document.querySelectorAll('.book-cover-card.dropdown-open').forEach(c => c.classList.remove('dropdown-open'));
@@ -16452,9 +16523,9 @@ function closeBookActionMenu() {
 /**
  * 查看词书全部内容（在新页面 view-book-content 中打开，自适应结构适配）
  */
-async function actionViewBookContent() {
-    const bookId = activeActionBookId;
-    closeBookActionMenu();
+async function actionViewBookContent(explicitBookId = null) {
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
     openBookContentPage(bookId);
 }
@@ -17398,10 +17469,11 @@ function renderBookViewerList(wordsList) {
  * 重学词书：清空记忆算法记录与已背进度
  */
 async function actionResetBookProgress(explicitBookId = null) {
-    const bookId = (typeof explicitBookId === 'string' && explicitBookId) ? explicitBookId : (typeof activeActionBookId === 'string' ? activeActionBookId : null);
-    closeBookActionMenu();
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) {
         console.warn('actionResetBookProgress: 未找到要重学的词书ID');
+        if (typeof showToast === 'function') showToast('未找到要重学的词书');
         return;
     }
 
@@ -17483,8 +17555,8 @@ async function actionResetBookProgress(explicitBookId = null) {
  * 删除本地词书
  */
 async function actionDeleteBook(explicitBookId = null) {
-    const bookId = explicitBookId || activeActionBookId;
-    closeBookActionMenu();
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
 
     const bookMeta = BookManager.getBookMeta(bookId) || { id: bookId, name: bookId };
@@ -17600,9 +17672,9 @@ window.openBookScopeModalForBook = openBookScopeModalForBook;
 /**
  * 移动词书选项：打开分类文件夹选择弹窗
  */
-function actionMoveBook() {
-    const bookId = activeActionBookId;
-    closeBookActionMenu();
+function actionMoveBook(explicitBookId = null) {
+    const bookId = getResolvedBookActionId(explicitBookId);
+    closeBookActionMenu(true);
     if (!bookId) return;
 
     const bookMeta = BookManager.getBookMeta(bookId);
@@ -22444,18 +22516,68 @@ function loadCustomShiCiBook(event) {
     event.target.value = '';
 }
 
-let singleConfig = JSON.parse(localStorage.getItem('vocab_single_config') || '{"learnBatch":10,"reviewBatch":20,"immediateRetest":true,"autoPlayAudio":false,"order":"sequence","meaningMode":"all"}');
-if (singleConfig.immediateRetest === undefined) singleConfig.immediateRetest = true;
-if (singleConfig.autoPlayAudio === undefined) singleConfig.autoPlayAudio = false;
-if (singleConfig.order === undefined) singleConfig.order = 'sequence';
-if (singleConfig.meaningMode === undefined) singleConfig.meaningMode = 'all';
+const DEFAULT_SINGLE_CONFIG = {
+    learnBatch: 10,
+    reviewBatch: 20,
+    immediateRetest: true,
+    autoPlayAudio: false,
+    order: 'sequence',
+    meaningMode: 'all'
+};
+
+function normalizeSingleConfig(raw) {
+    const cfg = Object.assign({}, DEFAULT_SINGLE_CONFIG, raw || {});
+    cfg.learnBatch = parseInt(cfg.learnBatch, 10) || 10;
+    cfg.reviewBatch = parseInt(cfg.reviewBatch, 10) || 20;
+    cfg.immediateRetest = (cfg.immediateRetest !== false);
+    cfg.autoPlayAudio = (cfg.autoPlayAudio === true);
+    cfg.order = (cfg.order === 'random') ? 'random' : 'sequence';
+    cfg.meaningMode = (cfg.meaningMode === 'random') ? 'random' : 'all';
+    return cfg;
+}
+
+function loadSingleConfig() {
+    let raw = null;
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.getItem) {
+            raw = SafeStorage.getItem('vocab_single_config');
+        }
+        if (!raw && typeof localStorage !== 'undefined') {
+            raw = localStorage.getItem('vocab_single_config');
+        }
+        singleConfig = normalizeSingleConfig(raw ? JSON.parse(raw) : {});
+    } catch (e) {
+        singleConfig = normalizeSingleConfig({});
+    }
+    if (typeof updateSingleSettingsChips === 'function' && document.getElementById('modal-single-settings')) {
+        updateSingleSettingsChips();
+    }
+    return singleConfig;
+}
+window.loadSingleConfig = loadSingleConfig;
+
+function persistSingleConfig() {
+    singleConfig = normalizeSingleConfig(singleConfig);
+    const json = JSON.stringify(singleConfig);
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem('vocab_single_config', json);
+        } else if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('vocab_single_config', json);
+        }
+    } catch (e) { }
+}
+
+let singleConfig = normalizeSingleConfig();
+loadSingleConfig();
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
     if (!modal) return;
+    loadSingleConfig();
     const tip = document.getElementById('audio-online-tip');
     if (tip) {
-        tip.innerText = navigator.onLine ? '(需联网)' : '(离线不可用)';
+        tip.innerText = navigator.onLine ? '(需联网)' : '(离线待联网时自动发音)';
         tip.style.color = navigator.onLine ? 'var(--md-sys-color-outline)' : 'var(--md-sys-color-error)';
     }
     updateSingleSettingsChips();
@@ -22576,7 +22698,7 @@ function updateSingleSettingsChips() {
     if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
 
     const meaningAll = document.getElementById('chip-single-meaning-all');
-    const meaningRand = document.getElementById('chip-single-meaning-random');
+    const meaningRand = document.getElementById('chip-single-meaning-rand') || document.getElementById('chip-single-meaning-random');
     if (meaningAll) meaningAll.classList.toggle('selected', singleConfig.meaningMode !== 'random');
     if (meaningRand) meaningRand.classList.toggle('selected', singleConfig.meaningMode === 'random');
 
@@ -22607,16 +22729,16 @@ function updateSingleSettingsChips() {
 }
 
 function selectSingleOrder(order) {
-    singleConfig.order = order;
+    singleConfig.order = (order === 'random') ? 'random' : 'sequence';
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectSingleOrder = selectSingleOrder;
 
 function selectSingleMeaningMode(mode) {
     singleConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectSingleMeaningMode = selectSingleMeaningMode;
 
@@ -22626,7 +22748,7 @@ function handleSingleLearnBatchSlider(val) {
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
     }
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.handleSingleLearnBatchSlider = handleSingleLearnBatchSlider;
 
@@ -22636,7 +22758,7 @@ function handleSingleReviewBatchSlider(val) {
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
     }
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.handleSingleReviewBatchSlider = handleSingleReviewBatchSlider;
 
@@ -22651,43 +22773,47 @@ function selectReviewBatch(val) {
 function selectImmediateRetest(val) {
     singleConfig.immediateRetest = Boolean(val);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.selectImmediateRetest = selectImmediateRetest;
 
 function toggleSingleRetestSwitch(checked) {
     singleConfig.immediateRetest = Boolean(checked);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
 }
 window.toggleSingleRetestSwitch = toggleSingleRetestSwitch;
 
 function selectAutoPlayAudio(val) {
-    if (!navigator.onLine && val) {
-        showToast('当前未联网，无法开启发音');
-        updateSingleSettingsChips();
-        return;
-    }
     singleConfig.autoPlayAudio = Boolean(val);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
+    if (!navigator.onLine && singleConfig.autoPlayAudio) {
+        showToast('已保存自动发音开启状态（联网后生效）');
+    }
 }
 window.selectAutoPlayAudio = selectAutoPlayAudio;
 
 function toggleSingleAutoplaySwitch(checked) {
-    if (!navigator.onLine && checked) {
-        showToast('当前未联网，无法开启发音');
-        updateSingleSettingsChips();
-        return;
-    }
     singleConfig.autoPlayAudio = Boolean(checked);
     updateSingleSettingsChips();
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    persistSingleConfig();
+    if (!navigator.onLine && singleConfig.autoPlayAudio) {
+        showToast('已保存自动发音开启状态（联网后生效）');
+    }
 }
 window.toggleSingleAutoplaySwitch = toggleSingleAutoplaySwitch;
 
 function saveSingleSettings() {
-    localStorage.setItem('vocab_single_config', JSON.stringify(singleConfig));
+    const retestSwitch = document.getElementById('switch-single-retest');
+    if (retestSwitch) {
+        singleConfig.immediateRetest = Boolean(retestSwitch.checked);
+    }
+    const autoplaySwitch = document.getElementById('switch-single-autoplay');
+    if (autoplaySwitch) {
+        singleConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
+    }
+    persistSingleConfig();
     closeSingleSettings();
     showToast('设置已保存');
 }
@@ -22703,7 +22829,9 @@ function renderCardMasteryDiamonds(word, animType = null) {
             targetStage = 5;
         } else {
             const records = EbbinghausEngine.getRecords();
-            const rec = records[word.trim().toLowerCase()];
+            const rec = (typeof getEbbinghausRecordByWord === 'function')
+                ? getEbbinghausRecordByWord(records, word)
+                : records[String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()];
             if (rec && typeof rec.stage === 'number') {
                 targetStage = rec.stage;
             }
@@ -22790,6 +22918,7 @@ function saveSingleProgress() {
     const dataToSave = {
         pool: singleState.pool,
         currentIdx: singleState.currentIdx,
+        maxReachedIdx: Math.max(singleState.maxReachedIdx || 0, singleState.currentIdx || 0),
         score: singleState.score,
         total: singleState.total,
         targetTotal: singleState.targetTotal,
@@ -22819,9 +22948,10 @@ async function startSingleLearning() {
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
+                        maxReachedIdx: Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0),
                         score: parsed.score || 0,
                         total: parsed.total || 0,
-                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
                         sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '新词学习',
@@ -22854,13 +22984,19 @@ async function startSingleLearning() {
         dictionary = words;
 
         const learnedMap = EbbinghausEngine.getRecords();
+        const seenCandidateKeys = new Set();
         const candidateWords = words.filter(w => {
             if (!w || !w.word) return false;
-            const rawK = w.word.trim().toLowerCase();
-            const normK = rawK.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
-            if (isWordMastered(rawK) || isWordMastered(normK)) return false;
-            const rec = learnedMap[rawK] || learnedMap[normK];
+            const normK = typeof normalizeWordKey === 'function'
+                ? normalizeWordKey(w.word)
+                : w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!normK || seenCandidateKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
             if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
             return true;
         });
 
@@ -22873,7 +23009,7 @@ async function startSingleLearning() {
         const targets = (singleConfig.order === 'random')
             ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, batchSize)
             : candidateWords.slice(0, batchSize);
-        const pool = generateShuffledPoolFromWords(targets, targets.length);
+        const pool = generateShuffledPoolFromWords(targets, targets.length, singleConfig.meaningMode || 'all');
 
         startSinglePlayerWithPool(pool, '新词学习');
     } catch (err) {
@@ -23026,9 +23162,10 @@ async function startSingleReview(specificBookId = null) {
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
+                        maxReachedIdx: Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0),
                         score: parsed.score || 0,
                         total: parsed.total || 0,
-                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (q.word || '').trim().toLowerCase())).size || parsed.pool.length,
+                        targetTotal: parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || parsed.pool.length,
                         completedWords: new Set(parsed.completedWords || []),
                         sessionMistakes: new Set(parsed.sessionMistakes || []),
                         sessionName: parsed.sessionName || '智能复习',
@@ -23074,31 +23211,35 @@ async function startSingleReview(specificBookId = null) {
             words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
         }
 
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
         let wordMap = new Map();
         words.forEach(w => {
-            if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+            if (w && w.word) wordMap.set(_normKey(w.word), w);
         });
 
         let dueRecords = [];
         if (specificBookId === 'other_due') {
             const knownDueKeys = new Set();
             getBooksWithDueWords().forEach(b => {
-                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add((d.word || '').trim().toLowerCase()));
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add(_normKey(d.word)));
             });
-            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has((r.word || '').trim().toLowerCase()));
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has(_normKey(r.word)));
         } else if (specificBookId && specificBookId !== 'all') {
             dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
         } else {
             dueRecords = EbbinghausEngine.getDueWords();
         }
         // 关键修复：排除本轮会话已复习过的词汇
-        let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+        let unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
 
         // 如果指定词书的到期待复习词已在本会话全部复习完毕，自动尝试切换下一本有待复习词的词书
         if (unreviewedDue.length === 0 && specificBookId && specificBookId !== 'all') {
             const allBooksWithDue = getBooksWithDueWords().filter(b => {
                 const dues = EbbinghausEngine.getDueWordsForBooks([b.id]);
-                return dues.some(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                return dues.some(r => !sessionReviewedWords.has(_normKey(r.word)));
             });
             if (allBooksWithDue.length > 0) {
                 const nextBook = allBooksWithDue.find(b => b.id !== specificBookId) || allBooksWithDue[0];
@@ -23114,10 +23255,10 @@ async function startSingleReview(specificBookId = null) {
                     if (reloadedWords && reloadedWords.length > 0) {
                         wordMap.clear();
                         reloadedWords.forEach(w => {
-                            if (w && w.word) wordMap.set(w.word.trim().toLowerCase(), w);
+                            if (w && w.word) wordMap.set(_normKey(w.word), w);
                         });
                         dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
-                        unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+                        unreviewedDue = dueRecords.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
                         showToast(`《${oldName}》已复习完，自动继续复习《${nextName}》`);
                     }
                 }
@@ -23130,11 +23271,11 @@ async function startSingleReview(specificBookId = null) {
         } else {
             // 无急需待复习词汇时，抽取已学但尚未熟练掌握的词汇进行强化
             const allLearned = EbbinghausEngine.getAllLearnedWords().filter(r => {
-                const k = (r.word || '').trim().toLowerCase();
+                const k = _normKey(r.word);
                 return wordMap.has(k) && !isWordMastered(k);
             });
 
-            let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has((r.word || '').trim().toLowerCase()));
+            let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
 
             if (unreviewedLearned.length === 0) {
                 if (allLearned.length === 0) {
@@ -23154,7 +23295,7 @@ async function startSingleReview(specificBookId = null) {
         const selectedBatch = reviewTargets.slice(0, batchSize);
 
         const wordsList = selectedBatch.map(r => {
-            const existing = wordMap.get(r.word.toLowerCase());
+            const existing = wordMap.get(_normKey(r.word));
             const bId = r.bookId || (targetBookIds.length > 0 ? targetBookIds[0] : null);
             if (existing) {
                 return { ...existing, bookId: bId, bookName: '复习' };
@@ -23192,13 +23333,20 @@ async function startSinglePlayerFromSelectedBooks() {
         const learnedMap = EbbinghausEngine.getRecords();
 
         // 核心修改：严格排除已经学过的词（已在记忆库中且 stage >= 1）以及熟词
+        const seenCandidateKeys = new Set();
         const candidateWords = words.filter(w => {
             if (!w || !w.word) return false;
-            const k = w.word.trim().toLowerCase();
-            if (isWordMastered(k)) return false;
-            const rec = learnedMap[k];
+            const normK = typeof normalizeWordKey === 'function'
+                ? normalizeWordKey(w.word)
+                : w.word.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!normK || seenCandidateKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
             // stage >= 1 代表已经学过进入复习阶段，新学模式中不再抽取
             if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
             return true;
         });
 
@@ -23229,10 +23377,11 @@ function startSinglePlayerWithPool(pool, defaultBookName = '单人练习') {
     resetAllGameAlertsAndFeedback();
     gameMode = 'single';
     const isRev = defaultBookName.includes('复习');
-    const targetTot = new Set((pool || []).map(q => (q.word || '').trim().toLowerCase())).size || (pool ? pool.length : 1);
+    const targetTot = new Set((pool || []).map(q => (typeof normalizeWordKey === 'function' ? normalizeWordKey(q.word) : (q.word || '').trim().toLowerCase()))).size || (pool ? pool.length : 1);
     singleState = {
         pool: pool,
         currentIdx: 0,
+        maxReachedIdx: 0,
         answered: false,
         selectedIdx: -1,
         score: 0,
@@ -23741,33 +23890,40 @@ function saveMasteredWords(words) {
     localStorage.setItem(`vocab_mastered_words_${currentUser}`, JSON.stringify(words));
 }
 
+function _normMasteredKey(word) {
+    return typeof normalizeWordKey === 'function'
+        ? normalizeWordKey(word)
+        : String(word || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function isWordMastered(word) {
     if (!word) return false;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
     const list = getMasteredWords();
-    return list.some(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    return list.some(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
 }
 
 function toggleMasteredWord(word, phone = '', meaning = '') {
     if (!currentUser || !word) return false;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
+    const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    const existingIdx = list.findIndex(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
 
     let nowMastered = false;
     if (existingIdx >= 0) {
         list.splice(existingIdx, 1);
         nowMastered = false;
-        showToast(`已取消“${word}”的熟词标记`);
+        showToast(`已取消“${cleanWord}”的熟词标记`);
     } else {
         list.push({
-            word: word.trim(),
+            word: cleanWord,
             phone: phone || '',
             meaning: meaning || '',
             markedAt: Date.now()
         });
         nowMastered = true;
-        showToast(`已将“${word}”标为熟词`);
+        showToast(`已将“${cleanWord}”标为熟词`);
     }
     saveMasteredWords(list);
     return nowMastered;
@@ -23775,12 +23931,13 @@ function toggleMasteredWord(word, phone = '', meaning = '') {
 
 function ensureWordMastered(word, phone = '', meaning = '') {
     if (!currentUser || !word) return;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
+    const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
+    const existingIdx = list.findIndex(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
     if (existingIdx < 0) {
         list.push({
-            word: word.trim(),
+            word: cleanWord,
             phone: phone || '',
             meaning: meaning || '',
             markedAt: Date.now()
@@ -23791,12 +23948,11 @@ function ensureWordMastered(word, phone = '', meaning = '') {
 
 function removeWordMastered(word) {
     if (!currentUser || !word) return;
-    const clean = word.trim().toLowerCase();
+    const clean = _normMasteredKey(word);
     let list = getMasteredWords();
-    const existingIdx = list.findIndex(item => (typeof item === 'string' ? item.toLowerCase() : (item.word || '').toLowerCase()) === clean);
-    if (existingIdx >= 0) {
-        list.splice(existingIdx, 1);
-        saveMasteredWords(list);
+    const nextList = list.filter(item => _normMasteredKey(typeof item === 'string' ? item : item.word) !== clean);
+    if (nextList.length !== list.length) {
+        saveMasteredWords(nextList);
     }
 }
 
@@ -24583,11 +24739,15 @@ function checkSinglePhraseAnswer() {
             return isPhraseSlotMatch(uWord, tw) ? -1 : i;
         }).filter(idx => idx !== -1);
         const wKey = (q.word || '').trim().toLowerCase();
-        if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        const normKey = _normMasteredKey(q.word);
+        if (singleState.completedWords) {
+            singleState.completedWords.delete(wKey);
+            singleState.completedWords.delete(normKey);
+        }
         if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
         const isFirstWrongOnThisQ = !q._hasRecordedWrong;
         q._hasRecordedWrong = true;
-        singleState.sessionMistakes.add(wKey);
+        singleState.sessionMistakes.add(normKey);
         if (isFirstWrongOnThisQ) {
             EbbinghausEngine.recordWord(q.word, phraseMeaning, q.phone, false, currentBookId);
             renderCardMasteryDiamonds(q.word, 'loss');
@@ -24643,9 +24803,13 @@ function revealSingleAnswer() {
     q.answered = true;
 
     const wKey = (q.word || '').trim().toLowerCase();
-    if (singleState.completedWords) singleState.completedWords.delete(wKey);
+    const normKey = _normMasteredKey(q.word);
+    if (singleState.completedWords) {
+        singleState.completedWords.delete(wKey);
+        singleState.completedWords.delete(normKey);
+    }
     if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
-    singleState.sessionMistakes.add(wKey);
+    singleState.sessionMistakes.add(normKey);
     userStats.total++;
     singleState.total++;
     recordUserMistake(currentUser, q.word, q.options && q.options[q.correctIdx] ? q.options[q.correctIdx].meaning : q.meaning, q.phone);
@@ -24780,9 +24944,13 @@ function handleSingleAnswer(idx) {
         }
     } else {
         const wKey = (q.word || '').trim().toLowerCase();
-        if (singleState.completedWords) singleState.completedWords.delete(wKey);
+        const normKey = _normMasteredKey(q.word);
+        if (singleState.completedWords) {
+            singleState.completedWords.delete(wKey);
+            singleState.completedWords.delete(normKey);
+        }
         if (!singleState.sessionMistakes) singleState.sessionMistakes = new Set();
-        singleState.sessionMistakes.add(wKey);
+        singleState.sessionMistakes.add(normKey);
         recordUserMistake(currentUser, q.word, q.options[q.correctIdx]?.meaning, q.phone);
         scheduleRetestForCurrentQuestion();
         EbbinghausEngine.recordWord(q.word, q.options[q.correctIdx]?.meaning, q.phone, false, currentBookId);
@@ -29488,7 +29656,10 @@ function renderResult() {
         const pool = gameResult.pool || singleState.pool || [];
         if (isReview && pool && pool.length > 0 && typeof sessionReviewedWords !== 'undefined') {
             pool.forEach(p => {
-                if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
+                if (p && p.word) {
+                    const rk = typeof normalizeWordKey === 'function' ? normalizeWordKey(p.word) : p.word.trim().toLowerCase();
+                    sessionReviewedWords.add(rk);
+                }
             });
         }
         const sessionMistakeSet = new Set(Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes : ((singleState && singleState.sessionMistakes) ? Array.from(singleState.sessionMistakes) : []));
@@ -34649,27 +34820,31 @@ function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = fal
 window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
 function buildMinimalSummaryLayoutHtml(items) {
+    const mistakeCount = items.filter(i => i.isMistake).length;
+    const correctCount = Math.max(0, items.length - mistakeCount);
+
     const rowsHtml = items.map(item => {
         const cleanPhone = String(item.phone || '').replace(/^\/+|\/+$/g, '').trim();
         const phoneHtml = cleanPhone
-            ? (item.isShiCi ? `<span class="settlement-minimal-phone">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phone">/${escapeHtml(cleanPhone)}/</span>`)
+            ? (item.isShiCi ? `<span class="settlement-minimal-phonetic">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phonetic">/${escapeHtml(cleanPhone)}/</span>`)
             : '';
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
         const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
         const safeWord = escapeHtml((item.word || '').replace(/'/g, "\\'"));
         const safePhone = escapeHtml((item.phone || '').replace(/'/g, "\\'"));
         const safeMeaning = escapeHtml((lines.join('；') || '').replace(/'/g, "\\'"));
+        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-wrong' : '');
 
         return `
             <div class="settlement-minimal-row ${item.isMistake ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this)" data-mistake="${item.isMistake ? '1' : '0'}">
-                <div class="settlement-minimal-row-top">
+                <div class="settlement-minimal-row-main">
                     <div class="settlement-minimal-word-group">
                         <span class="settlement-minimal-word ${item.isMistake ? 'is-mistake' : ''}" onclick="if(this.closest('.settlement-minimal-row').classList.contains('expanded')){event.stopPropagation(); playWordAudio('${safeWord}');}">${escapeHtml(item.word)}</span>
                         ${phoneHtml}
                     </div>
-                    <span class="settlement-minimal-status ${statusInfo.isMastered ? 'is-mastered' : ''}">${escapeHtml(statusInfo.text)}</span>
+                    <span class="settlement-minimal-status ${statusCls}">${escapeHtml(statusInfo.text)}</span>
                 </div>
-                <div class="settlement-minimal-row-body">
+                <div class="settlement-minimal-detail">
                     <div class="settlement-minimal-meanings">
                         ${lines.map(line => `<div class="settlement-minimal-meaning-line">${escapeHtml(line)}</div>`).join('')}
                     </div>
@@ -34686,23 +34861,26 @@ function buildMinimalSummaryLayoutHtml(items) {
     return `
         <div class="settlement-minimal-page">
             <div class="settlement-minimal-topbar">
-                <button type="button" class="settlement-minimal-nav-btn" onclick="handleResultBackToHub()" title="返回">
+                <button type="button" class="settlement-minimal-back" onclick="handleResultBackToHub()" title="返回">
                     <span class="material-symbols-rounded">arrow_back_ios_new</span>
                 </button>
-                <div class="settlement-minimal-title">小结</div>
-                <div class="settlement-minimal-toggles">
-                    <button type="button" class="settlement-minimal-abc-btn active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
-                        <span>ab<u style="text-underline-offset:3px;">c</u></span>
+                <div class="settlement-minimal-title-group">
+                    <span class="settlement-minimal-title">小结</span>
+                    <span class="settlement-minimal-meta">${items.length} 词 · 正确 ${correctCount}${mistakeCount > 0 ? ` · 错题 ${mistakeCount}` : ''}</span>
+                </div>
+                <div class="settlement-minimal-tools">
+                    <button type="button" class="settlement-minimal-tool active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
+                        <span class="settlement-abc-text">ab<u class="settlement-abc-u">c</u></span>
                     </button>
-                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-eye-btn ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
-                        <svg class="eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-tool ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
+                        <svg class="settlement-eye-svg eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 10c3.5 4.5 8 6 10 6s6.5-1.5 10-6"/>
                             <path d="M5 13l-2 3"/>
                             <path d="M9.5 15.5l-1 3.5"/>
                             <path d="M14.5 15.5l1 3.5"/>
                             <path d="M19 13l2 3"/>
                         </svg>
-                        <svg class="eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="settlement-eye-svg eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
@@ -35305,6 +35483,7 @@ async function startShiCiLearning() {
                 const parsed = JSON.parse(saved);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
                     shiciState = parsed;
+                    shiciState.maxReachedIdx = Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0);
                     shiciState.completedWords = new Set(parsed.completedWords || []);
                     shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = false;
@@ -35345,6 +35524,7 @@ async function startShiCiLearning() {
         shiciState = {
             pool: questions,
             currentIdx: 0,
+            maxReachedIdx: 0,
             score: 0,
             total: questions.length,
             targetTotal: targetTotal,
@@ -35378,6 +35558,7 @@ async function startShiCiReview() {
                 const parsed = JSON.parse(savedReview);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
                     shiciState = parsed;
+                    shiciState.maxReachedIdx = Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0);
                     shiciState.completedWords = new Set(parsed.completedWords || []);
                     shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = true;
@@ -35428,6 +35609,7 @@ async function startShiCiReview() {
         shiciState = {
             pool: questions,
             currentIdx: 0,
+            maxReachedIdx: 0,
             score: 0,
             total: questions.length,
             targetTotal: targetTotal,
@@ -35453,6 +35635,7 @@ function saveShiCiSessionProgress() {
         const payload = JSON.stringify({
             pool: shiciState.pool,
             currentIdx: shiciState.currentIdx,
+            maxReachedIdx: Math.max(shiciState.maxReachedIdx || 0, shiciState.currentIdx || 0),
             score: shiciState.score,
             total: shiciState.pool.length,
             targetTotal: shiciState.targetTotal,
@@ -36211,8 +36394,11 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 ? document.getElementById('me-subview-main')
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === subviewKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActive = (k === subviewKey);
+                el.classList.toggle('active', isActive);
+                el.inert = !isActive;
+                if (isActive) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (subviewKey === 'items' && typeof ItemManager !== 'undefined') {
@@ -36246,20 +36432,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    if (!skipTransition && document.startViewTransition) {
-        try {
-            const transition = document.startViewTransition(performSwitch);
-            if (transition) {
-                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
-                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
-                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
-            }
-        } catch (e) {
-            performSwitch();
-        }
-    } else {
-        performSwitch();
-    }
+    performSwitch();
 }
 
 function updateNavActive(current) {
@@ -36394,8 +36567,11 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         subviews.forEach(k => {
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
-                if (k === subviewKey) el.classList.add('active');
-                else el.classList.remove('active');
+                const isActive = (k === subviewKey);
+                el.classList.toggle('active', isActive);
+                el.inert = !isActive;
+                if (isActive) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', 'true');
             }
         });
         if (subviewKey === 'main') {
@@ -36410,20 +36586,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    if (!skipTransition && document.startViewTransition) {
-        try {
-            const transition = document.startViewTransition(performSubviewSwitch);
-            if (transition) {
-                if (transition.ready && typeof transition.ready.catch === 'function') transition.ready.catch(() => { });
-                if (transition.finished && typeof transition.finished.catch === 'function') transition.finished.catch(() => { });
-                if (transition.updateCallbackDone && typeof transition.updateCallbackDone.catch === 'function') transition.updateCallbackDone.catch(() => { });
-            }
-        } catch (e) {
-            performSubviewSwitch();
-        }
-    } else {
-        performSubviewSwitch();
-    }
+    performSubviewSwitch();
 }
 
 function renderSettingsMain() {
@@ -44958,11 +45121,16 @@ window.findRelatedPhraseForWord = findRelatedPhraseForWord;
    ========================================================================== */
 async function bootstrapApp() {
     initDisplaySettings();
+    document.querySelectorAll('.view:not(.active)').forEach(v => {
+        v.inert = true;
+        v.setAttribute('aria-hidden', 'true');
+    });
 
     // 1. 首先初始化并等待 IndexedDB 本地数据库恢复所有离线 KV 数据 (解决 PWA/Toy 添加到主屏幕数据重置)
     if (typeof VocabOfflineDB !== 'undefined' && typeof VocabOfflineDB.init === 'function') {
         try {
             await VocabOfflineDB.init();
+            if (typeof loadSingleConfig === 'function') loadSingleConfig();
         } catch (e) { }
     }
 

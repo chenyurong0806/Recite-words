@@ -151,27 +151,31 @@ function toggleSettlementWordMastered(word, phone, meaning, btnEl, isShiCi = fal
 window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
 function buildMinimalSummaryLayoutHtml(items) {
+    const mistakeCount = items.filter(i => i.isMistake).length;
+    const correctCount = Math.max(0, items.length - mistakeCount);
+
     const rowsHtml = items.map(item => {
         const cleanPhone = String(item.phone || '').replace(/^\/+|\/+$/g, '').trim();
         const phoneHtml = cleanPhone
-            ? (item.isShiCi ? `<span class="settlement-minimal-phone">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phone">/${escapeHtml(cleanPhone)}/</span>`)
+            ? (item.isShiCi ? `<span class="settlement-minimal-phonetic">${escapeHtml(cleanPhone)}</span>` : `<span class="settlement-minimal-phonetic">/${escapeHtml(cleanPhone)}/</span>`)
             : '';
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
         const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
         const safeWord = escapeHtml((item.word || '').replace(/'/g, "\\'"));
         const safePhone = escapeHtml((item.phone || '').replace(/'/g, "\\'"));
         const safeMeaning = escapeHtml((lines.join('；') || '').replace(/'/g, "\\'"));
+        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-wrong' : '');
 
         return `
             <div class="settlement-minimal-row ${item.isMistake ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this)" data-mistake="${item.isMistake ? '1' : '0'}">
-                <div class="settlement-minimal-row-top">
+                <div class="settlement-minimal-row-main">
                     <div class="settlement-minimal-word-group">
                         <span class="settlement-minimal-word ${item.isMistake ? 'is-mistake' : ''}" onclick="if(this.closest('.settlement-minimal-row').classList.contains('expanded')){event.stopPropagation(); playWordAudio('${safeWord}');}">${escapeHtml(item.word)}</span>
                         ${phoneHtml}
                     </div>
-                    <span class="settlement-minimal-status ${statusInfo.isMastered ? 'is-mastered' : ''}">${escapeHtml(statusInfo.text)}</span>
+                    <span class="settlement-minimal-status ${statusCls}">${escapeHtml(statusInfo.text)}</span>
                 </div>
-                <div class="settlement-minimal-row-body">
+                <div class="settlement-minimal-detail">
                     <div class="settlement-minimal-meanings">
                         ${lines.map(line => `<div class="settlement-minimal-meaning-line">${escapeHtml(line)}</div>`).join('')}
                     </div>
@@ -188,23 +192,26 @@ function buildMinimalSummaryLayoutHtml(items) {
     return `
         <div class="settlement-minimal-page">
             <div class="settlement-minimal-topbar">
-                <button type="button" class="settlement-minimal-nav-btn" onclick="handleResultBackToHub()" title="返回">
+                <button type="button" class="settlement-minimal-back" onclick="handleResultBackToHub()" title="返回">
                     <span class="material-symbols-rounded">arrow_back_ios_new</span>
                 </button>
-                <div class="settlement-minimal-title">小结</div>
-                <div class="settlement-minimal-toggles">
-                    <button type="button" class="settlement-minimal-abc-btn active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
-                        <span>ab<u style="text-underline-offset:3px;">c</u></span>
+                <div class="settlement-minimal-title-group">
+                    <span class="settlement-minimal-title">小结</span>
+                    <span class="settlement-minimal-meta">${items.length} 词 · 正确 ${correctCount}${mistakeCount > 0 ? ` · 错题 ${mistakeCount}` : ''}</span>
+                </div>
+                <div class="settlement-minimal-tools">
+                    <button type="button" class="settlement-minimal-tool active" onclick="toggleSettlementWordsMask(this)" title="显隐单词">
+                        <span class="settlement-abc-text">ab<u class="settlement-abc-u">c</u></span>
                     </button>
-                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-eye-btn ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
-                        <svg class="eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <button type="button" id="btn-settlement-toggle-meanings" class="settlement-minimal-tool ${anyExpanded ? 'active' : ''}" onclick="toggleSettlementMeaningsAll(this)" title="展开/收起全部释义">
+                        <svg class="settlement-eye-svg eye-closed-svg" style="display:${anyExpanded ? 'none' : 'block'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 10c3.5 4.5 8 6 10 6s6.5-1.5 10-6"/>
                             <path d="M5 13l-2 3"/>
                             <path d="M9.5 15.5l-1 3.5"/>
                             <path d="M14.5 15.5l1 3.5"/>
                             <path d="M19 13l2 3"/>
                         </svg>
-                        <svg class="eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="settlement-eye-svg eye-open-svg" style="display:${anyExpanded ? 'block' : 'none'};" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
@@ -807,6 +814,7 @@ async function startShiCiLearning() {
                 const parsed = JSON.parse(saved);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length && !parsed.isReview) {
                     shiciState = parsed;
+                    shiciState.maxReachedIdx = Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0);
                     shiciState.completedWords = new Set(parsed.completedWords || []);
                     shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = false;
@@ -847,6 +855,7 @@ async function startShiCiLearning() {
         shiciState = {
             pool: questions,
             currentIdx: 0,
+            maxReachedIdx: 0,
             score: 0,
             total: questions.length,
             targetTotal: targetTotal,
@@ -880,6 +889,7 @@ async function startShiCiReview() {
                 const parsed = JSON.parse(savedReview);
                 if (parsed && Array.isArray(parsed.pool) && parsed.currentIdx < parsed.pool.length) {
                     shiciState = parsed;
+                    shiciState.maxReachedIdx = Math.max(parsed.maxReachedIdx || 0, parsed.currentIdx || 0);
                     shiciState.completedWords = new Set(parsed.completedWords || []);
                     shiciState.targetTotal = parsed.targetTotal || new Set((parsed.pool || []).filter(q => !q._isRetest).map(q => q.word)).size || (parsed.pool ? parsed.pool.length : 0);
                     shiciState.isReview = true;
@@ -930,6 +940,7 @@ async function startShiCiReview() {
         shiciState = {
             pool: questions,
             currentIdx: 0,
+            maxReachedIdx: 0,
             score: 0,
             total: questions.length,
             targetTotal: targetTotal,
@@ -955,6 +966,7 @@ function saveShiCiSessionProgress() {
         const payload = JSON.stringify({
             pool: shiciState.pool,
             currentIdx: shiciState.currentIdx,
+            maxReachedIdx: Math.max(shiciState.maxReachedIdx || 0, shiciState.currentIdx || 0),
             score: shiciState.score,
             total: shiciState.pool.length,
             targetTotal: shiciState.targetTotal,

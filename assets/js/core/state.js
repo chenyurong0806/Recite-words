@@ -385,6 +385,9 @@ function showConfirmModal({
     return new Promise(resolve => {
         appConfirmResolve = resolve;
         const modal = document.getElementById('modal-app-confirm');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
         const titleEl = document.getElementById('app-confirm-title');
         const msgEl = document.getElementById('app-confirm-message');
         const okTextEl = document.getElementById('app-confirm-ok-text');

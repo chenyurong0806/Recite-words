@@ -1931,19 +1931,15 @@
 
             <!-- 子页面 10: 复习计划子页面 -->
             <div id="settings-subview-review-plan" class="me-subview settings-subview">
-                <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div class="subview-header review-plan-header">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <button type="button" class="nav-back-btn" onclick="openMeSubview('main')" title="返回">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
                         <div>
-                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">复习计划</h3>
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:800;">复习计划</h3>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-hub'); if (typeof handleReviewMainClick === 'function') handleReviewMainClick();">
-                        <span class="material-symbols-rounded" style="font-size:16px;">play_arrow</span>
-                        <span class="btn-label-text">立即复习</span>
-                    </button>
                 </div>
 
                 <!-- 顶部总览状态条 -->
@@ -2270,13 +2266,15 @@
 
                         <!-- 右侧常驻工具栏（无折叠按钮，图标全部直接显示） -->
                         <div class="card-toolbar-cluster" id="single-card-toolbar-cluster">
-                            <button type="button" class="card-tool-btn" id="btn-card-prev"
+                            <button type="button" class="card-tool-btn card-tool-btn-labeled" id="btn-card-prev"
                                 onclick="viewPreviousSingleQuestion()" title="查看上一个词" disabled style="opacity: 0.35; cursor: not-allowed;">
-                                <span class="material-symbols-rounded" style="font-size: 18px;">undo</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span>
+                                <span>上一个</span>
                             </button>
-                            <button type="button" class="card-tool-btn" id="btn-card-return"
+                            <button type="button" class="card-tool-btn card-tool-btn-labeled return-highlight" id="btn-card-return"
                                 onclick="returnToCurrentSingleQuestion()" title="返回最新单词" style="display:none;">
-                                <span class="material-symbols-rounded" style="font-size: 18px;">redo</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px;">redo</span>
+                                <span>返回</span>
                             </button>
                             <button type="button" class="card-tool-btn" id="btn-card-audio"
                                 onclick="playCurrentSingleWordAudio()" title="朗读发音">
@@ -2429,12 +2427,12 @@
 
         <!-- VIEW 6: 对决结算对话框 -->
         <div id="view-result" class="view">
-            <div class="card" style="max-width: 500px; margin: 30px auto; text-align: center;">
+            <div class="card result-card-shell" style="max-width: 500px; margin: 24px auto; text-align: center;">
                 <div id="result-icon" style="font-size: 3.8rem; margin-bottom: 6px;">🏆</div>
                 <h1 id="result-message">对决结算</h1>
-                <div id="result-details" style="margin: 16px 0;"></div>
+                <div id="result-details" style="margin: 14px 0;"></div>
 
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                <div class="result-actions-wrap" style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
                     <button class="btn btn-filled btn-touch-large" id="btn-back-room" onclick="handleBackToRoom()">
                         <span class="material-symbols-rounded" style="font-size:20px;">replay</span>
                         <span class="btn-label-text">再来一局</span>
@@ -2892,13 +2890,15 @@
                             </div>
                         </div>
                         <div class="card-toolbar-cluster" id="shici-card-toolbar-cluster">
-                            <button type="button" class="card-tool-btn" id="btn-shici-prev"
+                            <button type="button" class="card-tool-btn card-tool-btn-labeled" id="btn-shici-prev"
                                 onclick="viewPreviousShiCiQuestion()" title="查看上一个实词" disabled style="opacity: 0.35; cursor: not-allowed;">
-                                <span class="material-symbols-rounded" style="font-size: 18px;">undo</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span>
+                                <span>上一个</span>
                             </button>
-                            <button type="button" class="card-tool-btn" id="btn-shici-return"
+                            <button type="button" class="card-tool-btn card-tool-btn-labeled return-highlight" id="btn-shici-return"
                                 onclick="returnToCurrentShiCiQuestion()" title="返回最新实词" style="display:none;">
-                                <span class="material-symbols-rounded" style="font-size: 18px;">redo</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px;">redo</span>
+                                <span>返回</span>
                             </button>
                             <button type="button" class="card-tool-btn" id="btn-shici-master"
                                 onclick="toggleCurrentShiCiMastered()" title="标注熟词（不再抽取）">
@@ -3395,62 +3395,64 @@
         <!-- VIEW 17: 独立词书内容浏览页面 (自适应不同词书结构：详尽词典 / 双音标词汇 / 短语搭配 / 翻译句式 / 文言实词 / 精简词表) -->
         <div id="view-book-content" class="view">
             <div class="book-content-page-container">
-                <div class="book-content-top-bar">
-                    <button type="button" class="nav-back-btn" onclick="exitBookContentPage()" title="返回">
-                        <span class="material-symbols-rounded">arrow_back</span>
-                    </button>
-                    <div class="book-content-title-wrap">
-                        <div class="book-content-title-row">
-                            <h2 class="book-content-title" id="book-content-page-title">词书内容</h2>
-                        </div>
-                        <div class="book-content-subtitle" id="book-content-page-subtitle">共 0 词</div>
-                    </div>
-                    <div class="book-content-top-actions">
-                        <button type="button" class="btn btn-filled btn-sm" id="btn-book-content-add-word" onclick="openManualAddWordModal()" style="display:none;">
-                            <span class="material-symbols-rounded" style="font-size:18px;">add</span>
-                            <span class="btn-label-text">添加词汇</span>
+                <div class="book-content-header-dock">
+                    <div class="book-content-top-bar">
+                        <button type="button" class="nav-back-btn" onclick="exitBookContentPage()" title="返回">
+                            <span class="material-symbols-rounded">arrow_back</span>
                         </button>
+                        <div class="book-content-title-wrap">
+                            <div class="book-content-title-row">
+                                <h2 class="book-content-title" id="book-content-page-title">词书内容</h2>
+                            </div>
+                            <div class="book-content-subtitle" id="book-content-page-subtitle">共 0 词</div>
+                        </div>
+                        <div class="book-content-top-actions">
+                            <button type="button" class="btn btn-filled btn-sm" id="btn-book-content-add-word" onclick="openManualAddWordModal()" style="display:none;">
+                                <span class="material-symbols-rounded" style="font-size:18px;">add</span>
+                                <span class="btn-label-text">添加词汇</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 可伸展搜索框 + 中英切换 + 展开收起) -->
-                <div class="book-content-toolbar-row" id="book-content-toolbar-row">
-                    <div class="book-content-toolbar-left">
-                        <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs">
-                            <button type="button" class="settings-cat-tab active" data-type="all" onclick="setBookContentTypeFilter('all')">全部</button>
-                            <button type="button" class="settings-cat-tab" data-type="word" onclick="setBookContentTypeFilter('word')">单词</button>
-                            <button type="button" class="settings-cat-tab" data-type="phrase" onclick="setBookContentTypeFilter('phrase')">词组</button>
-                        </div>
-                        <div class="md3-custom-select" id="bc-toolbar-section-wrap" style="display:none; position:relative;">
-                            <button type="button" class="md3-custom-select-trigger bc-section-select-trigger" id="bc-toolbar-section-trigger" onclick="toggleMd3Select('bc-toolbar-section', event)">
-                                <span id="bc-toolbar-section-label">全部分类</span>
-                                <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
-                            </button>
-                            <div class="md3-custom-select-menu" id="bc-toolbar-section-menu" onclick="event.stopPropagation()"></div>
-                        </div>
-                    </div>
-                    <div class="book-content-toolbar-right">
-                        <!-- 可伸展搜索框：默认显示为搜索图标，点击后向左伸展为搜索框 -->
-                        <div class="bc-expandable-search-wrap" id="bc-expandable-search-wrap">
-                            <button type="button" class="btn btn-tonal btn-sm bc-search-icon-btn" id="btn-bc-search-trigger" onclick="toggleBookContentSearchExpand(true, event)" title="搜索词条" aria-label="搜索">
-                                <span class="material-symbols-rounded" style="font-size:18px;">search</span>
-                            </button>
-                            <div class="bc-search-input-box">
-                                <span class="material-symbols-rounded bc-search-inner-icon" style="font-size:17px; color:var(--md-sys-color-outline);">search</span>
-                                <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)" onblur="handleBookContentSearchBlur()">
-                                <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch(event)" title="清空或收起" aria-label="清空或收起">
-                                    <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                    <!-- 词书内容操作工具栏 (类型切换Tab + 分类下拉 + 可伸展搜索框 + 中英切换 + 展开收起) -->
+                    <div class="book-content-toolbar-row" id="book-content-toolbar-row">
+                        <div class="book-content-toolbar-left">
+                            <div class="settings-category-tabs bc-type-tabs" id="bc-toolbar-type-tabs">
+                                <button type="button" class="settings-cat-tab active" data-type="all" onclick="setBookContentTypeFilter('all')">全部</button>
+                                <button type="button" class="settings-cat-tab" data-type="word" onclick="setBookContentTypeFilter('word')">单词</button>
+                                <button type="button" class="settings-cat-tab" data-type="phrase" onclick="setBookContentTypeFilter('phrase')">词组</button>
+                            </div>
+                            <div class="md3-custom-select" id="bc-toolbar-section-wrap" style="display:none; position:relative;">
+                                <button type="button" class="md3-custom-select-trigger bc-section-select-trigger" id="bc-toolbar-section-trigger" onclick="toggleMd3Select('bc-toolbar-section', event)">
+                                    <span id="bc-toolbar-section-label">全部分类</span>
+                                    <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
                                 </button>
+                                <div class="md3-custom-select-menu" id="bc-toolbar-section-menu" onclick="event.stopPropagation()"></div>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-tonal btn-sm bc-toggle-display-btn" id="btn-bc-toggle-display-mode" onclick="toggleBookContentDisplayMode()" title="切换收起时展示英文或释义">
-                            <span class="material-symbols-rounded" style="font-size:17px;">translate</span>
-                            <span id="text-bc-display-mode">展示释义</span>
-                        </button>
-                        <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-book-content-expand-all" onclick="toggleBookContentExpandAll()">
-                            <span class="material-symbols-rounded" id="icon-bc-expand-all" style="font-size:18px;">unfold_more</span>
-                            <span id="text-bc-expand-all">展开全部</span>
-                        </button>
+                        <div class="book-content-toolbar-right">
+                            <!-- 可伸展搜索框：默认显示为搜索图标，点击后向左伸展为搜索框 -->
+                            <div class="bc-expandable-search-wrap" id="bc-expandable-search-wrap">
+                                <button type="button" class="btn btn-tonal btn-sm bc-search-icon-btn" id="btn-bc-search-trigger" onclick="toggleBookContentSearchExpand(true, event)" title="搜索词条" aria-label="搜索">
+                                    <span class="material-symbols-rounded" style="font-size:18px;">search</span>
+                                </button>
+                                <div class="bc-search-input-box">
+                                    <span class="material-symbols-rounded bc-search-inner-icon" style="font-size:17px; color:var(--md-sys-color-outline);">search</span>
+                                    <input type="text" id="book-content-search-input" class="book-content-search-field" placeholder="搜索单词、释义或例句..." oninput="handleBookContentSearch(this.value)" onblur="handleBookContentSearchBlur()">
+                                    <button type="button" id="book-content-search-clear" class="book-content-search-clear" onclick="clearBookContentSearch(event)" title="清空或收起" aria-label="清空或收起">
+                                        <span class="material-symbols-rounded" style="font-size:16px;">close</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-tonal btn-sm bc-toggle-display-btn" id="btn-bc-toggle-display-mode" onclick="toggleBookContentDisplayMode()" title="切换收起时展示英文或释义">
+                                <span class="material-symbols-rounded" style="font-size:17px;">translate</span>
+                                <span id="text-bc-display-mode">展示释义</span>
+                            </button>
+                            <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-book-content-expand-all" onclick="toggleBookContentExpandAll()">
+                                <span class="material-symbols-rounded" id="icon-bc-expand-all" style="font-size:18px;">unfold_more</span>
+                                <span id="text-bc-expand-all">展开全部</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -4885,52 +4887,6 @@
         </div>
     </div>
 
-    <!-- 全局操作确认弹窗 (兼容 Iframe 沙盒环境，替代系统 confirm) -->
-    <div id="modal-app-confirm" class="modal-overlay">
-        <div class="modal-card" style="max-width: 360px; width: 90%;">
-            <div class="modal-header">
-                <div>
-                    <h3 id="app-confirm-title" style="font-size:1.15rem; font-weight:700;">确认操作</h3>
-                </div>
-                <button type="button" class="modal-close-btn" onclick="resolveAppConfirm(false)">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <div class="modal-body" style="padding: 16px 20px;">
-                <p id="app-confirm-message" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);"></p>
-            </div>
-            <div class="modal-footer" style="display:flex; gap:8px;">
-                <button type="button" class="btn btn-outlined btn-touch-large" id="app-confirm-btn-cancel" style="flex:1;" onclick="resolveAppConfirm(false)">
-                    <span class="btn-label-text" id="app-confirm-cancel-text">取消</span>
-                </button>
-                <button type="button" class="btn btn-filled btn-touch-large" id="app-confirm-btn-ok" style="flex:1;" onclick="resolveAppConfirm(true)">
-                    <span class="material-symbols-rounded" id="app-confirm-ok-icon" style="font-size:18px;">check</span>
-                    <span class="btn-label-text" id="app-confirm-ok-text">确认</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 全局输入弹窗 (替代不支持的系统 prompt，完美兼容 Electron 与所有浏览器) -->
-    <div id="modal-app-prompt" class="modal-overlay" style="z-index: 10002;">
-        <div class="modal-card" style="max-width: 400px; width: 92%; border-radius: var(--md-shape-xl, 24px); padding: 22px; overflow: visible;">
-            <div class="modal-header" style="margin-bottom: 12px; padding: 0;">
-                <h3 id="app-prompt-title" style="margin:0; font-size:1.15rem; font-weight:700; color:var(--md-sys-color-on-surface);">请输入</h3>
-                <button type="button" class="modal-close-btn" onclick="resolveAppPrompt(null)">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <div class="modal-body" style="padding: 4px 4px 6px; margin: -4px -4px 0; overflow: visible;">
-                <p id="app-prompt-message" style="margin: 0 0 12px; font-size: 0.92rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5;"></p>
-                <input type="text" id="app-prompt-input" class="input-field" style="width: 100%; box-sizing: border-box;" onkeydown="if(event.key==='Enter') resolveAppPrompt(this.value)">
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:16px 0 0 0; margin-top:8px; border-top:none;">
-                <button type="button" class="btn btn-outlined btn-sm" id="app-prompt-btn-cancel" onclick="resolveAppPrompt(null)">取消</button>
-                <button type="button" class="btn btn-filled btn-sm" id="app-prompt-btn-ok" onclick="resolveAppPrompt(document.getElementById('app-prompt-input').value)">确认</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 头像裁切与区域调整弹窗 -->
     <div id="modal-avatar-cropper" class="modal-overlay">
         <div class="modal-card" style="max-width: 380px; width: 92%;">
@@ -5075,6 +5031,52 @@
     <!-- 闭合 .container -->
     </div>
 
+    <!-- 全局操作确认弹窗 (兼容 Iframe 沙盒环境与 Electron，直接挂载于 body 下避免层级限制) -->
+    <div id="modal-app-confirm" class="modal-overlay" style="z-index: 10060;">
+        <div class="modal-card" style="max-width: 360px; width: 90%;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="app-confirm-title" style="font-size:1.15rem; font-weight:700;">确认操作</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="resolveAppConfirm(false)">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px;">
+                <p id="app-confirm-message" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);"></p>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-outlined btn-touch-large" id="app-confirm-btn-cancel" style="flex:1;" onclick="resolveAppConfirm(false)">
+                    <span class="btn-label-text" id="app-confirm-cancel-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-filled btn-touch-large" id="app-confirm-btn-ok" style="flex:1;" onclick="resolveAppConfirm(true)">
+                    <span class="material-symbols-rounded" id="app-confirm-ok-icon" style="font-size:18px;">check</span>
+                    <span class="btn-label-text" id="app-confirm-ok-text">确认</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全局输入弹窗 (替代不支持的系统 prompt，直接挂载于 body 下) -->
+    <div id="modal-app-prompt" class="modal-overlay" style="z-index: 10062;">
+        <div class="modal-card" style="max-width: 400px; width: 92%; border-radius: var(--md-shape-xl, 24px); padding: 22px; overflow: visible;">
+            <div class="modal-header" style="margin-bottom: 12px; padding: 0;">
+                <h3 id="app-prompt-title" style="margin:0; font-size:1.15rem; font-weight:700; color:var(--md-sys-color-on-surface);">请输入</h3>
+                <button type="button" class="modal-close-btn" onclick="resolveAppPrompt(null)">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 4px 4px 6px; margin: -4px -4px 0; overflow: visible;">
+                <p id="app-prompt-message" style="margin: 0 0 12px; font-size: 0.92rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5;"></p>
+                <input type="text" id="app-prompt-input" class="input-field" style="width: 100%; box-sizing: border-box;" onkeydown="if(event.key==='Enter') resolveAppPrompt(this.value)">
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:16px 0 0 0; margin-top:8px; border-top:none;">
+                <button type="button" class="btn btn-outlined btn-sm" id="app-prompt-btn-cancel" onclick="resolveAppPrompt(null)">取消</button>
+                <button type="button" class="btn btn-filled btn-sm" id="app-prompt-btn-ok" onclick="resolveAppPrompt(document.getElementById('app-prompt-input').value)">确认</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Doris 内部词书访问密钥验证弹窗 -->
     <div id="modal-doris-unlock" class="modal-overlay">
         <div class="modal-card" style="max-width: 400px; border-radius: var(--md-shape-xl, 28px); padding: 24px;">
@@ -5104,19 +5106,19 @@
     <!-- 词书卡片更多操作下拉菜单 (锚定至卡片右上角按钮) -->
     <div id="modal-book-actions-menu" class="book-anchored-dropdown book-actions-dropdown" style="display:none;" onclick="event.stopPropagation()">
         <div class="book-dd-list">
-            <button type="button" class="book-dd-action-item" onclick="actionViewBookContent()">
+            <button type="button" class="book-dd-action-item" onclick="actionViewBookContent(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-primary);">menu_book</span>
                 <span>查看内容</span>
             </button>
-            <button type="button" class="book-dd-action-item" id="btn-action-move-book" onclick="actionMoveBook()" style="display:none;">
+            <button type="button" class="book-dd-action-item" id="btn-action-move-book" onclick="actionMoveBook(this.closest('#modal-book-actions-menu')?.dataset?.bookId)" style="display:none;">
                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-secondary, #475569);">drive_file_move</span>
                 <span>移动分类</span>
             </button>
-            <button type="button" class="book-dd-action-item" onclick="actionResetBookProgress()">
+            <button type="button" class="book-dd-action-item" onclick="actionResetBookProgress(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
                 <span class="material-symbols-rounded" style="color:#d97706;">restart_alt</span>
                 <span>重学词书</span>
             </button>
-            <button type="button" class="book-dd-action-item danger" onclick="actionDeleteBook()">
+            <button type="button" class="book-dd-action-item danger" onclick="actionDeleteBook(this.closest('#modal-book-actions-menu')?.dataset?.bookId)">
                 <span class="material-symbols-rounded" style="color:var(--md-sys-color-error);">delete</span>
                 <span>删除词书</span>
             </button>

@@ -2926,7 +2926,10 @@ function renderResult() {
         const pool = gameResult.pool || singleState.pool || [];
         if (isReview && pool && pool.length > 0 && typeof sessionReviewedWords !== 'undefined') {
             pool.forEach(p => {
-                if (p && p.word) sessionReviewedWords.add(p.word.trim().toLowerCase());
+                if (p && p.word) {
+                    const rk = typeof normalizeWordKey === 'function' ? normalizeWordKey(p.word) : p.word.trim().toLowerCase();
+                    sessionReviewedWords.add(rk);
+                }
             });
         }
         const sessionMistakeSet = new Set(Array.isArray(gameResult.sessionMistakes) ? gameResult.sessionMistakes : ((singleState && singleState.sessionMistakes) ? Array.from(singleState.sessionMistakes) : []));
