@@ -774,9 +774,9 @@
         "安排某人做某事"
       ],
       "mistake": [
-        "to",
         "with",
-        "plan"
+        "plan",
+        "order"
       ],
       "examples": [
         {
@@ -1099,8 +1099,8 @@
       ],
       "mistake": [
         "take",
-        "do",
-        "have"
+        "have",
+        "try"
       ],
       "examples": [
         {
@@ -2986,7 +2986,7 @@
         "觉得……令人满意"
       ],
       "mistake": [
-        "that",
+        "this",
         "which",
         "satisfied"
       ],
@@ -3004,7 +3004,7 @@
       ],
       "mistake": [
         "this",
-        "that",
+        "which",
         "honor"
       ],
       "examples": [
@@ -3040,7 +3040,7 @@
       "mistake": [
         "law",
         "this",
-        "that"
+        "which"
       ],
       "examples": [
         {
@@ -3056,7 +3056,7 @@
       ],
       "mistake": [
         "this",
-        "that",
+        "which",
         "possibly"
       ],
       "examples": [
@@ -4573,7 +4573,7 @@
       ],
       "mistake": [
         "make",
-        "do",
+        "have",
         "steps"
       ],
       "examples": [

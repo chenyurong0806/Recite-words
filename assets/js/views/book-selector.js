@@ -2574,7 +2574,29 @@ function findWordEntryForDrawer(wordText, isShiCi = false) {
 /**
  * 构建统一词条抽屉所需的音标、释义与拓展区块 HTML
  */
-function buildUnifiedWordDetailData(w, isShiCi = false) {
+function isMistakeMeaningMatch(pos, meaningText, targetMeaning) {
+    if (!targetMeaning || typeof targetMeaning !== 'string') return false;
+    const cleanTarget = targetMeaning.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!cleanTarget) return false;
+
+    const cleanPos = String(pos || '').replace(/\./g, '').trim().toLowerCase();
+    const cleanText = String(meaningText || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const combined = ((cleanPos ? cleanPos + ' ' : '') + cleanText).trim();
+
+    if (cleanTarget === cleanText || cleanTarget === combined) return true;
+    if (cleanTarget.includes(cleanText) || cleanText.includes(cleanTarget)) return true;
+
+    const targetTokens = cleanTarget.split(/[;,，；、\s]+/).map(t => t.trim()).filter(t => t.length >= 2);
+    const rowTokens = cleanText.split(/[;,，；、\s]+/).map(t => t.trim()).filter(t => t.length >= 2);
+    if (targetTokens.length > 0 && rowTokens.length > 0) {
+        const hasOverlap = targetTokens.some(t => rowTokens.some(r => r === t || r.includes(t) || t.includes(r)));
+        if (hasOverlap) return true;
+    }
+
+    return false;
+}
+
+function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = null) {
     const word = w.word || w.name || '';
     let phoneDisplay = '';
     if (isShiCi) {
@@ -2613,8 +2635,9 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
             const cleanMeaning = (s.meaning || s.trans || '').replace(/★/g, '').trim();
             const isStar = (s.meaning || s.trans || '').includes('★');
             const pos = s.part_of_speech || s.pos || '实词';
+            const isMistakeRow = Boolean(targetMistakeMeaning && (w.senses.length === 1 || isMistakeMeaningMatch(pos, cleanMeaning, targetMistakeMeaning)));
             return `
-                <div class="bc-meaning-row">
+                <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                     <span class="bc-pos-inline">${escapeHtml(pos)}</span>
                     <span class="bc-meaning-text">${escapeHtml(cleanMeaning)}</span>
                     ${isStar ? '<span class="shici-star-badge" style="margin-left:6px;">★ 考点</span>' : ''}
@@ -2646,21 +2669,28 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
                 posMap.push({ pos, texts: [clean] });
             }
         });
-        meaningsHtml = posMap.map(g => `
-            <div class="bc-meaning-row">
+        meaningsHtml = posMap.map(g => {
+            const rowMeaningText = g.texts.join('； ');
+            const isMistakeRow = Boolean(targetMistakeMeaning && (posMap.length === 1 || isMistakeMeaningMatch(g.pos, rowMeaningText, targetMistakeMeaning)));
+            return `
+            <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                 ${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span>` : ''}
-                <span class="bc-meaning-text">${escapeHtml(g.texts.join('； '))}</span>
+                <span class="bc-meaning-text">${escapeHtml(rowMeaningText)}</span>
             </div>
-        `).join('');
+            `;
+        }).join('');
         flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('   ');
         topZhHeaderHtml = posMap.map(g => `<span class="bc-top-sense-seg">${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span> ` : ''}${escapeHtml(g.texts.join('； '))}</span>`).join(' ');
     } else if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) {
-        meaningsHtml = w.meanings.map(m => `
-            <div class="bc-meaning-row">
+        meaningsHtml = w.meanings.map(m => {
+            const isMistakeRow = Boolean(targetMistakeMeaning && (w.meanings.length === 1 || isMistakeMeaningMatch(m.pos, m.meaning, targetMistakeMeaning)));
+            return `
+            <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                 ${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span>` : ''}
                 <span class="bc-meaning-text">${escapeHtml(m.meaning || '')}</span>
             </div>
-        `).join('');
+            `;
+        }).join('');
         flatMeaning = w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + (m.meaning || '')).join('   ');
         topZhHeaderHtml = w.meanings.map(m => `<span class="bc-top-sense-seg">${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span> ` : ''}${escapeHtml(m.meaning || '')}</span>`).join(' ');
     } else {
@@ -2671,16 +2701,20 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
         if (splitParts.length > 1) {
             meaningsHtml = splitParts.map(part => {
                 const match = part.match(/^([a-zA-Z]+\.)\s*(.*)$/);
+                const pos = match ? match[1] : '';
+                const txt = match ? match[2] : part;
+                const isMistakeRow = Boolean(targetMistakeMeaning && isMistakeMeaningMatch(pos, txt, targetMistakeMeaning));
                 if (match) {
-                    return `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
+                    return `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
                 }
-                return `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
+                return `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
             }).join('');
         } else {
             const match = typeof rawM === 'string' ? rawM.match(/^([a-zA-Z]+\.)\s*(.+)$/) : null;
+            const isMistakeRow = Boolean(targetMistakeMeaning);
             meaningsHtml = match
-                ? `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
-                : `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+                ? `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
+                : `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
         }
         flatMeaning = rawM;
         topZhHeaderHtml = `<span class="bc-top-sense-seg">${escapeHtml(rawM)}</span>`;

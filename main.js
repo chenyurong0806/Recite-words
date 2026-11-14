@@ -364,7 +364,14 @@ function scanDirForBooks(baseDir, isCloud = false) {
                         else if (Array.isArray(data.list)) words = data.list;
                         else if (Array.isArray(data.items)) words = data.items;
                         else if (Array.isArray(data.data)) words = data.data;
-                        else {
+                        else if (Object.values(data).some(Array.isArray)) {
+                            // 分类/板块数组结构 { "Daily 5": [...], "Weekly 4": [...] }
+                            words = Object.entries(data).flatMap(([secKey, arr]) =>
+                                Array.isArray(arr)
+                                    ? arr.map(item => (item && typeof item === 'object' ? { ...item, section: item.section || secKey } : { word: String(item || ''), section: secKey }))
+                                    : []
+                            );
+                        } else {
                             // 键值对词典结构 { "abandon": "放弃", ... }
                             words = Object.keys(data).map(k => ({ word: k, trans: data[k] }));
                         }

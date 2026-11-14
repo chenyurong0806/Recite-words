@@ -108,6 +108,11 @@ function setSettlementFilterMode(mode, tabBtn) {
         const isMistake = row.getAttribute('data-mistake') === '1';
         row.classList.toggle('is-hidden-by-filter', mode === 'mistakes' && !isMistake);
     });
+    const visible = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
+    list.querySelectorAll('.bc-unified-item').forEach(r => r.classList.remove('is-last-visible'));
+    if (visible.length > 0) {
+        visible[visible.length - 1].classList.add('is-last-visible');
+    }
     syncSettlementExpandAllBtnState();
 }
 window.setSettlementFilterMode = setSettlementFilterMode;
@@ -188,6 +193,7 @@ window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 function buildMinimalSummaryLayoutHtml(items) {
     const mistakeCount = items.filter(i => i.isMistake).length;
     const correctCount = Math.max(0, items.length - mistakeCount);
+    const defaultToMistakes = (mistakeCount > 0);
 
     const rowsHtml = items.map(item => {
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
@@ -199,20 +205,27 @@ function buildMinimalSummaryLayoutHtml(items) {
             ? { ...(item.rawObj || {}), ...fullEntry, phone: fullEntry.phone || item.phone || '', pinyin: fullEntry.pinyin || item.phone || '' }
             : (item.rawObj || { word: item.word, phone: item.phone, pinyin: item.phone, meaning: lines.join('；') });
 
+        const targetMistakeMeaning = item.isMistake
+            ? (item.rawObj?.options && item.rawObj.options[item.rawObj.correctIdx]
+                ? item.rawObj.options[item.rawObj.correctIdx].meaning
+                : (item.rawObj?.sense ? item.rawObj.sense.meaning : (item.rawObj?.meaning || lines.join('；'))))
+            : null;
+
         const detail = (typeof buildUnifiedWordDetailData === 'function')
-            ? buildUnifiedWordDetailData(wordObj, item.isShiCi)
+            ? buildUnifiedWordDetailData(wordObj, item.isShiCi, targetMistakeMeaning)
             : {
                 phoneDisplay: item.phone || '',
-                meaningsHtml: lines.map(line => `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
+                meaningsHtml: lines.map(line => `<div class="bc-meaning-row ${item.isMistake ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
                 extraDrawerHtml: ''
             };
 
         const isExp = Boolean(item.isMistake);
         const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
         const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
+        const isHiddenByFilter = defaultToMistakes && !item.isMistake;
 
         return `
-            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
+            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''} ${isHiddenByFilter ? 'is-hidden-by-filter' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
                 <div class="bc-item-header">
                     <div class="bc-item-title-meta">
                         <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
@@ -241,7 +254,8 @@ function buildMinimalSummaryLayoutHtml(items) {
         `;
     }).join('');
 
-    const allExpanded = items.length > 0 && items.every(i => i.isMistake);
+    const visibleItems = items.filter(i => defaultToMistakes ? i.isMistake : true);
+    const allExpanded = visibleItems.length > 0 && visibleItems.every(i => i.isMistake);
 
     return `
         <div class="settlement-summary-page">
@@ -251,24 +265,14 @@ function buildMinimalSummaryLayoutHtml(items) {
                         <span class="material-symbols-rounded">arrow_back</span>
                     </button>
                     <h3 class="settlement-summary-title">小结</h3>
-                    <span class="settlement-summary-stats-badge">
-                        <span>${items.length} 词</span>
-                        <span>·</span>
-                        <span>正确 ${correctCount}</span>
-                        ${mistakeCount > 0 ? `<span>·</span><span class="mistake-cnt">错题 ${mistakeCount}</span>` : ''}
-                    </span>
                 </div>
                 <div class="settlement-summary-toolbar">
                     ${mistakeCount > 0 ? `
                         <div class="settings-category-tabs bc-type-tabs" id="settlement-filter-tabs" role="tablist" aria-label="小结筛选">
-                            <button type="button" class="settings-cat-tab active" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="true">全部 (${items.length})</button>
-                            <button type="button" class="settings-cat-tab" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="false">仅错题 (${mistakeCount})</button>
+                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? '' : 'active'}" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="${defaultToMistakes ? 'false' : 'true'}">全部 (${items.length})</button>
+                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? 'active' : ''}" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="${defaultToMistakes ? 'true' : 'false'}">仅错题 (${mistakeCount})</button>
                         </div>
                     ` : ''}
-                    <button type="button" class="settlement-mask-btn" id="btn-settlement-mask-words" onclick="toggleSettlementWordsMask(this)" title="遮挡/显示单词">
-                        <span class="material-symbols-rounded" style="font-size:17px;">visibility_off</span>
-                        <span>遮挡单词</span>
-                    </button>
                     <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
                         <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
                         <span>${allExpanded ? '收起全部' : '展开全部'}</span>
@@ -605,18 +609,29 @@ function scheduleRetestForCurrentShiCiQuestion() {
     if (!q || q._retestScheduled) return;
     q._retestScheduled = true;
 
-    const retestQ1 = { ...q, _isRetest: true, _retestScheduled: false };
+    // 创建全新未作答状态的复测题，彻底清除上一轮作答状态
+    const createRetestItem = () => ({
+        ...q,
+        _isRetest: true,
+        _retestScheduled: false,
+        _hasRecordedWrong: false,
+        answered: false,
+        userAnswerIdx: undefined,
+        isCorrect: undefined,
+        skipped: false,
+        skippedAsMastered: false
+    });
+
+    const retestQ1 = createRetestItem();
     const insertPos = shiciState.currentIdx + 4;
     if (insertPos < shiciState.pool.length) {
         shiciState.pool.splice(insertPos, 0, retestQ1);
+        if (!q._isRetest) {
+            const retestQ2 = createRetestItem();
+            shiciState.pool.push(retestQ2);
+        }
     } else {
         shiciState.pool.push(retestQ1);
-    }
-
-    const alreadyScheduledLater = shiciState.pool.slice(shiciState.currentIdx + 1).some(item => item.word === q.word);
-    if (!q._isRetest && !alreadyScheduledLater) {
-        const retestQ2 = { ...q, _isRetest: true, _retestScheduled: false };
-        shiciState.pool.push(retestQ2);
     }
     saveShiCiSessionProgress();
 }

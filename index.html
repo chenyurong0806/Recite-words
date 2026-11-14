@@ -1368,6 +1368,16 @@
                             </div>
                             <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
                         </div>
+                        <div id="me-row-sync-data" class="settings-row me-account-action-row clickable offline-hide" onclick="handleManualSyncUserData()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
+                                <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
+                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">数据同步</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
+                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
+                            </div>
+                        </div>
                         <div class="settings-row me-auto-sync-row">
                             <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
                                 <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">cloud_sync</span>
@@ -1379,16 +1389,6 @@
                                     <span class="md3-switch-thumb"></span>
                                 </span>
                             </label>
-                        </div>
-                        <div id="me-row-sync-data" class="settings-row me-account-action-row clickable offline-hide" onclick="handleManualSyncUserData()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
-                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">数据同步</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -4613,8 +4613,6 @@
         <div id="sf-dropdown-types-list" class="book-dd-list"></div>
     </div>
 
-    <!-- “我”页面最近学习词书站内学习范围弹出菜单 -->
-    <div id="me-recent-book-scope-menu" class="book-anchored-dropdown book-actions-dropdown" style="display:none; width:260px;" onclick="event.stopPropagation()"></div>
 
     <!-- 创建自定义词书弹窗 -->
     <div id="modal-create-custom-book" class="modal-overlay">

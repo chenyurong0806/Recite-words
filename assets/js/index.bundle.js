@@ -4145,10 +4145,11 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             const keys = Object.keys(rawData);
             if (keys.length === 0) return [];
 
-            // 检测是否为分类/板块/首字母分组（如 26 个英文字母、Unit 1、板块 A 等）
+            // 检测是否为分类/板块/首字母分组（如 26 个英文字母、Unit 1、板块 A、Weekly 4、Wordbank 1 等）
             const isSectionGroup = keys.every(k => k.length <= 4) ||
                 keys.some(k => /^[a-zA-Z]$/.test(k)) ||
-                keys.some(k => /^(unit|lesson|section|part|chapter|grade|level|板块|第)/i.test(k));
+                keys.some(k => /^(unit|lesson|section|part|chapter|grade|level|板块|第)/i.test(k)) ||
+                keys.some(k => Array.isArray(rawData[k]));
 
             if (isSectionGroup) {
                 list = [];

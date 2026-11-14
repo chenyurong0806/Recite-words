@@ -572,21 +572,32 @@ function scheduleRetestForCurrentQuestion() {
     if (!q || q._retestScheduled) return;
     q._retestScheduled = true;
 
-    const retestQ1 = { ...q, _isRetest: true, _retestScheduled: false };
+    // 创建全新未作答状态的复测题，彻底清除上一轮作答状态
+    const createRetestItem = () => ({
+        ...q,
+        _isRetest: true,
+        _retestScheduled: false,
+        _hasRecordedWrong: false,
+        answered: false,
+        userAnswerIdx: undefined,
+        isCorrect: undefined,
+        skipped: false,
+        skippedAsMastered: false
+    });
+
+    const retestQ1 = createRetestItem();
 
     // 插入到当前题后第 4 题（过 3 题后重问）
     const insertPos = singleState.currentIdx + 4;
     if (insertPos < singleState.pool.length) {
         singleState.pool.splice(insertPos, 0, retestQ1);
+        // 如果是首次答错且未到组末，在组末也追加一次强化复测
+        if (!q._isRetest) {
+            const retestQ2 = createRetestItem();
+            singleState.pool.push(retestQ2);
+        }
     } else {
         singleState.pool.push(retestQ1);
-    }
-
-    // 优化即时复习：如果多次答错（当前本身已是复测题）或后续队列已包含该词，不再在组末多问一遍
-    const alreadyScheduledLater = singleState.pool.slice(singleState.currentIdx + 1).some(item => item.word === q.word);
-    if (!q._isRetest && !alreadyScheduledLater) {
-        const retestQ2 = { ...q, _isRetest: true, _retestScheduled: false };
-        singleState.pool.push(retestQ2);
     }
     saveSingleProgress();
 }

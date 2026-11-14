@@ -804,7 +804,6 @@ function checkSinglePhraseAnswer() {
         });
         if (!hasRemainingInPool) {
             if (!singleState.completedWords) singleState.completedWords = new Set();
-            singleState.completedWords.add(wKey);
             singleState.completedWords.add(normKey);
         }
         q.isCorrect = true;
@@ -1073,7 +1072,6 @@ function handleSingleAnswer(idx) {
         });
         if (!hasRemainingInPool) {
             if (!singleState.completedWords) singleState.completedWords = new Set();
-            singleState.completedWords.add(wKey);
             singleState.completedWords.add(normKey);
         }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
@@ -1830,16 +1828,16 @@ function renderMeRecentBookCard() {
     const scopeButtonsHtml = [
         supportsSections
             ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
-                   <span class="material-symbols-rounded" style="font-size:13px;">segment</span>
+                   <span class="material-symbols-rounded" style="font-size:15px;">segment</span>
                    <span>${escapeHtml(sectionSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
                </button>`
             : '',
         supportsTypes
             ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
-                   <span class="material-symbols-rounded" style="font-size:13px;">filter_list</span>
+                   <span class="material-symbols-rounded" style="font-size:15px;">filter_list</span>
                    <span>${escapeHtml(typeSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
                </button>`
             : ''
     ].filter(Boolean).join('');
@@ -1874,10 +1872,6 @@ function renderMeRecentBookCard() {
                         <span class="material-symbols-rounded">more_horiz</span>
                     </button>
                     <div id="me-recent-book-more-menu" class="me-recent-book-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}', event)">
-                            <span class="material-symbols-rounded">tune</span>
-                            <span>选择学习范围</span>
-                        </button>
                         <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}', event)">
                             <span class="material-symbols-rounded">visibility</span>
                             <span>查看内容</span>
@@ -2421,7 +2415,6 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
         return `
             <g class="detailed-svg-bar-col" onclick="selectDetailedStatsDay('${d.dateKey}')">
                 <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词（点击查看当日详细数据）</title>
-                ${isSelected ? `<rect x="${(cx - slotW * 0.45).toFixed(1)}" y="${padT - 4}" width="${(slotW * 0.9).toFixed(1)}" height="${plotH + 6}" rx="6" fill="rgba(0, 97, 164, 0.08)" stroke="rgba(0, 97, 164, 0.25)" stroke-width="1" />` : ''}
                 ${learnH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yLearn.toFixed(1)}" width="${barW.toFixed(1)}" height="${learnH.toFixed(1)}" rx="3" fill="#0061a4" />` : ''}
                 ${revH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yRev.toFixed(1)}" width="${barW.toFixed(1)}" height="${revH.toFixed(1)}" rx="3" fill="#0d9488" />` : ''}
                 ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.9' : '0.6'}" />` : ''}
@@ -2435,7 +2428,8 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
     // 2. 学习时长趋势折线面积图 (SVG)
     const rawMaxDurMin = Math.max(0, ...series.map(d => (d.durationSeconds || 0) / 60));
     const niceMaxDur = computeNiceAxisCeiling(Math.ceil(rawMaxDurMin), 10);
-    const avgDurMinRaw = (periodDurationSec / 60) / Math.max(1, daysCount);
+    const nonZeroDays = series.filter(d => (d.durationSeconds || 0) > 0).length;
+    const avgDurMinRaw = nonZeroDays > 0 ? ((periodDurationSec / 60) / nonZeroDays) : 0;
     const avgDurMin = Math.round(avgDurMinRaw * 10) / 10;
     const avgDisplay = Number.isInteger(avgDurMin) ? `${avgDurMin}` : avgDurMin.toFixed(1);
     const avgY = padT + plotH - Math.min(1, avgDurMin / niceMaxDur) * plotH;
@@ -2542,7 +2536,7 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         return `
                         <g class="detailed-svg-point-col" onclick="selectDetailedStatsDay('${p.dateKey}')">
                             <title>${p.dateKey}: ${p.mins} 分钟（点击查看当日详细数据）</title>
-                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${padT}" x2="${p.x.toFixed(1)}" y2="${baselineY}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
+                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${baselineY.toFixed(1)}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
                             <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ptRadius}" fill="${isSelected ? '#0061a4' : '#fff'}" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="${isSelected ? 2.5 : 2}" />
                             ${shouldShowPtNum ? `<text x="${p.x.toFixed(1)}" y="${Math.max(padT - 5, p.y - 9).toFixed(1)}" text-anchor="middle" font-size="${(series.length <= 10 || isSelected) ? 10.5 : 8.5}" font-weight="${isSelected ? 800 : 700}" fill="#0061a4">${valText}${isSelected ? 'm' : ''}</text>` : ''}
                             ${(idx % labelStep === 0 || idx === points.length - 1 || isSelected) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>` : ''}
@@ -2558,10 +2552,11 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         <span class="detailed-chart-footer-label">${escapeHtml(durFooterLabel)}</span>
                         <span class="detailed-chart-footer-val">${formatDurationAccentHtml(formatDur(selDurSec))}</span>
                     </div>
+                    ${!selectedDay ? `
                     <div class="detailed-chart-footer-item stat-accent-4">
                         <span class="detailed-chart-footer-label">活跃打卡天数</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num">${activeDays}</span><small>/ ${daysCount} 天</small></span>
-                    </div>
+                    </div>` : ''}
                     <div class="detailed-chart-footer-item">
                         <span class="detailed-chart-footer-label">日均</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num" style="color:#d97706;">${avgDisplay}</span><small>分钟</small></span>
