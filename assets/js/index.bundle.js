@@ -17209,7 +17209,29 @@ function findWordEntryForDrawer(wordText, isShiCi = false) {
 /**
  * 构建统一词条抽屉所需的音标、释义与拓展区块 HTML
  */
-function buildUnifiedWordDetailData(w, isShiCi = false) {
+function isMistakeMeaningMatch(pos, meaningText, targetMeaning) {
+    if (!targetMeaning || typeof targetMeaning !== 'string') return false;
+    const cleanTarget = targetMeaning.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!cleanTarget) return false;
+
+    const cleanPos = String(pos || '').replace(/\./g, '').trim().toLowerCase();
+    const cleanText = String(meaningText || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const combined = ((cleanPos ? cleanPos + ' ' : '') + cleanText).trim();
+
+    if (cleanTarget === cleanText || cleanTarget === combined) return true;
+    if (cleanTarget.includes(cleanText) || cleanText.includes(cleanTarget)) return true;
+
+    const targetTokens = cleanTarget.split(/[;,，；、\s]+/).map(t => t.trim()).filter(t => t.length >= 2);
+    const rowTokens = cleanText.split(/[;,，；、\s]+/).map(t => t.trim()).filter(t => t.length >= 2);
+    if (targetTokens.length > 0 && rowTokens.length > 0) {
+        const hasOverlap = targetTokens.some(t => rowTokens.some(r => r === t || r.includes(t) || t.includes(r)));
+        if (hasOverlap) return true;
+    }
+
+    return false;
+}
+
+function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = null) {
     const word = w.word || w.name || '';
     let phoneDisplay = '';
     if (isShiCi) {
@@ -17248,8 +17270,9 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
             const cleanMeaning = (s.meaning || s.trans || '').replace(/★/g, '').trim();
             const isStar = (s.meaning || s.trans || '').includes('★');
             const pos = s.part_of_speech || s.pos || '实词';
+            const isMistakeRow = Boolean(targetMistakeMeaning && (w.senses.length === 1 || isMistakeMeaningMatch(pos, cleanMeaning, targetMistakeMeaning)));
             return `
-                <div class="bc-meaning-row">
+                <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                     <span class="bc-pos-inline">${escapeHtml(pos)}</span>
                     <span class="bc-meaning-text">${escapeHtml(cleanMeaning)}</span>
                     ${isStar ? '<span class="shici-star-badge" style="margin-left:6px;">★ 考点</span>' : ''}
@@ -17281,21 +17304,28 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
                 posMap.push({ pos, texts: [clean] });
             }
         });
-        meaningsHtml = posMap.map(g => `
-            <div class="bc-meaning-row">
+        meaningsHtml = posMap.map(g => {
+            const rowMeaningText = g.texts.join('； ');
+            const isMistakeRow = Boolean(targetMistakeMeaning && (posMap.length === 1 || isMistakeMeaningMatch(g.pos, rowMeaningText, targetMistakeMeaning)));
+            return `
+            <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                 ${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span>` : ''}
-                <span class="bc-meaning-text">${escapeHtml(g.texts.join('； '))}</span>
+                <span class="bc-meaning-text">${escapeHtml(rowMeaningText)}</span>
             </div>
-        `).join('');
+            `;
+        }).join('');
         flatMeaning = posMap.map(g => (g.pos ? g.pos + ' ' : '') + g.texts.join('； ')).join('   ');
         topZhHeaderHtml = posMap.map(g => `<span class="bc-top-sense-seg">${g.pos ? `<span class="bc-pos-inline">${escapeHtml(g.pos)}</span> ` : ''}${escapeHtml(g.texts.join('； '))}</span>`).join(' ');
     } else if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) {
-        meaningsHtml = w.meanings.map(m => `
-            <div class="bc-meaning-row">
+        meaningsHtml = w.meanings.map(m => {
+            const isMistakeRow = Boolean(targetMistakeMeaning && (w.meanings.length === 1 || isMistakeMeaningMatch(m.pos, m.meaning, targetMistakeMeaning)));
+            return `
+            <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                 ${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span>` : ''}
                 <span class="bc-meaning-text">${escapeHtml(m.meaning || '')}</span>
             </div>
-        `).join('');
+            `;
+        }).join('');
         flatMeaning = w.meanings.map(m => (m.pos ? m.pos + ' ' : '') + (m.meaning || '')).join('   ');
         topZhHeaderHtml = w.meanings.map(m => `<span class="bc-top-sense-seg">${m.pos ? `<span class="bc-pos-inline">${escapeHtml(m.pos)}</span> ` : ''}${escapeHtml(m.meaning || '')}</span>`).join(' ');
     } else {
@@ -17306,16 +17336,20 @@ function buildUnifiedWordDetailData(w, isShiCi = false) {
         if (splitParts.length > 1) {
             meaningsHtml = splitParts.map(part => {
                 const match = part.match(/^([a-zA-Z]+\.)\s*(.*)$/);
+                const pos = match ? match[1] : '';
+                const txt = match ? match[2] : part;
+                const isMistakeRow = Boolean(targetMistakeMeaning && isMistakeMeaningMatch(pos, txt, targetMistakeMeaning));
                 if (match) {
-                    return `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
+                    return `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`;
                 }
-                return `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
+                return `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(part)}</span></div>`;
             }).join('');
         } else {
             const match = typeof rawM === 'string' ? rawM.match(/^([a-zA-Z]+\.)\s*(.+)$/) : null;
+            const isMistakeRow = Boolean(targetMistakeMeaning);
             meaningsHtml = match
-                ? `<div class="bc-meaning-row"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
-                : `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
+                ? `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-pos-inline">${escapeHtml(match[1])}</span><span class="bc-meaning-text">${escapeHtml(match[2])}</span></div>`
+                : `<div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(rawM)}</span></div>`;
         }
         flatMeaning = rawM;
         topZhHeaderHtml = `<span class="bc-top-sense-seg">${escapeHtml(rawM)}</span>`;
@@ -23031,21 +23065,32 @@ function scheduleRetestForCurrentQuestion() {
     if (!q || q._retestScheduled) return;
     q._retestScheduled = true;
 
-    const retestQ1 = { ...q, _isRetest: true, _retestScheduled: false };
+    // 创建全新未作答状态的复测题，彻底清除上一轮作答状态
+    const createRetestItem = () => ({
+        ...q,
+        _isRetest: true,
+        _retestScheduled: false,
+        _hasRecordedWrong: false,
+        answered: false,
+        userAnswerIdx: undefined,
+        isCorrect: undefined,
+        skipped: false,
+        skippedAsMastered: false
+    });
+
+    const retestQ1 = createRetestItem();
 
     // 插入到当前题后第 4 题（过 3 题后重问）
     const insertPos = singleState.currentIdx + 4;
     if (insertPos < singleState.pool.length) {
         singleState.pool.splice(insertPos, 0, retestQ1);
+        // 如果是首次答错且未到组末，在组末也追加一次强化复测
+        if (!q._isRetest) {
+            const retestQ2 = createRetestItem();
+            singleState.pool.push(retestQ2);
+        }
     } else {
         singleState.pool.push(retestQ1);
-    }
-
-    // 优化即时复习：如果多次答错（当前本身已是复测题）或后续队列已包含该词，不再在组末多问一遍
-    const alreadyScheduledLater = singleState.pool.slice(singleState.currentIdx + 1).some(item => item.word === q.word);
-    if (!q._isRetest && !alreadyScheduledLater) {
-        const retestQ2 = { ...q, _isRetest: true, _retestScheduled: false };
-        singleState.pool.push(retestQ2);
     }
     saveSingleProgress();
 }
@@ -24822,7 +24867,6 @@ function checkSinglePhraseAnswer() {
         });
         if (!hasRemainingInPool) {
             if (!singleState.completedWords) singleState.completedWords = new Set();
-            singleState.completedWords.add(wKey);
             singleState.completedWords.add(normKey);
         }
         q.isCorrect = true;
@@ -25091,7 +25135,6 @@ function handleSingleAnswer(idx) {
         });
         if (!hasRemainingInPool) {
             if (!singleState.completedWords) singleState.completedWords = new Set();
-            singleState.completedWords.add(wKey);
             singleState.completedWords.add(normKey);
         }
         if (userStats.mistakes && userStats.mistakes[q.word]) {
@@ -25848,16 +25891,16 @@ function renderMeRecentBookCard() {
     const scopeButtonsHtml = [
         supportsSections
             ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
-                   <span class="material-symbols-rounded" style="font-size:13px;">segment</span>
+                   <span class="material-symbols-rounded" style="font-size:15px;">segment</span>
                    <span>${escapeHtml(sectionSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
                </button>`
             : '',
         supportsTypes
             ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
-                   <span class="material-symbols-rounded" style="font-size:13px;">filter_list</span>
+                   <span class="material-symbols-rounded" style="font-size:15px;">filter_list</span>
                    <span>${escapeHtml(typeSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:14px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
                </button>`
             : ''
     ].filter(Boolean).join('');
@@ -25879,7 +25922,7 @@ function renderMeRecentBookCard() {
                     ${scopeButtonsHtml ? `<div class="me-recent-book-meta">${scopeButtonsHtml}</div>` : ''}
                     <div class="me-recent-book-inline-progress">
                         <div class="me-recent-book-progress-labels">
-                            <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
+                            <span>已学 <strong>${learned}</strong> / ${total} 词</span>
                             <span class="me-recent-book-progress-pct">${pct}%</span>
                         </div>
                         <div class="me-recent-book-progress-track">
@@ -25892,10 +25935,6 @@ function renderMeRecentBookCard() {
                         <span class="material-symbols-rounded">more_horiz</span>
                     </button>
                     <div id="me-recent-book-more-menu" class="me-recent-book-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
-                        <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('scope', '${escapedId}', event)">
-                            <span class="material-symbols-rounded">tune</span>
-                            <span>选择学习范围</span>
-                        </button>
                         <button type="button" class="book-action-item" onclick="handleMeRecentBookAction('content', '${escapedId}', event)">
                             <span class="material-symbols-rounded">visibility</span>
                             <span>查看内容</span>
@@ -26439,7 +26478,6 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
         return `
             <g class="detailed-svg-bar-col" onclick="selectDetailedStatsDay('${d.dateKey}')">
                 <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词（点击查看当日详细数据）</title>
-                ${isSelected ? `<rect x="${(cx - slotW * 0.45).toFixed(1)}" y="${padT - 4}" width="${(slotW * 0.9).toFixed(1)}" height="${plotH + 6}" rx="6" fill="rgba(0, 97, 164, 0.08)" stroke="rgba(0, 97, 164, 0.25)" stroke-width="1" />` : ''}
                 ${learnH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yLearn.toFixed(1)}" width="${barW.toFixed(1)}" height="${learnH.toFixed(1)}" rx="3" fill="#0061a4" />` : ''}
                 ${revH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yRev.toFixed(1)}" width="${barW.toFixed(1)}" height="${revH.toFixed(1)}" rx="3" fill="#0d9488" />` : ''}
                 ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.9' : '0.6'}" />` : ''}
@@ -26453,7 +26491,8 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
     // 2. 学习时长趋势折线面积图 (SVG)
     const rawMaxDurMin = Math.max(0, ...series.map(d => (d.durationSeconds || 0) / 60));
     const niceMaxDur = computeNiceAxisCeiling(Math.ceil(rawMaxDurMin), 10);
-    const avgDurMinRaw = (periodDurationSec / 60) / Math.max(1, daysCount);
+    const nonZeroDays = series.filter(d => (d.durationSeconds || 0) > 0).length;
+    const avgDurMinRaw = nonZeroDays > 0 ? ((periodDurationSec / 60) / nonZeroDays) : 0;
     const avgDurMin = Math.round(avgDurMinRaw * 10) / 10;
     const avgDisplay = Number.isInteger(avgDurMin) ? `${avgDurMin}` : avgDurMin.toFixed(1);
     const avgY = padT + plotH - Math.min(1, avgDurMin / niceMaxDur) * plotH;
@@ -26560,7 +26599,7 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         return `
                         <g class="detailed-svg-point-col" onclick="selectDetailedStatsDay('${p.dateKey}')">
                             <title>${p.dateKey}: ${p.mins} 分钟（点击查看当日详细数据）</title>
-                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${padT}" x2="${p.x.toFixed(1)}" y2="${baselineY}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
+                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${baselineY.toFixed(1)}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
                             <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ptRadius}" fill="${isSelected ? '#0061a4' : '#fff'}" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="${isSelected ? 2.5 : 2}" />
                             ${shouldShowPtNum ? `<text x="${p.x.toFixed(1)}" y="${Math.max(padT - 5, p.y - 9).toFixed(1)}" text-anchor="middle" font-size="${(series.length <= 10 || isSelected) ? 10.5 : 8.5}" font-weight="${isSelected ? 800 : 700}" fill="#0061a4">${valText}${isSelected ? 'm' : ''}</text>` : ''}
                             ${(idx % labelStep === 0 || idx === points.length - 1 || isSelected) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>` : ''}
@@ -26576,10 +26615,11 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         <span class="detailed-chart-footer-label">${escapeHtml(durFooterLabel)}</span>
                         <span class="detailed-chart-footer-val">${formatDurationAccentHtml(formatDur(selDurSec))}</span>
                     </div>
+                    ${!selectedDay ? `
                     <div class="detailed-chart-footer-item stat-accent-4">
                         <span class="detailed-chart-footer-label">活跃打卡天数</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num">${activeDays}</span><small>/ ${daysCount} 天</small></span>
-                    </div>
+                    </div>` : ''}
                     <div class="detailed-chart-footer-item">
                         <span class="detailed-chart-footer-label">日均</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num" style="color:#d97706;">${avgDisplay}</span><small>分钟</small></span>
@@ -35386,6 +35426,11 @@ function setSettlementFilterMode(mode, tabBtn) {
         const isMistake = row.getAttribute('data-mistake') === '1';
         row.classList.toggle('is-hidden-by-filter', mode === 'mistakes' && !isMistake);
     });
+    const visible = Array.from(list.querySelectorAll('.bc-unified-item:not(.is-hidden-by-filter)'));
+    list.querySelectorAll('.bc-unified-item').forEach(r => r.classList.remove('is-last-visible'));
+    if (visible.length > 0) {
+        visible[visible.length - 1].classList.add('is-last-visible');
+    }
     syncSettlementExpandAllBtnState();
 }
 window.setSettlementFilterMode = setSettlementFilterMode;
@@ -35465,7 +35510,9 @@ window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
 function buildMinimalSummaryLayoutHtml(items) {
     const mistakeCount = items.filter(i => i.isMistake).length;
-    const correctCount = Math.max(0, items.length - mistakeCount);
+    const defaultToMistakes = (mistakeCount > 0);
+    const visibleItems = items.filter(i => defaultToMistakes ? i.isMistake : true);
+    const lastVisibleItem = visibleItems.length > 0 ? visibleItems[visibleItems.length - 1] : null;
 
     const rowsHtml = items.map(item => {
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
@@ -35477,20 +35524,28 @@ function buildMinimalSummaryLayoutHtml(items) {
             ? { ...(item.rawObj || {}), ...fullEntry, phone: fullEntry.phone || item.phone || '', pinyin: fullEntry.pinyin || item.phone || '' }
             : (item.rawObj || { word: item.word, phone: item.phone, pinyin: item.phone, meaning: lines.join('；') });
 
+        const targetMistakeMeaning = item.isMistake
+            ? (item.rawObj?.options && item.rawObj.options[item.rawObj.correctIdx]
+                ? item.rawObj.options[item.rawObj.correctIdx].meaning
+                : (item.rawObj?.sense ? item.rawObj.sense.meaning : (item.rawObj?.meaning || lines.join('；'))))
+            : null;
+
         const detail = (typeof buildUnifiedWordDetailData === 'function')
-            ? buildUnifiedWordDetailData(wordObj, item.isShiCi)
+            ? buildUnifiedWordDetailData(wordObj, item.isShiCi, targetMistakeMeaning)
             : {
                 phoneDisplay: item.phone || '',
-                meaningsHtml: lines.map(line => `<div class="bc-meaning-row"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
+                meaningsHtml: lines.map(line => `<div class="bc-meaning-row ${item.isMistake ? 'mistake-highlight' : ''}"><span class="bc-meaning-text">${escapeHtml(line)}</span></div>`).join(''),
                 extraDrawerHtml: ''
             };
 
         const isExp = Boolean(item.isMistake);
         const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
         const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
+        const isHiddenByFilter = defaultToMistakes && !item.isMistake;
+        const isLastVisible = (item === lastVisibleItem);
 
         return `
-            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
+            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''} ${isHiddenByFilter ? 'is-hidden-by-filter' : ''} ${isLastVisible ? 'is-last-visible' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
                 <div class="bc-item-header">
                     <div class="bc-item-title-meta">
                         <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
@@ -35519,7 +35574,7 @@ function buildMinimalSummaryLayoutHtml(items) {
         `;
     }).join('');
 
-    const allExpanded = items.length > 0 && items.every(i => i.isMistake);
+    const allExpanded = visibleItems.length > 0 && visibleItems.every(i => i.isMistake);
 
     return `
         <div class="settlement-summary-page">
@@ -35529,24 +35584,14 @@ function buildMinimalSummaryLayoutHtml(items) {
                         <span class="material-symbols-rounded">arrow_back</span>
                     </button>
                     <h3 class="settlement-summary-title">小结</h3>
-                    <span class="settlement-summary-stats-badge">
-                        <span>${items.length} 词</span>
-                        <span>·</span>
-                        <span>正确 ${correctCount}</span>
-                        ${mistakeCount > 0 ? `<span>·</span><span class="mistake-cnt">错题 ${mistakeCount}</span>` : ''}
-                    </span>
                 </div>
                 <div class="settlement-summary-toolbar">
                     ${mistakeCount > 0 ? `
                         <div class="settings-category-tabs bc-type-tabs" id="settlement-filter-tabs" role="tablist" aria-label="小结筛选">
-                            <button type="button" class="settings-cat-tab active" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="true">全部 (${items.length})</button>
-                            <button type="button" class="settings-cat-tab" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="false">仅错题 (${mistakeCount})</button>
+                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? '' : 'active'}" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="${defaultToMistakes ? 'false' : 'true'}">全部 (${items.length})</button>
+                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? 'active' : ''}" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="${defaultToMistakes ? 'true' : 'false'}">仅错题 (${mistakeCount})</button>
                         </div>
                     ` : ''}
-                    <button type="button" class="settlement-mask-btn" id="btn-settlement-mask-words" onclick="toggleSettlementWordsMask(this)" title="遮挡/显示单词">
-                        <span class="material-symbols-rounded" style="font-size:17px;">visibility_off</span>
-                        <span>遮挡单词</span>
-                    </button>
                     <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
                         <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
                         <span>${allExpanded ? '收起全部' : '展开全部'}</span>
@@ -35883,18 +35928,29 @@ function scheduleRetestForCurrentShiCiQuestion() {
     if (!q || q._retestScheduled) return;
     q._retestScheduled = true;
 
-    const retestQ1 = { ...q, _isRetest: true, _retestScheduled: false };
+    // 创建全新未作答状态的复测题，彻底清除上一轮作答状态
+    const createRetestItem = () => ({
+        ...q,
+        _isRetest: true,
+        _retestScheduled: false,
+        _hasRecordedWrong: false,
+        answered: false,
+        userAnswerIdx: undefined,
+        isCorrect: undefined,
+        skipped: false,
+        skippedAsMastered: false
+    });
+
+    const retestQ1 = createRetestItem();
     const insertPos = shiciState.currentIdx + 4;
     if (insertPos < shiciState.pool.length) {
         shiciState.pool.splice(insertPos, 0, retestQ1);
+        if (!q._isRetest) {
+            const retestQ2 = createRetestItem();
+            shiciState.pool.push(retestQ2);
+        }
     } else {
         shiciState.pool.push(retestQ1);
-    }
-
-    const alreadyScheduledLater = shiciState.pool.slice(shiciState.currentIdx + 1).some(item => item.word === q.word);
-    if (!q._isRetest && !alreadyScheduledLater) {
-        const retestQ2 = { ...q, _isRetest: true, _retestScheduled: false };
-        shiciState.pool.push(retestQ2);
     }
     saveShiCiSessionProgress();
 }

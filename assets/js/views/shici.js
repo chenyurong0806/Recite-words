@@ -192,8 +192,9 @@ window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
 function buildMinimalSummaryLayoutHtml(items) {
     const mistakeCount = items.filter(i => i.isMistake).length;
-    const correctCount = Math.max(0, items.length - mistakeCount);
     const defaultToMistakes = (mistakeCount > 0);
+    const visibleItems = items.filter(i => defaultToMistakes ? i.isMistake : true);
+    const lastVisibleItem = visibleItems.length > 0 ? visibleItems[visibleItems.length - 1] : null;
 
     const rowsHtml = items.map(item => {
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
@@ -223,9 +224,10 @@ function buildMinimalSummaryLayoutHtml(items) {
         const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
         const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
         const isHiddenByFilter = defaultToMistakes && !item.isMistake;
+        const isLastVisible = (item === lastVisibleItem);
 
         return `
-            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''} ${isHiddenByFilter ? 'is-hidden-by-filter' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
+            <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''} ${isHiddenByFilter ? 'is-hidden-by-filter' : ''} ${isLastVisible ? 'is-last-visible' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
                 <div class="bc-item-header">
                     <div class="bc-item-title-meta">
                         <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
@@ -254,7 +256,6 @@ function buildMinimalSummaryLayoutHtml(items) {
         `;
     }).join('');
 
-    const visibleItems = items.filter(i => defaultToMistakes ? i.isMistake : true);
     const allExpanded = visibleItems.length > 0 && visibleItems.every(i => i.isMistake);
 
     return `

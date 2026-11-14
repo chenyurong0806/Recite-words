@@ -1360,10 +1360,10 @@ function getBookSectionFilterSummaryText(bookId) {
  * @returns {string}
  */
 function getBookTypeFilterSummaryText(bookId) {
-    if (!bookId || typeof BookManager === 'undefined') return '全部类型';
+    if (!bookId || typeof BookManager === 'undefined') return '类型';
     const filter = BookManager.getBookStudyFilter(bookId);
     if (!filter || filter.isAll || !Array.isArray(filter.types) || filter.types.length === 0 || filter.types.length === 2) {
-        return '全部类型';
+        return '类型';
     }
     if (filter.types[0] === 'phrase') return '仅词组';
     return '仅单词';
@@ -4110,7 +4110,7 @@ function handleTypeDropdownRowChange() {
         if (activeTypeTriggerBtn) {
             const textSpan = activeTypeTriggerBtn.querySelector('.book-card-filter-text');
             if (textSpan) {
-                textSpan.textContent = isAllTypes ? '全部类型' : (allowWord ? '仅单词' : '仅词组');
+                textSpan.textContent = isAllTypes ? '类型' : (allowWord ? '单词' : '词组');
             }
             activeTypeTriggerBtn.classList.toggle('has-filter', !isAllTypes);
         }

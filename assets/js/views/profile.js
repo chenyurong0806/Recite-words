@@ -1859,7 +1859,7 @@ function renderMeRecentBookCard() {
                     ${scopeButtonsHtml ? `<div class="me-recent-book-meta">${scopeButtonsHtml}</div>` : ''}
                     <div class="me-recent-book-inline-progress">
                         <div class="me-recent-book-progress-labels">
-                            <span>学习进度：已学 <strong>${learned}</strong> / ${total} 词</span>
+                            <span>已学 <strong>${learned}</strong> / ${total} 词</span>
                             <span class="me-recent-book-progress-pct">${pct}%</span>
                         </div>
                         <div class="me-recent-book-progress-track">
