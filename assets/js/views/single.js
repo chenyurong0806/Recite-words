@@ -39,9 +39,20 @@ function renderSingleBookList() {
     updateSingleSelectedSummary();
 }
 
+function saveSingleSelectedBookIds() {
+    const json = JSON.stringify(singleSelectedBookIds);
+    localStorage.setItem('single_vocab_books', json);
+    if (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+        localStorage.setItem(`vocab_single_selected_books_${currentUser}`, json);
+    }
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('book_selection', { timestamp: Date.now() }, false);
+    }
+}
+
 function toggleSingleBook(bookId) {
     singleSelectedBookIds = toggleBookIdInList(singleSelectedBookIds, bookId);
-    localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+    saveSingleSelectedBookIds();
     renderSingleBookList();
 }
 
@@ -52,7 +63,7 @@ function selectAllSingleBooks(selectAll) {
     } else {
         singleSelectedBookIds = [];
     }
-    localStorage.setItem('single_vocab_books', JSON.stringify(singleSelectedBookIds));
+    saveSingleSelectedBookIds();
     renderSingleBookList();
 }
 
@@ -425,10 +436,75 @@ function selectSingleOrder(order) {
 }
 window.selectSingleOrder = selectSingleOrder;
 
+function applyMeaningModeToPool(pool, mode, startIdx = 0) {
+    if (!Array.isArray(pool) || pool.length === 0) return false;
+    const targetMode = (mode === 'random') ? 'random' : 'all';
+    const refList = (typeof dictionary !== 'undefined' && Array.isArray(dictionary) && dictionary.length >= 4) ? dictionary : pool;
+    let changed = false;
+    for (let i = Math.max(0, startIdx); i < pool.length; i++) {
+        const q = pool[i];
+        if (!q || q.answered || q.isShiCi) continue;
+        if (q._appliedMeaningMode === targetMode) continue;
+        const entries = (typeof getWordMeaningEntries === 'function')
+            ? getWordMeaningEntries(q)
+            : (Array.isArray(q.meanings) ? q.meanings : []);
+        let nextMeaning = q.meaning || '---';
+        if (targetMode === 'random') {
+            if (entries.length > 0) {
+                const picked = entries[Math.floor(Math.random() * entries.length)];
+                nextMeaning = ((picked.pos ? picked.pos + ' ' : '') + (picked.meaning || '')).trim();
+            }
+        } else {
+            nextMeaning = (typeof formatWordAllMeanings === 'function')
+                ? formatWordAllMeanings(q)
+                : nextMeaning;
+        }
+        q.meaning = nextMeaning;
+        q._appliedMeaningMode = targetMode;
+        if (!q.isPhrase && typeof generateOptions === 'function') {
+            const optData = generateOptions(q.word, nextMeaning, refList, targetMode);
+            q.options = optData.options;
+            q.correctIdx = optData.correctIdx;
+        }
+        changed = true;
+    }
+    return changed;
+}
+
 function selectSingleMeaningMode(mode) {
-    singleConfig.meaningMode = (mode === 'random') ? 'random' : 'all';
+    const nextMode = (mode === 'random') ? 'random' : 'all';
+    singleConfig.meaningMode = nextMode;
     updateSingleSettingsChips();
     persistSingleConfig();
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
+    }
+
+    // 同步刷新当前进行中或已保存未答完的题库，确保切换“词性及释义展示”后立即生效
+    if (typeof singleState !== 'undefined' && Array.isArray(singleState.pool) && singleState.pool.length > 0) {
+        const startAt = singleState.answered ? (singleState.currentIdx + 1) : singleState.currentIdx;
+        if (applyMeaningModeToPool(singleState.pool, nextMode, startAt)) {
+            saveSingleProgress();
+            if (typeof gameMode !== 'undefined' && gameMode === 'single' && typeof renderSingleQuestion === 'function') {
+                renderSingleQuestion();
+            }
+        }
+    }
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        ['single_learn_progress_' + currentUser, 'single_review_progress_' + currentUser, 'single_progress_' + currentUser].forEach(key => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (parsed && Array.isArray(parsed.pool)) {
+                    if (applyMeaningModeToPool(parsed.pool, nextMode, parsed.currentIdx || 0)) {
+                        parsed.meaningMode = nextMode;
+                        localStorage.setItem(key, JSON.stringify(parsed));
+                    }
+                }
+            } catch (e) { }
+        });
+    }
 }
 window.selectSingleMeaningMode = selectSingleMeaningMode;
 
@@ -627,6 +703,7 @@ function saveSingleProgress() {
         sessionMistakes: Array.from(singleState.sessionMistakes || []),
         sessionName: singleState.sessionName,
         isReview: isRev,
+        meaningMode: singleConfig.meaningMode || 'all',
         time: Date.now()
     };
     if (isRev) {
@@ -646,6 +723,8 @@ async function startSingleLearning() {
             try {
                 const parsed = JSON.parse(saved);
                 if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length && (!parsed.isReview && !String(parsed.sessionName).includes('复习'))) {
+                    const activeMode = singleConfig.meaningMode || 'all';
+                    applyMeaningModeToPool(parsed.pool, activeMode, parsed.currentIdx || 0);
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
@@ -860,6 +939,8 @@ async function startSingleReview(specificBookId = null) {
             try {
                 const parsed = JSON.parse(savedRev);
                 if (parsed && parsed.pool && parsed.currentIdx < parsed.pool.length) {
+                    const activeMode = singleConfig.meaningMode || 'all';
+                    applyMeaningModeToPool(parsed.pool, activeMode, parsed.currentIdx || 0);
                     singleState = {
                         pool: parsed.pool,
                         currentIdx: parsed.currentIdx,
@@ -1001,12 +1082,15 @@ async function startSingleReview(specificBookId = null) {
             if (existing) {
                 return { ...existing, bookId: bId, bookName: '复习' };
             }
+            const fallbackParsed = (typeof parsePosMeaningString === 'function')
+                ? parsePosMeaningString(r.meaning || '---')
+                : [{ pos: '', meaning: r.meaning || '---' }];
             return {
                 word: r.word,
                 phone: r.phone || '',
                 bookId: bId,
                 bookName: '复习',
-                meanings: [{ pos: '', meaning: r.meaning || '---' }]
+                meanings: fallbackParsed.length > 0 ? fallbackParsed : [{ pos: '', meaning: r.meaning || '---' }]
             };
         });
 

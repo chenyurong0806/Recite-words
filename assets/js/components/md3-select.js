@@ -4,16 +4,17 @@
  */
 
 // ----------------- MD3 风格自定义下拉选择框组件 -----------------
-function renderMd3SelectHtml({ id, options, defaultValue, onChange = '' }) {
+function renderMd3SelectHtml({ id, options, defaultValue, onChange = '', triggerClass = '' }) {
     const currentVal = defaultValue !== undefined ? defaultValue : (options[0] ? options[0].value : '');
     const selectedOpt = options.find(o => String(o.value) === String(currentVal)) || options[0] || { value: '', label: '请选择' };
+    const triggerClasses = ['md3-custom-select-trigger', triggerClass].filter(Boolean).join(' ');
 
     return `
                 <div class="md3-custom-select" id="${escapeHtml(id)}">
                     <input type="hidden" id="${escapeHtml(id)}-input" value="${escapeHtml(selectedOpt.value)}">
-                    <button type="button" class="md3-custom-select-trigger" id="${escapeHtml(id)}-trigger" onclick="toggleMd3Select('${escapeHtml(id)}', event)">
-                        <span id="${escapeHtml(id)}-label">${escapeHtml(selectedOpt.label)}</span>
-                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); transition:transform 0.2s;">arrow_drop_down</span>
+                    <button type="button" class="${escapeHtml(triggerClasses)}" id="${escapeHtml(id)}-trigger" onclick="toggleMd3Select('${escapeHtml(id)}', event)">
+                        <span class="md3-custom-select-label" id="${escapeHtml(id)}-label">${escapeHtml(selectedOpt.label)}</span>
+                        <span class="material-symbols-rounded" style="font-size:18px; color:var(--md-sys-color-outline); transition:transform 0.2s; flex-shrink:0;">arrow_drop_down</span>
                     </button>
                     <div class="md3-custom-select-menu" id="${escapeHtml(id)}-menu" onclick="event.stopPropagation()">
                         ${options.map(opt => `

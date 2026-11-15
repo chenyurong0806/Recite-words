@@ -19,6 +19,9 @@ function getMasteredWords() {
 function saveMasteredWords(words) {
     if (!currentUser) return;
     localStorage.setItem(`vocab_mastered_words_${currentUser}`, JSON.stringify(words));
+    if (window.SyncManager && typeof window.SyncManager.markPending === 'function') {
+        window.SyncManager.markPending('mastered_words_update');
+    }
 }
 
 function _normMasteredKey(word) {
@@ -1257,24 +1260,94 @@ function getAllKnownMeaningsOfTargetWord(targetWord) {
     return forbidden;
 }
 
-function formatWordAllMeanings(w) {
-    if (!w) return '---';
+function parsePosMeaningString(raw) {
+    const str = String(raw || '').replace(/★/g, '').trim();
+    if (!str || str === '---') return [];
+    const posRe = /(?:^|[\s;；\n\r])((?:vt|vi|adj|adv|prep|conj|pron|interj|int|art|num|aux|det|abbr|pl|v|n)\.(?:\s*[&\/]\s*(?:vt|vi|adj|adv|prep|conj|pron|interj|int|art|num|aux|det|abbr|pl|v|n)\.)*)\s*/gi;
+    const matches = [];
+    let m;
+    while ((m = posRe.exec(str)) !== null) {
+        const tokenOffset = m[0].indexOf(m[1]);
+        matches.push({
+            start: m.index + tokenOffset,
+            end: m.index + m[0].length,
+            pos: m[1].replace(/\s+/g, '')
+        });
+    }
+    if (matches.length === 0) return [{ pos: '', meaning: str }];
+    const res = [];
+    if (matches[0].start > 0) {
+        const head = str.slice(0, matches[0].start).replace(/[\s;；]+$/g, '').trim();
+        if (head) res.push({ pos: '', meaning: head });
+    }
+    for (let i = 0; i < matches.length; i++) {
+        const segEnd = (i + 1 < matches.length) ? matches[i + 1].start : str.length;
+        const body = str.slice(matches[i].end, segEnd).replace(/[\s;；]+$/g, '').trim();
+        if (body) res.push({ pos: matches[i].pos, meaning: body });
+    }
+    return res.length > 0 ? res : [{ pos: '', meaning: str }];
+}
+window.parsePosMeaningString = parsePosMeaningString;
+
+function getWordMeaningEntries(w) {
+    if (!w) return [];
+    const entries = [];
+    const pushEntry = (pos, meaning) => {
+        const cleanM = String(meaning || '').trim();
+        if (!cleanM || cleanM === '---') return;
+        const cleanPos = String(pos || '').trim();
+        if (!cleanPos) {
+            parsePosMeaningString(cleanM).forEach(p => {
+                if (p.meaning && p.meaning !== '---') entries.push(p);
+            });
+        } else {
+            entries.push({ pos: cleanPos, meaning: cleanM });
+        }
+    };
     if (Array.isArray(w.meanings) && w.meanings.length > 0) {
-        const parts = [];
         w.meanings.forEach(m => {
             if (!m) return;
-            const str = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
-            if (str && str !== '---' && !parts.includes(str)) {
-                parts.push(str);
+            if (typeof m === 'string') {
+                parsePosMeaningString(m).forEach(p => entries.push(p));
+            } else {
+                pushEntry(m.pos || '', m.meaning || m.trans || '');
             }
         });
-        if (parts.length > 0) return parts.join(' ');
+    }
+    if (entries.length === 0 && w.meaning && typeof w.meaning === 'string') {
+        parsePosMeaningString(w.meaning).forEach(p => entries.push(p));
+    }
+    return entries;
+}
+window.getWordMeaningEntries = getWordMeaningEntries;
+
+function formatWordAllMeanings(w) {
+    if (!w) return '---';
+    const entries = getWordMeaningEntries(w);
+    if (entries.length > 0) {
+        const grouped = [];
+        const seenFull = new Set();
+        entries.forEach(m => {
+            const fullKey = ((m.pos ? m.pos + ' ' : '') + m.meaning).trim();
+            if (!fullKey || seenFull.has(fullKey)) return;
+            seenFull.add(fullKey);
+            const last = grouped[grouped.length - 1];
+            if (last && last.pos === m.pos) {
+                last.meanings.push(m.meaning);
+            } else {
+                grouped.push({ pos: m.pos || '', meanings: [m.meaning] });
+            }
+        });
+        if (grouped.length > 0) {
+            return grouped.map(p => (p.pos ? `${p.pos} ` : '') + p.meanings.join('； ')).join('； ');
+        }
     }
     if (w.meaning && typeof w.meaning === 'string' && w.meaning.trim() !== '---') {
         return w.meaning.trim();
     }
     return '---';
 }
+window.formatWordAllMeanings = formatWordAllMeanings;
 
 function getWordDistractorMeaning(d, usedMeanings, targetForbiddenMeanings = new Set(), meaningMode = 'all') {
     if (!d) return null;
@@ -1285,13 +1358,12 @@ function getWordDistractorMeaning(d, usedMeanings, targetForbiddenMeanings = new
             candidates.push(combined);
         }
     }
-    if (Array.isArray(d.meanings) && d.meanings.length > 0) {
-        d.meanings.forEach(m => {
-            const str = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
-            if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
-        });
-    }
-    if (d.meaning && typeof d.meaning === 'string') {
+    const entries = getWordMeaningEntries(d);
+    entries.forEach(m => {
+        const str = ((m.pos ? m.pos + ' ' : '') + (m.meaning || '')).trim();
+        if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
+    });
+    if (meaningMode !== 'random' && d.meaning && typeof d.meaning === 'string') {
         const str = d.meaning.trim();
         if (str && str !== '---' && !candidates.includes(str)) candidates.push(str);
     }
@@ -1478,8 +1550,11 @@ function generateShuffledPoolFromWords(wordsList, count = 70, meaningMode = 'all
             }
         }
 
+        const parsedEntries = getWordMeaningEntries(w);
         if (meaningMode === 'random') {
-            const selected = (w.meanings && w.meanings.length > 0) ? w.meanings[Math.floor(Math.random() * w.meanings.length)] : { pos: '', meaning: w.meaning || '---' };
+            const selected = parsedEntries.length > 0
+                ? parsedEntries[Math.floor(Math.random() * parsedEntries.length)]
+                : { pos: '', meaning: w.meaning || '---' };
             fullMeaning = ((selected.pos ? selected.pos + ' ' : '') + (selected.meaning || '')).trim();
         } else {
             fullMeaning = formatWordAllMeanings(w);
@@ -1495,8 +1570,9 @@ function generateShuffledPoolFromWords(wordsList, count = 70, meaningMode = 'all
             phone: w.phone || w.pinyin || '',
             bookName: w.bookName || '对决词库',
             bookId: w.bookId || null,
-            meanings: w.meanings || [{ pos: '', meaning: fullMeaning }],
+            meanings: parsedEntries.length > 0 ? parsedEntries : (w.meanings || [{ pos: '', meaning: fullMeaning }]),
             meaning: fullMeaning,
+            _appliedMeaningMode: meaningMode,
             options: options,
             correctIdx: correctIdx,
             isPhrase: isPhrase,
@@ -1782,9 +1858,9 @@ function renderMeRecentBookCard() {
         : (Array.isArray(book.words) ? book.words : null);
 
     // 如果尚未加载该词书词表，异步加载一次以精确计算总词数和进度
-    if (!cachedWords && typeof BookManager !== 'undefined' && typeof BookManager.loadBookById === 'function' && !book._meLoadingWords) {
+    if (!cachedWords && typeof BookManager !== 'undefined' && typeof BookManager.loadBookData === 'function' && !book._meLoadingWords) {
         book._meLoadingWords = true;
-        BookManager.loadBookById(book.id).then(() => {
+        BookManager.loadBookData(book.id).then(() => {
             book._meLoadingWords = false;
             renderMeRecentBookCard();
         }).catch(() => {
@@ -1793,13 +1869,18 @@ function renderMeRecentBookCard() {
     }
 
     const fallbackTotal = (book.count && book.count > 0) ? book.count : (cachedWords ? cachedWords.length : 0);
-    const prog = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookLearnedProgress === 'function')
-        ? EbbinghausEngine.getBookLearnedProgress(book.id, cachedWords, fallbackTotal)
-        : { learnedCount: 0, totalWords: fallbackTotal };
+    const prog = (window.EbbinghausEngine && typeof EbbinghausEngine.getBookProgress === 'function')
+        ? EbbinghausEngine.getBookProgress(book.id, cachedWords)
+        : { learned: 0, total: fallbackTotal, progressPercent: 0 };
 
-    const total = prog.totalWords || fallbackTotal || 0;
-    const learned = Math.min(total || prog.learnedCount, prog.learnedCount || 0);
-    const pct = total > 0 ? Math.min(100, Math.round((learned / total) * 100)) : 0;
+    const rawTotal = (cachedWords && cachedWords.length > 0)
+        ? (prog.total || cachedWords.length)
+        : (fallbackTotal || (prog.learned > 0 ? prog.total : 0));
+    const total = rawTotal || 0;
+    const learned = total > 0 ? Math.min(total, prog.learned || 0) : (prog.learned || 0);
+    const pct = total > 0
+        ? (typeof prog.progressPercent === 'number' && cachedWords ? prog.progressPercent : Math.min(100, Math.round((learned / total) * 100)))
+        : 0;
     const rawTitle = (book.rawName || book.name || '未命名词书').replace(/^[📂📁\s]+/, '');
     const title = (typeof cleanBookName === 'function') ? cleanBookName(rawTitle) : rawTitle;
     const isCustom = String(book.id).startsWith('custom_') || (window.customBooks || []).some(cb => cb.id === book.id);
@@ -1827,17 +1908,17 @@ function renderMeRecentBookCard() {
 
     const scopeButtonsHtml = [
         supportsSections
-            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
-                   <span class="material-symbols-rounded" style="font-size:15px;">segment</span>
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" data-scope-type="section" data-book-id="${escapedId}" onclick="event.stopPropagation(); if (typeof toggleBookSectionDropdown === 'function') toggleBookSectionDropdown(event, '${escapedId}');" title="点击筛选学习板块">
+                   <span class="material-symbols-rounded" style="font-size:13px;">segment</span>
                    <span>${escapeHtml(sectionSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:13px; opacity:0.7;">expand_more</span>
                </button>`
             : '',
         supportsTypes
-            ? `<button type="button" class="me-recent-book-scope-pill clickable" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
-                   <span class="material-symbols-rounded" style="font-size:15px;">filter_list</span>
+            ? `<button type="button" class="me-recent-book-scope-pill clickable" data-scope-type="type" data-book-id="${escapedId}" onclick="event.stopPropagation(); if (typeof toggleBookTypeDropdown === 'function') toggleBookTypeDropdown(event, '${escapedId}');" title="点击筛选单词/词组">
+                   <span class="material-symbols-rounded" style="font-size:13px;">filter_list</span>
                    <span>${escapeHtml(typeSummary)}</span>
-                   <span class="material-symbols-rounded" style="font-size:15px; opacity:0.7;">expand_more</span>
+                   <span class="material-symbols-rounded" style="font-size:13px; opacity:0.7;">expand_more</span>
                </button>`
             : ''
     ].filter(Boolean).join('');
@@ -2308,12 +2389,17 @@ function renderDetailedStatsAxesSvg({ svgW, padL, padR, padT, plotH, maxVal, uni
 
 function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
     const nextRange = range || 'week';
-    if (nextRange !== currentDetailedStatsRange) {
+    const isRangeSwitch = nextRange !== currentDetailedStatsRange;
+    if (isRangeSwitch) {
         detailedStatsSelectedDateKey = null;
     }
     currentDetailedStatsRange = nextRange;
     const container = document.getElementById('detailed-stats-content');
     if (!container) return;
+
+    const prevScrollLefts = isRangeSwitch
+        ? []
+        : Array.from(container.querySelectorAll('.detailed-svg-wrap')).map(w => w.scrollLeft || 0);
 
     document.querySelectorAll('#detailed-stats-range-tabs .settings-cat-tab').forEach(btn => {
         const isActive = btn.getAttribute('data-range') === currentDetailedStatsRange;
@@ -2355,12 +2441,15 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
     const labelStep = series.length > 10 ? 5 : 1;
     const svgMonthClass = series.length > 10 ? ' detailed-chart-svg--month' : '';
 
+    const selectedIdx = selectedDay ? series.findIndex(d => d.dateKey === selectedDay.dateKey) : -1;
+
     // 1. 每日新学与复习词数 SVG 堆叠柱状图
     const rawMaxWords = Math.max(0, ...series.map(d => (d.learned || 0) + (d.shici || 0) + (d.reviewed || 0)));
     const niceMaxWords = computeNiceAxisCeiling(rawMaxWords, 10);
     const slotW = series.length > 0 ? plotW / series.length : plotW;
     const barW = series.length <= 10 ? Math.min(34, slotW * 0.44) : Math.max(11, Math.min(16, slotW * 0.68));
     const showWordNums = detailedChartLabelState.words;
+    const selectedBarX = selectedIdx !== -1 ? (padL + (selectedIdx + 0.5) * slotW) : null;
 
     const wordBarsSvg = series.map((d, idx) => {
         const learnCnt = (d.learned || 0) + (d.shici || 0);
@@ -2385,7 +2474,7 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
         const barFontSize = series.length <= 10 ? 10.5 : 8.5;
 
         let numLabelsSvg = '';
-        if (showWordNums && totalCnt > 0) {
+        if ((showWordNums || isSelected) && totalCnt > 0) {
             const shortParts = [];
             if (learnCnt > 0) {
                 if (learnH >= 15) {
@@ -2408,16 +2497,18 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
             }
         }
 
-        const xTickSvg = (idx % labelStep === 0 || idx === series.length - 1 || isSelected)
+        const baseTick = (idx % labelStep === 0 || idx === series.length - 1);
+        const tooCloseToSelected = !isSelected && selectedBarX !== null && Math.abs(cx - selectedBarX) < 40;
+        const xTickSvg = (isSelected || (baseTick && !tooCloseToSelected))
             ? `<text x="${cx.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${d.label}</text>`
             : '';
 
         return `
-            <g class="detailed-svg-bar-col" onclick="selectDetailedStatsDay('${d.dateKey}')">
-                <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词（点击查看当日详细数据）</title>
+            <g class="detailed-svg-bar-col${isSelected ? ' is-selected' : ''}" data-date-key="${d.dateKey}" data-cx="${cx.toFixed(1)}" onclick="selectDetailedStatsDay('${d.dateKey}')">
+                <title>${d.dateKey}：新学 ${learnCnt} 词，复习 ${revCnt} 词</title>
                 ${learnH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yLearn.toFixed(1)}" width="${barW.toFixed(1)}" height="${learnH.toFixed(1)}" rx="3" fill="#0061a4" />` : ''}
                 ${revH > 0 ? `<rect class="detailed-bar-seg" x="${bx.toFixed(1)}" y="${yRev.toFixed(1)}" width="${barW.toFixed(1)}" height="${revH.toFixed(1)}" rx="3" fill="#0d9488" />` : ''}
-                ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.9' : '0.6'}" />` : ''}
+                ${totalCnt === 0 ? `<rect x="${bx.toFixed(1)}" y="${(baselineY - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="2" rx="1" fill="${isSelected ? '#0061a4' : '#cbd5e1'}" opacity="${isSelected ? '0.95' : '0.6'}" />` : ''}
                 ${numLabelsSvg}
                 ${xTickSvg}
                 <rect x="${(cx - slotW / 2).toFixed(1)}" y="${padT - 6}" width="${slotW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
@@ -2450,17 +2541,21 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
     const showDurNums = detailedChartLabelState.duration;
     const pointStepW = series.length > 1 ? plotW / (series.length - 1) : plotW;
 
+    const selectedPtX = (selectedIdx !== -1 && points[selectedIdx]) ? points[selectedIdx].x : null;
+
     const selLearn = selectedDay ? ((selectedDay.learned || 0) + (selectedDay.shici || 0)) : periodLearned;
     const selRev = selectedDay ? (selectedDay.reviewed || 0) : periodReviewed;
     const selDurSec = selectedDay ? (selectedDay.durationSeconds || 0) : periodDurationSec;
-    const wordsFooterPrefix = selectedDay ? `${selectedDay.label} ` : rangeLabel;
-    const durFooterLabel = selectedDay ? `${selectedDay.label} 学习时长` : `${rangeLabel}总时长`;
+    const dateBadgeHtml = selectedDay ? `<span class="detailed-footer-date-pill">${escapeHtml(selectedDay.label)}</span>` : '';
+    const wordsLearnLabelHtml = selectedDay ? `${dateBadgeHtml}新学` : `${escapeHtml(rangeLabel)}新学`;
+    const wordsRevLabelHtml = selectedDay ? '复习' : `${escapeHtml(rangeLabel)}复习`;
+    const durLabelHtml = selectedDay ? `${dateBadgeHtml}学习时长` : `${escapeHtml(rangeLabel)}总时长`;
 
     container.innerHTML = `
         <!-- 图表1：每日新学与复习词数 -->
         <div class="detailed-chart-card">
             <div class="detailed-chart-header">
-                <div class="detailed-chart-title">每日新学与复习词数</div>
+                <div class="detailed-chart-title">单词输入量</div>
                 <div class="detailed-chart-controls detailed-chart-controls--stacked">
                     <label class="detailed-chart-toggle-label">
                         <span>显示详细数据</span>
@@ -2484,27 +2579,25 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
             <div class="detailed-chart-footer">
                 <div class="detailed-chart-footer-metrics">
                     <div class="detailed-chart-footer-item stat-accent-2">
-                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}新学</span>
+                        <span class="detailed-chart-footer-label">${wordsLearnLabelHtml}</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num">${selLearn}</span><small>词</small></span>
                     </div>
                     <div class="detailed-chart-footer-item stat-accent-3">
-                        <span class="detailed-chart-footer-label">${escapeHtml(wordsFooterPrefix)}复习</span>
+                        <span class="detailed-chart-footer-label">${wordsRevLabelHtml}</span>
                         <span class="detailed-chart-footer-val"><span class="stat-num">${selRev}</span><small>词</small></span>
                     </div>
                 </div>
+                ${selectedDay ? `
                 <div class="detailed-chart-selected-hint">
-                    ${selectedDay
-                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
-                        : '<span>点击任意柱条查看当日详细数据</span>'
-                    }
-                </div>
+                    <button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>
+                </div>` : ''}
             </div>
         </div>
 
         <!-- 图表2：学习时长趋势 (分钟) -->
         <div class="detailed-chart-card">
             <div class="detailed-chart-header">
-                <div class="detailed-chart-title">学习时长趋势 (分钟)</div>
+                <div class="detailed-chart-title">学习时长</div>
                 <div class="detailed-chart-controls">
                     <label class="detailed-chart-toggle-label">
                         <span>显示详细数据</span>
@@ -2533,13 +2626,18 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         const isSelected = Boolean(detailedStatsSelectedDateKey && p.dateKey === detailedStatsSelectedDateKey);
                         const shouldShowPtNum = isSelected || (showDurNums && (p.mins > 0 || series.length <= 10));
                         const ptRadius = isSelected ? 5.5 : (series.length > 14 ? 2.6 : 4);
+                        const basePtTick = (idx % labelStep === 0 || idx === points.length - 1);
+                        const ptTooCloseToSelected = !isSelected && selectedPtX !== null && Math.abs(p.x - selectedPtX) < 40;
+                        const ptXTickSvg = (isSelected || (basePtTick && !ptTooCloseToSelected))
+                            ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>`
+                            : '';
                         return `
-                        <g class="detailed-svg-point-col" onclick="selectDetailedStatsDay('${p.dateKey}')">
-                            <title>${p.dateKey}: ${p.mins} 分钟（点击查看当日详细数据）</title>
-                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${baselineY.toFixed(1)}" stroke="rgba(0, 97, 164, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
+                        <g class="detailed-svg-point-col${isSelected ? ' is-selected' : ''}" data-date-key="${p.dateKey}" data-cx="${p.x.toFixed(1)}" onclick="selectDetailedStatsDay('${p.dateKey}')">
+                            <title>${p.dateKey}: ${p.mins} 分钟</title>
+                            ${isSelected ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${baselineY.toFixed(1)}" stroke="rgba(0, 97, 164, 0.45)" stroke-width="1.5" stroke-dasharray="3 3" />` : ''}
                             <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ptRadius}" fill="${isSelected ? '#0061a4' : '#fff'}" stroke="var(--md-sys-color-primary, #0061a4)" stroke-width="${isSelected ? 2.5 : 2}" />
                             ${shouldShowPtNum ? `<text x="${p.x.toFixed(1)}" y="${Math.max(padT - 5, p.y - 9).toFixed(1)}" text-anchor="middle" font-size="${(series.length <= 10 || isSelected) ? 10.5 : 8.5}" font-weight="${isSelected ? 800 : 700}" fill="#0061a4">${valText}${isSelected ? 'm' : ''}</text>` : ''}
-                            ${(idx % labelStep === 0 || idx === points.length - 1 || isSelected) ? `<text x="${p.x.toFixed(1)}" y="${svgH - 8}" text-anchor="middle" class="detailed-axis-text" ${isSelected ? 'style="fill:#0061a4; font-weight:800;"' : ''}>${p.label}</text>` : ''}
+                            ${ptXTickSvg}
                             <rect x="${(p.x - pointStepW / 2).toFixed(1)}" y="${padT - 6}" width="${pointStepW.toFixed(1)}" height="${plotH + 14}" fill="transparent" />
                         </g>
                         `;
@@ -2549,7 +2647,7 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
             <div class="detailed-chart-footer">
                 <div class="detailed-chart-footer-metrics">
                     <div class="detailed-chart-footer-item stat-accent-1">
-                        <span class="detailed-chart-footer-label">${escapeHtml(durFooterLabel)}</span>
+                        <span class="detailed-chart-footer-label">${durLabelHtml}</span>
                         <span class="detailed-chart-footer-val">${formatDurationAccentHtml(formatDur(selDurSec))}</span>
                     </div>
                     ${!selectedDay ? `
@@ -2562,15 +2660,39 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
                         <span class="detailed-chart-footer-val"><span class="stat-num" style="color:#d97706;">${avgDisplay}</span><small>分钟</small></span>
                     </div>
                 </div>
+                ${selectedDay ? `
                 <div class="detailed-chart-selected-hint">
-                    ${selectedDay
-                        ? `<span>已选中 ${escapeHtml(selectedDay.dateKey)}</span><button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>`
-                        : '<span>点击曲线节点查看当日详细数据</span>'
-                    }
-                </div>
+                    <button type="button" class="detailed-chart-reset-btn" onclick="selectDetailedStatsDay(null)">返回${rangeLabel}汇总</button>
+                </div>` : ''}
             </div>
         </div>
     `;
+
+    // 居中滚动聚焦到选中的日期（或在未选中/刷新时保持原有滚动位置）
+    const wraps = Array.from(container.querySelectorAll('.detailed-svg-wrap'));
+    wraps.forEach((wrap, idx) => {
+        if (prevScrollLefts[idx] !== undefined) {
+            wrap.scrollLeft = prevScrollLefts[idx];
+        }
+    });
+    if (selectedDay && wraps.length > 0 && typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+            wraps.forEach(wrap => {
+                const svg = wrap.querySelector('.detailed-chart-svg');
+                const targetCol = wrap.querySelector(`[data-date-key="${selectedDay.dateKey}"]`);
+                if (!svg || !targetCol) return;
+                const cx = parseFloat(targetCol.getAttribute('data-cx'));
+                if (!Number.isFinite(cx)) return;
+                const svgWidthPx = svg.scrollWidth || svg.clientWidth || svgW;
+                const targetPx = (cx / svgW) * svgWidthPx;
+                const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+                if (maxScroll > 0) {
+                    const desiredLeft = Math.max(0, Math.min(maxScroll, targetPx - wrap.clientWidth / 2));
+                    wrap.scrollTo({ left: desiredLeft, behavior: 'smooth' });
+                }
+            });
+        });
+    }
 }
 window.renderDetailedStatsSubview = renderDetailedStatsSubview;
 
@@ -2664,8 +2786,7 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
         listContainer.innerHTML = `
             <div class="review-plan-empty-box">
                 <span class="material-symbols-rounded" style="font-size:48px; color:var(--md-sys-color-outline); opacity:0.6;">event_available</span>
-                <div style="margin-top:10px; font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface);">该日期范围内暂无待复习词汇</div>
-                <div style="font-size:0.82rem; color:var(--md-sys-color-outline); margin-top:4px;">学习新单词后，艾宾浩斯复习计划将自动在此生成</div>
+                <div style="margin-top:10px; font-weight:700; font-size:1.02rem; color:var(--md-sys-color-on-surface);">无待复习词汇</div>
             </div>
         `;
         return;
@@ -2689,7 +2810,6 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
                     <div class="bc-item-title-meta">
                         <span class="bc-headword">${escapeHtml(item.word)}</span>
                         ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
-                        <span class="review-plan-stage-tag">第${item.stage}阶段</span>
                         <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}" title="${tInfo.detail}">${tInfo.badge}</span>
                     </div>
                     <div class="bc-item-actions" onclick="event.stopPropagation()">
@@ -2718,9 +2838,6 @@ let isUserDataSynced = false;
 
 function updateSyncButtonStatus(isSynced) {
     const btn = document.getElementById('btn-sync-cloud-data');
-    const row = document.getElementById('me-row-sync-data');
-    const rowBadge = document.getElementById('me-sync-row-badge');
-    const rowIcon = document.getElementById('me-sync-row-icon');
     const headerBtn = document.getElementById('btn-me-sync-header');
 
     // 统计本地待同步队列数据
@@ -2737,14 +2854,18 @@ function updateSyncButtonStatus(isSynced) {
     const isOnlineAccount = currentUserProfile && currentUserProfile.isLoggedIn && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili');
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     const hasPendingData = (!isUserDataSynced || pendingCount > 0);
+    const autoSync = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+    const syncingNow = Boolean((window.SyncManager && window.SyncManager.isSyncing) || window._manualSyncInFlight);
 
-    // 顶部操作区“同步数据”按钮：当存在未同步的数据时显示
+    // 顶部操作区“同步数据”按钮：关闭自动同步时常驻显示，开启自动同步时仅在有待同步数据时显示
     if (headerBtn) {
-        if (isOnlineAccount && !isOffline && hasPendingData) {
+        if (isOnlineAccount && !isOffline && (hasPendingData || !autoSync)) {
             headerBtn.style.display = 'inline-flex';
             const hIcon = headerBtn.querySelector('.material-symbols-rounded');
             const hLabel = headerBtn.querySelector('.btn-label-text');
-            if (window.SyncManager && window.SyncManager.isSyncing) {
+            if (syncingNow) {
                 if (hIcon) hIcon.style.animation = 'spin 1s linear infinite';
                 if (hLabel) hLabel.innerText = '同步中...';
                 headerBtn.disabled = true;
@@ -2758,25 +2879,18 @@ function updateSyncButtonStatus(isSynced) {
         }
     }
 
-    // 1. 检查自动同步是否开启：仅当关闭自动同步时才显示该按钮/行
-    const autoSync = (typeof isAutoSyncEnabled === 'function')
-        ? isAutoSyncEnabled()
-        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
-
     if (autoSync) {
         if (btn) btn.style.display = 'none';
-        if (row) row.style.display = 'none';
         return;
     } else {
         if (btn) btn.style.display = 'inline-flex';
-        if (row) row.style.display = 'flex';
     }
 
     const label = btn ? btn.querySelector('.btn-label-text') : null;
     const icon = btn ? btn.querySelector('.material-symbols-rounded') : null;
 
     // 2. 检查是否正在同步中
-    if (window.SyncManager && window.SyncManager.isSyncing) {
+    if (syncingNow) {
         if (icon) {
             icon.innerText = 'sync';
             icon.style.animation = 'spin 1s linear infinite';
@@ -2787,20 +2901,10 @@ function updateSyncButtonStatus(isSynced) {
             btn.style.borderColor = 'var(--md-sys-color-outline)';
             btn.style.color = 'var(--md-sys-color-outline)';
         }
-        if (rowIcon) {
-            rowIcon.innerText = 'sync';
-            rowIcon.style.animation = 'spin 1s linear infinite';
-        }
-        if (rowBadge) {
-            rowBadge.innerText = '同步中...';
-            rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
-            rowBadge.style.color = 'var(--md-sys-color-outline)';
-        }
         return;
     }
 
     if (icon) icon.style.animation = '';
-    if (rowIcon) rowIcon.style.animation = '';
 
     if (isUserDataSynced) {
         if (icon) icon.innerText = 'check';
@@ -2810,12 +2914,6 @@ function updateSyncButtonStatus(isSynced) {
             btn.style.borderColor = 'var(--md-sys-color-success, #2e7d32)';
             btn.style.color = 'var(--md-sys-color-success, #2e7d32)';
         }
-        if (rowIcon) rowIcon.innerText = 'cloud_done';
-        if (rowBadge) {
-            rowBadge.innerText = '已是最新';
-            rowBadge.style.background = '#dcfce7';
-            rowBadge.style.color = '#15803d';
-        }
     } else {
         if (icon) icon.innerText = 'sync';
         if (label) label.innerText = pendingCount > 0 ? `同步数据 (${pendingCount})` : '同步数据';
@@ -2824,58 +2922,90 @@ function updateSyncButtonStatus(isSynced) {
             btn.style.borderColor = 'var(--md-sys-color-primary)';
             btn.style.color = 'var(--md-sys-color-primary)';
         }
-        if (rowIcon) rowIcon.innerText = 'sync';
-        if (rowBadge) {
-            rowBadge.innerText = pendingCount > 0 ? `待同步 (${pendingCount})` : '点击同步';
-            rowBadge.style.background = 'var(--md-sys-color-primary-container)';
-            rowBadge.style.color = 'var(--md-sys-color-primary)';
-        }
     }
 }
 window.updateSyncButtonStatus = updateSyncButtonStatus;
 
 async function handleManualSyncUserData() {
-    const btn = document.getElementById('btn-sync-cloud-data');
-    const pendingCount = (window.SyncManager && Array.isArray(window.SyncManager.pendingQueue))
-        ? window.SyncManager.pendingQueue.length
-        : 0;
-
-    if (pendingCount === 0 && isUserDataSynced) {
-        if (typeof showToast === 'function') {
-            showToast('当前已是最新数据，已全部同步到云端');
-        }
+    if (window._manualSyncInFlight) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        if (typeof showToast === 'function') showToast('当前处于离线模式，无法连接云端同步');
         return;
     }
 
-    if (btn) {
-        const icon = btn.querySelector('.material-symbols-rounded');
-        const label = btn.querySelector('.btn-label-text');
-        if (icon) icon.style.animation = 'spin 1s linear infinite';
-        if (label) label.innerText = '同步中...';
-        btn.disabled = true;
-    }
-    const rowIcon = document.getElementById('me-sync-row-icon');
-    const rowBadge = document.getElementById('me-sync-row-badge');
-    if (rowIcon) rowIcon.style.animation = 'spin 1s linear infinite';
-    if (rowBadge) {
-        rowBadge.innerText = '同步中...';
-        rowBadge.style.background = 'var(--md-sys-color-surface-container-high)';
-        rowBadge.style.color = 'var(--md-sys-color-outline)';
+    const targetUser = (typeof currentUser !== 'undefined' && currentUser && !currentUser.startsWith('游客'))
+        ? currentUser
+        : (currentUserProfile && currentUserProfile.username ? currentUserProfile.username : null);
+    const isOnlineAccount = Boolean(
+        targetUser &&
+        currentUserProfile &&
+        currentUserProfile.isLoggedIn &&
+        currentUserProfile.username === targetUser &&
+        (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili')
+    );
+    if (!isOnlineAccount) {
+        if (typeof showToast === 'function') showToast('请先登录云端账号后再同步数据');
+        return;
     }
 
+    const btn = document.getElementById('btn-sync-cloud-data');
+    const headerBtn = document.getElementById('btn-me-sync-header');
+    window._manualSyncInFlight = true;
+
+    if (window.SyncManager && window.SyncManager.retryTimer) {
+        clearTimeout(window.SyncManager.retryTimer);
+        window.SyncManager.retryTimer = null;
+    }
+
+    [btn, headerBtn].forEach(el => {
+        if (!el) return;
+        const icon = el.querySelector('.material-symbols-rounded');
+        const label = el.querySelector('.btn-label-text');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+        if (label) label.innerText = '同步中...';
+        el.disabled = true;
+    });
+
     try {
-        if (window.SyncManager && typeof window.SyncManager.flush === 'function') {
-            await window.SyncManager.flush({ force: true, silent: false });
+        // 1. 先从云端拉取并双向合并学习进度，同时保留本地尚未同步的配置与选书更改
+        if (typeof pullAndMergeUserDataFromCloud === 'function') {
+            try {
+                await pullAndMergeUserDataFromCloud(targetUser, { keepLocalConfigs: true });
+            } catch (pullErr) {
+                console.warn('[Sync] Pre-pull before manual push warning:', pullErr);
+            }
+        }
+
+        // 2. 强制将合并后的最新全量数据推送至 Supabase 云端
+        let pushRes = { success: false, error: 'syncAllUserDataToCloud unavailable' };
+        if (typeof syncAllUserDataToCloud === 'function') {
+            pushRes = await syncAllUserDataToCloud(targetUser, {
+                force: true,
+                silent: true,
+                skipPrePull: true,
+                manual: true
+            });
+        }
+
+        const actuallyUploaded = Boolean(pushRes && pushRes.success && !pushRes.skipped && !pushRes.offline && !pushRes.local);
+        if (actuallyUploaded) {
+            if (window.SyncManager && typeof window.SyncManager.clearQueue === 'function') {
+                window.SyncManager.clearQueue(targetUser);
+            }
             updateSyncButtonStatus(true);
-        } else if (typeof syncAllUserDataToCloud === 'function') {
-            const res = await syncAllUserDataToCloud(currentUser, { silent: false });
-            if (res && res.success) {
-                updateSyncButtonStatus(true);
-                if (typeof showToast === 'function') {
-                    showToast('数据已成功同步到云端！');
-                }
-            } else {
-                updateSyncButtonStatus(false);
+            if (typeof showToast === 'function') {
+                showToast('已完成云端与本地双向同步！');
+            }
+        } else if (pushRes && pushRes.offline) {
+            updateSyncButtonStatus(false);
+            if (typeof showToast === 'function') {
+                showToast('当前处于离线模式，无法连接云端同步');
+            }
+        } else {
+            updateSyncButtonStatus(false);
+            if (typeof showToast === 'function') {
+                const detail = pushRes && pushRes.error && pushRes.error.message ? `：${pushRes.error.message}` : '，请检查网络或云端权限';
+                showToast(`同步未成功${detail}`);
             }
         }
     } catch (e) {
@@ -2885,6 +3015,12 @@ async function handleManualSyncUserData() {
             showToast('数据同步失败，请检查网络');
         }
     } finally {
+        window._manualSyncInFlight = false;
+        [btn, headerBtn].forEach(el => {
+            if (!el) return;
+            const icon = el.querySelector('.material-symbols-rounded');
+            if (icon) icon.style.animation = '';
+        });
         updateSyncButtonStatus();
     }
 }

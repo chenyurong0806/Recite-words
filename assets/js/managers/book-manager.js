@@ -811,44 +811,98 @@ const DORIS_LOCAL_FALLBACK_BOOKS = [
             );
             const itemType = isPhrase ? 'phrase' : 'word';
 
+            const parsePosStr = (raw) => {
+                if (typeof window !== 'undefined' && typeof window.parsePosMeaningString === 'function') {
+                    return window.parsePosMeaningString(raw);
+                }
+                const str = String(raw || '').replace(/★/g, '').trim();
+                if (!str) return [];
+                const posRe = /(?:^|[\s;；\n\r])((?:vt|vi|adj|adv|prep|conj|pron|interj|int|art|num|aux|det|abbr|pl|v|n)\.(?:\s*[&\/]\s*(?:vt|vi|adj|adv|prep|conj|pron|interj|int|art|num|aux|det|abbr|pl|v|n)\.)*)\s*/gi;
+                const matches = [];
+                let m;
+                while ((m = posRe.exec(str)) !== null) {
+                    const tokenOffset = m[0].indexOf(m[1]);
+                    matches.push({
+                        start: m.index + tokenOffset,
+                        end: m.index + m[0].length,
+                        pos: m[1].replace(/\s+/g, '')
+                    });
+                }
+                if (matches.length === 0) return [{ pos: '', meaning: str }];
+                const res = [];
+                if (matches[0].start > 0) {
+                    const head = str.slice(0, matches[0].start).replace(/[\s;；]+$/g, '').trim();
+                    if (head) res.push({ pos: '', meaning: head });
+                }
+                for (let i = 0; i < matches.length; i++) {
+                    const segEnd = (i + 1 < matches.length) ? matches[i + 1].start : str.length;
+                    const body = str.slice(matches[i].end, segEnd).replace(/[\s;；]+$/g, '').trim();
+                    if (body) res.push({ pos: matches[i].pos, meaning: body });
+                }
+                return res.length > 0 ? res : [{ pos: '', meaning: str }];
+            };
+
             let meanings = [];
             if (Array.isArray(item.senses) && item.senses.length > 0) {
-                meanings = item.senses.map(s => {
-                    if (typeof s === 'string') return { pos: '', meaning: s };
+                item.senses.forEach(s => {
+                    if (typeof s === 'string') {
+                        parsePosStr(s).forEach(p => meanings.push(p));
+                        return;
+                    }
                     const rawMeaning = Array.isArray(s.trans)
                         ? s.trans.filter(Boolean).join('；')
                         : String(s.meaning || s.trans || '');
-                    return {
-                        pos: s.part_of_speech || s.pos || '',
-                        meaning: rawMeaning.replace(/★/g, ''),
-                        trans: Array.isArray(s.trans) ? s.trans : null,
-                        examples: Array.isArray(s.examples) ? s.examples : []
-                    };
+                    const cleanMeaning = rawMeaning.replace(/★/g, '').trim();
+                    const sPos = (s.part_of_speech || s.pos || '').trim();
+                    if (!sPos && cleanMeaning) {
+                        const parsed = parsePosStr(cleanMeaning);
+                        parsed.forEach((p, idx) => meanings.push({
+                            pos: p.pos,
+                            meaning: p.meaning,
+                            trans: (idx === 0 && Array.isArray(s.trans)) ? s.trans : null,
+                            examples: (idx === 0 && Array.isArray(s.examples)) ? s.examples : []
+                        }));
+                    } else if (cleanMeaning) {
+                        meanings.push({
+                            pos: sPos,
+                            meaning: cleanMeaning,
+                            trans: Array.isArray(s.trans) ? s.trans : null,
+                            examples: Array.isArray(s.examples) ? s.examples : []
+                        });
+                    }
                 });
             } else if (Array.isArray(item.meanings) && item.meanings.length > 0) {
-                meanings = item.meanings.map(m => {
+                item.meanings.forEach(m => {
                     if (typeof m === 'string') {
-                        const match = m.match(/^([a-z]+\.)\s*(.+)/i);
-                        return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: m.trim() };
+                        parsePosStr(m).forEach(p => meanings.push(p));
+                    } else {
+                        const mPos = (m.pos || '').trim();
+                        const mText = String(m.meaning || m.trans || '').trim();
+                        if (!mPos && mText) {
+                            parsePosStr(mText).forEach(p => meanings.push(p));
+                        } else if (mText) {
+                            meanings.push({ pos: mPos, meaning: mText });
+                        }
                     }
-                    return { pos: m.pos || '', meaning: m.meaning || m.trans || '' };
                 });
             } else if (Array.isArray(item.trans) && item.trans.length > 0) {
-                meanings = item.trans.map(t => {
-                    if (typeof t !== 'string') return null;
-                    const match = t.match(/^([a-z]+\.)\s*(.+)/i);
-                    return match ? { pos: match[1].trim(), meaning: match[2].trim() } : { pos: '', meaning: t.trim() };
-                }).filter(Boolean);
+                item.trans.forEach(t => {
+                    if (typeof t !== 'string') return;
+                    parsePosStr(t).forEach(p => meanings.push(p));
+                });
             } else if (Array.isArray(item.translations) && item.translations.length > 0) {
-                meanings = item.translations.map(t => ({ pos: '', meaning: typeof t === 'string' ? t : (t.translation || '') }));
+                item.translations.forEach(t => {
+                    const txt = typeof t === 'string' ? t : (t.translation || '');
+                    parsePosStr(txt).forEach(p => meanings.push(p));
+                });
             } else if (typeof item.trans === 'string') {
-                meanings = [{ pos: '', meaning: item.trans }];
+                meanings = parsePosStr(item.trans);
             } else if (typeof item.translation === 'string') {
-                meanings = [{ pos: '', meaning: item.translation }];
+                meanings = parsePosStr(item.translation);
             } else if (typeof item.definition === 'string') {
-                meanings = [{ pos: '', meaning: item.definition }];
+                meanings = parsePosStr(item.definition);
             } else if (typeof item.meaning === 'string') {
-                meanings = [{ pos: '', meaning: item.meaning }];
+                meanings = parsePosStr(item.meaning);
             }
 
             if (meanings.length === 0) {

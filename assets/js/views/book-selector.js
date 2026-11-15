@@ -1798,23 +1798,44 @@ function parkBookDropdownMenus() {
  * 将下拉菜单锚定定位至触发按钮，采用 position: fixed 挂载于 body，免受父容器布局限制
  * 智能遵循 Modern Web Guidance：动态视口边缘检测与垂直自动翻转，滚动自适应收起
  */
+function resolveConnectedDropdownTrigger(triggerBtn, menuEl) {
+    if (triggerBtn && triggerBtn.isConnected) return triggerBtn;
+    if (menuEl && menuEl.id === 'menu-book-type-dropdown' && currentDropdownTypeBookId) {
+        const match = Array.from(document.querySelectorAll('.me-recent-book-scope-pill[data-scope-type="type"]'))
+            .find(el => el.getAttribute('data-book-id') === currentDropdownTypeBookId);
+        if (match && match.isConnected) return match;
+    }
+    if (menuEl && menuEl.id === 'menu-book-section-dropdown' && currentDropdownSectionBookId) {
+        const match = Array.from(document.querySelectorAll('.me-recent-book-scope-pill[data-scope-type="section"]'))
+            .find(el => el.getAttribute('data-book-id') === currentDropdownSectionBookId);
+        if (match && match.isConnected) return match;
+    }
+    return (triggerBtn && triggerBtn.isConnected) ? triggerBtn : null;
+}
+
 function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
-    if (!menuEl || !triggerBtn) return;
+    const resolvedBtn = resolveConnectedDropdownTrigger(triggerBtn, menuEl);
+    if (!menuEl || !resolvedBtn) return;
+
+    const btnRect = resolvedBtn.getBoundingClientRect();
+    if (btnRect.width === 0 && btnRect.height === 0 && btnRect.top === 0 && btnRect.left === 0) {
+        return;
+    }
 
     if (menuEl.parentElement !== document.body) {
         document.body.appendChild(menuEl);
     }
 
     document.querySelectorAll('.book-cover-card.dropdown-open').forEach(c => {
-        if (c !== triggerBtn.closest('.book-cover-card')) c.classList.remove('dropdown-open');
+        if (c !== resolvedBtn.closest('.book-cover-card')) c.classList.remove('dropdown-open');
     });
     document.querySelectorAll('.local-tree-folder.dropdown-open-folder').forEach(f => {
-        if (f !== triggerBtn.closest('.local-tree-folder')) f.classList.remove('dropdown-open-folder');
+        if (f !== resolvedBtn.closest('.local-tree-folder')) f.classList.remove('dropdown-open-folder');
     });
 
-    const card = triggerBtn.closest('.book-cover-card');
+    const card = resolvedBtn.closest('.book-cover-card');
     if (card) card.classList.add('dropdown-open');
-    const folder = triggerBtn.closest('.local-tree-folder');
+    const folder = resolvedBtn.closest('.local-tree-folder');
     if (folder) folder.classList.add('dropdown-open-folder');
 
     // 重置样式后进行实时坐标标定，彻底消除 body.style.zoom / transform 带来的定位偏移
@@ -1837,20 +1858,20 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
     const scaleY = (Math.abs(r100.top - r0.top) > 10) ? ((r100.top - r0.top) / 100) : 1;
     const scaleX = (Math.abs(r100.left - r0.left) > 10) ? ((r100.left - r0.left) / 100) : 1;
 
-    const btnRect = triggerBtn.getBoundingClientRect();
+    const anchorRect = resolvedBtn.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const menuWidth = r0.width || ((menuEl.offsetWidth || (menuEl.id === 'modal-book-actions-menu' ? 168 : 240)) * scaleX);
     const naturalHeight = r0.height || ((menuEl.scrollHeight || menuEl.offsetHeight || 220) * scaleY);
 
-    const spaceBelow = viewportHeight - btnRect.bottom - 12;
-    const spaceAbove = btnRect.top - 12;
+    const spaceBelow = viewportHeight - anchorRect.bottom - 12;
+    const spaceAbove = anchorRect.top - 12;
     let desiredTop = 0;
 
     if (spaceBelow < naturalHeight && spaceAbove > spaceBelow) {
         const fitHeight = Math.max(120, spaceAbove - 8);
         const usedHeight = Math.min(naturalHeight, fitHeight);
-        desiredTop = Math.max(10, btnRect.top - usedHeight - 6);
+        desiredTop = Math.max(10, anchorRect.top - usedHeight - 6);
         menuEl.classList.add('flip-up');
         if (naturalHeight > fitHeight) {
             menuEl.style.maxHeight = `${Math.floor(fitHeight / scaleY)}px`;
@@ -1858,7 +1879,7 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
         }
     } else {
         const fitHeight = Math.max(120, spaceBelow - 8);
-        desiredTop = Math.min(viewportHeight - Math.min(naturalHeight, fitHeight) - 10, btnRect.bottom + 6);
+        desiredTop = Math.min(viewportHeight - Math.min(naturalHeight, fitHeight) - 10, anchorRect.bottom + 6);
         desiredTop = Math.max(10, desiredTop);
         menuEl.classList.remove('flip-up');
         if (naturalHeight > fitHeight) {
@@ -1869,14 +1890,14 @@ function mountAnchoredBookDropdown(menuEl, triggerBtn, defaultAlign = 'left') {
 
     let desiredLeft = 0;
     if (defaultAlign === 'right') {
-        desiredLeft = btnRect.right - menuWidth;
+        desiredLeft = anchorRect.right - menuWidth;
         if (desiredLeft + menuWidth > viewportWidth - 10) desiredLeft = viewportWidth - menuWidth - 10;
         if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.add('align-right');
     } else {
-        desiredLeft = btnRect.left;
+        desiredLeft = anchorRect.left;
         if (desiredLeft + menuWidth > viewportWidth - 10) {
-            desiredLeft = Math.max(10, btnRect.right - menuWidth);
+            desiredLeft = Math.max(10, anchorRect.right - menuWidth);
         }
         if (desiredLeft < 10) desiredLeft = 10;
         menuEl.classList.remove('align-right');
@@ -2122,6 +2143,7 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
     bookContentState.expandedItemKeys.clear();
 
     // 初始化内容工具栏：分类筛选下拉菜单与类型按钮组
+    const isShiCiContent = (archetype && archetype.key === 'shici') || (typeof isShiCiBook === 'function' && isShiCiBook(bookMeta));
     const secSet = new Set();
     words.forEach(w => {
         if (w && w.section) {
@@ -2129,6 +2151,21 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
             if (cleanSec) secSet.add(cleanSec);
         }
     });
+    let useLetterFallback = false;
+    if (secSet.size <= 1 && !isShiCiContent) {
+        const letterSet = new Set();
+        words.forEach(w => {
+            if (!w || !w.word) return;
+            const ch = String(w.word).trim().charAt(0).toLowerCase();
+            if (/^[a-z]$/.test(ch)) letterSet.add(ch);
+        });
+        if (letterSet.size > 1) {
+            secSet.clear();
+            letterSet.forEach(l => secSet.add(l));
+            useLetterFallback = true;
+        }
+    }
+    bookContentState.useLetterSectionFallback = useLetterFallback;
     const secWrap = document.getElementById('bc-toolbar-section-wrap');
     const secLabel = document.getElementById('bc-toolbar-section-label');
     const secMenu = document.getElementById('bc-toolbar-section-menu');
@@ -2314,7 +2351,7 @@ function applyBookContentFilters() {
         if (bookContentState.activeSection && bookContentState.activeSection !== 'all') {
             const explicitSec = String(w.section || '').trim().replace(/^板块\s*/i, '').toLowerCase();
             const fallbackLetter = (w.word || '').trim().charAt(0).toLowerCase();
-            const wSec = explicitSec || fallbackLetter;
+            const wSec = bookContentState.useLetterSectionFallback ? fallbackLetter : (explicitSec || fallbackLetter);
             if (wSec !== bookContentState.activeSection.toLowerCase()) return false;
         }
 
@@ -4032,6 +4069,7 @@ async function toggleBookTypeDropdown(event, bookId) {
     if (typeof BookManager !== 'undefined') {
         words = await BookManager.loadBookData(bookId);
     }
+    if (currentDropdownTypeBookId !== bookId) return;
     currentDropdownTypeWords = words || [];
 
     const savedFilter = (typeof BookManager !== 'undefined') ? BookManager.getBookStudyFilter(bookId) : null;
@@ -4058,7 +4096,8 @@ async function toggleBookTypeDropdown(event, bookId) {
         `;
     }
 
-    handleTypeDropdownRowChange();
+    // 仅挂载定位，打开菜单时不触发 renderMeRecentBookCard 重绘销毁触发按钮 DOM
+    activeTypeTriggerBtn = resolveConnectedDropdownTrigger(activeTypeTriggerBtn, menuEl);
     mountAnchoredBookDropdown(menuEl, activeTypeTriggerBtn, 'left');
 }
 
@@ -4093,7 +4132,7 @@ function handleTypeDropdownRowChange() {
     if (wordRow) wordRow.classList.toggle('active', allowWord);
     if (phraseRow) phraseRow.classList.toggle('active', allowPhrase);
 
-    // 实时保存并刷新卡片
+    // 实时保存并刷新卡片（若重绘替换了触发按钮，自动回绑新节点再重新锚定位置）
     const bookId = currentDropdownTypeBookId;
     if (bookId) {
         const curFilter = (typeof BookManager !== 'undefined' ? BookManager.getBookStudyFilter(bookId) : null) || {};
@@ -4106,15 +4145,20 @@ function handleTypeDropdownRowChange() {
             BookManager.setBookStudyFilter(bookId, curFilter);
         }
 
-        // 更新按钮上的文本与样式
+        if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
+
+        const menuEl = document.getElementById('menu-book-type-dropdown');
+        activeTypeTriggerBtn = resolveConnectedDropdownTrigger(activeTypeTriggerBtn, menuEl);
         if (activeTypeTriggerBtn) {
             const textSpan = activeTypeTriggerBtn.querySelector('.book-card-filter-text');
             if (textSpan) {
                 textSpan.textContent = isAllTypes ? '类型' : (allowWord ? '单词' : '词组');
             }
             activeTypeTriggerBtn.classList.toggle('has-filter', !isAllTypes);
+            if (menuEl && menuEl.style.display !== 'none') {
+                mountAnchoredBookDropdown(menuEl, activeTypeTriggerBtn, 'left');
+            }
         }
-        if (typeof renderMeRecentBookCard === 'function') renderMeRecentBookCard();
     }
 }
 

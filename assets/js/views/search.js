@@ -1680,6 +1680,22 @@ function highlightPhraseKeyword(phrase, keyword) {
     return escapedPhrase.replace(regex, '<span class="phrase-keyword-highlight">$1</span>');
 }
 
+function highlightSearchExampleKeyword(sentence, keyword) {
+    if (!sentence) return '';
+    if (typeof highlightTargetWordInSentence === 'function') {
+        return highlightTargetWordInSentence(sentence, keyword);
+    }
+    const safeSentence = escapeHtml(sentence);
+    const clean = String(keyword || '').trim();
+    if (!clean) return safeSentence;
+    try {
+        const regex = new RegExp(`\\b${escapeRegExp(escapeHtml(clean))}\\b`, 'gi');
+        return safeSentence.replace(regex, '<strong class="bc-ex-keyword">$&</strong>');
+    } catch (e) {
+        return safeSentence;
+    }
+}
+
 function findRelatedWords(searchWord, ydEntries = []) {
     if (!searchWord) return [];
     const cleanWord = searchWord.trim().toLowerCase();
@@ -2457,26 +2473,28 @@ async function executeHubSearch(query, shouldUpdateTab = true, shouldScroll = tr
                     <div class="search-word-header">
                         <div class="search-word-title-row">
                             <h1 class="search-word-title">${escapeHtml(searchWordDisplay)}</h1>
-                            ${pronHtml}
+                            <div class="search-word-header-right">
+                                ${pronHtml}
+                                <div id="search-explains-actions-container" class="search-explains-actions-row">
+                                    <button type="button" class="search-action-icon-btn" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到本地词书">
+                                        <span class="material-symbols-rounded">bookmark_add</span>
+                                    </button>
+                                    <button type="button" class="search-action-icon-btn" id="btn-edit-meanings-mode" onclick="enterEditMeaningsMode()" title="修改释义">
+                                        <span class="material-symbols-rounded">edit_note</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- 页面内嵌“添加到本地词书”极简控制条 (免弹窗，位于分割线与来源标签上方) -->
+                        <div id="search-inline-add-to-book-panel" class="search-inline-add-panel" style="display:none;"></div>
                     </div>
 
                     <!-- 2. 词典来源标签栏与释义操作 (删除“释义”标题，文字标签栏替代胶囊容器) -->
                     <div class="search-section-block">
                         <div class="search-section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px;">
                             <div id="search-explains-tabs-container" class="search-explains-tabs-row" onwheel="if (event.deltaY) { this.scrollLeft += event.deltaY; event.preventDefault(); }"></div>
-                            <div id="search-explains-actions-container" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                                <button type="button" class="search-action-icon-btn" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到本地词书">
-                                    <span class="material-symbols-rounded">bookmark_add</span>
-                                </button>
-                                <button type="button" class="search-action-icon-btn" onclick="enterEditMeaningsMode()" title="修改释义">
-                                    <span class="material-symbols-rounded">edit_note</span>
-                                </button>
-                            </div>
                         </div>
-
-                        <!-- 页面内嵌“添加到本地词书”极简控制条 (免弹窗) -->
-                        <div id="search-inline-add-to-book-panel" style="display:none; margin-bottom:12px;"></div>
 
                         <!-- 动态释义展示容器 (支持普通查看、极简勾选添加、修改释义) -->
                         <div id="search-explains-dynamic-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -2693,6 +2711,7 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
     const isLocal = src.type === 'book' && isLocalCustomBook(src.bookId);
     const isGaoKao = Boolean(src.isGaoKao || src.bookId === 'books/高中/高中考纲.json' || src.bookName === '高中考纲');
     const wordNote = (isGaoKao && src.rawWord && src.rawWord.note) ? String(src.rawWord.note).trim() : '';
+    const highlightTarget = (src.rawWord && src.rawWord.word) || (currentSearchExplainsData && currentSearchExplainsData.word) || '';
 
     const segmentsHtml = src.segments.map((seg, segIdx) => {
         const isAddingHere = activeSearchAddBlockTarget && activeSearchAddBlockTarget.bookId === src.bookId && activeSearchAddBlockTarget.segIdx === segIdx;
@@ -2764,7 +2783,7 @@ function renderSearchSourceSegmentsHtml(src, isInlineAddToBookOpen, posSelectOpt
                         ${it.examples.map(ex => `
                             <div class="gaokao-sense-example-item">
                                 <div class="gaokao-sense-example-en-row">
-                                    <span class="gaokao-sense-example-en">${escapeHtml(ex.en || '')}</span>
+                                    <span class="gaokao-sense-example-en">${highlightSearchExampleKeyword(ex.en || '', highlightTarget)}</span>
                                                                     </div>
                                 ${ex.zh ? `<div class="gaokao-sense-example-zh">${escapeHtml(ex.zh)}</div>` : ''}
                             </div>
@@ -2821,6 +2840,7 @@ function updateGaoKaoTabSpecificSections(gaoKaoSrc) {
     }
 
     const rawWord = gaoKaoSrc.rawWord;
+    const headword = rawWord.word || (currentSearchExplainsData && currentSearchExplainsData.word) || '';
     const blocksHtml = [];
 
     // 1. “例句”（examples词条：优先顶层 examples，兼顾各义项 senses 下的 examples）
@@ -2872,7 +2892,7 @@ function updateGaoKaoTabSpecificSections(gaoKaoSrc) {
                                 </div>
                             ` : ''}
                             <div class="gaokao-example-body">
-                                <div class="gaokao-example-en-text">${escapeHtml(ex.en)}</div>
+                                <div class="gaokao-example-en-text">${highlightSearchExampleKeyword(ex.en, headword)}</div>
                                 ${ex.zh ? `<div class="gaokao-example-zh-text">${escapeHtml(ex.zh)}</div>` : ''}
                             </div>
                         </div>
@@ -2955,7 +2975,7 @@ function updateGaoKaoTabSpecificSections(gaoKaoSrc) {
                                                 <div class="gaokao-disc-item-examples">
                                                     ${it.examples.map(ex => `
                                                         <div class="gaokao-disc-example-row">
-                                                            <div class="gaokao-example-en-text" style="font-size:0.86rem;">${escapeHtml(ex.en || '')}</div>
+                                                            <div class="gaokao-example-en-text" style="font-size:0.86rem;">${highlightSearchExampleKeyword(ex.en || '', it.word || headword)}</div>
                                                             ${ex.zh ? `<div class="gaokao-example-zh-text" style="font-size:0.82rem;">${escapeHtml(ex.zh)}</div>` : ''}
                                                         </div>
                                                     `).join('')}
@@ -3085,7 +3105,7 @@ function renderSearchExplainsList() {
             `;
         } else {
             actionsContainer.innerHTML = `
-                <button type="button" class="search-action-icon-btn" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到生词本">
+                <button type="button" class="search-action-icon-btn ${isInlineAddToBookOpen ? 'is-active' : ''}" id="btn-toggle-inline-add-to-book" onclick="toggleInlineAddToBookPanel()" title="添加到本地词书">
                     <span class="material-symbols-rounded">bookmark_add</span>
                 </button>
                 <button type="button" class="search-action-icon-btn" id="btn-edit-meanings-mode" onclick="enterEditMeaningsMode()" title="修改释义" style="${isLocal ? 'display:inline-flex;' : 'display:none;'}">
@@ -3245,7 +3265,7 @@ function renderInlineAddToBookHeader() {
 
     const bookOptions = customBooks.map(b => ({
         value: b.id,
-        label: `${cleanBookName(b.rawName || b.name)} (${b.count || 0} 词)`
+        label: cleanBookName(b.rawName || b.name)
     }));
     bookOptions.push({ value: '__create_new__', label: '＋ 新建词书并添加...' });
 
@@ -3263,39 +3283,37 @@ function renderInlineAddToBookHeader() {
     }
 
     panel.innerHTML = `
-                <div class="inline-add-to-book-card" style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1.5px solid var(--md-sys-color-primary, #0061a4); border-radius:14px; padding:12px 16px; margin-bottom:12px; animation:fadeIn 0.2s ease;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
-                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:1; min-width:0;">
-                            <span style="font-weight:700; font-size:0.92rem; color:var(--md-sys-color-on-surface); white-space:nowrap;">添加到：</span>
+                <div class="inline-add-to-book-card">
+                    <div class="inline-add-top-row">
+                        <div class="inline-add-target-group">
+                            <span class="inline-add-label">添加到：</span>
                             ${renderMd3SelectHtml({
         id: 'inline-add-book-select',
         options: bookOptions,
         defaultValue: inlineAddSelectedBookId,
-        onChange: 'handleInlineAddBookSelectChange'
+        onChange: 'handleInlineAddBookSelectChange',
+        triggerClass: 'bc-section-select-trigger'
     })}
                         </div>
-                        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                            <button type="button" class="btn btn-tonal btn-sm" onclick="closeInlineAddToBookPanel()">
+                        <div class="inline-add-actions">
+                            <button type="button" class="btn btn-tonal btn-sm inline-add-action-btn" onclick="closeInlineAddToBookPanel()">
                                 <span class="material-symbols-rounded" style="font-size:16px;">close</span>
                                 <span>取消</span>
                             </button>
-                            <button type="button" class="btn btn-filled btn-sm" onclick="confirmInlineAddToBook()">
+                            <button type="button" class="btn btn-filled btn-sm inline-add-action-btn" onclick="confirmInlineAddToBook()">
                                 <span class="material-symbols-rounded" style="font-size:16px;">check</span>
                                 <span>确认添加</span>
                             </button>
                         </div>
                     </div>
 
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:8px; border-top:1px dashed var(--md-sys-color-outline-variant, #cbd5e1);">
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                            <span style="font-weight:700; font-size:0.84rem; color:var(--md-sys-color-on-surface-variant); white-space:nowrap;">已选释义：</span>
-                            ${selectedChips.length > 0 ? selectedChips.map(c => `
-                                <span class="meaning-chip selected" style="cursor:default; font-size:0.82rem; padding:3px 8px;">
-                                    ${c.pos ? `<strong style="color:var(--md-sys-color-primary);">${escapeHtml(c.pos)}</strong> ` : ''}${escapeHtml(c.text)}
-                                </span>
-                            `).join('') : '<span style="font-size:0.82rem; color:var(--md-sys-color-outline);">(在下方点击勾选词块)</span>'}
-                        </div>
-                        </div>
+                    <div class="inline-add-selected-row">
+                        <span class="inline-add-selected-label">已选释义：</span>
+                        ${selectedChips.length > 0 ? selectedChips.map(c => `
+                            <span class="meaning-chip selected" style="cursor:default; font-size:0.82rem; padding:3px 8px;">
+                                ${c.pos ? `<strong style="color:var(--md-sys-color-primary);">${escapeHtml(c.pos)}</strong> ` : ''}${escapeHtml(c.text)}
+                            </span>
+                        `).join('') : '<span class="inline-add-empty-hint">(在下方点击勾选词块)</span>'}
                     </div>
                 </div>
             `;

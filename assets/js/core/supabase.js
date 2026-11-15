@@ -880,68 +880,187 @@ function getCloudBooksMasterySummary() {
     return summary;
 }
 
+// 标记账号在本会话是否已完成至少一次云端拉取恢复，防止未拉取完成前的冷启动本地空数据覆盖云端
+if (!window._cloudRestoreDone) window._cloudRestoreDone = {};
+if (!window._cloudRestoreInFlight) window._cloudRestoreInFlight = {};
+
+function safeParseJsonStorage(key, fallback = null) {
+    try {
+        let raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem)
+            ? SafeStorage.getItem(key)
+            : null;
+        if (!raw && typeof localStorage !== 'undefined') {
+            raw = localStorage.getItem(key);
+        }
+        return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+        return fallback;
+    }
+}
+
+function safeWriteJsonStorage(key, val) {
+    try {
+        const str = JSON.stringify(val);
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem(key, str);
+        }
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, str);
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function normalizeSyncWordKey(word) {
+    return String(word || '').trim().toLowerCase();
+}
+
+function mergeEbbinghausMaps(localMap, cloudMap) {
+    const merged = { ...(cloudMap && typeof cloudMap === 'object' ? cloudMap : {}) };
+    const loc = (localMap && typeof localMap === 'object') ? localMap : {};
+    Object.keys(loc).forEach(k => {
+        const locRec = loc[k];
+        if (!locRec || typeof locRec !== 'object') return;
+        const cldRec = merged[k];
+        if (!cldRec || typeof cldRec !== 'object') {
+            merged[k] = locRec;
+            return;
+        }
+        const lTime = Number(locRec.lastPracticed || 0);
+        const cTime = Number(cldRec.lastPracticed || 0);
+        if (lTime > cTime) {
+            merged[k] = locRec;
+        } else if (lTime === cTime && Number(locRec.stage || 0) >= Number(cldRec.stage || 0)) {
+            merged[k] = locRec;
+        }
+    });
+    return merged;
+}
+
+function computeCloudPayloadHash(hashPayload) {
+    try {
+        const str = JSON.stringify(hashPayload);
+        let h = 0;
+        for (let i = 0; i < str.length; i++) {
+            h = ((h << 5) - h) + str.charCodeAt(i);
+            h |= 0;
+        }
+        return (h >>> 0).toString(16) + '_' + str.length;
+    } catch (e) {
+        return null;
+    }
+}
+
+// 从 Supabase 云端拉取并与本地数据进行安全双向合并
+async function pullAndMergeUserDataFromCloud(targetUsername = null, options = {}) {
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) {
+        return { success: false, offline: true };
+    }
+    const u = targetUsername || (typeof currentUser !== 'undefined' ? currentUser : null);
+    if (!u || u.startsWith('游客')) return { success: false, guest: true };
+    if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return { success: false, guest: true };
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') {
+        return { success: false, local: true };
+    }
+    if (typeof supabaseFetchUserData !== 'function') {
+        return { success: false, error: 'supabaseFetchUserData unavailable' };
+    }
+
+    if (window._cloudRestoreInFlight[u]) {
+        return window._cloudRestoreInFlight[u];
+    }
+
+    const job = (async () => {
+        try {
+            const cloudUser = await supabaseFetchUserData(u);
+            if (!cloudUser) {
+                return { success: false, notFound: true };
+            }
+            const mergeRes = restoreUserDataFromCloud(cloudUser, options);
+            if (cloudUser.avatar_url && typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username === u && cloudUser.avatar_url !== currentUserProfile.avatar) {
+                currentUserProfile.avatar = cloudUser.avatar_url;
+                try {
+                    SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
+                    SafeStorage.setItem(`vocab_user_avatar_${u}`, cloudUser.avatar_url);
+                } catch (e) { }
+                if (typeof updateHub === 'function') {
+                    try { updateHub(); } catch (e) { }
+                }
+            }
+            return { success: true, user: cloudUser, ...(mergeRes || {}) };
+        } catch (e) {
+            console.warn('[Supabase] pullAndMergeUserDataFromCloud failed:', e);
+            return { success: false, error: e };
+        } finally {
+            delete window._cloudRestoreInFlight[u];
+        }
+    })();
+
+    window._cloudRestoreInFlight[u] = job;
+    return job;
+}
+
 // 全量同步用户学习数据、等级与统计至 Supabase 云端
 async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof isOfflineMode === 'function' && isOfflineMode()) {
         return { success: true, offline: true };
     }
     const u = targetUsername || (typeof currentUser !== 'undefined' ? currentUser : null);
-    if (!u) return;
-    if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return;
-    if (u.startsWith('游客_') || u.startsWith('游客')) return;
+    if (!u) return { success: false, reason: 'no_user' };
+    if (typeof LevelManager !== 'undefined' && LevelManager.isGuestUser(u)) return { success: false, guest: true, reason: 'guest' };
+    if (u.startsWith('游客_') || u.startsWith('游客')) return { success: false, guest: true, reason: 'guest' };
     if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.type === 'local') return { success: true, local: true };
 
     // 检查是否为已登录用户 (支持云端账号与 B 站账号，本地账号不上传云端)
     const isRegisteredUser = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username === u && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili'));
-    if (!isRegisteredUser) return;
+    if (!isRegisteredUser) return { success: false, reason: 'not_registered' };
 
-    // 检查自动同步设置：关闭自动同步后，非强制手动同步 (force) 不执行后台上传
+    // 检查自动同步设置：关闭自动同步后，非强制手动同步 (force) 不执行后台上传，但保留待同步标记以便用户手动点击同步
     const autoSyncAllowed = (typeof isAutoSyncEnabled === 'function')
         ? isAutoSyncEnabled()
         : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
     if (!options.force && !autoSyncAllowed) {
+        if (!options.fromSyncManager && typeof currentUser !== 'undefined' && currentUser === u && window.SyncManager && typeof window.SyncManager.markPending === 'function') {
+            window.SyncManager.markPending('direct_sync_pending');
+        }
         return { success: true, skipped: true, reason: 'auto_sync_disabled' };
+    }
+
+    // 若尚未完成一次云端拉取合并，keepalive 离开前不盲目覆盖云端；普通上传先执行拉取合并
+    if (!window._cloudRestoreDone[u]) {
+        if (options.keepalive) {
+            return { success: true, skipped: true, reason: 'restore_pending' };
+        }
+        if (!options.skipPrePull) {
+            await pullAndMergeUserDataFromCloud(u, { keepLocalConfigs: !autoSyncAllowed || Boolean(options.force) });
+        }
     }
 
     let stats = null;
     try {
-        if (typeof userStats !== 'undefined' && currentUser === u) {
+        if (typeof userStats !== 'undefined' && currentUser === u && userStats) {
             stats = userStats;
         } else {
-            const raw = SafeStorage.getItem(`vocab_stats_${u}`);
-            if (raw) stats = JSON.parse(raw);
+            stats = safeParseJsonStorage(`vocab_stats_${u}`, null);
         }
     } catch (e) { }
 
-    let ebbinghaus = null;
-    try {
-        const raw = SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`);
-        if (raw) ebbinghaus = JSON.parse(raw);
-    } catch (e) { }
-
-    let daily_logs = null;
-    try {
-        const raw = SafeStorage.getItem(`vocab_daily_logs_${u}`);
-        if (raw) daily_logs = JSON.parse(raw);
-    } catch (e) { }
-
-    let mastered_words = null;
-    try {
-        const raw = SafeStorage.getItem(`vocab_mastered_words_${u}`);
-        if (raw) mastered_words = JSON.parse(raw);
-    } catch (e) { }
-
-    let wordle_history = null;
-    try {
-        const raw = SafeStorage.getItem(`vocab_wordle_history_${u}`);
-        if (raw) wordle_history = JSON.parse(raw);
-    } catch (e) { }
-
-    let shici_progress = null;
-    try {
-        const raw = SafeStorage.getItem(`vocab_shici_progress_${u}`);
-        if (raw) shici_progress = JSON.parse(raw);
-    } catch (e) { }
+    const ebbinghaus = safeParseJsonStorage(`vocab_ebbinghaus_db_${u}`, null);
+    const daily_logs = safeParseJsonStorage(`vocab_daily_logs_${u}`, null);
+    const mastered_words = safeParseJsonStorage(`vocab_mastered_words_${u}`, null);
+    const wordle_history = safeParseJsonStorage(`vocab_wordle_history_${u}`, null);
+    const shici_progress = safeParseJsonStorage(`shici_progress_${u}`, null) || safeParseJsonStorage(`vocab_shici_progress_${u}`, null);
+    const shici_ebbinghaus = safeParseJsonStorage(`shici_ebbinghaus_db_${u}`, null);
+    const shici_config = safeParseJsonStorage(`shici_config_${u}`, null);
+    const single_selected_books = safeParseJsonStorage(`vocab_single_selected_books_${u}`, null) || safeParseJsonStorage('single_vocab_books', null);
+    const single_config = safeParseJsonStorage('vocab_single_config', null);
+    const dictation_config = safeParseJsonStorage('vocab_dictation_config', null);
+    const ai_duel_config = safeParseJsonStorage('vocab_ai_duel_config', null);
+    const local_duel_config = safeParseJsonStorage('vocab_local_duel_config', null);
+    const room_preset = safeParseJsonStorage(`vocab_room_preset_${u}`, null);
+    const riddle_history = safeParseJsonStorage(`vocab_riddle_daily_history_${u}`, null);
 
     let levelData = null;
     let rankData = null;
@@ -975,8 +1094,17 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         mastered_words: mastered_words || [],
         wordle_history: wordle_history || {},
         shici_progress: shici_progress || {},
-        level: levelData ? levelData.level : 1,
-        score: levelData ? levelData.score : 0,
+        shici_ebbinghaus: shici_ebbinghaus || {},
+        shici_config: shici_config || null,
+        single_selected_books: Array.isArray(single_selected_books) ? single_selected_books : null,
+        single_config: single_config || null,
+        dictation_config: dictation_config || null,
+        ai_duel_config: ai_duel_config || null,
+        local_duel_config: local_duel_config || null,
+        room_preset: room_preset || null,
+        riddle_history: riddle_history || null,
+        exp_level: levelData ? levelData.level : 1,
+        exp_score: levelData ? levelData.score : 0,
         level: rankData ? rankData.rank : 1,
         score: rankData ? rankData.rating : 0,
         updated_at: new Date().toISOString()
@@ -992,19 +1120,19 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         mastered_words: payload.mastered_words,
         wordle_history: payload.wordle_history,
         shici_progress: payload.shici_progress,
+        shici_ebbinghaus: payload.shici_ebbinghaus,
+        shici_config: payload.shici_config,
+        single_selected_books: payload.single_selected_books,
+        single_config: payload.single_config,
+        dictation_config: payload.dictation_config,
+        ai_duel_config: payload.ai_duel_config,
+        local_duel_config: payload.local_duel_config,
+        room_preset: payload.room_preset,
+        riddle_history: payload.riddle_history,
         level: payload.level,
         score: payload.score
     };
-    let currentHash = null;
-    try {
-        const str = JSON.stringify(hashPayload);
-        let h = 0;
-        for (let i = 0; i < str.length; i++) {
-            h = ((h << 5) - h) + str.charCodeAt(i);
-            h |= 0;
-        }
-        currentHash = (h >>> 0).toString(16) + '_' + str.length;
-    } catch (e) {}
+    const currentHash = computeCloudPayloadHash(hashPayload);
 
     if (!window._lastCloudSyncHash) window._lastCloudSyncHash = {};
     if (!options.force && currentHash && window._lastCloudSyncHash[u] === currentHash) {
@@ -1031,6 +1159,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                 body: JSON.stringify(updateObj),
                 keepalive: true
             }).catch(() => { });
+            if (currentHash) window._lastCloudSyncHash[u] = currentHash;
             return { success: true };
         } catch (e) { }
     }
@@ -1038,27 +1167,36 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     if (typeof sbClient !== 'undefined' && sbClient) {
         try {
             let updateError = null;
+            let updatedRows = null;
             const shouldToast = (options && options.silent === false) || (options && options.showToastOnFail);
 
-            // 更新已存在用户的全量数据 (使用 update 避免触发 password NOT NULL 检查)
-            const { error } = await sbClient
+            // 更新已存在用户的全量数据 (使用 update 避免触发 password NOT NULL 检查，并 select 校验 RLS/行是否存在)
+            const { data, error } = await sbClient
                 .from('user_accounts')
                 .update(updateObj)
-                .eq('username', u);
+                .eq('username', u)
+                .select('username');
+            updatedRows = data;
 
             if (error) {
                 if (error.message && error.message.includes('level')) {
-                    const { error: err2 } = await sbClient
+                    const { data: d2, error: err2 } = await sbClient
                         .from('user_accounts')
                         .update({
                             user_data: payload,
                             updated_at: payload.updated_at
                         })
-                        .eq('username', u);
+                        .eq('username', u)
+                        .select('username');
+                    updatedRows = d2;
                     if (err2) updateError = err2;
                 } else {
                     updateError = error;
                 }
+            }
+
+            if (!updateError && (!updatedRows || updatedRows.length === 0)) {
+                updateError = { message: '云端未更新任何行，请检查 user_accounts 表 RLS UPDATE 策略或账号是否存在' };
             }
 
             if (updateError) {
@@ -1104,139 +1242,288 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     return { success: false, error: 'No Supabase client' };
 }
 
-// 从 Supabase 云端恢复用户全量学习记录与等级
-// 从 Supabase 云端恢复用户全量学习记录、词书掌握度、段位与等级分
-function restoreUserDataFromCloud(user) {
-    if (!user || !user.username) return;
-    const u = user.username;
-    const ud = user.user_data;
-    if (!ud || typeof ud !== 'object') return;
+function mergeStatsObjects(localStats, cloudStats) {
+    if (!cloudStats || typeof cloudStats !== 'object') return localStats || null;
+    if (!localStats || typeof localStats !== 'object') return { ...cloudStats };
+    const locTotal = Number(localStats.total || 0);
+    const cldTotal = Number(cloudStats.total || 0);
+    const base = (locTotal > cldTotal || (locTotal === cldTotal && Number(localStats.correct || 0) > Number(cloudStats.correct || 0)))
+        ? { ...localStats }
+        : { ...cloudStats };
+    base.bestStreak = Math.max(Number(localStats.bestStreak || 0), Number(cloudStats.bestStreak || 0));
+    base.streak = Math.max(Number(localStats.streak || 0), Number(cloudStats.streak || 0));
+    base.learnedWords = Math.max(Number(localStats.learnedWords || 0), Number(cloudStats.learnedWords || 0));
+    if (localStats.mistakes || cloudStats.mistakes) {
+        base.mistakes = { ...(localStats.mistakes || {}), ...(cloudStats.mistakes || {}) };
+    }
+    return base;
+}
 
-    if (ud.stats) {
+function mergeRankObjects(localRank, cloudRank) {
+    if (!cloudRank || typeof cloudRank !== 'object') return localRank || null;
+    if (!localRank || typeof localRank !== 'object') return { ...cloudRank };
+    const locBattles = Number((localRank.battles && localRank.battles.total) || 0);
+    const cldBattles = Number((cloudRank.battles && cloudRank.battles.total) || 0);
+    if (locBattles > cldBattles) return { ...localRank };
+    if (cldBattles > locBattles) return { ...cloudRank };
+    const locScore = Number(localRank.rank || 1) * 1000 + Number(localRank.rating || 0);
+    const cldScore = Number(cloudRank.rank || 1) * 1000 + Number(cloudRank.rating || 0);
+    return (locScore > cldScore) ? { ...localRank } : { ...cloudRank };
+}
+
+function mergeMasteredWordLists(localList, cloudList) {
+    const seen = new Set();
+    const result = [];
+    const pushItem = (w) => {
+        if (!w || typeof w !== 'string') return;
+        const clean = w.trim();
+        if (!clean) return;
+        const norm = normalizeSyncWordKey(clean);
+        if (seen.has(norm)) return;
+        seen.add(norm);
+        result.push(clean);
+    };
+    (Array.isArray(cloudList) ? cloudList : []).forEach(pushItem);
+    (Array.isArray(localList) ? localList : []).forEach(pushItem);
+    return result;
+}
+
+function mergeWordleHistoryMaps(localHist, cloudHist) {
+    const merged = { ...(localHist && typeof localHist === 'object' ? localHist : {}) };
+    const cld = (cloudHist && typeof cloudHist === 'object') ? cloudHist : {};
+    Object.keys(cld).forEach(dateKey => {
+        const cEntry = cld[dateKey];
+        const lEntry = merged[dateKey];
+        if (!lEntry || typeof lEntry !== 'object') {
+            merged[dateKey] = cEntry;
+        } else if (cEntry && typeof cEntry === 'object') {
+            const cWon = !!cEntry.isWon;
+            const lWon = !!lEntry.isWon;
+            const cAtt = Number(cEntry.attempts || (cEntry.attemptDetails ? cEntry.attemptDetails.length : 0) || 0);
+            const lAtt = Number(lEntry.attempts || (lEntry.attemptDetails ? lEntry.attemptDetails.length : 0) || 0);
+            if ((cWon && !lWon) || (cWon === lWon && cAtt >= lAtt)) {
+                merged[dateKey] = cEntry;
+            }
+        }
+    });
+    return merged;
+}
+
+function mergeDailyLogsMaps(localLogs, cloudLogs) {
+    const mergedLogs = { ...(cloudLogs && typeof cloudLogs === 'object' ? cloudLogs : {}) };
+    const loc = (localLogs && typeof localLogs === 'object') ? localLogs : {};
+    Object.keys(loc).forEach(dateKey => {
+        const locDay = loc[dateKey];
+        const cldDay = mergedLogs[dateKey];
+        if (!locDay || typeof locDay !== 'object') return;
+        if (!cldDay || typeof cldDay !== 'object') {
+            mergedLogs[dateKey] = locDay;
+        } else {
+            const combined = { ...cldDay };
+            Object.keys(locDay).forEach(field => {
+                if (typeof locDay[field] === 'number' || typeof cldDay[field] === 'number') {
+                    combined[field] = Math.max(Number(locDay[field] || 0), Number(cldDay[field] || 0));
+                }
+            });
+            mergedLogs[dateKey] = combined;
+        }
+    });
+    return mergedLogs;
+}
+
+function mergeShiCiProgressObjects(localProg, cloudProg) {
+    if (!cloudProg || typeof cloudProg !== 'object') return localProg || null;
+    if (!localProg || typeof localProg !== 'object') return { ...cloudProg };
+    const merged = { ...localProg, ...cloudProg };
+    if (localProg.masteredWords || cloudProg.masteredWords) {
+        merged.masteredWords = { ...(localProg.masteredWords || {}), ...(cloudProg.masteredWords || {}) };
+    }
+    if (localProg.learnedWords || cloudProg.learnedWords) {
+        merged.learnedWords = { ...(localProg.learnedWords || {}), ...(cloudProg.learnedWords || {}) };
+    }
+    ['total', 'correct', 'score', 'streak', 'bestStreak'].forEach(k => {
+        if (typeof localProg[k] === 'number' || typeof cloudProg[k] === 'number') {
+            merged[k] = Math.max(Number(localProg[k] || 0), Number(cloudProg[k] || 0));
+        }
+    });
+    return merged;
+}
+
+// 从 Supabase 云端恢复并合并用户全量学习记录、词书掌握度、段位与等级分
+function restoreUserDataFromCloud(user, options = {}) {
+    if (!user || !user.username) return { restored: false };
+    const u = user.username;
+    const keepLocalConfigs = Boolean(options && options.keepLocalConfigs);
+    if (!window._cloudRestoreDone) window._cloudRestoreDone = {};
+    window._cloudRestoreDone[u] = true;
+
+    const ud = user.user_data;
+    if (!ud || typeof ud !== 'object') return { restored: true, empty: true };
+
+    const cloudUpdatedMs = Date.parse(ud.updated_at || user.updated_at || '') || 0;
+    const prevRestoreMs = Number(SafeStorage.getItem(`vocab_cloud_sync_ts_${u}`) || 0);
+    const cloudIsNewerThanLastRestore = cloudUpdatedMs > prevRestoreMs;
+    const isCurrentActiveUser = (typeof currentUser !== 'undefined' && currentUser === u);
+
+    if (ud.stats && typeof ud.stats === 'object') {
         try {
-            SafeStorage.setItem(`vocab_stats_${u}`, JSON.stringify(ud.stats));
-            if (typeof currentUser !== 'undefined' && currentUser === u && typeof userStats !== 'undefined') {
-                userStats = ud.stats;
+            const storedStats = safeParseJsonStorage(`vocab_stats_${u}`, null);
+            const memStats = (isCurrentActiveUser && typeof userStats !== 'undefined' && userStats) ? userStats : null;
+            const localStats = mergeStatsObjects(storedStats, memStats);
+            const mergedStats = mergeStatsObjects(localStats, ud.stats);
+            safeWriteJsonStorage(`vocab_stats_${u}`, mergedStats);
+            if (isCurrentActiveUser && typeof userStats !== 'undefined') {
+                userStats = mergedStats;
             }
         } catch (e) { }
     }
-    if (ud.rank_data) {
+
+    if (ud.rank_data && typeof ud.rank_data === 'object') {
         try {
-            SafeStorage.setItem(`vocab_rank_data_${u}`, JSON.stringify(ud.rank_data));
+            const localRank = safeParseJsonStorage(`vocab_rank_data_${u}`, null);
+            const mergedRank = mergeRankObjects(localRank, ud.rank_data);
+            safeWriteJsonStorage(`vocab_rank_data_${u}`, mergedRank);
         } catch (e) { }
     } else if (ud.level || user.level) {
         try {
-            const r = Math.max(1, Math.min(9, ud.level || user.level || 1));
-            const s = Math.max(0, Math.min(100, ud.score || 0));
-            SafeStorage.setItem(`vocab_rank_data_${u}`, JSON.stringify({
-                rank: r,
-                rating: s,
-                isPromotionReady: (r < 9 && s >= 100),
-                battles: { total: 0, wins: 0, losses: 0, draws: 0 }
-            }));
-        } catch (e) { }
-    }
-    if (ud.ebbinghaus) {
-        try {
-            const localRaw = SafeStorage.getItem(`vocab_ebbinghaus_db_${u}`) || (typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_ebbinghaus_db_${u}`) : null);
-            const localRecords = localRaw ? JSON.parse(localRaw) : {};
-            const merged = { ...ud.ebbinghaus };
-            Object.keys(localRecords).forEach(k => {
-                const locRec = localRecords[k];
-                const cldRec = merged[k];
-                if (!cldRec) {
-                    merged[k] = locRec;
-                } else {
-                    const lTime = locRec.lastPracticed || 0;
-                    const cTime = cldRec.lastPracticed || 0;
-                    if (lTime >= cTime) {
-                        merged[k] = locRec;
-                    }
-                }
-            });
-            const mergedStr = JSON.stringify(merged);
-            SafeStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr);
-            if (typeof localStorage !== 'undefined') {
-                try { localStorage.setItem(`vocab_ebbinghaus_db_${u}`, mergedStr); } catch (e) { }
+            const localRank = safeParseJsonStorage(`vocab_rank_data_${u}`, null);
+            if (!localRank) {
+                const r = Math.max(1, Math.min(9, ud.level || user.level || 1));
+                const s = Math.max(0, Math.min(100, ud.score || 0));
+                safeWriteJsonStorage(`vocab_rank_data_${u}`, {
+                    rank: r,
+                    rating: s,
+                    isPromotionReady: (r < 9 && s >= 100),
+                    battles: { total: 0, wins: 0, losses: 0, draws: 0 }
+                });
             }
-        } catch (e) { }
-    }
-    if (ud.daily_logs && typeof ud.daily_logs === 'object') {
-        try {
-            const localRaw = SafeStorage.getItem(`vocab_daily_logs_${u}`) || (typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_daily_logs_${u}`) : null);
-            const localLogs = localRaw ? JSON.parse(localRaw) : {};
-            const mergedLogs = { ...ud.daily_logs };
-            Object.keys(localLogs).forEach(dateKey => {
-                const locDay = localLogs[dateKey];
-                const cldDay = mergedLogs[dateKey];
-                if (!locDay || typeof locDay !== 'object') return;
-                if (!cldDay || typeof cldDay !== 'object') {
-                    mergedLogs[dateKey] = locDay;
-                } else {
-                    mergedLogs[dateKey] = {
-                        learned: Math.max(locDay.learned || 0, cldDay.learned || 0),
-                        reviewed: Math.max(locDay.reviewed || 0, cldDay.reviewed || 0),
-                        shici: Math.max(locDay.shici || 0, cldDay.shici || 0),
-                        riddle: Math.max(locDay.riddle || 0, cldDay.riddle || 0),
-                        dictation: Math.max(locDay.dictation || 0, cldDay.dictation || 0),
-                        durationSeconds: Math.max(locDay.durationSeconds || 0, cldDay.durationSeconds || 0)
-                    };
-                }
-            });
-            const mergedLogsStr = JSON.stringify(mergedLogs);
-            SafeStorage.setItem(`vocab_daily_logs_${u}`, mergedLogsStr);
-            if (typeof localStorage !== 'undefined') {
-                try { localStorage.setItem(`vocab_daily_logs_${u}`, mergedLogsStr); } catch (e) { }
-            }
-        } catch (e) { }
-    }
-    if (ud.mastered_words) {
-        try {
-            SafeStorage.setItem(`vocab_mastered_words_${u}`, JSON.stringify(ud.mastered_words));
-            if (typeof localStorage !== 'undefined') {
-                try { localStorage.setItem(`vocab_mastered_words_${u}`, JSON.stringify(ud.mastered_words)); } catch (e) { }
-            }
-        } catch (e) { }
-    }
-    if (ud.wordle_history) {
-        try {
-            SafeStorage.setItem(`vocab_wordle_history_${u}`, JSON.stringify(ud.wordle_history));
-            if (typeof localStorage !== 'undefined') {
-                try { localStorage.setItem(`vocab_wordle_history_${u}`, JSON.stringify(ud.wordle_history)); } catch (e) { }
-            }
-        } catch (e) { }
-    }
-    if (ud.shici_progress) {
-        try {
-            SafeStorage.setItem(`vocab_shici_progress_${u}`, JSON.stringify(ud.shici_progress));
         } catch (e) { }
     }
 
-    if (window.EbbinghausEngine) {
+    if (ud.ebbinghaus && typeof ud.ebbinghaus === 'object') {
         try {
-            window.EbbinghausEngine.invalidateProgressCache();
-            window.EbbinghausEngine.updateDueBadge();
+            const localRecords = safeParseJsonStorage(`vocab_ebbinghaus_db_${u}`, {});
+            const merged = mergeEbbinghausMaps(localRecords, ud.ebbinghaus);
+            safeWriteJsonStorage(`vocab_ebbinghaus_db_${u}`, merged);
         } catch (e) { }
     }
-    if (typeof updateHubLevelUI === 'function') {
-        try { updateHubLevelUI(); } catch (e) { }
+
+    if (ud.shici_ebbinghaus && typeof ud.shici_ebbinghaus === 'object') {
+        try {
+            const localShiciDb = safeParseJsonStorage(`shici_ebbinghaus_db_${u}`, {});
+            const mergedShiciDb = mergeEbbinghausMaps(localShiciDb, ud.shici_ebbinghaus);
+            safeWriteJsonStorage(`shici_ebbinghaus_db_${u}`, mergedShiciDb);
+        } catch (e) { }
     }
-    if (typeof updateHub === 'function') {
-        try { updateHub(); } catch (e) { }
+
+    if (ud.daily_logs && typeof ud.daily_logs === 'object') {
+        try {
+            const localLogs = safeParseJsonStorage(`vocab_daily_logs_${u}`, {});
+            const mergedLogs = mergeDailyLogsMaps(localLogs, ud.daily_logs);
+            safeWriteJsonStorage(`vocab_daily_logs_${u}`, mergedLogs);
+        } catch (e) { }
     }
-    if (typeof currentView !== 'undefined' && currentView === 'view-me') {
-        if (typeof renderMeView === 'function') {
-            try { renderMeView(); } catch (e) { }
+
+    if (Array.isArray(ud.mastered_words)) {
+        try {
+            const localMastered = safeParseJsonStorage(`vocab_mastered_words_${u}`, []);
+            const mergedMastered = mergeMasteredWordLists(localMastered, ud.mastered_words);
+            safeWriteJsonStorage(`vocab_mastered_words_${u}`, mergedMastered);
+        } catch (e) { }
+    }
+
+    if (ud.wordle_history && typeof ud.wordle_history === 'object') {
+        try {
+            const localWordle = safeParseJsonStorage(`vocab_wordle_history_${u}`, {});
+            const mergedWordle = mergeWordleHistoryMaps(localWordle, ud.wordle_history);
+            safeWriteJsonStorage(`vocab_wordle_history_${u}`, mergedWordle);
+        } catch (e) { }
+    }
+
+    if (ud.shici_progress && typeof ud.shici_progress === 'object') {
+        try {
+            const localProg = safeParseJsonStorage(`shici_progress_${u}`, null) || safeParseJsonStorage(`vocab_shici_progress_${u}`, null);
+            const mergedProg = mergeShiCiProgressObjects(localProg, ud.shici_progress);
+            safeWriteJsonStorage(`shici_progress_${u}`, mergedProg);
+            safeWriteJsonStorage(`vocab_shici_progress_${u}`, mergedProg);
+        } catch (e) { }
+    }
+
+    // 配置与选书：云端比上次恢复更新，或本地尚无该配置时同步覆盖到本地（keepLocalConfigs 时不覆盖本地已修改配置）
+    const applyConfigIfNewer = (storageKey, cloudVal, forceIfMissing = true) => {
+        if (!cloudVal || typeof cloudVal !== 'object') return false;
+        const existing = safeParseJsonStorage(storageKey, null);
+        if ((forceIfMissing && !existing) || (!keepLocalConfigs && cloudIsNewerThanLastRestore)) {
+            safeWriteJsonStorage(storageKey, cloudVal);
+            return true;
         }
-        const detailSub = document.getElementById('settings-subview-detailed-stats');
-        if (detailSub && detailSub.classList.contains('active') && typeof renderDetailedStatsSubview === 'function') {
-            try { renderDetailedStatsSubview(); } catch (e) { }
-        }
-        const reviewSub = document.getElementById('settings-subview-review-plan');
-        if (reviewSub && reviewSub.classList.contains('active') && typeof renderReviewPlanSubview === 'function') {
-            try { renderReviewPlanSubview(); } catch (e) { }
+        return false;
+    };
+
+    applyConfigIfNewer(`shici_config_${u}`, ud.shici_config);
+    applyConfigIfNewer(`vocab_room_preset_${u}`, ud.room_preset);
+    applyConfigIfNewer(`vocab_riddle_daily_history_${u}`, ud.riddle_history);
+
+    if (Array.isArray(ud.single_selected_books) && ud.single_selected_books.length > 0) {
+        const localUserBooks = safeParseJsonStorage(`vocab_single_selected_books_${u}`, null);
+        if (!localUserBooks || (!keepLocalConfigs && cloudIsNewerThanLastRestore)) {
+            safeWriteJsonStorage(`vocab_single_selected_books_${u}`, ud.single_selected_books);
+            if (isCurrentActiveUser) {
+                safeWriteJsonStorage('single_vocab_books', ud.single_selected_books);
+                if (typeof singleSelectedBookIds !== 'undefined') {
+                    singleSelectedBookIds = [...ud.single_selected_books];
+                }
+            }
         }
     }
+
+    const singleCfgUpdated = applyConfigIfNewer('vocab_single_config', ud.single_config);
+    applyConfigIfNewer('vocab_dictation_config', ud.dictation_config);
+    applyConfigIfNewer('vocab_ai_duel_config', ud.ai_duel_config);
+    applyConfigIfNewer('vocab_local_duel_config', ud.local_duel_config);
+
+    if (cloudUpdatedMs > 0) {
+        try { SafeStorage.setItem(`vocab_cloud_sync_ts_${u}`, String(cloudUpdatedMs)); } catch (e) { }
+    }
+
+    if (isCurrentActiveUser) {
+        if (singleCfgUpdated && typeof loadSingleConfig === 'function') {
+            try { loadSingleConfig(); } catch (e) { }
+        }
+        if (typeof loadShiCiSettings === 'function') {
+            try { loadShiCiSettings(); } catch (e) { }
+        }
+        if (window.EbbinghausEngine) {
+            try {
+                window.EbbinghausEngine.invalidateProgressCache();
+                window.EbbinghausEngine.updateDueBadge();
+            } catch (e) { }
+        }
+        if (typeof updateHubLevelUI === 'function') {
+            try { updateHubLevelUI(); } catch (e) { }
+        }
+        if (typeof updateHub === 'function') {
+            try { updateHub(); } catch (e) { }
+        }
+        if (typeof updateHubResumeButtons === 'function') {
+            try { updateHubResumeButtons(); } catch (e) { }
+        }
+        if (typeof currentView !== 'undefined' && currentView === 'view-me') {
+            if (typeof renderMeView === 'function') {
+                try { renderMeView(); } catch (e) { }
+            }
+            const detailSub = document.getElementById('settings-subview-detailed-stats');
+            if (detailSub && detailSub.classList.contains('active') && typeof renderDetailedStatsSubview === 'function') {
+                try { renderDetailedStatsSubview(); } catch (e) { }
+            }
+            const reviewSub = document.getElementById('settings-subview-review-plan');
+            if (reviewSub && reviewSub.classList.contains('active') && typeof renderReviewPlanSubview === 'function') {
+                try { renderReviewPlanSubview(); } catch (e) { }
+            }
+        }
+    }
+
+    return { restored: true };
 }
 
 // B 站用户登录同步至 Supabase (不使用 Toy 云储存)
@@ -1294,6 +1581,7 @@ async function supabaseSyncBiliUser(biliProfile) {
 
 window.syncAllUserDataToCloud = syncAllUserDataToCloud;
 window.restoreUserDataFromCloud = restoreUserDataFromCloud;
+window.pullAndMergeUserDataFromCloud = pullAndMergeUserDataFromCloud;
 window.supabaseSyncBiliUser = supabaseSyncBiliUser;
 
 async function supabaseFetchUserData(username) {

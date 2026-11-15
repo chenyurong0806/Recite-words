@@ -1921,12 +1921,29 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(buildTrashWordRowHtml).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.11.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.12.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.12.0',
+        date: '2026-11-15',
+        badge: '当前版本',
+        items: [
+            '跨设备云端数据同步修复：完善 Supabase 多设备登录、全量快照拉取与双向合并逻辑，解决同一账号在不同设备间进度与学习统计不一致的问题。',
+            '关闭自动同步与手动同步修复：修复关闭“自动同步”后顶部“同步数据”按钮在部分改动下不显示、记忆库与熟词变更未标记待同步，以及手动点击同步时被后台重试状态拦截或被预拉取覆盖本地配置导致云端未收到数据的问题。',
+            '词性及释义展示设置修复：修复全局词性筛选与词条释义展示设置失效或不同步的异常。',
+            '个人中心与移动端排版优化：缩小“最近学习词书”范围胶囊按钮尺寸、修复进度条统计数值异常，并重排词书元数据、内联进度条及“更多类型”下拉菜单定位，彻底解决菜单偏移至左上角的问题。',
+            '详细数据页面图表体验升级：选中图表中的某一天后自动平滑居中聚焦并实时展示当日详细数据；关闭“显示详细数据”开关时仍强制标注选中日期的数据，并在学习时长趋势折线图选中点下方保留至 X 轴的辅助虚线；移除多余虚线、选中外容器框及“点击任意柱条查看当日详细数据”提示；修复邻近日期在 X 轴的重叠问题，高亮强调底部日期胶囊并精简重复文字。',
+            '个人中心卡片与设置图标统一：优化“最近学习词书”封面与内联进度条的底部对齐效果；将“自定义首页”设置页中的各模式图标统一调整为圆形样式，与顶部搜索图标保持一致。',
+            '查词结果页交互与结构优化：将加入本地词书与修改释义操作按钮上移至词头右侧并统一为与发音按钮协调的胶囊/圆形样式；将“添加到本地词书”面板移至分割线与词典来源标签栏上方，改用 bc-section-select-trigger 下拉样式、去除词数冗余并重构自适应布局避免按钮与下拉框重叠；自动加粗例句与辨析例句中的查询关键词。',
+            '复习计划与交互精简：移除复习计划卡片上的阶段标签（review-plan-stage-tag）及页面滑动返回手势。',
+            '查看词书内容页面升级：优化窄屏/移动端工具栏双行网格结构（第一行左侧分类筛选 + 右侧可平滑展开搜索，第二行等宽排列类型与展示模式选项卡），同时保留并增强非实词词库的 A–Z 首字母分类筛选。',
+            '数据中心界面精简：移除个人中心列表中冗余的“数据同步”入口行，保持界面简洁。'
+        ]
+    },
     {
         version: 'v2.11.0',
         date: '2026-11-08',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '背词与对战全模式小结上线：为背单词、背实词、人机对战、同屏对决、远程联机模式全面配备轻量扁平化小结页，排版风格保持高度一致，支持查看答题词条、音标、释义、复习状态与即时标熟。',
             '个人中心数据中心重构升级：顶部“晒成绩”按需替换为“同步数据”胶囊按钮（仅在存在未同步数据时灵动显示），支持一键云端对齐；数据统计卡片修复 undefined 异常并完善持久化；并将“晒成绩”、“下载学习数据”与“自动同步”开关整合至数据中心操作列表。',
@@ -2648,6 +2665,9 @@ function toggleAutoSyncSetting(enabled) {
         if (typeof updateSyncButtonStatus === 'function') {
             updateSyncButtonStatus();
         }
+        if (enabled && window.SyncManager && Array.isArray(window.SyncManager.pendingQueue) && window.SyncManager.pendingQueue.length > 0 && typeof window.SyncManager.flush === 'function') {
+            window.SyncManager.flush({ silent: true });
+        }
     } catch (e) {
         console.error('Failed to save auto sync setting', e);
     }
@@ -2697,7 +2717,7 @@ function renderEditHomeSettings() {
             return `
                 <div class="settings-row edit-home-mode-row" style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
                     <div class="settings-row-left" style="display:flex; align-items:center; gap:12px;">
-                        <div class="settings-icon-box" style="background:${meta.bg}; color:${meta.color}; width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <div class="settings-icon-box" style="background:${meta.bg}; color:${meta.color}; border-radius:50%;">
                             <span class="material-symbols-rounded" style="font-size:22px;">${meta.icon}</span>
                         </div>
                         <div class="settings-row-text">

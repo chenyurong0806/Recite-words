@@ -79,6 +79,9 @@ const EbbinghausEngine = {
                 localStorage.setItem(`vocab_ebbinghaus_db_${u}`, str);
             }
         } catch (e) { }
+        if (window.SyncManager && typeof window.SyncManager.markPending === 'function') {
+            window.SyncManager.markPending('ebbinghaus_update');
+        }
     },
     getDueWords() {
         const records = this.getRecords();

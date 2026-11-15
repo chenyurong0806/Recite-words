@@ -132,25 +132,13 @@ async function bootstrapApp() {
                     sbClient.from('user_accounts').update({ device_id: myDeviceId }).eq('username', activeUser).then(() => { }).catch(() => { });
                 }
 
-                // 继续拉取并恢复用户云端数据
-                if (typeof supabaseFetchUserData === 'function') {
+                // 继续拉取并合并用户云端数据（禁止直接覆盖本地已有更高进度）
+                if (typeof pullAndMergeUserDataFromCloud === 'function') {
+                    pullAndMergeUserDataFromCloud(activeUser).catch(() => { });
+                } else if (typeof supabaseFetchUserData === 'function') {
                     supabaseFetchUserData(activeUser).then(user => {
-                        if (user) {
-                            if (typeof restoreUserDataFromCloud === 'function') {
-                                restoreUserDataFromCloud(user);
-                            }
-                            if (user.user_data && user.user_data.stats) {
-                                try {
-                                    SafeStorage.setItem(`vocab_stats_${user.username}`, JSON.stringify(user.user_data.stats));
-                                    userStats = user.user_data.stats;
-                                } catch (e) { }
-                            }
-                            if (user.avatar_url && user.avatar_url !== currentUserProfile.avatar) {
-                                currentUserProfile.avatar = user.avatar_url;
-                                SafeStorage.setItem('vocab_auth_session', JSON.stringify(currentUserProfile));
-                                SafeStorage.setItem(`vocab_user_avatar_${user.username}`, user.avatar_url);
-                                if (typeof updateHub === 'function') updateHub();
-                            }
+                        if (user && typeof restoreUserDataFromCloud === 'function') {
+                            restoreUserDataFromCloud(user);
                         }
                     }).catch(() => { });
                 }
@@ -319,16 +307,41 @@ function closeIosPwaModal() {
 // 页面关闭或切入后台时，通过 keepalive 保证将全量学习数据与等级同步至 Supabase
 window.addEventListener('beforeunload', () => {
     if (typeof syncAllUserDataToCloud === 'function' && typeof currentUser !== 'undefined' && currentUser) {
-        syncAllUserDataToCloud(currentUser, { keepalive: true });
+        if (!window._cloudRestoreDone || window._cloudRestoreDone[currentUser]) {
+            syncAllUserDataToCloud(currentUser, { keepalive: true });
+        }
     }
 });
+
+let lastForegroundPullAt = 0;
+function triggerForegroundCloudPull() {
+    const now = Date.now();
+    if (now - lastForegroundPullAt < 30000) return;
+    if (typeof pullAndMergeUserDataFromCloud !== 'function') return;
+    if (typeof currentUser === 'undefined' || !currentUser || currentUser.startsWith('游客')) return;
+    if (typeof currentUserProfile === 'undefined' || !currentUserProfile || !currentUserProfile.isLoggedIn) return;
+    if (currentUserProfile.type !== 'cloud' && currentUserProfile.type !== 'bilibili') return;
+    lastForegroundPullAt = now;
+    const autoSyncAllowed = (typeof isAutoSyncEnabled === 'function')
+        ? isAutoSyncEnabled()
+        : (localStorage.getItem('vocab_auto_sync_enabled') !== 'false');
+    pullAndMergeUserDataFromCloud(currentUser, { keepLocalConfigs: !autoSyncAllowed }).catch(() => { });
+}
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
         if (typeof syncAllUserDataToCloud === 'function' && typeof currentUser !== 'undefined' && currentUser) {
-            syncAllUserDataToCloud(currentUser, { keepalive: true });
+            if (!window._cloudRestoreDone || window._cloudRestoreDone[currentUser]) {
+                syncAllUserDataToCloud(currentUser, { keepalive: true });
+            }
         }
+    } else if (document.visibilityState === 'visible') {
+        triggerForegroundCloudPull();
     }
+});
+
+window.addEventListener('focus', () => {
+    triggerForegroundCloudPull();
 });
 
 

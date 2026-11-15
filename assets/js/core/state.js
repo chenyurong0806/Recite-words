@@ -306,19 +306,43 @@ function loadUserData(username, profile = null) {
         userStats = { total: 0, correct: 0 };
     }
 
+    // 加载按账号隔离的已选词书（兜底兼容旧版 single_vocab_books）
+    try {
+        const userBooksRaw = SafeStorage.getItem(`vocab_single_selected_books_${currentUser}`);
+        const legacyBooksRaw = SafeStorage.getItem('single_vocab_books');
+        const booksRaw = userBooksRaw || legacyBooksRaw;
+        if (booksRaw) {
+            const parsedBooks = JSON.parse(booksRaw);
+            if (Array.isArray(parsedBooks) && parsedBooks.length > 0) {
+                singleSelectedBookIds = parsedBooks;
+                if (!userBooksRaw) {
+                    SafeStorage.setItem(`vocab_single_selected_books_${currentUser}`, JSON.stringify(parsedBooks));
+                }
+            }
+        }
+    } catch (e) { }
+
     if (window.EbbinghausEngine) {
         window.EbbinghausEngine.checkOverduePenalties();
         window.EbbinghausEngine.updateDueBadge();
     }
     updateHubResumeButtons();
 
-    // 如果为云端或B站已登录用户，主动从云端恢复与同步全量数据（包括艾宾浩斯待复习词数）
-    if (currentUserProfile && currentUserProfile.isLoggedIn && typeof supabaseFetchUserData === 'function') {
-        supabaseFetchUserData(currentUser).then(cloudUser => {
-            if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
-                restoreUserDataFromCloud(cloudUser);
-            }
-        }).catch(() => { });
+    if (window.SyncManager && typeof window.SyncManager.loadQueue === 'function') {
+        window.SyncManager.loadQueue(currentUser);
+    }
+
+    // 如果为云端或B站已登录用户，主动从云端拉取并安全合并全量数据（防并发重复请求）
+    if (currentUserProfile && currentUserProfile.isLoggedIn && (currentUserProfile.type === 'cloud' || currentUserProfile.type === 'bilibili')) {
+        if (typeof pullAndMergeUserDataFromCloud === 'function') {
+            pullAndMergeUserDataFromCloud(currentUser).catch(() => { });
+        } else if (typeof supabaseFetchUserData === 'function') {
+            supabaseFetchUserData(currentUser).then(cloudUser => {
+                if (cloudUser && typeof restoreUserDataFromCloud === 'function') {
+                    restoreUserDataFromCloud(cloudUser);
+                }
+            }).catch(() => { });
+        }
     }
 
     if (typeof ItemManager !== 'undefined' && ItemManager.isAvailable()) {

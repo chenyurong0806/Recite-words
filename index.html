@@ -1046,7 +1046,7 @@
                         </div>
                         <div>
                             <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">排行榜</h4>
-                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">全服段位+等级分排行</div>
+                            <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">段位+等级分排行</div>
                         </div>
                     </div>
                     <div class="entry-card-action" style="display:flex; align-items:center; gap:4px; color:var(--md-sys-color-primary); font-size:0.88rem; font-weight:600; flex-shrink:0; margin-left:auto;">
@@ -1329,11 +1329,11 @@
                             <div class="me-data-stat-val"><span class="stat-num" id="me-stat-total-words">0</span><small>词</small></div>
                         </div>
                         <div class="me-data-stat-box stat-accent-3">
-                            <div class="me-data-stat-label">今日学习时长</div>
+                            <div class="me-data-stat-label">今日学习</div>
                             <div class="me-data-stat-val me-data-stat-dur" id="me-stat-today-duration"><span class="stat-num">0</span><small>分钟</small></div>
                         </div>
                         <div class="me-data-stat-box stat-accent-4">
-                            <div class="me-data-stat-label">累计学习时长</div>
+                            <div class="me-data-stat-label">累计学习</div>
                             <div class="me-data-stat-val me-data-stat-dur" id="me-stat-total-duration"><span class="stat-num">0</span><small>分钟</small></div>
                         </div>
                     </div>
@@ -1367,16 +1367,6 @@
                                 <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">下载学习数据</span>
                             </div>
                             <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                        </div>
-                        <div id="me-row-sync-data" class="settings-row me-account-action-row clickable offline-hide" onclick="handleManualSyncUserData()" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                            <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
-                                <span class="material-symbols-rounded" id="me-sync-row-icon" style="color: var(--md-sys-color-primary); font-size: 20px;">sync</span>
-                                <span style="font-size: 0.92rem; font-weight: 500; color: var(--md-sys-color-on-surface);">数据同步</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="me-sync-row-badge" class="badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; background: #dcfce7; color: #15803d; font-weight: 600;">已是最新</span>
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-outline);">arrow_forward_ios</span>
-                            </div>
                         </div>
                         <div class="settings-row me-auto-sync-row">
                             <div class="settings-row-left" style="display: flex; align-items: center; gap: 12px;">
@@ -1921,8 +1911,8 @@
                         </div>
                     </div>
                     <div class="settings-category-tabs bc-type-tabs" id="detailed-stats-range-tabs" role="tablist" aria-label="统计时间范围" style="margin:0;">
-                        <button type="button" class="settings-cat-tab active" role="tab" aria-selected="true" data-range="week" onclick="switchDetailedStatsRange('week')">近 7 天 (周)</button>
-                        <button type="button" class="settings-cat-tab" role="tab" aria-selected="false" data-range="month" onclick="switchDetailedStatsRange('month')">近 30 天 (月)</button>
+                        <button type="button" class="settings-cat-tab active" role="tab" aria-selected="true" data-range="week" onclick="switchDetailedStatsRange('week')">近 7 天</button>
+                        <button type="button" class="settings-cat-tab" role="tab" aria-selected="false" data-range="month" onclick="switchDetailedStatsRange('month')">近 30 天</button>
                     </div>
                 </div>
 
@@ -3030,7 +3020,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>减弱动画效果</h4>
-                                <p>关闭界面过渡动效，减少性能消耗</p>
+                                <p>减少界面过渡动效，降低性能消耗</p>
                             </div>
                         </div>
                         <label class="md3-switch" style="flex-shrink:0;">
@@ -3048,7 +3038,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>编辑首页</h4>
-                                <p>隐藏首页卡片、调整模式卡片顺序或收起搜索栏</p>
+                                <p>隐藏首页卡片、调整卡片顺序</p>
                             </div>
                         </div>
                         <span class="material-symbols-rounded" style="color:var(--md-sys-color-outline);">arrow_forward_ios</span>
@@ -3098,7 +3088,7 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">wifi</span>
-                    <span>网络与离线</span>
+                    <span>离线模式</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row" style="justify-content:space-between; align-items:center;">
@@ -3108,7 +3098,7 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>离线模式</h4>
-                                <p id="settings-offline-mode-desc">开启后完全使用本地数据，不进行任何网络通信</p>
+                                <p id="settings-offline-mode-desc">开启后不进行任何网络通信</p>
                             </div>
                         </div>
                         <label class="md3-switch" id="toggle-offline-mode-label">
@@ -3246,7 +3236,7 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">search</span>
-                    <span>顶部搜索栏</span>
+                    <span>搜索栏</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
@@ -3256,7 +3246,6 @@
                             </div>
                             <div class="settings-row-text">
                                 <h4>收起搜索栏</h4>
-                                <p>开启后隐藏首页大搜索框，将搜索图标移至首页顶栏右上角</p>
                             </div>
                         </div>
                         <label class="md3-switch" style="flex-shrink:0;">
@@ -3270,13 +3259,13 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">swap_vert</span>
-                    <span>模式卡片排序与显示</span>
+                    <span>模式卡片</span>
                 </div>
                 <div class="settings-card" id="edit-home-modes-list"></div>
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">view_agenda</span>
-                    <span>其他首页板块</span>
+                    <span>其他板块</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
@@ -3420,7 +3409,7 @@
                         <div class="book-content-toolbar-left">
                             <div class="md3-custom-select" id="bc-toolbar-section-wrap" style="display:none; position:relative;">
                                 <button type="button" class="md3-custom-select-trigger bc-section-select-trigger" id="bc-toolbar-section-trigger" onclick="toggleMd3Select('bc-toolbar-section', event)">
-                                    <span id="bc-toolbar-section-label">全部分类</span>
+                                    <span id="bc-toolbar-section-label">全部</span>
                                     <span class="material-symbols-rounded" style="font-size:18px;">expand_more</span>
                                 </button>
                                 <div class="md3-custom-select-menu" id="bc-toolbar-section-menu" onclick="event.stopPropagation()"></div>
