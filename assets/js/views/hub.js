@@ -230,9 +230,6 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         if (toEl) toEl.classList.add('no-enter-anim');
         updateDom();
         invokeCallback(options && options.onAfterDomUpdate);
-        if (toEl) {
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
-        }
         invokeCallback(options && options.onTransitionEnd);
         return;
     }
@@ -243,7 +240,6 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
             toEl.classList.add('no-enter-anim');
             updateDom();
             invokeCallback(options && options.onAfterDomUpdate);
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         } else {
             updateDom();
             invokeCallback(options && options.onAfterDomUpdate);
@@ -262,6 +258,8 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
     const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
     docEl.classList.add(docClass);
+    // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
+    toEl.classList.add('no-enter-anim');
     updateDom();
 
     fromEl.style.top = `${metrics.top}px`;
@@ -303,7 +301,7 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         cleanup();
         return;
     }
-    setTimeout(cleanup, 360);
+    setTimeout(cleanup, isBack ? 560 : 480);
 }
 
 function runBackPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
@@ -396,11 +394,13 @@ function switchView(viewId, options = {}) {
             const v = views[i];
             const isTarget = (v.id === viewId);
             if (isTarget) {
+                if (isTabSwitch) v.classList.remove('no-enter-anim');
                 if (!v.classList.contains('active')) v.classList.add('active');
                 v.inert = false;
                 v.removeAttribute('aria-hidden');
             } else {
                 if (v.classList.contains('active')) v.classList.remove('active');
+                v.classList.remove('no-enter-anim');
                 v.inert = true;
                 v.setAttribute('aria-hidden', 'true');
             }
@@ -433,6 +433,11 @@ function switchView(viewId, options = {}) {
                     : document.getElementById(`settings-subview-${k}`);
                 if (el) {
                     const isActiveSub = (k === activeKey);
+                    if (isActiveSub && (isBack || skipTransition || window.__skipNextBackAnimation)) {
+                        el.classList.add('no-enter-anim');
+                    } else if (!isActiveSub) {
+                        el.classList.remove('no-enter-anim');
+                    }
                     el.classList.toggle('active', isActiveSub);
                     el.inert = !isActiveSub;
                     if (isActiveSub) el.removeAttribute('aria-hidden');
@@ -481,9 +486,6 @@ function switchView(viewId, options = {}) {
         applyViewUpdate();
         if (options && typeof options.onAfterDomUpdate === 'function') {
             try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
-        }
-        if (toEl) {
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
         if (options && typeof options.onTransitionEnd === 'function') {
             try { options.onTransitionEnd(); } catch (err) { console.error(err); }
@@ -1090,7 +1092,7 @@ function isEnglishBook(b) {
 
         // 1. 个人中心二级子页面 -> 返回个人中心主页
         if (currViewId === 'view-me') {
-            const activeSub = document.querySelector('#view-me .settings-subview.active');
+            const activeSub = document.querySelector('#view-me .me-subview.active');
             const mainSub = document.getElementById('me-subview-main');
             if (!activeSub || !mainSub || activeSub.id === 'me-subview-main') return null;
             return {
@@ -1387,9 +1389,6 @@ function isEnglishBook(b) {
                     current.ctx.commit();
                 } finally {
                     resetSwipeLayers(current.ctx);
-                    if (current.ctx.toEl) {
-                        requestAnimationFrame(() => current.ctx.toEl.classList.remove('no-enter-anim'));
-                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
             } else {

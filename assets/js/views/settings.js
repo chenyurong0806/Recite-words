@@ -55,6 +55,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
                 if (isActive) el.removeAttribute('aria-hidden');
@@ -100,7 +101,6 @@ function openMeSubview(subviewKey, skipTransition = false) {
         window.__skipNextBackAnimation = false;
         targetSubEl.classList.add('no-enter-anim');
         performSwitch();
-        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
     } else {
         performSwitch();
     }
@@ -247,6 +247,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
                 if (isActive) el.removeAttribute('aria-hidden');
@@ -273,7 +274,6 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         window.__skipNextBackAnimation = false;
         targetSubEl.classList.add('no-enter-anim');
         performSubviewSwitch();
-        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
     } else {
         performSubviewSwitch();
     }
@@ -2683,7 +2683,12 @@ function renderChangelogItems(container, list, isCloud = false) {
 }
 
 function filterSettingsRows(query) {
-    const q = (query || '').trim().toLowerCase();
+    const raw = query || '';
+    const clearBtn = document.getElementById('settings-filter-clear-btn');
+    if (clearBtn) {
+        clearBtn.style.display = raw.length > 0 ? 'flex' : 'none';
+    }
+    const q = raw.trim().toLowerCase();
     const sections = document.querySelectorAll('#settings-subview-main .settings-card');
     const titles = document.querySelectorAll('#settings-subview-main .settings-section-title');
     if (!q) {
@@ -2712,6 +2717,21 @@ function filterSettingsRows(query) {
         }
     });
 }
+
+function clearSettingsFilterInput(e) {
+    if (e) e.stopPropagation();
+    const inp = document.getElementById('settings-filter-input');
+    if (inp) {
+        inp.value = '';
+        filterSettingsRows('');
+        if (typeof focusSearchInputElement === 'function') {
+            focusSearchInputElement(inp);
+        } else {
+            inp.focus();
+        }
+    }
+}
+window.clearSettingsFilterInput = clearSettingsFilterInput;
 
 function isAutoSyncEnabled() {
     try {

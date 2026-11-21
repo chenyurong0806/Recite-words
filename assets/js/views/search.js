@@ -1326,18 +1326,24 @@ function showSearchHistoryView() {
     tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
-function focusSearchInputElement(inputEl, reflowTarget = null) {
+function focusSearchInputElement(inputEl, reflowTarget = null, options = {}) {
     if (!inputEl) return;
     try {
-        // 先解除先前元素（如首页按钮）焦点或先刷新刚激活容器的布局尺寸，避免内容可见性/尺寸未更新时 focus 静默失效
-        if (reflowTarget && typeof reflowTarget.offsetWidth === 'number') {
-            void reflowTarget.offsetWidth;
-        } else if (typeof inputEl.offsetWidth === 'number') {
-            void inputEl.offsetWidth;
+        // 强制同步刷新刚激活容器及输入框的布局几何信息，确保移动端浏览器立即可视化该输入框并拉起软键盘
+        if (reflowTarget && typeof reflowTarget.offsetHeight === 'number') {
+            void reflowTarget.offsetHeight;
+        }
+        if (typeof inputEl.getBoundingClientRect === 'function') {
+            void inputEl.getBoundingClientRect();
         }
     } catch (e) { }
+    const preferNativeFocus = Boolean(options && options.preferNativeFocus);
     try {
-        inputEl.focus({ preventScroll: true });
+        if (preferNativeFocus) {
+            inputEl.focus();
+        } else {
+            inputEl.focus({ preventScroll: true });
+        }
     } catch (e) {
         try { inputEl.focus(); } catch (e2) { }
     }
@@ -1347,6 +1353,9 @@ function focusSearchInputElement(inputEl, reflowTarget = null) {
             inputEl.setSelectionRange(len, len);
         }
     } catch (e) { }
+    if (options && options.openVirtualKeyboard && typeof navigator !== 'undefined' && navigator.virtualKeyboard && typeof navigator.virtualKeyboard.show === 'function') {
+        try { navigator.virtualKeyboard.show(); } catch (e) { }
+    }
 }
 window.focusSearchInputElement = focusSearchInputElement;
 
@@ -1394,8 +1403,15 @@ function focusSearchFromHub() {
 function openSearchPageFromHub(showKeyboard = false) {
     const searchInp = document.getElementById('search-page-input');
     const searchViewEl = document.getElementById('view-search');
+    const isMobileViewport = (typeof isMobilePageTransitionViewport === 'function') && isMobilePageTransitionViewport();
+    const isTouchDevice = (typeof window !== 'undefined') && (('ontouchstart' in window) || ((typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0));
+    const focusOpts = {
+        preferNativeFocus: isMobileViewport || isTouchDevice,
+        openVirtualKeyboard: (isMobileViewport || isTouchDevice) && !showKeyboard
+    };
+
     if (typeof currentView !== 'undefined' && currentView === 'view-search') {
-        focusSearchInputElement(searchInp, searchViewEl);
+        focusSearchInputElement(searchInp, searchViewEl, focusOpts);
         if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
             toggleVirtualKeyboardFromSearch(null, 'search-page-input');
         }
@@ -1424,15 +1440,17 @@ function openSearchPageFromHub(showKeyboard = false) {
         if (active && active !== document.body && active !== document.documentElement && active !== inp && active.closest && active.closest('#view-search')) {
             return;
         }
-        focusSearchInputElement(inp, searchViewEl);
+        focusSearchInputElement(inp, searchViewEl, focusOpts);
     };
 
+    // 移动端从首页进入搜索页时不施加离屏水平位移动画（translate3d(100%, 0, 0)），
+    // 确保搜索框在用户点击手势同一同步帧内即处于视口内静止可见状态，使 iOS Safari / Android 浏览器可稳定自动弹出系统键盘
     switchView('view-search', {
         direction: 'forward',
+        skipTransition: isMobileViewport || isTouchDevice,
         onAfterDomUpdate: () => {
             if (!searchInp) return;
-            // 在 .active 已添加、.page-forward-incoming-layer 尚未把视图移出屏幕前同步聚焦并刷新布局，避免点击后偶发不聚焦
-            focusSearchInputElement(searchInp, searchViewEl);
+            focusSearchInputElement(searchInp, searchViewEl, focusOpts);
             if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
                 toggleVirtualKeyboardFromSearch(null, 'search-page-input');
             }
@@ -1443,7 +1461,9 @@ function openSearchPageFromHub(showKeyboard = false) {
             });
         },
         onTransitionEnd: () => {
-            tryFocusSearchPageInput();
+            if (document.activeElement !== searchInp) {
+                tryFocusSearchPageInput();
+            }
         }
     });
 }

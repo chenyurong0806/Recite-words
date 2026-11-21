@@ -68,6 +68,13 @@
     -webkit-user-select: none;
 }
 
+input:not([readonly]):not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+textarea:not([readonly]),
+[contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
 html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -128,12 +135,16 @@ body {
 }
 
 @keyframes md3BackSlideOutRightFade {
-    from {
+    0% {
         opacity: 1;
         transform: translate3d(0, 0, 0);
     }
 
-    to {
+    65% {
+        opacity: 0.85;
+    }
+
+    100% {
         opacity: 0;
         transform: translate3d(100%, 0, 0);
     }
@@ -181,7 +192,7 @@ body {
     box-sizing: border-box;
 }
 
-.view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
+.view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
     content-visibility: hidden;
     position: fixed;
     top: 0;
@@ -196,8 +207,14 @@ body {
     z-index: -1;
 }
 
+/* 搜索页保持渲染树就绪，避免移动端从首页点击搜索时因 content-visibility: hidden 延迟布局而无法自动拉起系统键盘 */
+#view-search:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+    content-visibility: visible;
+    opacity: 0;
+}
+
 @supports not (content-visibility: hidden) {
-    .view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
+    .view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
         display: none;
     }
 }
@@ -235,8 +252,8 @@ body {
     animation: 220ms cubic-bezier(0.1, 0.9, 0.2, 1) both md3SlideDownFadeIn;
 }
 
-/* 页面进入与返回定向动画：仅在手机端（<= 767px）启用，宽屏设备无返回/滑入动画 */
-@media (max-width: 767px) {
+/* 页面进入与返回定向动画：仅在手机端（<= 767px）且非减弱动画偏好时启用，宽屏设备无返回/滑入动画 */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
     html:active-view-transition-type(backward)::view-transition-group(root),
     html.vt-back-transition::view-transition-group(root) {
         animation: none;
@@ -244,14 +261,14 @@ body {
 
     html:active-view-transition-type(backward)::view-transition-old(root),
     html.vt-back-transition::view-transition-old(root) {
-        animation: 300ms cubic-bezier(0.22, 1, 0.36, 1) both md3BackSlideOutRightFade;
+        animation: 440ms cubic-bezier(0.32, 0.72, 0, 1) both md3BackSlideOutRightFade;
         mix-blend-mode: normal;
         z-index: 2;
     }
 
     html:active-view-transition-type(backward)::view-transition-new(root),
     html.vt-back-transition::view-transition-new(root) {
-        animation: 300ms cubic-bezier(0.22, 1, 0.36, 1) both md3BackSlideInLeft;
+        animation: 440ms cubic-bezier(0.32, 0.72, 0, 1) both md3BackSlideInLeft;
         mix-blend-mode: normal;
         z-index: 1;
     }
@@ -273,7 +290,7 @@ body {
         z-index: 1120 !important;
         background: var(--md-sys-color-background);
         will-change: transform, opacity;
-        animation: 300ms cubic-bezier(0.22, 1, 0.36, 1) both md3BackSlideOutRightFade !important;
+        animation: 440ms cubic-bezier(0.32, 0.72, 0, 1) both md3BackSlideOutRightFade !important;
         box-shadow: -8px 0 28px rgba(0, 0, 0, 0.14);
     }
 
@@ -287,8 +304,10 @@ body {
     }
 
     .page-back-incoming-layer {
+        position: relative;
+        z-index: 1090;
         will-change: transform, opacity;
-        animation: 300ms cubic-bezier(0.22, 1, 0.36, 1) both md3BackSlideInLeft !important;
+        animation: 440ms cubic-bezier(0.32, 0.72, 0, 1) both md3BackSlideInLeft !important;
     }
 
     /* 手机端进入新页面滑入动画：新页面从右侧滑入，旧页面向左退让 */
@@ -303,7 +322,7 @@ body {
         z-index: 1090 !important;
         background: var(--md-sys-color-background);
         will-change: transform, opacity;
-        animation: 280ms cubic-bezier(0.22, 1, 0.36, 1) both md3ForwardSlideOutLeft !important;
+        animation: 360ms cubic-bezier(0.32, 0.72, 0, 1) both md3ForwardSlideOutLeft !important;
     }
 
     .page-forward-outgoing-layer::before {
@@ -321,7 +340,7 @@ body {
         min-height: 100dvh;
         background: var(--md-sys-color-background);
         will-change: transform, opacity;
-        animation: 280ms cubic-bezier(0.22, 1, 0.36, 1) both md3ForwardSlideInRight !important;
+        animation: 360ms cubic-bezier(0.32, 0.72, 0, 1) both md3ForwardSlideInRight !important;
         box-shadow: -8px 0 28px rgba(0, 0, 0, 0.14);
     }
 
@@ -335,30 +354,15 @@ body {
     }
 }
 
-/* 过渡与滑动返回期间抑制默认垂直淡入动效，避免动画叠加 */
+/* 抑制默认垂直淡入动效：仅作用于不处于定向滑入/滑出层中的视图与子页面，避免覆盖水平滑入动画或结束后重放闪烁 */
 html.vt-back-transition #view-hub.active,
 html.vt-back-transition #view-me.active,
 html.vt-back-transition #view-settings.active,
 html.vt-back-transition .me-subview.active,
 html.vt-back-transition .settings-subview.active,
-html.dom-back-transition #view-hub.active,
-html.dom-back-transition #view-me.active,
-html.dom-back-transition #view-settings.active,
-html.dom-back-transition .me-subview.active,
-html.dom-back-transition .settings-subview.active,
-html.dom-forward-transition #view-hub.active,
-html.dom-forward-transition #view-me.active,
-html.dom-forward-transition #view-settings.active,
-html.dom-forward-transition .me-subview.active,
-html.dom-forward-transition .settings-subview.active,
-html.swipe-back-active #view-hub.active,
-html.swipe-back-active #view-me.active,
-html.swipe-back-active #view-settings.active,
-html.swipe-back-active .me-subview.active,
-html.swipe-back-active .settings-subview.active,
-.view.no-enter-anim,
-.settings-subview.no-enter-anim,
-.me-subview.no-enter-anim {
+.view.no-enter-anim:not(.page-back-incoming-layer):not(.page-forward-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer),
+.settings-subview.no-enter-anim:not(.page-back-incoming-layer):not(.page-forward-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer),
+.me-subview.no-enter-anim:not(.page-back-incoming-layer):not(.page-forward-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer) {
     animation: none !important;
 }
 
@@ -1572,7 +1576,7 @@ select.md3-select option {
     border-radius: var(--md-shape-full, 28px);
     padding: 0 16px;
     height: 48px;
-    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     cursor: text;
 }
@@ -1792,7 +1796,7 @@ select.md3-select option {
     background: var(--md-sys-color-surface-container-low, #F2F3FA);
     border: 1px solid var(--md-sys-color-outline-variant, #E2E8F0);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .search-page-topbar .hub-search-bar:hover {
@@ -7037,8 +7041,8 @@ body.nav-hidden {
     box-sizing: border-box;
 }
 
-.me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer),
-.settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
+.me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer),
+.settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
     content-visibility: hidden;
     position: fixed;
     top: 0;
@@ -7054,8 +7058,8 @@ body.nav-hidden {
 }
 
 @supports not (content-visibility: hidden) {
-    .me-subview:not(.active),
-    .settings-subview:not(.active) {
+    .me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer),
+    .settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
         display: none;
     }
 }
@@ -7063,7 +7067,13 @@ body.nav-hidden {
 .me-subview.active,
 .settings-subview.active {
     display: block;
-    animation: md3SlideDownFadeIn 0.16s cubic-bezier(0.05, 0.7, 0.1, 1.0);
+}
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+    .me-subview.active,
+    .settings-subview.active {
+        animation: md3SlideDownFadeIn 0.16s cubic-bezier(0.05, 0.7, 0.1, 1.0);
+    }
 }
 
 .settings-section-title {

@@ -14500,9 +14500,6 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         if (toEl) toEl.classList.add('no-enter-anim');
         updateDom();
         invokeCallback(options && options.onAfterDomUpdate);
-        if (toEl) {
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
-        }
         invokeCallback(options && options.onTransitionEnd);
         return;
     }
@@ -14513,7 +14510,6 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
             toEl.classList.add('no-enter-anim');
             updateDom();
             invokeCallback(options && options.onAfterDomUpdate);
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         } else {
             updateDom();
             invokeCallback(options && options.onAfterDomUpdate);
@@ -14532,6 +14528,8 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
     const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
     docEl.classList.add(docClass);
+    // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
+    toEl.classList.add('no-enter-anim');
     updateDom();
 
     fromEl.style.top = `${metrics.top}px`;
@@ -14573,7 +14571,7 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         cleanup();
         return;
     }
-    setTimeout(cleanup, 360);
+    setTimeout(cleanup, isBack ? 560 : 480);
 }
 
 function runBackPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
@@ -14666,11 +14664,13 @@ function switchView(viewId, options = {}) {
             const v = views[i];
             const isTarget = (v.id === viewId);
             if (isTarget) {
+                if (isTabSwitch) v.classList.remove('no-enter-anim');
                 if (!v.classList.contains('active')) v.classList.add('active');
                 v.inert = false;
                 v.removeAttribute('aria-hidden');
             } else {
                 if (v.classList.contains('active')) v.classList.remove('active');
+                v.classList.remove('no-enter-anim');
                 v.inert = true;
                 v.setAttribute('aria-hidden', 'true');
             }
@@ -14703,6 +14703,11 @@ function switchView(viewId, options = {}) {
                     : document.getElementById(`settings-subview-${k}`);
                 if (el) {
                     const isActiveSub = (k === activeKey);
+                    if (isActiveSub && (isBack || skipTransition || window.__skipNextBackAnimation)) {
+                        el.classList.add('no-enter-anim');
+                    } else if (!isActiveSub) {
+                        el.classList.remove('no-enter-anim');
+                    }
                     el.classList.toggle('active', isActiveSub);
                     el.inert = !isActiveSub;
                     if (isActiveSub) el.removeAttribute('aria-hidden');
@@ -14751,9 +14756,6 @@ function switchView(viewId, options = {}) {
         applyViewUpdate();
         if (options && typeof options.onAfterDomUpdate === 'function') {
             try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
-        }
-        if (toEl) {
-            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
         if (options && typeof options.onTransitionEnd === 'function') {
             try { options.onTransitionEnd(); } catch (err) { console.error(err); }
@@ -15360,7 +15362,7 @@ function isEnglishBook(b) {
 
         // 1. 个人中心二级子页面 -> 返回个人中心主页
         if (currViewId === 'view-me') {
-            const activeSub = document.querySelector('#view-me .settings-subview.active');
+            const activeSub = document.querySelector('#view-me .me-subview.active');
             const mainSub = document.getElementById('me-subview-main');
             if (!activeSub || !mainSub || activeSub.id === 'me-subview-main') return null;
             return {
@@ -15657,9 +15659,6 @@ function isEnglishBook(b) {
                     current.ctx.commit();
                 } finally {
                     resetSwipeLayers(current.ctx);
-                    if (current.ctx.toEl) {
-                        requestAnimationFrame(() => current.ctx.toEl.classList.remove('no-enter-anim'));
-                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
             } else {
@@ -38521,6 +38520,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
                 if (isActive) el.removeAttribute('aria-hidden');
@@ -38566,7 +38566,6 @@ function openMeSubview(subviewKey, skipTransition = false) {
         window.__skipNextBackAnimation = false;
         targetSubEl.classList.add('no-enter-anim');
         performSwitch();
-        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
     } else {
         performSwitch();
     }
@@ -38713,6 +38712,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
                 if (isActive) el.removeAttribute('aria-hidden');
@@ -38739,7 +38739,6 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         window.__skipNextBackAnimation = false;
         targetSubEl.classList.add('no-enter-anim');
         performSubviewSwitch();
-        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
     } else {
         performSubviewSwitch();
     }
@@ -41149,7 +41148,12 @@ function renderChangelogItems(container, list, isCloud = false) {
 }
 
 function filterSettingsRows(query) {
-    const q = (query || '').trim().toLowerCase();
+    const raw = query || '';
+    const clearBtn = document.getElementById('settings-filter-clear-btn');
+    if (clearBtn) {
+        clearBtn.style.display = raw.length > 0 ? 'flex' : 'none';
+    }
+    const q = raw.trim().toLowerCase();
     const sections = document.querySelectorAll('#settings-subview-main .settings-card');
     const titles = document.querySelectorAll('#settings-subview-main .settings-section-title');
     if (!q) {
@@ -41178,6 +41182,21 @@ function filterSettingsRows(query) {
         }
     });
 }
+
+function clearSettingsFilterInput(e) {
+    if (e) e.stopPropagation();
+    const inp = document.getElementById('settings-filter-input');
+    if (inp) {
+        inp.value = '';
+        filterSettingsRows('');
+        if (typeof focusSearchInputElement === 'function') {
+            focusSearchInputElement(inp);
+        } else {
+            inp.focus();
+        }
+    }
+}
+window.clearSettingsFilterInput = clearSettingsFilterInput;
 
 function isAutoSyncEnabled() {
     try {
@@ -42670,18 +42689,24 @@ function showSearchHistoryView() {
     tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
-function focusSearchInputElement(inputEl, reflowTarget = null) {
+function focusSearchInputElement(inputEl, reflowTarget = null, options = {}) {
     if (!inputEl) return;
     try {
-        // 先解除先前元素（如首页按钮）焦点或先刷新刚激活容器的布局尺寸，避免内容可见性/尺寸未更新时 focus 静默失效
-        if (reflowTarget && typeof reflowTarget.offsetWidth === 'number') {
-            void reflowTarget.offsetWidth;
-        } else if (typeof inputEl.offsetWidth === 'number') {
-            void inputEl.offsetWidth;
+        // 强制同步刷新刚激活容器及输入框的布局几何信息，确保移动端浏览器立即可视化该输入框并拉起软键盘
+        if (reflowTarget && typeof reflowTarget.offsetHeight === 'number') {
+            void reflowTarget.offsetHeight;
+        }
+        if (typeof inputEl.getBoundingClientRect === 'function') {
+            void inputEl.getBoundingClientRect();
         }
     } catch (e) { }
+    const preferNativeFocus = Boolean(options && options.preferNativeFocus);
     try {
-        inputEl.focus({ preventScroll: true });
+        if (preferNativeFocus) {
+            inputEl.focus();
+        } else {
+            inputEl.focus({ preventScroll: true });
+        }
     } catch (e) {
         try { inputEl.focus(); } catch (e2) { }
     }
@@ -42691,6 +42716,9 @@ function focusSearchInputElement(inputEl, reflowTarget = null) {
             inputEl.setSelectionRange(len, len);
         }
     } catch (e) { }
+    if (options && options.openVirtualKeyboard && typeof navigator !== 'undefined' && navigator.virtualKeyboard && typeof navigator.virtualKeyboard.show === 'function') {
+        try { navigator.virtualKeyboard.show(); } catch (e) { }
+    }
 }
 window.focusSearchInputElement = focusSearchInputElement;
 
@@ -42738,8 +42766,15 @@ function focusSearchFromHub() {
 function openSearchPageFromHub(showKeyboard = false) {
     const searchInp = document.getElementById('search-page-input');
     const searchViewEl = document.getElementById('view-search');
+    const isMobileViewport = (typeof isMobilePageTransitionViewport === 'function') && isMobilePageTransitionViewport();
+    const isTouchDevice = (typeof window !== 'undefined') && (('ontouchstart' in window) || ((typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0));
+    const focusOpts = {
+        preferNativeFocus: isMobileViewport || isTouchDevice,
+        openVirtualKeyboard: (isMobileViewport || isTouchDevice) && !showKeyboard
+    };
+
     if (typeof currentView !== 'undefined' && currentView === 'view-search') {
-        focusSearchInputElement(searchInp, searchViewEl);
+        focusSearchInputElement(searchInp, searchViewEl, focusOpts);
         if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
             toggleVirtualKeyboardFromSearch(null, 'search-page-input');
         }
@@ -42768,15 +42803,17 @@ function openSearchPageFromHub(showKeyboard = false) {
         if (active && active !== document.body && active !== document.documentElement && active !== inp && active.closest && active.closest('#view-search')) {
             return;
         }
-        focusSearchInputElement(inp, searchViewEl);
+        focusSearchInputElement(inp, searchViewEl, focusOpts);
     };
 
+    // 移动端从首页进入搜索页时不施加离屏水平位移动画（translate3d(100%, 0, 0)），
+    // 确保搜索框在用户点击手势同一同步帧内即处于视口内静止可见状态，使 iOS Safari / Android 浏览器可稳定自动弹出系统键盘
     switchView('view-search', {
         direction: 'forward',
+        skipTransition: isMobileViewport || isTouchDevice,
         onAfterDomUpdate: () => {
             if (!searchInp) return;
-            // 在 .active 已添加、.page-forward-incoming-layer 尚未把视图移出屏幕前同步聚焦并刷新布局，避免点击后偶发不聚焦
-            focusSearchInputElement(searchInp, searchViewEl);
+            focusSearchInputElement(searchInp, searchViewEl, focusOpts);
             if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
                 toggleVirtualKeyboardFromSearch(null, 'search-page-input');
             }
@@ -42787,7 +42824,9 @@ function openSearchPageFromHub(showKeyboard = false) {
             });
         },
         onTransitionEnd: () => {
-            tryFocusSearchPageInput();
+            if (document.activeElement !== searchInp) {
+                tryFocusSearchPageInput();
+            }
         }
     });
 }

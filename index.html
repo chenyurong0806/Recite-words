@@ -722,7 +722,7 @@
                 <div class="hub-search-wrapper" id="search-page-wrapper">
                     <div class="hub-search-bar" onclick="var inp=document.getElementById('search-page-input'); if(inp){ if(typeof focusSearchInputElement==='function'){ focusSearchInputElement(inp); } else if(document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } } }">
                         <span class="material-symbols-rounded hub-search-icon" style="font-size:20px; width:20px; height:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center; margin-right:8px; flex-shrink:0; cursor:pointer;">search</span>
-                        <input type="text" id="search-page-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleSearchPageInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleSearchPageEnter(this);}">
+                        <input type="text" id="search-page-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" enterkeyhint="search" oninput="handleSearchPageInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleSearchPageEnter(this);}">
                         <button type="button" class="hub-search-clear-btn" id="search-page-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearSearchPageInput(event)">
                             <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
                         </button>
@@ -2954,10 +2954,13 @@
                     </div>
                 </div>
 
-                <div class="settings-search-wrapper" style="margin: 4px 0 16px;">
-                    <div class="hub-search-bar" onclick="var inp=document.getElementById('settings-filter-input'); if(inp){ if(typeof focusSearchInputElement==='function'){ focusSearchInputElement(inp); } else if(document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } } }" style="background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); cursor:text;">
+                <div class="hub-search-wrapper settings-search-wrapper">
+                    <div class="hub-search-bar" onclick="var inp=document.getElementById('settings-filter-input'); if(inp){ if(typeof focusSearchInputElement==='function'){ focusSearchInputElement(inp, null, { preferNativeFocus: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) }); } else if(document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); } } }">
                         <span class="material-symbols-rounded hub-search-icon">search</span>
-                        <input type="text" id="settings-filter-input" class="hub-search-input" placeholder="搜索设置项..." autocomplete="off" oninput="filterSettingsRows(this.value)">
+                        <input type="text" id="settings-filter-input" class="hub-search-input" placeholder="搜索设置项..." autocomplete="off" enterkeyhint="search" oninput="filterSettingsRows(this.value)">
+                        <button type="button" class="hub-search-clear-btn" id="settings-filter-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="event.stopPropagation(); clearSettingsFilterInput(event)" title="清空搜索">
+                            <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
+                        </button>
                     </div>
                 </div>
 
