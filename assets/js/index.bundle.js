@@ -14322,8 +14322,173 @@ function isReducedMotionActive() {
 }
 window.isReducedMotionActive = isReducedMotionActive;
 
-function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = null) {
+function isRootNavState(viewId, subviewKey = 'main') {
+    if (viewId === 'view-hub') return true;
+    if (viewId === 'view-me') return subviewKey === 'main';
+    if (viewId === 'view-settings') return subviewKey === 'main';
+    return false;
+}
+
+function resolveCurrentSubviewKey(viewId) {
+    if (typeof document === 'undefined') return 'main';
+    if (viewId === 'view-me') {
+        const activeSub = document.querySelector('#view-me .me-subview.active');
+        return (!activeSub || activeSub.id === 'me-subview-main')
+            ? 'main'
+            : activeSub.id.replace(/^settings-subview-/, '');
+    }
+    if (viewId === 'view-settings') {
+        const activeSub = document.querySelector('#view-settings .settings-subview.active');
+        return (!activeSub || activeSub.id === 'settings-subview-main')
+            ? 'main'
+            : activeSub.id.replace(/^settings-subview-/, '');
+    }
+    return 'main';
+}
+
+function updateNavVisibilityForState(viewId = null, subviewKey = null) {
+    if (typeof document === 'undefined' || !document.body) return;
+    const resolvedView = viewId || (typeof window !== 'undefined' && window.currentView) || 'view-hub';
+    const resolvedSub = subviewKey || resolveCurrentSubviewKey(resolvedView);
+    const isMobile = isMobilePageTransitionViewport();
+    const isLoggedOutAuth = (typeof currentUser !== 'undefined' ? !currentUser : false) && resolvedView === 'view-auth';
+
+    let shouldHideNav = false;
+    if (isMobile) {
+        // 手机端：仅首页、个人中心主页、设置主页保留底部栏；进入所有新页面与二级子页面一律隐藏底部栏/左侧栏
+        shouldHideNav = !isRootNavState(resolvedView, resolvedSub) || isLoggedOutAuth;
+    } else {
+        const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
+        shouldHideNav = hideNavViews.includes(resolvedView) || isLoggedOutAuth;
+    }
+
+    if (shouldHideNav) {
+        document.body.classList.remove('has-nav');
+        document.body.classList.add('nav-hidden');
+    } else {
+        document.body.classList.add('has-nav');
+        document.body.classList.remove('nav-hidden');
+    }
+}
+window.updateNavVisibilityForState = updateNavVisibilityForState;
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('resize', () => {
+        updateNavVisibilityForState();
+    }, { passive: true });
+}
+
+function getEffectiveElementZoom(el, rect = null) {
+    const r = rect || (el && typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null);
+    if (el && el.offsetWidth > 0 && r && r.width > 0) {
+        const ratio = r.width / el.offsetWidth;
+        if (Number.isFinite(ratio) && ratio > 0.25 && ratio < 4) {
+            return ratio;
+        }
+    }
+    if (typeof document !== 'undefined' && document.body && document.body.style && document.body.style.zoom) {
+        const parsed = parseFloat(document.body.style.zoom);
+        if (Number.isFinite(parsed) && parsed > 0.25 && parsed < 4) {
+            return parsed;
+        }
+    }
+    return 1;
+}
+
+function getFixedContainingBlockRect(el) {
+    if (typeof window === 'undefined' || !el) return { left: 0, top: 0 };
+    let cur = el.parentElement;
+    while (cur && cur !== document.documentElement) {
+        if (cur !== document.body && typeof window.getComputedStyle === 'function') {
+            const st = window.getComputedStyle(cur);
+            const hasTransform = st.transform && st.transform !== 'none';
+            const hasPerspective = st.perspective && st.perspective !== 'none';
+            const hasFilter = st.filter && st.filter !== 'none';
+            const willChange = st.willChange || '';
+            const hasWillChange = /\b(transform|perspective|filter)\b/.test(willChange);
+            const contain = st.contain || '';
+            const hasContain = /\b(layout|paint|strict|content)\b/.test(contain);
+            if (hasTransform || hasPerspective || hasFilter || hasWillChange || hasContain) {
+                return cur.getBoundingClientRect();
+            }
+        }
+        cur = cur.parentElement;
+    }
+    return { left: 0, top: 0 };
+}
+
+function measureElementForFixedLayer(el, fallbackViewportHeight = 0) {
+    const rect = (el && typeof el.getBoundingClientRect === 'function')
+        ? el.getBoundingClientRect()
+        : { top: 0, left: 0, width: 0, height: 0 };
+    const zoomScale = getEffectiveElementZoom(el, rect);
+    const cbRect = getFixedContainingBlockRect(el);
+    const width = (el && el.offsetWidth > 0) ? el.offsetWidth : (rect.width / zoomScale);
+    const innerH = fallbackViewportHeight
+        || (typeof window !== 'undefined' ? window.innerHeight : 0)
+        || (typeof document !== 'undefined' && document.documentElement ? document.documentElement.clientHeight : 0)
+        || 0;
+    const minHeight = Math.max(
+        (el && el.offsetHeight) || 0,
+        (rect.height || 0) / zoomScale,
+        innerH / zoomScale
+    );
+    return {
+        top: ((rect.top || 0) - (cbRect.top || 0)) / zoomScale,
+        left: ((rect.left || 0) - (cbRect.left || 0)) / zoomScale,
+        width,
+        minHeight,
+        zoomScale,
+        cbRect
+    };
+}
+window.measureElementForFixedLayer = measureElementForFixedLayer;
+
+function lockContainerHeightForLayering(referenceEl, zoomScale = 1) {
+    if (typeof document === 'undefined') return () => {};
+    const containerEl = (referenceEl && typeof referenceEl.closest === 'function' ? referenceEl.closest('.container') : null)
+        || document.querySelector('.container');
+    if (!containerEl) return () => {};
+    const prevMinHeight = containerEl.style.minHeight;
+    const rect = typeof containerEl.getBoundingClientRect === 'function' ? containerEl.getBoundingClientRect() : null;
+    const lockedHeight = Math.max(
+        containerEl.offsetHeight || 0,
+        rect && rect.height ? (rect.height / (zoomScale || 1)) : 0
+    );
+    if (lockedHeight > 0) {
+        containerEl.style.minHeight = `${lockedHeight}px`;
+    }
+    return () => {
+        containerEl.style.minHeight = prevMinHeight;
+    };
+}
+
+function computeSwipeBackSettleDuration({ viewportWidth = 375, progress = 0, velocityX = 0, shouldCommit = true, reduced = false } = {}) {
+    if (reduced) return 0;
+    const width = Math.max(280, Number(viewportWidth) || 375);
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const v = Math.max(0, Math.min(2.4, Number(velocityX) || 0));
+    // 页面越宽基准时间越充裕、左滑力度越大（速度越快）收尾越利落，保持视觉速度从容自然
+    const widthFactor = Math.max(0.85, Math.min(1.42, width / 390));
+    const remainingRatio = shouldCommit ? Math.max(0.08, 1 - p) : Math.max(0.08, p);
+    const distanceFactor = 0.5 + 0.5 * Math.sqrt(remainingRatio);
+    const velocityFactor = shouldCommit
+        ? (1 / (1 + v * 0.38))
+        : (1 / (1 + Math.min(1.0, v) * 0.22));
+    const baseMs = shouldCommit ? 480 : 380;
+    const raw = Math.round(baseMs * widthFactor * distanceFactor * velocityFactor);
+    return Math.max(shouldCommit ? 250 : 210, Math.min(580, raw));
+}
+window.computeSwipeBackSettleDuration = computeSwipeBackSettleDuration;
+
+function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = null, options = {}) {
     if (typeof updateDom !== 'function') return;
+
+    const invokeCallback = (fn) => {
+        if (typeof fn === 'function') {
+            try { fn(); } catch (err) { console.error(err); }
+        }
+    };
 
     if (activeDomTransitionCleanup) {
         activeDomTransitionCleanup();
@@ -14334,9 +14499,11 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         window.__skipNextBackAnimation = false;
         if (toEl) toEl.classList.add('no-enter-anim');
         updateDom();
+        invokeCallback(options && options.onAfterDomUpdate);
         if (toEl) {
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
+        invokeCallback(options && options.onTransitionEnd);
         return;
     }
 
@@ -14345,10 +14512,13 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         if (direction === 'back' && toEl) {
             toEl.classList.add('no-enter-anim');
             updateDom();
+            invokeCallback(options && options.onAfterDomUpdate);
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         } else {
             updateDom();
+            invokeCallback(options && options.onAfterDomUpdate);
         }
+        invokeCallback(options && options.onTransitionEnd);
         return;
     }
 
@@ -14359,16 +14529,21 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const primaryAnimEl = isBack ? fromEl : toEl;
 
     const docEl = document.documentElement;
-    const fromRect = fromEl.getBoundingClientRect();
+    const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
+    const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
     docEl.classList.add(docClass);
     updateDom();
 
-    fromEl.style.top = `${fromRect.top}px`;
-    fromEl.style.left = `${fromRect.left}px`;
-    fromEl.style.width = `${fromRect.width}px`;
+    fromEl.style.top = `${metrics.top}px`;
+    fromEl.style.left = `${metrics.left}px`;
+    fromEl.style.width = `${metrics.width}px`;
     fromEl.style.height = 'auto';
-    fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+    fromEl.style.minHeight = `${metrics.minHeight}px`;
     fromEl.classList.add(outClass);
+
+    // 在页面滑入动画类使目标层离屏偏移前先执行同步回调（如聚焦搜索框），防止 Safari/移动端拒绝聚焦离屏元素
+    invokeCallback(options && options.onAfterDomUpdate);
+
     toEl.classList.add(inClass);
 
     let finished = false;
@@ -14385,6 +14560,8 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         fromEl.style.minHeight = '';
         toEl.classList.remove(inClass);
         docEl.classList.remove(docClass);
+        unlockContainer();
+        invokeCallback(options && options.onTransitionEnd);
     };
     const onAnimEnd = (ev) => {
         if (ev.target === primaryAnimEl) cleanup();
@@ -14399,13 +14576,13 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     setTimeout(cleanup, 360);
 }
 
-function runBackPageTransition(updateDom, fromEl = null, toEl = null) {
-    runTwoLayerPageTransition('back', updateDom, fromEl, toEl);
+function runBackPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
+    runTwoLayerPageTransition('back', updateDom, fromEl, toEl, options);
 }
 window.runBackPageTransition = runBackPageTransition;
 
-function runForwardPageTransition(updateDom, fromEl = null, toEl = null) {
-    runTwoLayerPageTransition('forward', updateDom, fromEl, toEl);
+function runForwardPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
+    runTwoLayerPageTransition('forward', updateDom, fromEl, toEl, options);
 }
 window.runForwardPageTransition = runForwardPageTransition;
 
@@ -14474,17 +14651,10 @@ function switchView(viewId, options = {}) {
             }
         }
 
-        const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
-
-        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
-
-        if (shouldHideNav) {
-            document.body.classList.remove('has-nav');
-            document.body.classList.add('nav-hidden');
-        } else {
-            document.body.classList.add('has-nav');
-            document.body.classList.remove('nav-hidden');
-        }
+        const targetSubKey = (viewId === 'view-me')
+            ? (window.__targetMeSubview || 'main')
+            : 'main';
+        updateNavVisibilityForState(viewId, targetSubKey);
 
         if (typeof updateNavActive === 'function') {
             const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
@@ -14572,18 +14742,30 @@ function switchView(viewId, options = {}) {
     };
 
     if (isBack) {
-        runBackPageTransition(applyViewUpdate, fromEl, toEl);
+        runBackPageTransition(applyViewUpdate, fromEl, toEl, options);
     } else if (isForward) {
-        runForwardPageTransition(applyViewUpdate, fromEl, toEl);
+        runForwardPageTransition(applyViewUpdate, fromEl, toEl, options);
     } else if (window.__skipNextBackAnimation || skipTransition || (options && options.direction === 'back')) {
         window.__skipNextBackAnimation = false;
         if (toEl) toEl.classList.add('no-enter-anim');
         applyViewUpdate();
+        if (options && typeof options.onAfterDomUpdate === 'function') {
+            try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
+        }
         if (toEl) {
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
+        if (options && typeof options.onTransitionEnd === 'function') {
+            try { options.onTransitionEnd(); } catch (err) { console.error(err); }
+        }
     } else {
         applyViewUpdate();
+        if (options && typeof options.onAfterDomUpdate === 'function') {
+            try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
+        }
+        if (options && typeof options.onTransitionEnd === 'function') {
+            try { options.onTransitionEnd(); } catch (err) { console.error(err); }
+        }
     }
 }
 
@@ -15260,6 +15442,10 @@ function isEnglishBook(b) {
     function resetSwipeLayers(ctx) {
         if (!ctx) return;
         const { fromEl, toEl } = ctx;
+        if (typeof ctx.unlockContainer === 'function') {
+            ctx.unlockContainer();
+            ctx.unlockContainer = null;
+        }
         document.documentElement.classList.remove('swipe-back-active');
         if (fromEl) {
             fromEl.classList.remove('swipe-back-outgoing-layer');
@@ -15283,11 +15469,11 @@ function isEnglishBook(b) {
         }
     }
 
-    function applyProgress(ctx, progress, viewportWidth) {
+    function applyProgress(ctx, progress, dragWidth) {
         const p = Math.max(0, Math.min(1, progress));
-        const outX = p * viewportWidth;
+        const outX = p * dragWidth;
         const outOpacity = Math.max(0.08, 1 - p * 0.88);
-        const inX = -INCOMING_OFFSET_RATIO * viewportWidth * (1 - p);
+        const inX = -INCOMING_OFFSET_RATIO * dragWidth * (1 - p);
         const inOpacity = 0.55 + p * 0.45;
 
         ctx.fromEl.style.transform = `translate3d(${outX}px, 0, 0)`;
@@ -15296,28 +15482,37 @@ function isEnglishBook(b) {
         ctx.toEl.style.opacity = String(inOpacity);
     }
 
-    function activateDragLayers(ctx, viewportWidth) {
-        const fromRect = ctx.fromEl.getBoundingClientRect();
+    function activateDragLayers(ctx, dragState) {
+        const rawViewportWidth = dragState.viewportWidth;
+        const metrics = measureElementForFixedLayer(ctx.fromEl, window.innerHeight || 0);
+        const zoomScale = metrics.zoomScale || 1;
+        const dragWidth = rawViewportWidth / zoomScale;
+        dragState.zoomScale = zoomScale;
+        dragState.dragWidth = dragWidth;
+
         const bodyStyle = window.getComputedStyle(document.body);
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
+        const toCbRect = getFixedContainingBlockRect(ctx.toEl);
+        const toTop = bodyPadTop - ((toCbRect.top || 0) / zoomScale);
 
+        ctx.unlockContainer = lockContainerHeightForLayering(ctx.fromEl, zoomScale);
         document.documentElement.classList.add('swipe-back-active');
 
-        ctx.toEl.style.top = `${bodyPadTop}px`;
-        ctx.toEl.style.left = `${fromRect.left}px`;
-        ctx.toEl.style.width = `${fromRect.width}px`;
-        ctx.toEl.style.minHeight = '100dvh';
+        ctx.toEl.style.top = `${toTop}px`;
+        ctx.toEl.style.left = `${metrics.left}px`;
+        ctx.toEl.style.width = `${metrics.width}px`;
+        ctx.toEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.toEl.style.transition = 'none';
         ctx.toEl.classList.add('swipe-back-incoming-layer');
 
-        ctx.fromEl.style.top = `${fromRect.top}px`;
-        ctx.fromEl.style.left = `${fromRect.left}px`;
-        ctx.fromEl.style.width = `${fromRect.width}px`;
-        ctx.fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+        ctx.fromEl.style.top = `${metrics.top}px`;
+        ctx.fromEl.style.left = `${metrics.left}px`;
+        ctx.fromEl.style.width = `${metrics.width}px`;
+        ctx.fromEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.fromEl.style.transition = 'none';
         ctx.fromEl.classList.add('swipe-back-outgoing-layer');
 
-        applyProgress(ctx, 0, viewportWidth);
+        applyProgress(ctx, 0, dragWidth);
     }
 
     window.addEventListener('touchstart', (e) => {
@@ -15334,17 +15529,22 @@ function isEnglishBook(b) {
         const ctx = resolveSwipeBackContext();
         if (!ctx) return;
 
+        const vw = window.innerWidth || document.documentElement.clientWidth || 375;
         state = {
             ctx,
             startX: touch.clientX,
             startY: touch.clientY,
             lastX: touch.clientX,
             lastTime: Date.now(),
+            lastMoveTime: Date.now(),
             velocityX: 0,
+            hasVelocitySample: false,
             locked: false,
             aborted: false,
             settling: false,
-            viewportWidth: window.innerWidth || document.documentElement.clientWidth || 375
+            viewportWidth: vw,
+            dragWidth: vw,
+            zoomScale: 1
         };
     }, { passive: true });
 
@@ -15366,7 +15566,7 @@ function isEnglishBook(b) {
                 if (document.activeElement && typeof document.activeElement.blur === 'function') {
                     try { document.activeElement.blur(); } catch (err) { }
                 }
-                activateDragLayers(state.ctx, state.viewportWidth);
+                activateDragLayers(state.ctx, state);
             } else {
                 return;
             }
@@ -15377,13 +15577,21 @@ function isEnglishBook(b) {
         }
 
         const now = Date.now();
-        const dt = Math.max(1, now - state.lastTime);
-        state.velocityX = (touch.clientX - state.lastX) / dt;
-        state.lastX = touch.clientX;
-        state.lastTime = now;
+        const deltaX = touch.clientX - state.lastX;
+        const dt = now - state.lastTime;
+        if (dt >= 8 || Math.abs(deltaX) >= 1) {
+            const instV = deltaX / Math.max(8, dt);
+            state.velocityX = state.hasVelocitySample ? (state.velocityX * 0.45 + instV * 0.55) : instV;
+            state.hasVelocitySample = true;
+            state.lastX = touch.clientX;
+            state.lastTime = now;
+            if (Math.abs(deltaX) >= 0.5) {
+                state.lastMoveTime = now;
+            }
+        }
 
         const progress = Math.max(0, Math.min(1, dx / state.viewportWidth));
-        applyProgress(state.ctx, progress, state.viewportWidth);
+        applyProgress(state.ctx, progress, state.dragWidth);
     }, { passive: false });
 
     function finishSwipe(isCancelled) {
@@ -15396,12 +15604,25 @@ function isEnglishBook(b) {
         }
 
         current.settling = true;
+        const now = Date.now();
+        const idleMs = Math.max(0, now - (current.lastMoveTime || current.lastTime));
+        const effectiveVelocity = idleMs > 90
+            ? Math.max(0, current.velocityX * Math.max(0, 1 - (idleMs - 90) / 120))
+            : Math.max(0, current.velocityX);
+
         const dx = Math.max(0, current.lastX - current.startX);
-        const progress = dx / current.viewportWidth;
-        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (current.velocityX > COMMIT_VELOCITY && dx > 36));
+        const progress = Math.max(0, Math.min(1, dx / current.viewportWidth));
+        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (effectiveVelocity > COMMIT_VELOCITY && dx > 36));
         const reduced = isReducedMotionActive();
-        const settleDuration = reduced ? 0 : (shouldCommit ? 240 : 210);
-        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+        const settleDuration = computeSwipeBackSettleDuration({
+            viewportWidth: current.viewportWidth,
+            progress,
+            velocityX: effectiveVelocity,
+            shouldCommit,
+            reduced
+        });
+        const ease = 'cubic-bezier(0.2, 0.88, 0.32, 1)';
+        const dragWidth = current.dragWidth || current.viewportWidth;
 
         if (settleDuration > 0) {
             const tr = `transform ${settleDuration}ms ${ease}, opacity ${settleDuration}ms ${ease}`;
@@ -15413,27 +15634,36 @@ function isEnglishBook(b) {
         }
 
         if (shouldCommit) {
-            current.ctx.fromEl.style.transform = `translate3d(${current.viewportWidth}px, 0, 0)`;
+            current.ctx.fromEl.style.transform = `translate3d(${dragWidth}px, 0, 0)`;
             current.ctx.fromEl.style.opacity = '0';
             current.ctx.toEl.style.transform = 'translate3d(0, 0, 0)';
             current.ctx.toEl.style.opacity = '1';
         } else {
             current.ctx.fromEl.style.transform = 'translate3d(0, 0, 0)';
             current.ctx.fromEl.style.opacity = '1';
-            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * current.viewportWidth}px, 0, 0)`;
+            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * dragWidth}px, 0, 0)`;
             current.ctx.toEl.style.opacity = '0.55';
         }
 
         setTimeout(() => {
-            resetSwipeLayers(current.ctx);
             state = null;
             if (shouldCommit) {
+                if (current.ctx.toEl) {
+                    current.ctx.toEl.classList.add('no-enter-anim');
+                }
                 window.__skipNextBackAnimation = true;
                 try {
+                    // 先在保持双层定位（目标页已静止于 (0,0)）期间提交视图状态切换，再解除固定定位，彻底消除返回后的 1 帧尺寸/排版跳变
                     current.ctx.commit();
                 } finally {
+                    resetSwipeLayers(current.ctx);
+                    if (current.ctx.toEl) {
+                        requestAnimationFrame(() => current.ctx.toEl.classList.remove('no-enter-anim'));
+                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
+            } else {
+                resetSwipeLayers(current.ctx);
             }
         }, settleDuration + 16);
     }
@@ -17719,20 +17949,31 @@ function setBookContentFilter(kind, val) {
 /**
  * 实时搜索词书内容与可伸展搜索框控制
  */
+let _bcSearchBlurTimer = null;
+
 function toggleBookContentSearchExpand(forceExpand = true, e = null) {
     if (e) e.stopPropagation();
     const wrap = document.getElementById('bc-expandable-search-wrap');
     const input = document.getElementById('book-content-search-input');
     if (!wrap) return;
+    if (_bcSearchBlurTimer) {
+        clearTimeout(_bcSearchBlurTimer);
+        _bcSearchBlurTimer = null;
+    }
     if (forceExpand) {
         wrap.classList.add('expanded');
         if (input) {
-            try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
-            requestAnimationFrame(() => {
-                if (document.activeElement !== input) {
-                    try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
-                }
-            });
+            if (typeof focusSearchInputReliable === 'function') {
+                focusSearchInputReliable(input, () => wrap.classList.contains('expanded'), wrap);
+            } else {
+                void wrap.offsetWidth;
+                try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+                requestAnimationFrame(() => {
+                    if (wrap.classList.contains('expanded') && document.activeElement !== input) {
+                        try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+                    }
+                });
+            }
         }
     } else {
         if (input) input.value = '';
@@ -17746,11 +17987,13 @@ function handleBookContentSearchBlur() {
     const wrap = document.getElementById('bc-expandable-search-wrap');
     const input = document.getElementById('book-content-search-input');
     if (!wrap || !input) return;
-    setTimeout(() => {
+    if (_bcSearchBlurTimer) clearTimeout(_bcSearchBlurTimer);
+    _bcSearchBlurTimer = setTimeout(() => {
+        _bcSearchBlurTimer = null;
         if (!input.value.trim() && document.activeElement !== input) {
             wrap.classList.remove('expanded');
         }
-    }, 150);
+    }, 180);
 }
 window.handleBookContentSearchBlur = handleBookContentSearchBlur;
 
@@ -38260,7 +38503,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         switchView('view-me', { direction: subviewKey === 'main' ? 'back' : 'forward', skipTransition });
         return;
     }
-    const currentSubEl = document.querySelector('#view-me .settings-subview.active');
+    const currentSubEl = document.querySelector('#view-me .me-subview.active');
     const targetSubEl = (subviewKey === 'main')
         ? document.getElementById('me-subview-main')
         : document.getElementById(`settings-subview-${subviewKey}`);
@@ -38268,6 +38511,9 @@ function openMeSubview(subviewKey, skipTransition = false) {
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
 
     const performSwitch = () => {
+        if (typeof updateNavVisibilityForState === 'function') {
+            updateNavVisibilityForState('view-me', subviewKey);
+        }
         const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
@@ -38459,6 +38705,9 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
 
     const performSubviewSwitch = () => {
+        if (typeof updateNavVisibilityForState === 'function') {
+            updateNavVisibilityForState('view-settings', subviewKey);
+        }
         const subviews = ['main', 'changelog', 'edit-home'];
         subviews.forEach(k => {
             const el = document.getElementById(`settings-subview-${k}`);
@@ -39964,12 +40213,17 @@ function toggleExpandableSearch(wrapId, inputId) {
         wrap.classList.add('expanded');
         const input = document.getElementById(inputId);
         if (input) {
-            try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
-            requestAnimationFrame(() => {
-                if (document.activeElement !== input) {
-                    try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
-                }
-            });
+            if (typeof focusSearchInputReliable === 'function') {
+                focusSearchInputReliable(input, () => wrap.classList.contains('expanded'), wrap);
+            } else {
+                void wrap.offsetWidth;
+                try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+                requestAnimationFrame(() => {
+                    if (wrap.classList.contains('expanded') && document.activeElement !== input) {
+                        try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+                    }
+                });
+            }
         }
     }
 }
@@ -40191,10 +40445,11 @@ const APP_CHANGELOG = [
         date: '2026-11-21',
         badge: '当前版本',
         items: [
-            '搜索交互聚焦优化：点击首页搜索按钮、搜索栏以及词书内容/熟词本/回收站等展开式搜索图标时，同步将光标精准聚焦至对应搜索输入框（兼容桌面端与 iOS 移动端）。',
+            '搜索聚焦稳定性全面修复：优化首页搜索框（避免只读占位输入框抢占焦点）、顶部折叠搜索按钮及展开式搜索按钮的聚焦时机，确保在页面进入与输入框展开过渡期间同步激活光标并在过渡结束后自动兜底校验。',
             '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',
             '搜索设置释义来源归类：将搜索设置“释义来源”列表中的所有加密词书统一归类为独立的「Doris」来源选项，支持统一开关控制。',
-            '手机端页面滑入/返回动画与 iOS 手势返回：仅在手机端（<= 767px）为进入新页面新增从右侧滑入动画、为返回页面提供向右淡出并从左滑入的定向动画，宽屏设备取消返回动画；在 iOS 手机端支持屏幕最左侧边缘滑动返回手势，页面动画随手指滑动进度实时联动。',
+            '手机端导航栏自动隐藏：在手机端（<= 767px）进入所有新页面及个人中心/设置二级子页面时统一隐藏底部栏与左侧栏，仅在首页、个人中心主页和设置主页保留导航栏。',
+            '手机端页面滑入/返回与 iOS 手势体验优化：取消宽屏设备返回动画；修复手机端左滑返回过程中及返回上一页后的页面尺寸跳变问题（修正缩放系数、固定定位包含块与容器高度锁定，并调整状态提交顺序）；iOS 边缘左滑返回支持依据页面宽度、剩余距离与手势滑动力度动态调节过渡速度。',
             '返回首页稳定性修复：优化首页布局刷新与卡片过渡属性，修复回到首页时重复重排刷新卡片及触发卡片位移动画的问题。',
             '熟词永久免复习：优化单词与文言实词熟词机制，将词汇标为熟词后立即同步记为已掌握并清零复习计划，后续不再安排或抽取复习，也不受逾期惩罚或误答重置影响。'
         ]
@@ -42415,8 +42670,16 @@ function showSearchHistoryView() {
     tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
-function focusSearchInputElement(inputEl) {
+function focusSearchInputElement(inputEl, reflowTarget = null) {
     if (!inputEl) return;
+    try {
+        // 先解除先前元素（如首页按钮）焦点或先刷新刚激活容器的布局尺寸，避免内容可见性/尺寸未更新时 focus 静默失效
+        if (reflowTarget && typeof reflowTarget.offsetWidth === 'number') {
+            void reflowTarget.offsetWidth;
+        } else if (typeof inputEl.offsetWidth === 'number') {
+            void inputEl.offsetWidth;
+        }
+    } catch (e) { }
     try {
         inputEl.focus({ preventScroll: true });
     } catch (e) {
@@ -42429,23 +42692,54 @@ function focusSearchInputElement(inputEl) {
         }
     } catch (e) { }
 }
+window.focusSearchInputElement = focusSearchInputElement;
 
-function focusSearchFromHub() {
-    switchView('view-search', { direction: 'forward' });
-    showSearchHistoryView();
-    const inp = document.getElementById('search-page-input');
-    focusSearchInputElement(inp);
+function focusSearchInputReliable(inputEl, shouldKeepFocusFn = null, transitionContainer = null) {
+    if (!inputEl) return;
+    const isAllowed = () => {
+        if (typeof shouldKeepFocusFn === 'function' && !shouldKeepFocusFn()) return false;
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== document.documentElement && active !== inputEl) {
+            const tag = active.tagName ? active.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+        }
+        return document.activeElement !== inputEl;
+    };
+
+    focusSearchInputElement(inputEl, transitionContainer || inputEl);
+
     requestAnimationFrame(() => {
-        if (inp && document.activeElement !== inp) {
-            focusSearchInputElement(inp);
+        if (isAllowed()) {
+            focusSearchInputElement(inputEl, transitionContainer || inputEl);
         }
     });
+
+    if (transitionContainer && typeof transitionContainer.addEventListener === 'function') {
+        const onEnd = () => {
+            if (isAllowed()) {
+                focusSearchInputElement(inputEl, transitionContainer);
+            }
+        };
+        transitionContainer.addEventListener('transitionend', onEnd, { once: true });
+    }
+
+    setTimeout(() => {
+        if (isAllowed()) {
+            focusSearchInputElement(inputEl, transitionContainer || inputEl);
+        }
+    }, 300);
+}
+window.focusSearchInputReliable = focusSearchInputReliable;
+
+function focusSearchFromHub() {
+    openSearchPageFromHub(false);
 }
 
 function openSearchPageFromHub(showKeyboard = false) {
     const searchInp = document.getElementById('search-page-input');
+    const searchViewEl = document.getElementById('view-search');
     if (typeof currentView !== 'undefined' && currentView === 'view-search') {
-        focusSearchInputElement(searchInp);
+        focusSearchInputElement(searchInp, searchViewEl);
         if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
             toggleVirtualKeyboardFromSearch(null, 'search-page-input');
         }
@@ -42466,20 +42760,36 @@ function openSearchPageFromHub(showKeyboard = false) {
     const suggsHub = document.getElementById('hub-search-suggestions');
     if (suggsHub) suggsHub.style.display = 'none';
 
-    switchView('view-search', { direction: 'forward' });
-    if (searchInp) {
-        showSearchHistoryView();
-        // 同步聚焦搜索框，确保桌面端与 iOS Safari 均在用户点击手势链内立即激活光标
-        focusSearchInputElement(searchInp);
-        if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
-            toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+    const tryFocusSearchPageInput = () => {
+        const inp = document.getElementById('search-page-input');
+        const activeViewId = (typeof window !== 'undefined' && window.currentView) ? window.currentView : currentView;
+        if (!inp || activeViewId !== 'view-search') return;
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== document.documentElement && active !== inp && active.closest && active.closest('#view-search')) {
+            return;
         }
-        requestAnimationFrame(() => {
-            if (document.activeElement !== searchInp) {
-                focusSearchInputElement(searchInp);
+        focusSearchInputElement(inp, searchViewEl);
+    };
+
+    switchView('view-search', {
+        direction: 'forward',
+        onAfterDomUpdate: () => {
+            if (!searchInp) return;
+            // 在 .active 已添加、.page-forward-incoming-layer 尚未把视图移出屏幕前同步聚焦并刷新布局，避免点击后偶发不聚焦
+            focusSearchInputElement(searchInp, searchViewEl);
+            if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+                toggleVirtualKeyboardFromSearch(null, 'search-page-input');
             }
-        });
-    }
+            requestAnimationFrame(() => {
+                if (document.activeElement !== searchInp) {
+                    tryFocusSearchPageInput();
+                }
+            });
+        },
+        onTransitionEnd: () => {
+            tryFocusSearchPageInput();
+        }
+    });
 }
 window.openSearchPageFromHub = openSearchPageFromHub;
 

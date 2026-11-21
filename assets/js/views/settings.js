@@ -37,7 +37,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         switchView('view-me', { direction: subviewKey === 'main' ? 'back' : 'forward', skipTransition });
         return;
     }
-    const currentSubEl = document.querySelector('#view-me .settings-subview.active');
+    const currentSubEl = document.querySelector('#view-me .me-subview.active');
     const targetSubEl = (subviewKey === 'main')
         ? document.getElementById('me-subview-main')
         : document.getElementById(`settings-subview-${subviewKey}`);
@@ -45,6 +45,9 @@ function openMeSubview(subviewKey, skipTransition = false) {
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
 
     const performSwitch = () => {
+        if (typeof updateNavVisibilityForState === 'function') {
+            updateNavVisibilityForState('view-me', subviewKey);
+        }
         const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
         meSubviews.forEach(k => {
             const el = (k === 'main')
@@ -236,6 +239,9 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
 
     const performSubviewSwitch = () => {
+        if (typeof updateNavVisibilityForState === 'function') {
+            updateNavVisibilityForState('view-settings', subviewKey);
+        }
         const subviews = ['main', 'changelog', 'edit-home'];
         subviews.forEach(k => {
             const el = document.getElementById(`settings-subview-${k}`);
@@ -1741,12 +1747,17 @@ function toggleExpandableSearch(wrapId, inputId) {
         wrap.classList.add('expanded');
         const input = document.getElementById(inputId);
         if (input) {
-            try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
-            requestAnimationFrame(() => {
-                if (document.activeElement !== input) {
-                    try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
-                }
-            });
+            if (typeof focusSearchInputReliable === 'function') {
+                focusSearchInputReliable(input, () => wrap.classList.contains('expanded'), wrap);
+            } else {
+                void wrap.offsetWidth;
+                try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+                requestAnimationFrame(() => {
+                    if (wrap.classList.contains('expanded') && document.activeElement !== input) {
+                        try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+                    }
+                });
+            }
         }
     }
 }
@@ -1968,10 +1979,11 @@ const APP_CHANGELOG = [
         date: '2026-11-21',
         badge: '当前版本',
         items: [
-            '搜索交互聚焦优化：点击首页搜索按钮、搜索栏以及词书内容/熟词本/回收站等展开式搜索图标时，同步将光标精准聚焦至对应搜索输入框（兼容桌面端与 iOS 移动端）。',
+            '搜索聚焦稳定性全面修复：优化首页搜索框（避免只读占位输入框抢占焦点）、顶部折叠搜索按钮及展开式搜索按钮的聚焦时机，确保在页面进入与输入框展开过渡期间同步激活光标并在过渡结束后自动兜底校验。',
             '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',
             '搜索设置释义来源归类：将搜索设置“释义来源”列表中的所有加密词书统一归类为独立的「Doris」来源选项，支持统一开关控制。',
-            '手机端页面滑入/返回动画与 iOS 手势返回：仅在手机端（<= 767px）为进入新页面新增从右侧滑入动画、为返回页面提供向右淡出并从左滑入的定向动画，宽屏设备取消返回动画；在 iOS 手机端支持屏幕最左侧边缘滑动返回手势，页面动画随手指滑动进度实时联动。',
+            '手机端导航栏自动隐藏：在手机端（<= 767px）进入所有新页面及个人中心/设置二级子页面时统一隐藏底部栏与左侧栏，仅在首页、个人中心主页和设置主页保留导航栏。',
+            '手机端页面滑入/返回与 iOS 手势体验优化：取消宽屏设备返回动画；修复手机端左滑返回过程中及返回上一页后的页面尺寸跳变问题（修正缩放系数、固定定位包含块与容器高度锁定，并调整状态提交顺序）；iOS 边缘左滑返回支持依据页面宽度、剩余距离与手势滑动力度动态调节过渡速度。',
             '返回首页稳定性修复：优化首页布局刷新与卡片过渡属性，修复回到首页时重复重排刷新卡片及触发卡片位移动画的问题。',
             '熟词永久免复习：优化单词与文言实词熟词机制，将词汇标为熟词后立即同步记为已掌握并清零复习计划，后续不再安排或抽取复习，也不受逾期惩罚或误答重置影响。'
         ]

@@ -68,6 +68,11 @@
     -webkit-user-select: none;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 body {
     font-family: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
     background-color: var(--md-sys-color-background);
@@ -176,7 +181,7 @@ body {
     box-sizing: border-box;
 }
 
-.view:not(.active) {
+.view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
     content-visibility: hidden;
     position: fixed;
     top: 0;
@@ -192,7 +197,7 @@ body {
 }
 
 @supports not (content-visibility: hidden) {
-    .view:not(.active) {
+    .view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
         display: none;
     }
 }
@@ -205,8 +210,7 @@ body {
 /* “我”、“设置”主页面切换：轻量化合成层位移动画；首页保持稳定，避免返回首页时卡片位移动画 */
 #view-me.active,
 #view-settings.active {
-    animation: md3SlideDownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    will-change: transform, opacity;
+    animation: md3SlideDownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* 导航栏保持稳定，不参与页面整体滑动淡入淡出 */
@@ -252,16 +256,15 @@ body {
         z-index: 1;
     }
 
-    html.dom-back-transition,
     html.dom-back-transition body,
-    html.dom-forward-transition,
     html.dom-forward-transition body {
-        overflow-x: hidden !important;
+        overflow-x: clip !important;
     }
 
     /* 手机端返回动画：当前页面向右淡出，目标页面从左侧滑入 */
     .page-back-outgoing-layer {
         position: fixed !important;
+        box-sizing: border-box !important;
         content-visibility: visible !important;
         visibility: visible !important;
         display: block !important;
@@ -277,7 +280,7 @@ body {
     .page-back-outgoing-layer::before {
         content: '';
         position: absolute;
-        inset: -100vh -48px;
+        inset: -16px -16px;
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -291,6 +294,7 @@ body {
     /* 手机端进入新页面滑入动画：新页面从右侧滑入，旧页面向左退让 */
     .page-forward-outgoing-layer {
         position: fixed !important;
+        box-sizing: border-box !important;
         content-visibility: visible !important;
         visibility: visible !important;
         display: block !important;
@@ -305,7 +309,7 @@ body {
     .page-forward-outgoing-layer::before {
         content: '';
         position: absolute;
-        inset: -100vh -48px;
+        inset: -16px -16px;
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -324,7 +328,7 @@ body {
     .page-forward-incoming-layer::before {
         content: '';
         position: absolute;
-        inset: -100vh -48px;
+        inset: -16px -16px;
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -359,14 +363,14 @@ html.swipe-back-active .settings-subview.active,
 }
 
 /* iOS 移动端左边缘手势滑动返回实时联动层 */
-html.swipe-back-active,
 html.swipe-back-active body {
-    overflow-x: hidden !important;
+    overflow-x: clip !important;
     touch-action: none !important;
 }
 
 .swipe-back-incoming-layer {
     position: fixed !important;
+    box-sizing: border-box !important;
     content-visibility: visible !important;
     visibility: visible !important;
     display: block !important;
@@ -382,7 +386,7 @@ html.swipe-back-active body {
 .swipe-back-incoming-layer::before {
     content: '';
     position: absolute;
-    inset: -100vh -48px;
+    inset: -16px -16px;
     background: var(--md-sys-color-background);
     z-index: -1;
     pointer-events: none;
@@ -390,6 +394,7 @@ html.swipe-back-active body {
 
 .swipe-back-outgoing-layer {
     position: fixed !important;
+    box-sizing: border-box !important;
     content-visibility: visible !important;
     visibility: visible !important;
     display: block !important;
@@ -406,7 +411,7 @@ html.swipe-back-active body {
 .swipe-back-outgoing-layer::before {
     content: '';
     position: absolute;
-    inset: -100vh -48px;
+    inset: -16px -16px;
     background: var(--md-sys-color-background);
     z-index: -1;
     pointer-events: none;
@@ -7032,8 +7037,8 @@ body.nav-hidden {
     box-sizing: border-box;
 }
 
-.me-subview:not(.active),
-.settings-subview:not(.active) {
+.me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer),
+.settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer) {
     content-visibility: hidden;
     position: fixed;
     top: 0;
@@ -7058,8 +7063,7 @@ body.nav-hidden {
 .me-subview.active,
 .settings-subview.active {
     display: block;
-    animation: md3ViewEnter 0.16s cubic-bezier(0.05, 0.7, 0.1, 1.0) forwards;
-    will-change: transform, opacity;
+    animation: md3SlideDownFadeIn 0.16s cubic-bezier(0.05, 0.7, 0.1, 1.0);
 }
 
 .settings-section-title {

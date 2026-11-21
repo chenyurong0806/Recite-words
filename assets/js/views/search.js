@@ -1326,8 +1326,16 @@ function showSearchHistoryView() {
     tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
-function focusSearchInputElement(inputEl) {
+function focusSearchInputElement(inputEl, reflowTarget = null) {
     if (!inputEl) return;
+    try {
+        // 先解除先前元素（如首页按钮）焦点或先刷新刚激活容器的布局尺寸，避免内容可见性/尺寸未更新时 focus 静默失效
+        if (reflowTarget && typeof reflowTarget.offsetWidth === 'number') {
+            void reflowTarget.offsetWidth;
+        } else if (typeof inputEl.offsetWidth === 'number') {
+            void inputEl.offsetWidth;
+        }
+    } catch (e) { }
     try {
         inputEl.focus({ preventScroll: true });
     } catch (e) {
@@ -1340,23 +1348,54 @@ function focusSearchInputElement(inputEl) {
         }
     } catch (e) { }
 }
+window.focusSearchInputElement = focusSearchInputElement;
 
-function focusSearchFromHub() {
-    switchView('view-search', { direction: 'forward' });
-    showSearchHistoryView();
-    const inp = document.getElementById('search-page-input');
-    focusSearchInputElement(inp);
+function focusSearchInputReliable(inputEl, shouldKeepFocusFn = null, transitionContainer = null) {
+    if (!inputEl) return;
+    const isAllowed = () => {
+        if (typeof shouldKeepFocusFn === 'function' && !shouldKeepFocusFn()) return false;
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== document.documentElement && active !== inputEl) {
+            const tag = active.tagName ? active.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+        }
+        return document.activeElement !== inputEl;
+    };
+
+    focusSearchInputElement(inputEl, transitionContainer || inputEl);
+
     requestAnimationFrame(() => {
-        if (inp && document.activeElement !== inp) {
-            focusSearchInputElement(inp);
+        if (isAllowed()) {
+            focusSearchInputElement(inputEl, transitionContainer || inputEl);
         }
     });
+
+    if (transitionContainer && typeof transitionContainer.addEventListener === 'function') {
+        const onEnd = () => {
+            if (isAllowed()) {
+                focusSearchInputElement(inputEl, transitionContainer);
+            }
+        };
+        transitionContainer.addEventListener('transitionend', onEnd, { once: true });
+    }
+
+    setTimeout(() => {
+        if (isAllowed()) {
+            focusSearchInputElement(inputEl, transitionContainer || inputEl);
+        }
+    }, 300);
+}
+window.focusSearchInputReliable = focusSearchInputReliable;
+
+function focusSearchFromHub() {
+    openSearchPageFromHub(false);
 }
 
 function openSearchPageFromHub(showKeyboard = false) {
     const searchInp = document.getElementById('search-page-input');
+    const searchViewEl = document.getElementById('view-search');
     if (typeof currentView !== 'undefined' && currentView === 'view-search') {
-        focusSearchInputElement(searchInp);
+        focusSearchInputElement(searchInp, searchViewEl);
         if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
             toggleVirtualKeyboardFromSearch(null, 'search-page-input');
         }
@@ -1377,20 +1416,36 @@ function openSearchPageFromHub(showKeyboard = false) {
     const suggsHub = document.getElementById('hub-search-suggestions');
     if (suggsHub) suggsHub.style.display = 'none';
 
-    switchView('view-search', { direction: 'forward' });
-    if (searchInp) {
-        showSearchHistoryView();
-        // 同步聚焦搜索框，确保桌面端与 iOS Safari 均在用户点击手势链内立即激活光标
-        focusSearchInputElement(searchInp);
-        if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
-            toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+    const tryFocusSearchPageInput = () => {
+        const inp = document.getElementById('search-page-input');
+        const activeViewId = (typeof window !== 'undefined' && window.currentView) ? window.currentView : currentView;
+        if (!inp || activeViewId !== 'view-search') return;
+        const active = document.activeElement;
+        if (active && active !== document.body && active !== document.documentElement && active !== inp && active.closest && active.closest('#view-search')) {
+            return;
         }
-        requestAnimationFrame(() => {
-            if (document.activeElement !== searchInp) {
-                focusSearchInputElement(searchInp);
+        focusSearchInputElement(inp, searchViewEl);
+    };
+
+    switchView('view-search', {
+        direction: 'forward',
+        onAfterDomUpdate: () => {
+            if (!searchInp) return;
+            // 在 .active 已添加、.page-forward-incoming-layer 尚未把视图移出屏幕前同步聚焦并刷新布局，避免点击后偶发不聚焦
+            focusSearchInputElement(searchInp, searchViewEl);
+            if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+                toggleVirtualKeyboardFromSearch(null, 'search-page-input');
             }
-        });
-    }
+            requestAnimationFrame(() => {
+                if (document.activeElement !== searchInp) {
+                    tryFocusSearchPageInput();
+                }
+            });
+        },
+        onTransitionEnd: () => {
+            tryFocusSearchPageInput();
+        }
+    });
 }
 window.openSearchPageFromHub = openSearchPageFromHub;
 

@@ -2272,20 +2272,31 @@ function setBookContentFilter(kind, val) {
 /**
  * 实时搜索词书内容与可伸展搜索框控制
  */
+let _bcSearchBlurTimer = null;
+
 function toggleBookContentSearchExpand(forceExpand = true, e = null) {
     if (e) e.stopPropagation();
     const wrap = document.getElementById('bc-expandable-search-wrap');
     const input = document.getElementById('book-content-search-input');
     if (!wrap) return;
+    if (_bcSearchBlurTimer) {
+        clearTimeout(_bcSearchBlurTimer);
+        _bcSearchBlurTimer = null;
+    }
     if (forceExpand) {
         wrap.classList.add('expanded');
         if (input) {
-            try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
-            requestAnimationFrame(() => {
-                if (document.activeElement !== input) {
-                    try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
-                }
-            });
+            if (typeof focusSearchInputReliable === 'function') {
+                focusSearchInputReliable(input, () => wrap.classList.contains('expanded'), wrap);
+            } else {
+                void wrap.offsetWidth;
+                try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+                requestAnimationFrame(() => {
+                    if (wrap.classList.contains('expanded') && document.activeElement !== input) {
+                        try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+                    }
+                });
+            }
         }
     } else {
         if (input) input.value = '';
@@ -2299,11 +2310,13 @@ function handleBookContentSearchBlur() {
     const wrap = document.getElementById('bc-expandable-search-wrap');
     const input = document.getElementById('book-content-search-input');
     if (!wrap || !input) return;
-    setTimeout(() => {
+    if (_bcSearchBlurTimer) clearTimeout(_bcSearchBlurTimer);
+    _bcSearchBlurTimer = setTimeout(() => {
+        _bcSearchBlurTimer = null;
         if (!input.value.trim() && document.activeElement !== input) {
             wrap.classList.remove('expanded');
         }
-    }, 150);
+    }, 180);
 }
 window.handleBookContentSearchBlur = handleBookContentSearchBlur;
 

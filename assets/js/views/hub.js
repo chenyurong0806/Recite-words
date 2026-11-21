@@ -52,8 +52,173 @@ function isReducedMotionActive() {
 }
 window.isReducedMotionActive = isReducedMotionActive;
 
-function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = null) {
+function isRootNavState(viewId, subviewKey = 'main') {
+    if (viewId === 'view-hub') return true;
+    if (viewId === 'view-me') return subviewKey === 'main';
+    if (viewId === 'view-settings') return subviewKey === 'main';
+    return false;
+}
+
+function resolveCurrentSubviewKey(viewId) {
+    if (typeof document === 'undefined') return 'main';
+    if (viewId === 'view-me') {
+        const activeSub = document.querySelector('#view-me .me-subview.active');
+        return (!activeSub || activeSub.id === 'me-subview-main')
+            ? 'main'
+            : activeSub.id.replace(/^settings-subview-/, '');
+    }
+    if (viewId === 'view-settings') {
+        const activeSub = document.querySelector('#view-settings .settings-subview.active');
+        return (!activeSub || activeSub.id === 'settings-subview-main')
+            ? 'main'
+            : activeSub.id.replace(/^settings-subview-/, '');
+    }
+    return 'main';
+}
+
+function updateNavVisibilityForState(viewId = null, subviewKey = null) {
+    if (typeof document === 'undefined' || !document.body) return;
+    const resolvedView = viewId || (typeof window !== 'undefined' && window.currentView) || 'view-hub';
+    const resolvedSub = subviewKey || resolveCurrentSubviewKey(resolvedView);
+    const isMobile = isMobilePageTransitionViewport();
+    const isLoggedOutAuth = (typeof currentUser !== 'undefined' ? !currentUser : false) && resolvedView === 'view-auth';
+
+    let shouldHideNav = false;
+    if (isMobile) {
+        // 手机端：仅首页、个人中心主页、设置主页保留底部栏；进入所有新页面与二级子页面一律隐藏底部栏/左侧栏
+        shouldHideNav = !isRootNavState(resolvedView, resolvedSub) || isLoggedOutAuth;
+    } else {
+        const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
+        shouldHideNav = hideNavViews.includes(resolvedView) || isLoggedOutAuth;
+    }
+
+    if (shouldHideNav) {
+        document.body.classList.remove('has-nav');
+        document.body.classList.add('nav-hidden');
+    } else {
+        document.body.classList.add('has-nav');
+        document.body.classList.remove('nav-hidden');
+    }
+}
+window.updateNavVisibilityForState = updateNavVisibilityForState;
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('resize', () => {
+        updateNavVisibilityForState();
+    }, { passive: true });
+}
+
+function getEffectiveElementZoom(el, rect = null) {
+    const r = rect || (el && typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null);
+    if (el && el.offsetWidth > 0 && r && r.width > 0) {
+        const ratio = r.width / el.offsetWidth;
+        if (Number.isFinite(ratio) && ratio > 0.25 && ratio < 4) {
+            return ratio;
+        }
+    }
+    if (typeof document !== 'undefined' && document.body && document.body.style && document.body.style.zoom) {
+        const parsed = parseFloat(document.body.style.zoom);
+        if (Number.isFinite(parsed) && parsed > 0.25 && parsed < 4) {
+            return parsed;
+        }
+    }
+    return 1;
+}
+
+function getFixedContainingBlockRect(el) {
+    if (typeof window === 'undefined' || !el) return { left: 0, top: 0 };
+    let cur = el.parentElement;
+    while (cur && cur !== document.documentElement) {
+        if (cur !== document.body && typeof window.getComputedStyle === 'function') {
+            const st = window.getComputedStyle(cur);
+            const hasTransform = st.transform && st.transform !== 'none';
+            const hasPerspective = st.perspective && st.perspective !== 'none';
+            const hasFilter = st.filter && st.filter !== 'none';
+            const willChange = st.willChange || '';
+            const hasWillChange = /\b(transform|perspective|filter)\b/.test(willChange);
+            const contain = st.contain || '';
+            const hasContain = /\b(layout|paint|strict|content)\b/.test(contain);
+            if (hasTransform || hasPerspective || hasFilter || hasWillChange || hasContain) {
+                return cur.getBoundingClientRect();
+            }
+        }
+        cur = cur.parentElement;
+    }
+    return { left: 0, top: 0 };
+}
+
+function measureElementForFixedLayer(el, fallbackViewportHeight = 0) {
+    const rect = (el && typeof el.getBoundingClientRect === 'function')
+        ? el.getBoundingClientRect()
+        : { top: 0, left: 0, width: 0, height: 0 };
+    const zoomScale = getEffectiveElementZoom(el, rect);
+    const cbRect = getFixedContainingBlockRect(el);
+    const width = (el && el.offsetWidth > 0) ? el.offsetWidth : (rect.width / zoomScale);
+    const innerH = fallbackViewportHeight
+        || (typeof window !== 'undefined' ? window.innerHeight : 0)
+        || (typeof document !== 'undefined' && document.documentElement ? document.documentElement.clientHeight : 0)
+        || 0;
+    const minHeight = Math.max(
+        (el && el.offsetHeight) || 0,
+        (rect.height || 0) / zoomScale,
+        innerH / zoomScale
+    );
+    return {
+        top: ((rect.top || 0) - (cbRect.top || 0)) / zoomScale,
+        left: ((rect.left || 0) - (cbRect.left || 0)) / zoomScale,
+        width,
+        minHeight,
+        zoomScale,
+        cbRect
+    };
+}
+window.measureElementForFixedLayer = measureElementForFixedLayer;
+
+function lockContainerHeightForLayering(referenceEl, zoomScale = 1) {
+    if (typeof document === 'undefined') return () => {};
+    const containerEl = (referenceEl && typeof referenceEl.closest === 'function' ? referenceEl.closest('.container') : null)
+        || document.querySelector('.container');
+    if (!containerEl) return () => {};
+    const prevMinHeight = containerEl.style.minHeight;
+    const rect = typeof containerEl.getBoundingClientRect === 'function' ? containerEl.getBoundingClientRect() : null;
+    const lockedHeight = Math.max(
+        containerEl.offsetHeight || 0,
+        rect && rect.height ? (rect.height / (zoomScale || 1)) : 0
+    );
+    if (lockedHeight > 0) {
+        containerEl.style.minHeight = `${lockedHeight}px`;
+    }
+    return () => {
+        containerEl.style.minHeight = prevMinHeight;
+    };
+}
+
+function computeSwipeBackSettleDuration({ viewportWidth = 375, progress = 0, velocityX = 0, shouldCommit = true, reduced = false } = {}) {
+    if (reduced) return 0;
+    const width = Math.max(280, Number(viewportWidth) || 375);
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const v = Math.max(0, Math.min(2.4, Number(velocityX) || 0));
+    // 页面越宽基准时间越充裕、左滑力度越大（速度越快）收尾越利落，保持视觉速度从容自然
+    const widthFactor = Math.max(0.85, Math.min(1.42, width / 390));
+    const remainingRatio = shouldCommit ? Math.max(0.08, 1 - p) : Math.max(0.08, p);
+    const distanceFactor = 0.5 + 0.5 * Math.sqrt(remainingRatio);
+    const velocityFactor = shouldCommit
+        ? (1 / (1 + v * 0.38))
+        : (1 / (1 + Math.min(1.0, v) * 0.22));
+    const baseMs = shouldCommit ? 480 : 380;
+    const raw = Math.round(baseMs * widthFactor * distanceFactor * velocityFactor);
+    return Math.max(shouldCommit ? 250 : 210, Math.min(580, raw));
+}
+window.computeSwipeBackSettleDuration = computeSwipeBackSettleDuration;
+
+function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = null, options = {}) {
     if (typeof updateDom !== 'function') return;
+
+    const invokeCallback = (fn) => {
+        if (typeof fn === 'function') {
+            try { fn(); } catch (err) { console.error(err); }
+        }
+    };
 
     if (activeDomTransitionCleanup) {
         activeDomTransitionCleanup();
@@ -64,9 +229,11 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         window.__skipNextBackAnimation = false;
         if (toEl) toEl.classList.add('no-enter-anim');
         updateDom();
+        invokeCallback(options && options.onAfterDomUpdate);
         if (toEl) {
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
+        invokeCallback(options && options.onTransitionEnd);
         return;
     }
 
@@ -75,10 +242,13 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         if (direction === 'back' && toEl) {
             toEl.classList.add('no-enter-anim');
             updateDom();
+            invokeCallback(options && options.onAfterDomUpdate);
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         } else {
             updateDom();
+            invokeCallback(options && options.onAfterDomUpdate);
         }
+        invokeCallback(options && options.onTransitionEnd);
         return;
     }
 
@@ -89,16 +259,21 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const primaryAnimEl = isBack ? fromEl : toEl;
 
     const docEl = document.documentElement;
-    const fromRect = fromEl.getBoundingClientRect();
+    const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
+    const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
     docEl.classList.add(docClass);
     updateDom();
 
-    fromEl.style.top = `${fromRect.top}px`;
-    fromEl.style.left = `${fromRect.left}px`;
-    fromEl.style.width = `${fromRect.width}px`;
+    fromEl.style.top = `${metrics.top}px`;
+    fromEl.style.left = `${metrics.left}px`;
+    fromEl.style.width = `${metrics.width}px`;
     fromEl.style.height = 'auto';
-    fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+    fromEl.style.minHeight = `${metrics.minHeight}px`;
     fromEl.classList.add(outClass);
+
+    // 在页面滑入动画类使目标层离屏偏移前先执行同步回调（如聚焦搜索框），防止 Safari/移动端拒绝聚焦离屏元素
+    invokeCallback(options && options.onAfterDomUpdate);
+
     toEl.classList.add(inClass);
 
     let finished = false;
@@ -115,6 +290,8 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         fromEl.style.minHeight = '';
         toEl.classList.remove(inClass);
         docEl.classList.remove(docClass);
+        unlockContainer();
+        invokeCallback(options && options.onTransitionEnd);
     };
     const onAnimEnd = (ev) => {
         if (ev.target === primaryAnimEl) cleanup();
@@ -129,13 +306,13 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     setTimeout(cleanup, 360);
 }
 
-function runBackPageTransition(updateDom, fromEl = null, toEl = null) {
-    runTwoLayerPageTransition('back', updateDom, fromEl, toEl);
+function runBackPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
+    runTwoLayerPageTransition('back', updateDom, fromEl, toEl, options);
 }
 window.runBackPageTransition = runBackPageTransition;
 
-function runForwardPageTransition(updateDom, fromEl = null, toEl = null) {
-    runTwoLayerPageTransition('forward', updateDom, fromEl, toEl);
+function runForwardPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
+    runTwoLayerPageTransition('forward', updateDom, fromEl, toEl, options);
 }
 window.runForwardPageTransition = runForwardPageTransition;
 
@@ -204,17 +381,10 @@ function switchView(viewId, options = {}) {
             }
         }
 
-        const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
-
-        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
-
-        if (shouldHideNav) {
-            document.body.classList.remove('has-nav');
-            document.body.classList.add('nav-hidden');
-        } else {
-            document.body.classList.add('has-nav');
-            document.body.classList.remove('nav-hidden');
-        }
+        const targetSubKey = (viewId === 'view-me')
+            ? (window.__targetMeSubview || 'main')
+            : 'main';
+        updateNavVisibilityForState(viewId, targetSubKey);
 
         if (typeof updateNavActive === 'function') {
             const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
@@ -302,18 +472,30 @@ function switchView(viewId, options = {}) {
     };
 
     if (isBack) {
-        runBackPageTransition(applyViewUpdate, fromEl, toEl);
+        runBackPageTransition(applyViewUpdate, fromEl, toEl, options);
     } else if (isForward) {
-        runForwardPageTransition(applyViewUpdate, fromEl, toEl);
+        runForwardPageTransition(applyViewUpdate, fromEl, toEl, options);
     } else if (window.__skipNextBackAnimation || skipTransition || (options && options.direction === 'back')) {
         window.__skipNextBackAnimation = false;
         if (toEl) toEl.classList.add('no-enter-anim');
         applyViewUpdate();
+        if (options && typeof options.onAfterDomUpdate === 'function') {
+            try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
+        }
         if (toEl) {
             requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
+        if (options && typeof options.onTransitionEnd === 'function') {
+            try { options.onTransitionEnd(); } catch (err) { console.error(err); }
+        }
     } else {
         applyViewUpdate();
+        if (options && typeof options.onAfterDomUpdate === 'function') {
+            try { options.onAfterDomUpdate(); } catch (err) { console.error(err); }
+        }
+        if (options && typeof options.onTransitionEnd === 'function') {
+            try { options.onTransitionEnd(); } catch (err) { console.error(err); }
+        }
     }
 }
 
@@ -990,6 +1172,10 @@ function isEnglishBook(b) {
     function resetSwipeLayers(ctx) {
         if (!ctx) return;
         const { fromEl, toEl } = ctx;
+        if (typeof ctx.unlockContainer === 'function') {
+            ctx.unlockContainer();
+            ctx.unlockContainer = null;
+        }
         document.documentElement.classList.remove('swipe-back-active');
         if (fromEl) {
             fromEl.classList.remove('swipe-back-outgoing-layer');
@@ -1013,11 +1199,11 @@ function isEnglishBook(b) {
         }
     }
 
-    function applyProgress(ctx, progress, viewportWidth) {
+    function applyProgress(ctx, progress, dragWidth) {
         const p = Math.max(0, Math.min(1, progress));
-        const outX = p * viewportWidth;
+        const outX = p * dragWidth;
         const outOpacity = Math.max(0.08, 1 - p * 0.88);
-        const inX = -INCOMING_OFFSET_RATIO * viewportWidth * (1 - p);
+        const inX = -INCOMING_OFFSET_RATIO * dragWidth * (1 - p);
         const inOpacity = 0.55 + p * 0.45;
 
         ctx.fromEl.style.transform = `translate3d(${outX}px, 0, 0)`;
@@ -1026,28 +1212,37 @@ function isEnglishBook(b) {
         ctx.toEl.style.opacity = String(inOpacity);
     }
 
-    function activateDragLayers(ctx, viewportWidth) {
-        const fromRect = ctx.fromEl.getBoundingClientRect();
+    function activateDragLayers(ctx, dragState) {
+        const rawViewportWidth = dragState.viewportWidth;
+        const metrics = measureElementForFixedLayer(ctx.fromEl, window.innerHeight || 0);
+        const zoomScale = metrics.zoomScale || 1;
+        const dragWidth = rawViewportWidth / zoomScale;
+        dragState.zoomScale = zoomScale;
+        dragState.dragWidth = dragWidth;
+
         const bodyStyle = window.getComputedStyle(document.body);
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
+        const toCbRect = getFixedContainingBlockRect(ctx.toEl);
+        const toTop = bodyPadTop - ((toCbRect.top || 0) / zoomScale);
 
+        ctx.unlockContainer = lockContainerHeightForLayering(ctx.fromEl, zoomScale);
         document.documentElement.classList.add('swipe-back-active');
 
-        ctx.toEl.style.top = `${bodyPadTop}px`;
-        ctx.toEl.style.left = `${fromRect.left}px`;
-        ctx.toEl.style.width = `${fromRect.width}px`;
-        ctx.toEl.style.minHeight = '100dvh';
+        ctx.toEl.style.top = `${toTop}px`;
+        ctx.toEl.style.left = `${metrics.left}px`;
+        ctx.toEl.style.width = `${metrics.width}px`;
+        ctx.toEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.toEl.style.transition = 'none';
         ctx.toEl.classList.add('swipe-back-incoming-layer');
 
-        ctx.fromEl.style.top = `${fromRect.top}px`;
-        ctx.fromEl.style.left = `${fromRect.left}px`;
-        ctx.fromEl.style.width = `${fromRect.width}px`;
-        ctx.fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+        ctx.fromEl.style.top = `${metrics.top}px`;
+        ctx.fromEl.style.left = `${metrics.left}px`;
+        ctx.fromEl.style.width = `${metrics.width}px`;
+        ctx.fromEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.fromEl.style.transition = 'none';
         ctx.fromEl.classList.add('swipe-back-outgoing-layer');
 
-        applyProgress(ctx, 0, viewportWidth);
+        applyProgress(ctx, 0, dragWidth);
     }
 
     window.addEventListener('touchstart', (e) => {
@@ -1064,17 +1259,22 @@ function isEnglishBook(b) {
         const ctx = resolveSwipeBackContext();
         if (!ctx) return;
 
+        const vw = window.innerWidth || document.documentElement.clientWidth || 375;
         state = {
             ctx,
             startX: touch.clientX,
             startY: touch.clientY,
             lastX: touch.clientX,
             lastTime: Date.now(),
+            lastMoveTime: Date.now(),
             velocityX: 0,
+            hasVelocitySample: false,
             locked: false,
             aborted: false,
             settling: false,
-            viewportWidth: window.innerWidth || document.documentElement.clientWidth || 375
+            viewportWidth: vw,
+            dragWidth: vw,
+            zoomScale: 1
         };
     }, { passive: true });
 
@@ -1096,7 +1296,7 @@ function isEnglishBook(b) {
                 if (document.activeElement && typeof document.activeElement.blur === 'function') {
                     try { document.activeElement.blur(); } catch (err) { }
                 }
-                activateDragLayers(state.ctx, state.viewportWidth);
+                activateDragLayers(state.ctx, state);
             } else {
                 return;
             }
@@ -1107,13 +1307,21 @@ function isEnglishBook(b) {
         }
 
         const now = Date.now();
-        const dt = Math.max(1, now - state.lastTime);
-        state.velocityX = (touch.clientX - state.lastX) / dt;
-        state.lastX = touch.clientX;
-        state.lastTime = now;
+        const deltaX = touch.clientX - state.lastX;
+        const dt = now - state.lastTime;
+        if (dt >= 8 || Math.abs(deltaX) >= 1) {
+            const instV = deltaX / Math.max(8, dt);
+            state.velocityX = state.hasVelocitySample ? (state.velocityX * 0.45 + instV * 0.55) : instV;
+            state.hasVelocitySample = true;
+            state.lastX = touch.clientX;
+            state.lastTime = now;
+            if (Math.abs(deltaX) >= 0.5) {
+                state.lastMoveTime = now;
+            }
+        }
 
         const progress = Math.max(0, Math.min(1, dx / state.viewportWidth));
-        applyProgress(state.ctx, progress, state.viewportWidth);
+        applyProgress(state.ctx, progress, state.dragWidth);
     }, { passive: false });
 
     function finishSwipe(isCancelled) {
@@ -1126,12 +1334,25 @@ function isEnglishBook(b) {
         }
 
         current.settling = true;
+        const now = Date.now();
+        const idleMs = Math.max(0, now - (current.lastMoveTime || current.lastTime));
+        const effectiveVelocity = idleMs > 90
+            ? Math.max(0, current.velocityX * Math.max(0, 1 - (idleMs - 90) / 120))
+            : Math.max(0, current.velocityX);
+
         const dx = Math.max(0, current.lastX - current.startX);
-        const progress = dx / current.viewportWidth;
-        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (current.velocityX > COMMIT_VELOCITY && dx > 36));
+        const progress = Math.max(0, Math.min(1, dx / current.viewportWidth));
+        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (effectiveVelocity > COMMIT_VELOCITY && dx > 36));
         const reduced = isReducedMotionActive();
-        const settleDuration = reduced ? 0 : (shouldCommit ? 240 : 210);
-        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+        const settleDuration = computeSwipeBackSettleDuration({
+            viewportWidth: current.viewportWidth,
+            progress,
+            velocityX: effectiveVelocity,
+            shouldCommit,
+            reduced
+        });
+        const ease = 'cubic-bezier(0.2, 0.88, 0.32, 1)';
+        const dragWidth = current.dragWidth || current.viewportWidth;
 
         if (settleDuration > 0) {
             const tr = `transform ${settleDuration}ms ${ease}, opacity ${settleDuration}ms ${ease}`;
@@ -1143,27 +1364,36 @@ function isEnglishBook(b) {
         }
 
         if (shouldCommit) {
-            current.ctx.fromEl.style.transform = `translate3d(${current.viewportWidth}px, 0, 0)`;
+            current.ctx.fromEl.style.transform = `translate3d(${dragWidth}px, 0, 0)`;
             current.ctx.fromEl.style.opacity = '0';
             current.ctx.toEl.style.transform = 'translate3d(0, 0, 0)';
             current.ctx.toEl.style.opacity = '1';
         } else {
             current.ctx.fromEl.style.transform = 'translate3d(0, 0, 0)';
             current.ctx.fromEl.style.opacity = '1';
-            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * current.viewportWidth}px, 0, 0)`;
+            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * dragWidth}px, 0, 0)`;
             current.ctx.toEl.style.opacity = '0.55';
         }
 
         setTimeout(() => {
-            resetSwipeLayers(current.ctx);
             state = null;
             if (shouldCommit) {
+                if (current.ctx.toEl) {
+                    current.ctx.toEl.classList.add('no-enter-anim');
+                }
                 window.__skipNextBackAnimation = true;
                 try {
+                    // 先在保持双层定位（目标页已静止于 (0,0)）期间提交视图状态切换，再解除固定定位，彻底消除返回后的 1 帧尺寸/排版跳变
                     current.ctx.commit();
                 } finally {
+                    resetSwipeLayers(current.ctx);
+                    if (current.ctx.toEl) {
+                        requestAnimationFrame(() => current.ctx.toEl.classList.remove('no-enter-anim'));
+                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
+            } else {
+                resetSwipeLayers(current.ctx);
             }
         }, settleDuration + 16);
     }
