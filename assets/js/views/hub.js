@@ -24,132 +24,296 @@ let currentView = 'view-auth';
 window.currentView = currentView;
 let previousView = 'view-hub';
 window.previousView = previousView;
+let pendingBackClickAt = 0;
+let activeDomTransitionCleanup = null;
+
+function isMobilePageTransitionViewport() {
+    if (typeof window === 'undefined') return false;
+    if (typeof window.matchMedia === 'function') {
+        try {
+            return window.matchMedia('(max-width: 767px)').matches;
+        } catch (e) { }
+    }
+    return window.innerWidth <= 767;
+}
+window.isMobilePageTransitionViewport = isMobilePageTransitionViewport;
+
+function isReducedMotionActive() {
+    if (typeof document !== 'undefined') {
+        if (document.documentElement.classList.contains('reduce-motion')) return true;
+        if (document.body && document.body.classList.contains('reduce-motion')) return true;
+    }
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        try {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+        } catch (e) { }
+    }
+    return false;
+}
+window.isReducedMotionActive = isReducedMotionActive;
+
+function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = null) {
+    if (typeof updateDom !== 'function') return;
+
+    if (activeDomTransitionCleanup) {
+        activeDomTransitionCleanup();
+        activeDomTransitionCleanup = null;
+    }
+
+    if (window.__skipNextBackAnimation) {
+        window.__skipNextBackAnimation = false;
+        if (toEl) toEl.classList.add('no-enter-anim');
+        updateDom();
+        if (toEl) {
+            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
+        }
+        return;
+    }
+
+    // 宽屏设备（>= 768px）与减弱动态效果模式均不播放页面滑入/返回动画
+    if (!isMobilePageTransitionViewport() || isReducedMotionActive() || !fromEl || !toEl || fromEl === toEl) {
+        if (direction === 'back' && toEl) {
+            toEl.classList.add('no-enter-anim');
+            updateDom();
+            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
+        } else {
+            updateDom();
+        }
+        return;
+    }
+
+    const isBack = (direction === 'back');
+    const docClass = isBack ? 'dom-back-transition' : 'dom-forward-transition';
+    const outClass = isBack ? 'page-back-outgoing-layer' : 'page-forward-outgoing-layer';
+    const inClass = isBack ? 'page-back-incoming-layer' : 'page-forward-incoming-layer';
+    const primaryAnimEl = isBack ? fromEl : toEl;
+
+    const docEl = document.documentElement;
+    const fromRect = fromEl.getBoundingClientRect();
+    docEl.classList.add(docClass);
+    updateDom();
+
+    fromEl.style.top = `${fromRect.top}px`;
+    fromEl.style.left = `${fromRect.left}px`;
+    fromEl.style.width = `${fromRect.width}px`;
+    fromEl.style.height = 'auto';
+    fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+    fromEl.classList.add(outClass);
+    toEl.classList.add(inClass);
+
+    let finished = false;
+    const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        if (activeDomTransitionCleanup === cleanup) activeDomTransitionCleanup = null;
+        primaryAnimEl.removeEventListener('animationend', onAnimEnd);
+        fromEl.classList.remove(outClass);
+        fromEl.style.top = '';
+        fromEl.style.left = '';
+        fromEl.style.width = '';
+        fromEl.style.height = '';
+        fromEl.style.minHeight = '';
+        toEl.classList.remove(inClass);
+        docEl.classList.remove(docClass);
+    };
+    const onAnimEnd = (ev) => {
+        if (ev.target === primaryAnimEl) cleanup();
+    };
+    activeDomTransitionCleanup = cleanup;
+    primaryAnimEl.addEventListener('animationend', onAnimEnd);
+
+    if (typeof primaryAnimEl.getAnimations === 'function' && primaryAnimEl.getAnimations().length === 0) {
+        cleanup();
+        return;
+    }
+    setTimeout(cleanup, 360);
+}
+
+function runBackPageTransition(updateDom, fromEl = null, toEl = null) {
+    runTwoLayerPageTransition('back', updateDom, fromEl, toEl);
+}
+window.runBackPageTransition = runBackPageTransition;
+
+function runForwardPageTransition(updateDom, fromEl = null, toEl = null) {
+    runTwoLayerPageTransition('forward', updateDom, fromEl, toEl);
+}
+window.runForwardPageTransition = runForwardPageTransition;
+
+// 捕获阶段识别任意返回按钮点击，确保所有返回入口统一触发返回动画
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+        const backBtn = e.target && e.target.closest ? e.target.closest('.nav-back-btn:not(.search-page-settings-btn)') : null;
+        if (backBtn) {
+            pendingBackClickAt = Date.now();
+        }
+    }, true);
+}
 
 function goBackToPreviousView(fallback = 'view-hub') {
     const prev = window.previousView || fallback;
     if (!prev || prev === currentView) {
-        switchView(fallback);
+        switchView(fallback, { direction: 'back' });
     } else {
-        switchView(prev);
+        switchView(prev, { direction: 'back' });
     }
 }
 window.goBackToPreviousView = goBackToPreviousView;
 
-function switchView(viewId) {
-    if (currentView && currentView !== viewId) {
-        previousView = currentView;
-        window.previousView = currentView;
+function switchView(viewId, options = {}) {
+    const ROOT_TAB_VIEWS = ['view-hub', 'view-me', 'view-settings'];
+    const prevViewId = currentView;
+    const isSameView = (prevViewId === viewId);
+    const isPendingBack = Boolean(pendingBackClickAt && (Date.now() - pendingBackClickAt < 450));
+    if (isPendingBack) pendingBackClickAt = 0;
+
+    const fromEl = prevViewId ? document.getElementById(prevViewId) : null;
+    const toEl = document.getElementById(viewId);
+    const isInitialBoot = !fromEl || !fromEl.classList.contains('active');
+    const skipTransition = Boolean(options && options.skipTransition);
+
+    const isBack = !skipTransition && !isSameView && !isInitialBoot && (
+        (options && options.direction === 'back') || isPendingBack
+    );
+    const isTabSwitch = Boolean(
+        (options && options.isTabSwitch) ||
+        (ROOT_TAB_VIEWS.includes(prevViewId) && ROOT_TAB_VIEWS.includes(viewId) && !(options && options.direction === 'forward') && !isPendingBack)
+    );
+    const isForward = !skipTransition && !isSameView && !isInitialBoot && !isBack && !isTabSwitch && (
+        (options && options.direction === 'forward') || viewId !== 'view-hub'
+    );
+
+    if (prevViewId && prevViewId !== viewId) {
+        previousView = prevViewId;
+        window.previousView = prevViewId;
     }
     currentView = viewId;
     window.currentView = viewId;
-    if (typeof resetAllGameAlertsAndFeedback === 'function') {
-        resetAllGameAlertsAndFeedback();
-    }
 
-    // 学习时长计时器管理：进入学习/练习视图时开启计时，离开时结算保存
-    const studyTimerViews = ['view-single', 'view-shici', 'view-dictation', 'view-riddle', 'view-game', 'view-local-duel'];
-    if (window.DailyStudyTracker) {
-        if (studyTimerViews.includes(viewId)) {
-            window.DailyStudyTracker.startSessionTimer();
-        } else {
-            window.DailyStudyTracker.flushSessionTimer(false);
+    const applyViewUpdate = () => {
+        if (typeof resetAllGameAlertsAndFeedback === 'function') {
+            resetAllGameAlertsAndFeedback();
         }
-    }
 
-    const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
-
-    const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
-
-    if (shouldHideNav) {
-        document.body.classList.remove('has-nav');
-        document.body.classList.add('nav-hidden');
-    } else {
-        document.body.classList.add('has-nav');
-        document.body.classList.remove('nav-hidden');
-    }
-
-    if (typeof updateNavActive === 'function') {
-        const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
-        updateNavActive(navKey);
-    }
-
-    const views = document.querySelectorAll('.view');
-    for (let i = 0; i < views.length; i++) {
-        const v = views[i];
-        const isTarget = (v.id === viewId);
-        if (isTarget) {
-            if (!v.classList.contains('active')) v.classList.add('active');
-            v.inert = false;
-            v.removeAttribute('aria-hidden');
-        } else {
-            if (v.classList.contains('active')) v.classList.remove('active');
-            v.inert = true;
-            v.setAttribute('aria-hidden', 'true');
-        }
-    }
-
-    window.scrollTo({ top: 0, behavior: 'instant' });
-
-    if (viewId === 'view-hub') {
-        const hubInp = document.getElementById('hub-search-input');
-        if (hubInp) hubInp.value = '';
-        const hubClear = document.getElementById('hub-search-clear-btn');
-        if (hubClear) hubClear.style.display = 'none';
-        const hubSuggs = document.getElementById('hub-search-suggestions');
-        if (hubSuggs) hubSuggs.style.display = 'none';
-        updateHub();
-        requestAnimationFrame(() => {
-            if (currentUser && typeof initGlobalPresence === 'function') {
-                initGlobalPresence();
+        // 学习时长计时器管理：进入学习/练习视图时开启计时，离开时结算保存
+        const studyTimerViews = ['view-single', 'view-shici', 'view-dictation', 'view-riddle', 'view-game', 'view-local-duel'];
+        if (window.DailyStudyTracker) {
+            if (studyTimerViews.includes(viewId)) {
+                window.DailyStudyTracker.startSessionTimer();
+            } else {
+                window.DailyStudyTracker.flushSessionTimer(false);
             }
-        });
-    } else if (viewId === 'view-auth') {
-        if (typeof renderAuthView === 'function') renderAuthView();
-    } else if (viewId === 'view-me') {
-        const activeKey = window.__targetMeSubview || 'main';
-        window.__targetMeSubview = null;
-        const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
-        meSubviews.forEach(k => {
-            const el = (k === 'main')
-                ? document.getElementById('me-subview-main')
-                : document.getElementById(`settings-subview-${k}`);
-            if (el) {
-                const isActiveSub = (k === activeKey);
-                el.classList.toggle('active', isActiveSub);
-                el.inert = !isActiveSub;
-                if (isActiveSub) el.removeAttribute('aria-hidden');
-                else el.setAttribute('aria-hidden', 'true');
+        }
+
+        const hideNavViews = ['view-auth', 'view-single', 'view-game', 'view-local-duel', 'view-dictation', 'view-riddle', 'view-shici', 'view-search', 'view-book-selector', 'view-manage-books', 'view-book-content', 'view-online', 'view-result', 'view-leaderboard', 'view-riddle-history', 'view-activity', 'view-mailbox'];
+
+        const shouldHideNav = hideNavViews.includes(viewId) || (!currentUser && viewId === 'view-auth');
+
+        if (shouldHideNav) {
+            document.body.classList.remove('has-nav');
+            document.body.classList.add('nav-hidden');
+        } else {
+            document.body.classList.add('has-nav');
+            document.body.classList.remove('nav-hidden');
+        }
+
+        if (typeof updateNavActive === 'function') {
+            const navKey = viewId === 'view-settings' ? 'settings' : (viewId === 'view-me' ? 'me' : 'home');
+            updateNavActive(navKey);
+        }
+
+        const views = document.querySelectorAll('.view');
+        for (let i = 0; i < views.length; i++) {
+            const v = views[i];
+            const isTarget = (v.id === viewId);
+            if (isTarget) {
+                if (!v.classList.contains('active')) v.classList.add('active');
+                v.inert = false;
+                v.removeAttribute('aria-hidden');
+            } else {
+                if (v.classList.contains('active')) v.classList.remove('active');
+                v.inert = true;
+                v.setAttribute('aria-hidden', 'true');
             }
-        });
-        if (activeKey === 'main' && typeof renderMeView === 'function') {
-            renderMeView();
         }
-    } else if (viewId === 'view-settings') {
-        if (typeof switchSettingsSubview === 'function') {
-            switchSettingsSubview('main', true);
-        }
-    } else if (viewId === 'view-online') {
-        const inRoomEl = document.getElementById('online-in-room');
-        const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
-        if (!isInRoom) {
+
+        window.scrollTo({ top: 0, behavior: 'instant' });
+
+        if (viewId === 'view-hub') {
+            const hubInp = document.getElementById('hub-search-input');
+            if (hubInp) hubInp.value = '';
+            const hubClear = document.getElementById('hub-search-clear-btn');
+            if (hubClear) hubClear.style.display = 'none';
+            const hubSuggs = document.getElementById('hub-search-suggestions');
+            if (hubSuggs) hubSuggs.style.display = 'none';
+            updateHub();
             requestAnimationFrame(() => {
-                if (typeof fetchOnlineRoomsList === 'function') {
-                    fetchOnlineRoomsList();
+                if (currentUser && typeof initGlobalPresence === 'function') {
                     initGlobalPresence();
                 }
             });
-        }
-    } else if (viewId === 'view-search') {
-        const searchInp = document.getElementById('search-page-input');
-        if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
-            if (typeof showSearchHistoryView === 'function') {
-                showSearchHistoryView();
+        } else if (viewId === 'view-auth') {
+            if (typeof renderAuthView === 'function') renderAuthView();
+        } else if (viewId === 'view-me') {
+            const activeKey = window.__targetMeSubview || 'main';
+            window.__targetMeSubview = null;
+            const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
+            meSubviews.forEach(k => {
+                const el = (k === 'main')
+                    ? document.getElementById('me-subview-main')
+                    : document.getElementById(`settings-subview-${k}`);
+                if (el) {
+                    const isActiveSub = (k === activeKey);
+                    el.classList.toggle('active', isActiveSub);
+                    el.inert = !isActiveSub;
+                    if (isActiveSub) el.removeAttribute('aria-hidden');
+                    else el.setAttribute('aria-hidden', 'true');
+                }
+            });
+            if (activeKey === 'main' && typeof renderMeView === 'function') {
+                renderMeView();
+            }
+        } else if (viewId === 'view-settings') {
+            if (typeof switchSettingsSubview === 'function') {
+                switchSettingsSubview('main', true);
+            }
+        } else if (viewId === 'view-online') {
+            const inRoomEl = document.getElementById('online-in-room');
+            const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
+            if (!isInRoom) {
+                requestAnimationFrame(() => {
+                    if (typeof fetchOnlineRoomsList === 'function') {
+                        fetchOnlineRoomsList();
+                        initGlobalPresence();
+                    }
+                });
+            }
+        } else if (viewId === 'view-search') {
+            const searchInp = document.getElementById('search-page-input');
+            if (!searchInp || !searchInp.value || !searchInp.value.trim()) {
+                if (typeof showSearchHistoryView === 'function') {
+                    showSearchHistoryView();
+                }
+            }
+        } else if (viewId === 'view-riddle') {
+            if (typeof restoreRiddleViewOverlays === 'function') {
+                restoreRiddleViewOverlays();
             }
         }
-    } else if (viewId === 'view-riddle') {
-        if (typeof restoreRiddleViewOverlays === 'function') {
-            restoreRiddleViewOverlays();
+    };
+
+    if (isBack) {
+        runBackPageTransition(applyViewUpdate, fromEl, toEl);
+    } else if (isForward) {
+        runForwardPageTransition(applyViewUpdate, fromEl, toEl);
+    } else if (window.__skipNextBackAnimation || skipTransition || (options && options.direction === 'back')) {
+        window.__skipNextBackAnimation = false;
+        if (toEl) toEl.classList.add('no-enter-anim');
+        applyViewUpdate();
+        if (toEl) {
+            requestAnimationFrame(() => toEl.classList.remove('no-enter-anim'));
         }
+    } else {
+        applyViewUpdate();
     }
 }
 
@@ -294,47 +458,55 @@ window.saveHomeLayoutConfig = saveHomeLayoutConfig;
 function applyHomeLayoutConfig() {
     const cfg = getHomeLayoutConfig();
     const hiddenSet = new Set(cfg.hiddenCards || []);
+    const setDisplayIfChanged = (el, nextDisplay) => {
+        if (el && el.style.display !== nextDisplay) {
+            el.style.display = nextDisplay;
+        }
+    };
 
     // 1. 搜索栏收起/展开控制
     const searchWrapper = document.querySelector('#view-hub .hub-search-wrapper');
     const appBarSearchBtn = document.getElementById('btn-hub-appbar-search');
-    if (searchWrapper) {
-        searchWrapper.style.display = cfg.collapseSearchBar ? 'none' : '';
-    }
-    if (appBarSearchBtn) {
-        appBarSearchBtn.style.display = cfg.collapseSearchBar ? 'inline-flex' : 'none';
-    }
+    setDisplayIfChanged(searchWrapper, cfg.collapseSearchBar ? 'none' : '');
+    setDisplayIfChanged(appBarSearchBtn, cfg.collapseSearchBar ? 'inline-flex' : 'none');
 
     // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     const actCard = document.getElementById('hub-activity-entry-card');
-    if (actCard) actCard.style.display = isOffline ? 'none' : 'flex';
+    setDisplayIfChanged(actCard, isOffline ? 'none' : 'flex');
     const lbCard = document.getElementById('hub-leaderboard-entry-card');
-    if (lbCard) lbCard.style.display = 'flex';
+    setDisplayIfChanged(lbCard, 'flex');
 
     // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
     const onlineCard = document.getElementById('hub-online-players-card');
-    if (onlineCard) {
-        onlineCard.style.display = hiddenSet.has('hub-online-players-card') ? 'none' : '';
-    }
+    setDisplayIfChanged(onlineCard, hiddenSet.has('hub-online-players-card') ? 'none' : '');
     const calendarCard = document.getElementById('hub-calendar-card') || document.querySelector('#view-hub .week-calendar-card');
-    if (calendarCard) {
-        calendarCard.style.display = hiddenSet.has('hub-calendar-card') ? 'none' : '';
-    }
+    setDisplayIfChanged(calendarCard, hiddenSet.has('hub-calendar-card') ? 'none' : '');
 
-    // 4. modes-grid 卡片顺序与隐藏控制
+    // 4. modes-grid 卡片顺序与隐藏控制（仅在顺序确实变化时才重排 DOM，避免返回首页刷新与重触发卡片动效）
     const modesGrid = document.querySelector('#view-hub .modes-grid');
     if (modesGrid) {
+        const currentChildren = Array.from(modesGrid.children);
         const cardMap = new Map();
-        Array.from(modesGrid.children).forEach(el => {
+        const currentOrder = [];
+        currentChildren.forEach(el => {
             const cid = el.getAttribute('data-home-card-id') || el.id;
-            if (cid) cardMap.set(cid, el);
+            if (cid) {
+                cardMap.set(cid, el);
+                currentOrder.push(cid);
+            }
         });
-        cfg.modeOrder.forEach(cid => {
+        const targetOrder = cfg.modeOrder.filter(cid => cardMap.has(cid));
+        const orderChanged = currentOrder.length !== targetOrder.length ||
+            targetOrder.some((cid, idx) => currentOrder[idx] !== cid);
+
+        targetOrder.forEach(cid => {
             const el = cardMap.get(cid);
             if (el) {
-                el.style.display = hiddenSet.has(cid) ? 'none' : '';
-                modesGrid.appendChild(el);
+                setDisplayIfChanged(el, hiddenSet.has(cid) ? 'none' : '');
+                if (orderChanged) {
+                    modesGrid.appendChild(el);
+                }
             }
         });
     }
@@ -357,8 +529,8 @@ function updateHub() {
     const loginBtnEl = document.getElementById('btn-hub-login');
     const profileTag = document.getElementById('hub-profile-tag');
 
-    if (userNameEl) userNameEl.innerText = currentUser;
-    if (profileTag) profileTag.innerText = currentUser;
+    if (userNameEl && userNameEl.innerText !== currentUser) userNameEl.innerText = currentUser;
+    if (profileTag && profileTag.innerText !== currentUser) profileTag.innerText = currentUser;
 
     let avatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
     if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -371,12 +543,14 @@ function updateHub() {
             userImgEl.style.display = 'block';
             userIconEl.style.display = 'none';
         };
-        userImgEl.src = avatar;
-        userImgEl.style.display = 'block';
-        userIconEl.style.display = 'none';
+        if (userImgEl.getAttribute('src') !== avatar) {
+            userImgEl.src = avatar;
+        }
+        if (userImgEl.style.display !== 'block') userImgEl.style.display = 'block';
+        if (userIconEl.style.display !== 'none') userIconEl.style.display = 'none';
     } else if (userImgEl && userIconEl) {
-        userImgEl.style.display = 'none';
-        userIconEl.style.display = 'inline-flex';
+        if (userImgEl.style.display !== 'none') userImgEl.style.display = 'none';
+        if (userIconEl.style.display !== 'inline-flex') userIconEl.style.display = 'inline-flex';
     }
 
     const isLoggedIn = currentUserProfile && currentUserProfile.isLoggedIn;
@@ -686,3 +860,314 @@ function isShiCiBook(b) {
 function isEnglishBook(b) {
     return !isShiCiBook(b);
 }
+
+/* ==========================================================================
+   iOS 移动端屏幕最左侧滑动返回（动画随手势实时进展）
+   - 仅在 iOS 移动端生效
+   - 仅当手指从屏幕最左侧边缘 (clientX <= 28px) 向右滑动时触发
+   - 当前页面随手势向右滑动并淡出，目标页面从左侧滑入并渐显
+   ========================================================================== */
+(function setupIosLeftEdgeSwipeBack() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const EDGE_START_MAX_X = 28;
+    const LOCK_THRESHOLD_PX = 8;
+    const COMMIT_PROGRESS = 0.30;
+    const COMMIT_VELOCITY = 0.45;
+    const INCOMING_OFFSET_RATIO = 0.32;
+
+    function isIosMobileDevice() {
+        if (!isMobilePageTransitionViewport()) return false;
+        const ua = navigator.userAgent || '';
+        const isIosUa = (/iPhone|iPod|iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
+        const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        return isIosUa && hasTouch;
+    }
+
+    function hasVisibleModalOverlay() {
+        const modals = document.querySelectorAll('.modal-overlay.active');
+        for (let i = 0; i < modals.length; i++) {
+            const st = window.getComputedStyle(modals[i]);
+            if (st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isBlockedSwipeTarget(target) {
+        if (!target || !(target instanceof Element)) return false;
+        return Boolean(target.closest('.md3-slider, .virtual-keyboard, .no-swipe-back, input[type="range"]'));
+    }
+
+    function resolveSwipeBackContext() {
+        const currViewId = window.currentView || (document.querySelector('.view.active') && document.querySelector('.view.active').id);
+        if (!currViewId || currViewId === 'view-hub' || currViewId === 'view-game') {
+            return null;
+        }
+
+        // 1. 个人中心二级子页面 -> 返回个人中心主页
+        if (currViewId === 'view-me') {
+            const activeSub = document.querySelector('#view-me .settings-subview.active');
+            const mainSub = document.getElementById('me-subview-main');
+            if (!activeSub || !mainSub || activeSub.id === 'me-subview-main') return null;
+            return {
+                fromEl: activeSub,
+                toEl: mainSub,
+                commit: () => {
+                    const backBtn = activeSub.querySelector('.nav-back-btn');
+                    if (backBtn && typeof backBtn.click === 'function') {
+                        backBtn.click();
+                    } else if (typeof openMeSubview === 'function') {
+                        openMeSubview('main', true);
+                    }
+                }
+            };
+        }
+
+        // 2. 设置中心二级子页面 -> 返回设置主页
+        if (currViewId === 'view-settings') {
+            const activeSub = document.querySelector('#view-settings .settings-subview.active');
+            const mainSub = document.getElementById('settings-subview-main');
+            if (!activeSub || !mainSub || activeSub.id === 'settings-subview-main') return null;
+            return {
+                fromEl: activeSub,
+                toEl: mainSub,
+                commit: () => {
+                    if (typeof switchSettingsSubview === 'function') {
+                        switchSettingsSubview('main', true);
+                    }
+                }
+            };
+        }
+
+        // 3. 登录页：未登录且无返回目标时不允许滑动返回
+        if (currViewId === 'view-auth' && !window.__authReturnMeSubview && (!currentUser || window.previousView === 'view-auth')) {
+            return null;
+        }
+
+        // 4. 全屏页面 -> 解析返回目标视图
+        let targetViewId = 'view-hub';
+        if (currViewId === 'view-search') {
+            targetViewId = (typeof searchPreviousView !== 'undefined' && searchPreviousView) ? searchPreviousView : 'view-hub';
+        } else if (currViewId === 'view-book-selector') {
+            targetViewId = (typeof bookSelectorPreviousView !== 'undefined' && bookSelectorPreviousView) ? bookSelectorPreviousView : 'view-hub';
+        } else if (currViewId === 'view-manage-books') {
+            const mbPrev = (typeof manageBooksPreviousView !== 'undefined') ? manageBooksPreviousView : '';
+            targetViewId = (mbPrev && mbPrev !== 'view-manage-books') ? mbPrev : 'view-book-selector';
+        } else if (currViewId === 'view-book-content') {
+            targetViewId = (typeof bookContentState !== 'undefined' && bookContentState && bookContentState.previousView) ? bookContentState.previousView : 'view-manage-books';
+        } else if (currViewId === 'view-riddle-history') {
+            targetViewId = (typeof riddleHistoryPreviousView !== 'undefined' && riddleHistoryPreviousView) ? riddleHistoryPreviousView : 'view-riddle';
+        } else if (currViewId === 'view-auth') {
+            targetViewId = window.__authReturnMeSubview ? 'view-me' : ((window.previousView && window.previousView !== 'view-auth') ? window.previousView : 'view-hub');
+        } else if (window.previousView && window.previousView !== currViewId) {
+            targetViewId = window.previousView;
+        }
+
+        const fromEl = document.getElementById(currViewId);
+        const toEl = document.getElementById(targetViewId);
+        if (!fromEl || !toEl || fromEl === toEl) return null;
+
+        return {
+            fromEl,
+            toEl,
+            commit: () => {
+                const backBtn = fromEl.querySelector('.nav-back-btn:not(.search-page-settings-btn), .search-page-back-btn');
+                if (backBtn && typeof backBtn.click === 'function') {
+                    backBtn.click();
+                } else if (typeof goBackToPreviousView === 'function') {
+                    goBackToPreviousView(targetViewId);
+                } else {
+                    switchView(targetViewId, { skipTransition: true });
+                }
+            }
+        };
+    }
+
+    let state = null;
+
+    function resetSwipeLayers(ctx) {
+        if (!ctx) return;
+        const { fromEl, toEl } = ctx;
+        document.documentElement.classList.remove('swipe-back-active');
+        if (fromEl) {
+            fromEl.classList.remove('swipe-back-outgoing-layer');
+            fromEl.style.top = '';
+            fromEl.style.left = '';
+            fromEl.style.width = '';
+            fromEl.style.minHeight = '';
+            fromEl.style.transform = '';
+            fromEl.style.opacity = '';
+            fromEl.style.transition = '';
+        }
+        if (toEl) {
+            toEl.classList.remove('swipe-back-incoming-layer');
+            toEl.style.top = '';
+            toEl.style.left = '';
+            toEl.style.width = '';
+            toEl.style.minHeight = '';
+            toEl.style.transform = '';
+            toEl.style.opacity = '';
+            toEl.style.transition = '';
+        }
+    }
+
+    function applyProgress(ctx, progress, viewportWidth) {
+        const p = Math.max(0, Math.min(1, progress));
+        const outX = p * viewportWidth;
+        const outOpacity = Math.max(0.08, 1 - p * 0.88);
+        const inX = -INCOMING_OFFSET_RATIO * viewportWidth * (1 - p);
+        const inOpacity = 0.55 + p * 0.45;
+
+        ctx.fromEl.style.transform = `translate3d(${outX}px, 0, 0)`;
+        ctx.fromEl.style.opacity = String(outOpacity);
+        ctx.toEl.style.transform = `translate3d(${inX}px, 0, 0)`;
+        ctx.toEl.style.opacity = String(inOpacity);
+    }
+
+    function activateDragLayers(ctx, viewportWidth) {
+        const fromRect = ctx.fromEl.getBoundingClientRect();
+        const bodyStyle = window.getComputedStyle(document.body);
+        const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
+
+        document.documentElement.classList.add('swipe-back-active');
+
+        ctx.toEl.style.top = `${bodyPadTop}px`;
+        ctx.toEl.style.left = `${fromRect.left}px`;
+        ctx.toEl.style.width = `${fromRect.width}px`;
+        ctx.toEl.style.minHeight = '100dvh';
+        ctx.toEl.style.transition = 'none';
+        ctx.toEl.classList.add('swipe-back-incoming-layer');
+
+        ctx.fromEl.style.top = `${fromRect.top}px`;
+        ctx.fromEl.style.left = `${fromRect.left}px`;
+        ctx.fromEl.style.width = `${fromRect.width}px`;
+        ctx.fromEl.style.minHeight = `${Math.max(fromRect.height, window.innerHeight || 0)}px`;
+        ctx.fromEl.style.transition = 'none';
+        ctx.fromEl.classList.add('swipe-back-outgoing-layer');
+
+        applyProgress(ctx, 0, viewportWidth);
+    }
+
+    window.addEventListener('touchstart', (e) => {
+        if (!isIosMobileDevice()) return;
+        if (state && state.settling) return;
+        if (!e.touches || e.touches.length !== 1) return;
+        if (hasVisibleModalOverlay()) return;
+        if (isBlockedSwipeTarget(e.target)) return;
+
+        const touch = e.touches[0];
+        // 严格限定：仅当手指从屏幕最左侧边缘开始滑动时触发
+        if (touch.clientX > EDGE_START_MAX_X) return;
+
+        const ctx = resolveSwipeBackContext();
+        if (!ctx) return;
+
+        state = {
+            ctx,
+            startX: touch.clientX,
+            startY: touch.clientY,
+            lastX: touch.clientX,
+            lastTime: Date.now(),
+            velocityX: 0,
+            locked: false,
+            aborted: false,
+            settling: false,
+            viewportWidth: window.innerWidth || document.documentElement.clientWidth || 375
+        };
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!state || state.aborted || state.settling) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - state.startX;
+        const dy = touch.clientY - state.startY;
+
+        if (!state.locked) {
+            if (Math.abs(dy) > Math.abs(dx) * 1.1 && Math.abs(dy) > LOCK_THRESHOLD_PX) {
+                state.aborted = true;
+                return;
+            }
+            if (dx > LOCK_THRESHOLD_PX && dx > Math.abs(dy) * 1.15) {
+                state.locked = true;
+                if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                    try { document.activeElement.blur(); } catch (err) { }
+                }
+                activateDragLayers(state.ctx, state.viewportWidth);
+            } else {
+                return;
+            }
+        }
+
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const now = Date.now();
+        const dt = Math.max(1, now - state.lastTime);
+        state.velocityX = (touch.clientX - state.lastX) / dt;
+        state.lastX = touch.clientX;
+        state.lastTime = now;
+
+        const progress = Math.max(0, Math.min(1, dx / state.viewportWidth));
+        applyProgress(state.ctx, progress, state.viewportWidth);
+    }, { passive: false });
+
+    function finishSwipe(isCancelled) {
+        if (!state) return;
+        const current = state;
+
+        if (!current.locked || current.aborted) {
+            state = null;
+            return;
+        }
+
+        current.settling = true;
+        const dx = Math.max(0, current.lastX - current.startX);
+        const progress = dx / current.viewportWidth;
+        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (current.velocityX > COMMIT_VELOCITY && dx > 36));
+        const reduced = isReducedMotionActive();
+        const settleDuration = reduced ? 0 : (shouldCommit ? 240 : 210);
+        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+        if (settleDuration > 0) {
+            const tr = `transform ${settleDuration}ms ${ease}, opacity ${settleDuration}ms ${ease}`;
+            current.ctx.fromEl.style.transition = tr;
+            current.ctx.toEl.style.transition = tr;
+        } else {
+            current.ctx.fromEl.style.transition = 'none';
+            current.ctx.toEl.style.transition = 'none';
+        }
+
+        if (shouldCommit) {
+            current.ctx.fromEl.style.transform = `translate3d(${current.viewportWidth}px, 0, 0)`;
+            current.ctx.fromEl.style.opacity = '0';
+            current.ctx.toEl.style.transform = 'translate3d(0, 0, 0)';
+            current.ctx.toEl.style.opacity = '1';
+        } else {
+            current.ctx.fromEl.style.transform = 'translate3d(0, 0, 0)';
+            current.ctx.fromEl.style.opacity = '1';
+            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * current.viewportWidth}px, 0, 0)`;
+            current.ctx.toEl.style.opacity = '0.55';
+        }
+
+        setTimeout(() => {
+            resetSwipeLayers(current.ctx);
+            state = null;
+            if (shouldCommit) {
+                window.__skipNextBackAnimation = true;
+                try {
+                    current.ctx.commit();
+                } finally {
+                    setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
+                }
+            }
+        }, settleDuration + 16);
+    }
+
+    window.addEventListener('touchend', () => finishSwipe(false), { passive: true });
+    window.addEventListener('touchcancel', () => finishSwipe(true), { passive: true });
+})();

@@ -134,7 +134,7 @@ function openBookSelectorPage(mode = 'single') {
 
 function exitBookSelectorPage() {
     if (typeof clearRiddleAnimationClasses === 'function') clearRiddleAnimationClasses();
-    switchView(bookSelectorPreviousView || 'view-hub');
+    switchView(bookSelectorPreviousView || 'view-hub', { direction: 'back' });
     if (bookSelectorMode === 'room' && typeof updateRoomBookSummaryUI === 'function') {
         updateRoomBookSummaryUI();
     }
@@ -1566,16 +1566,16 @@ function exitManageBooksPage() {
     let target = manageBooksPreviousView;
     if (!target || target === 'view-manage-books' || target === 'view-me') {
         if (target === 'view-me') {
-            switchView('view-me');
-            if (typeof openMeSubview === 'function') openMeSubview('main');
+            window.__targetMeSubview = 'main';
+            switchView('view-me', { direction: 'back' });
             return;
         }
         target = 'view-book-selector';
     }
-    switchView(target);
     if (target === 'view-book-selector') {
         renderBookSelectorPage();
     }
+    switchView(target, { direction: 'back' });
 }
 
 function switchManageBooksCategory(cat) {
@@ -2242,15 +2242,15 @@ async function openBookContentPage(bookId, preloadedWords = null, prevView = nul
 function exitBookContentPage() {
     parkBookDropdownMenus();
     const target = bookContentState.previousView || 'view-manage-books';
-    if (typeof switchView === 'function') {
-        switchView(target);
-    }
     if (target === 'view-manage-books' && typeof renderManageBooksPage === 'function') {
         renderManageBooksPage();
     } else if (target === 'view-book-selector' && typeof renderBookSelectorPage === 'function') {
         renderBookSelectorPage();
-    } else if (target === 'view-me' && typeof openMeSubview === 'function') {
-        openMeSubview('main');
+    } else if (target === 'view-me') {
+        window.__targetMeSubview = 'main';
+    }
+    if (typeof switchView === 'function') {
+        switchView(target, { direction: 'back' });
     }
 }
 
@@ -2280,7 +2280,12 @@ function toggleBookContentSearchExpand(forceExpand = true, e = null) {
     if (forceExpand) {
         wrap.classList.add('expanded');
         if (input) {
-            setTimeout(() => input.focus(), 20);
+            try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+            requestAnimationFrame(() => {
+                if (document.activeElement !== input) {
+                    try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); }
+                }
+            });
         }
     } else {
         if (input) input.value = '';
@@ -2958,7 +2963,7 @@ function toggleBookContentMastered(word, isShiCi, btnEl) {
             ShiCiEbbinghausEngine.updateDueBadge();
         }
         if (typeof ensureWordMastered === 'function') {
-            ensureWordMastered(word);
+            ensureWordMastered(word, '', '', isShiCi);
         } else if (typeof markWordAsMastered === 'function') {
             markWordAsMastered(word);
         }

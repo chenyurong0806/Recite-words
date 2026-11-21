@@ -1550,7 +1550,7 @@ function cleanUpAndBackToHub() {
         btnJoin.disabled = false;
         btnJoin.innerText = '加入房间';
     }
-    switchView('view-hub');
+    switchView('view-hub', { direction: 'back' });
 }
 
 async function startOnlineGame() {
@@ -3050,10 +3050,10 @@ function handleBackToRoom() {
         if (isHost) {
             safeBroadcast(realtimeChannel, 'sync_back_to_room', {});
             setupRoomLobbyUI(roomCode);
-            switchView('view-online');
+            switchView('view-online', { direction: 'back' });
         }
     } else {
-        switchView('view-hub');
+        switchView('view-hub', { direction: 'back' });
     }
 }
 
@@ -3200,7 +3200,7 @@ async function confirmExitGame() {
         leaveOnlineLobby(false);
     } else {
         gameMode = '';
-        switchView('view-hub');
+        switchView('view-hub', { direction: 'back' });
     }
 }
 window.confirmExitGame = confirmExitGame;
@@ -3859,8 +3859,9 @@ async function syncGlobalPresenceState() {
     ];
 
     targetSlots.forEach(slot => {
-        if (slot.badge) slot.badge.innerText = `${onlineUsers.length} 人在线`;
-        if (slot.list) slot.list.innerHTML = cardsHtml;
+        const badgeText = `${onlineUsers.length} 人在线`;
+        if (slot.badge && slot.badge.innerText !== badgeText) slot.badge.innerText = badgeText;
+        if (slot.list && slot.list.innerHTML !== cardsHtml) slot.list.innerHTML = cardsHtml;
     });
 }
 

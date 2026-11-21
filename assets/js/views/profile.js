@@ -37,7 +37,7 @@ function isWordMastered(word) {
     return list.some(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
 }
 
-function toggleMasteredWord(word, phone = '', meaning = '') {
+function toggleMasteredWord(word, phone = '', meaning = '', type = 'word') {
     if (!currentUser || !word) return false;
     const clean = _normMasteredKey(word);
     const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -57,13 +57,21 @@ function toggleMasteredWord(word, phone = '', meaning = '') {
             markedAt: Date.now()
         });
         nowMastered = true;
-        showToast(`已将“${cleanWord}”标为熟词`);
+        showToast(`已将“${cleanWord}”标为熟词，以后不再复习`);
     }
     saveMasteredWords(list);
+    if (type !== 'shici' && window.EbbinghausEngine) {
+        if (nowMastered && typeof EbbinghausEngine.markWordMastered === 'function') {
+            EbbinghausEngine.markWordMastered(cleanWord, meaning, phone);
+        } else {
+            if (typeof EbbinghausEngine.invalidateProgressCache === 'function') EbbinghausEngine.invalidateProgressCache();
+            if (typeof EbbinghausEngine.updateDueBadge === 'function') EbbinghausEngine.updateDueBadge();
+        }
+    }
     return nowMastered;
 }
 
-function ensureWordMastered(word, phone = '', meaning = '') {
+function ensureWordMastered(word, phone = '', meaning = '', skipEbbinghausSync = false) {
     if (!currentUser || !word) return;
     const clean = _normMasteredKey(word);
     const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -78,6 +86,9 @@ function ensureWordMastered(word, phone = '', meaning = '') {
         });
         saveMasteredWords(list);
     }
+    if (!skipEbbinghausSync && window.EbbinghausEngine && typeof EbbinghausEngine.markWordMastered === 'function') {
+        EbbinghausEngine.markWordMastered(cleanWord, meaning, phone);
+    }
 }
 
 function removeWordMastered(word) {
@@ -87,6 +98,10 @@ function removeWordMastered(word) {
     const nextList = list.filter(item => _normMasteredKey(typeof item === 'string' ? item : item.word) !== clean);
     if (nextList.length !== list.length) {
         saveMasteredWords(nextList);
+        if (window.EbbinghausEngine) {
+            if (typeof EbbinghausEngine.invalidateProgressCache === 'function') EbbinghausEngine.invalidateProgressCache();
+            if (typeof EbbinghausEngine.updateDueBadge === 'function') EbbinghausEngine.updateDueBadge();
+        }
     }
 }
 
@@ -113,7 +128,7 @@ function toggleCurrentWordMastered() {
         updateSingleProgressDisplay();
         saveSingleProgress();
         if (typeof showToast === 'function') {
-            showToast(`已标为熟词，本组学习将不再抽取“${q.word}”`);
+            showToast(`已将“${q.word}”标为熟词，以后将不再复习`);
         }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数

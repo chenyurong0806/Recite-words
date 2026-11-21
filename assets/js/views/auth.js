@@ -755,15 +755,12 @@ function handleAuthBack() {
     window.__authReturnMeSubview = null;
     if (returnMeSub) {
         window.__targetMeSubview = returnMeSub;
-        switchView('view-me');
-        if (typeof openMeSubview === 'function') {
-            openMeSubview(returnMeSub);
-        }
+        switchView('view-me', { direction: 'back' });
         return;
     }
     if (currentUserProfile && currentUserProfile.isLoggedIn && currentUserProfile.username && !currentUserProfile.username.startsWith('游客')) {
         const target = (window.previousView && window.previousView !== 'view-auth') ? window.previousView : 'view-hub';
-        switchView(target);
+        switchView(target, { direction: 'back' });
     } else {
         continueAsGuest();
     }

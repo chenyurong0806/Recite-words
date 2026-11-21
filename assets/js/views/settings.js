@@ -8,11 +8,11 @@
    ========================================================================== */
 function handleNavClick(dest) {
     if (dest === 'settings') {
-        switchView('view-settings');
+        switchView('view-settings', { isTabSwitch: true });
     } else if (dest === 'me') {
-        switchView('view-me');
+        switchView('view-me', { isTabSwitch: true });
     } else {
-        switchView('view-hub');
+        switchView('view-hub', { isTabSwitch: true });
     }
 }
 if (typeof window !== 'undefined') window.handleNavClick = handleNavClick;
@@ -31,11 +31,19 @@ function openMeSubview(subviewKey, skipTransition = false) {
         return;
     }
     const viewMe = document.getElementById('view-me');
-    if (viewMe && !viewMe.classList.contains('active')) {
+    const isSwitchingIntoViewMe = (typeof currentView !== 'undefined' ? currentView !== 'view-me' : (viewMe && !viewMe.classList.contains('active')));
+    if (isSwitchingIntoViewMe) {
         window.__targetMeSubview = subviewKey;
-        switchView('view-me');
-        skipTransition = true;
+        switchView('view-me', { direction: subviewKey === 'main' ? 'back' : 'forward', skipTransition });
+        return;
     }
+    const currentSubEl = document.querySelector('#view-me .settings-subview.active');
+    const targetSubEl = (subviewKey === 'main')
+        ? document.getElementById('me-subview-main')
+        : document.getElementById(`settings-subview-${subviewKey}`);
+    const isBackToMain = Boolean(!skipTransition && subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'me-subview-main' && targetSubEl);
+    const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
+
     const performSwitch = () => {
         const meSubviews = ['main', 'books', 'words', 'mastered', 'trash', 'export-data', 'items', 'account', 'detailed-stats', 'review-plan'];
         meSubviews.forEach(k => {
@@ -81,7 +89,18 @@ function openMeSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    performSwitch();
+    if (isBackToMain && typeof runBackPageTransition === 'function') {
+        runBackPageTransition(performSwitch, currentSubEl, targetSubEl);
+    } else if (isForwardToSub && typeof runForwardPageTransition === 'function') {
+        runForwardPageTransition(performSwitch, currentSubEl, targetSubEl);
+    } else if (window.__skipNextBackAnimation && targetSubEl) {
+        window.__skipNextBackAnimation = false;
+        targetSubEl.classList.add('no-enter-anim');
+        performSwitch();
+        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
+    } else {
+        performSwitch();
+    }
 }
 
 function updateNavActive(current) {
@@ -211,6 +230,11 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         return;
     }
 
+    const currentSubEl = document.querySelector('#view-settings .settings-subview.active');
+    const targetSubEl = document.getElementById(`settings-subview-${subviewKey}`);
+    const isBackToMain = Boolean(!skipTransition && subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'settings-subview-main' && targetSubEl);
+    const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
+
     const performSubviewSwitch = () => {
         const subviews = ['main', 'changelog', 'edit-home'];
         subviews.forEach(k => {
@@ -235,7 +259,18 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    performSubviewSwitch();
+    if (isBackToMain && typeof runBackPageTransition === 'function') {
+        runBackPageTransition(performSubviewSwitch, currentSubEl, targetSubEl);
+    } else if (isForwardToSub && typeof runForwardPageTransition === 'function') {
+        runForwardPageTransition(performSubviewSwitch, currentSubEl, targetSubEl);
+    } else if (window.__skipNextBackAnimation && targetSubEl) {
+        window.__skipNextBackAnimation = false;
+        targetSubEl.classList.add('no-enter-anim');
+        performSubviewSwitch();
+        requestAnimationFrame(() => targetSubEl.classList.remove('no-enter-anim'));
+    } else {
+        performSubviewSwitch();
+    }
 }
 
 function renderSettingsMain() {
@@ -996,13 +1031,13 @@ let settingsViewingBookPreviousView = 'view-manage-books';
 
 function exitBookWordsView() {
     if (settingsViewingBookPreviousView === 'view-manage-books') {
-        switchView('view-manage-books');
         if (typeof renderManageBooksPage === 'function') renderManageBooksPage();
+        switchView('view-manage-books', { direction: 'back' });
     } else if (settingsViewingBookPreviousView === 'view-me') {
-        switchView('view-me');
-        if (typeof openMeSubview === 'function') openMeSubview('main');
+        window.__targetMeSubview = 'main';
+        switchView('view-me', { direction: 'back' });
     } else {
-        switchView(settingsViewingBookPreviousView || 'view-manage-books');
+        switchView(settingsViewingBookPreviousView || 'view-manage-books', { direction: 'back' });
     }
 }
 window.exitBookWordsView = exitBookWordsView;
@@ -1706,7 +1741,12 @@ function toggleExpandableSearch(wrapId, inputId) {
         wrap.classList.add('expanded');
         const input = document.getElementById(inputId);
         if (input) {
-            setTimeout(() => input.focus(), 60);
+            try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+            requestAnimationFrame(() => {
+                if (document.activeElement !== input) {
+                    try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+                }
+            });
         }
     }
 }
@@ -1921,12 +1961,25 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(buildTrashWordRowHtml).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.12.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.13.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.13.0',
+        date: '2026-11-21',
+        badge: '当前版本',
+        items: [
+            '搜索交互聚焦优化：点击首页搜索按钮、搜索栏以及词书内容/熟词本/回收站等展开式搜索图标时，同步将光标精准聚焦至对应搜索输入框（兼容桌面端与 iOS 移动端）。',
+            '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',
+            '搜索设置释义来源归类：将搜索设置“释义来源”列表中的所有加密词书统一归类为独立的「Doris」来源选项，支持统一开关控制。',
+            '手机端页面滑入/返回动画与 iOS 手势返回：仅在手机端（<= 767px）为进入新页面新增从右侧滑入动画、为返回页面提供向右淡出并从左滑入的定向动画，宽屏设备取消返回动画；在 iOS 手机端支持屏幕最左侧边缘滑动返回手势，页面动画随手指滑动进度实时联动。',
+            '返回首页稳定性修复：优化首页布局刷新与卡片过渡属性，修复回到首页时重复重排刷新卡片及触发卡片位移动画的问题。',
+            '熟词永久免复习：优化单词与文言实词熟词机制，将词汇标为熟词后立即同步记为已掌握并清零复习计划，后续不再安排或抽取复习，也不受逾期惩罚或误答重置影响。'
+        ]
+    },
     {
         version: 'v2.12.0',
         date: '2026-11-15',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '跨设备云端数据同步修复：完善 Supabase 多设备登录、全量快照拉取与双向合并逻辑，解决同一账号在不同设备间进度与学习统计不一致的问题。',
             '关闭自动同步与手动同步修复：修复关闭“自动同步”后顶部“同步数据”按钮在部分改动下不显示、记忆库与熟词变更未标记待同步，以及手动点击同步时被后台重试状态拦截或被预拉取覆盖本地配置导致云端未收到数据的问题。',

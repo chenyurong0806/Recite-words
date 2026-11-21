@@ -1093,7 +1093,7 @@
 
     window.exitActivityView = function () {
         if (typeof switchView === 'function') {
-            switchView('view-hub');
+            switchView('view-hub', { direction: 'back' });
         }
         ActivityManager.updateBadge();
     };

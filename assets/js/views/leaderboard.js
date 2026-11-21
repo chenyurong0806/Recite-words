@@ -29,7 +29,7 @@ function openLeaderboardView(tab = 'level') {
 
 function exitLeaderboardView() {
     if (typeof switchView === 'function') {
-        switchView(leaderboardPreviousView || 'view-hub');
+        switchView(leaderboardPreviousView || 'view-hub', { direction: 'back' });
     }
     // 退出排行榜返回正在进行的今日wordle时，恢复计时
     if (leaderboardPreviousView === 'view-riddle' && typeof isDailyWordleMode !== 'undefined' && isDailyWordleMode && typeof riddleState !== 'undefined' && !riddleState.gameOver) {

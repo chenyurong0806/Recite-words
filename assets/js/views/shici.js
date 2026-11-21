@@ -159,14 +159,17 @@ function toggleSettlementWordMastered(btnEl) {
         if (nowMastered) {
             shiciProgress.masteredWords[word] = true;
             ShiCiEbbinghausEngine.recordWord(word, meaning, phone, true, true);
+            if (typeof ensureWordMastered === 'function') {
+                ensureWordMastered(word, phone || '', meaning || '', true);
+            }
         } else {
             delete shiciProgress.masteredWords[word];
             ShiCiEbbinghausEngine.unmarkMastered(word);
+            if (typeof removeWordMastered === 'function') {
+                removeWordMastered(word);
+            }
         }
         saveShiCiState();
-        if (typeof toggleMasteredWord === 'function') {
-            toggleMasteredWord(word, phone || '', meaning || '', 'shici');
-        }
     } else if (typeof toggleMasteredWord === 'function') {
         nowMastered = toggleMasteredWord(word, phone, meaning);
     }
@@ -436,7 +439,8 @@ const ShiCiEbbinghausEngine = {
         record.lastPracticed = now;
         record.historyCount = (record.historyCount || 0) + 1;
 
-        if (forceMastered) {
+        // 标为熟词后永久免复习：保持已掌握状态，不再安排下次复习
+        if (forceMastered || isMast) {
             record.stage = 5;
             record.nextReview = 0;
             records[key] = record;
@@ -445,7 +449,7 @@ const ShiCiEbbinghausEngine = {
             return;
         }
 
-        const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
+        const currentStage = (typeof record.stage === 'number') ? record.stage : 0;
 
         if (currentStage === 0) {
             // 首次学习生词
@@ -477,8 +481,8 @@ const ShiCiEbbinghausEngine = {
                     if (!shiciProgress.masteredWords) shiciProgress.masteredWords = {};
                     shiciProgress.masteredWords[key] = true;
                     saveShiCiState();
-                    if (typeof toggleMasteredWord === 'function' && !isWordMastered(key)) {
-                        toggleMasteredWord(key, phone || '', meaning || '', 'shici');
+                    if (typeof ensureWordMastered === 'function') {
+                        ensureWordMastered(key, phone || '', meaning || '', true);
                     }
                 }
             } else {
@@ -535,6 +539,14 @@ const ShiCiEbbinghausEngine = {
         let modified = false;
         Object.values(records).forEach(rec => {
             if (!rec || typeof rec.stage !== 'number') return;
+            if (this.isWordMastered(rec.word)) {
+                if (rec.stage < 5 || rec.nextReview) {
+                    rec.stage = 5;
+                    rec.nextReview = 0;
+                    modified = true;
+                }
+                return;
+            }
             if (rec.stage >= 1 && rec.stage <= 4 && rec.nextReview) {
                 if (rec.nextReview < todayStartMs) {
                     if (rec.lastOverduePenalizedDate !== todayStr) {
@@ -990,17 +1002,19 @@ async function startShiCiReview() {
         const dueKeys = new Set(dueRecords.map(r => r.word));
         let reviewWords = allWords.filter(w => dueKeys.has(w.word));
 
-        // 若暂无到期实词，但有已学实词，则允许复习所有已学实词
+        // 若暂无到期实词，但有已学且未标为熟词的实词，则允许复习这些实词
         if (reviewWords.length === 0) {
-            const allLearned = ShiCiEbbinghausEngine.getAllLearnedWords();
+            const allLearned = ShiCiEbbinghausEngine.getAllLearnedWords().filter(r =>
+                r && r.word && r.stage < 5 && !ShiCiEbbinghausEngine.isWordMastered(r.word)
+            );
             const learnedKeys = new Set(allLearned.map(r => r.word));
-            reviewWords = allWords.filter(w => learnedKeys.has(w.word));
+            reviewWords = allWords.filter(w => learnedKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word));
         }
 
-        // 兼顾历史本地已学词
+        // 兼顾历史本地已学词（严格排除熟词）
         if (reviewWords.length === 0 && shiciProgress.learnedWords) {
             const legacyKeys = new Set(Object.keys(shiciProgress.learnedWords));
-            reviewWords = allWords.filter(w => legacyKeys.has(w.word));
+            reviewWords = allWords.filter(w => legacyKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word));
         }
 
         if (reviewWords.length === 0) {
@@ -1585,7 +1599,7 @@ function confirmExitShiCi() {
         syncAllUserDataToCloud();
     }
     const target = (window.previousView && window.previousView !== 'view-shici') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView(target, { direction: 'back' });
 }
 
 function toggleCurrentShiCiMastered() {
@@ -1599,8 +1613,11 @@ function toggleCurrentShiCiMastered() {
     if (isNow) {
         shiciProgress.masteredWords[w] = true;
         ShiCiEbbinghausEngine.recordWord(w, meaningStr, currentQ.pinyin, true, true);
+        if (typeof ensureWordMastered === 'function') {
+            ensureWordMastered(w, currentQ.pinyin || '', meaningStr, true);
+        }
         renderShiCiMasteryDiamonds(w, 'gain');
-        showToast(`已将【${w}】标记为熟词，本组不再抽取`);
+        showToast(`已将【${w}】标记为熟词，以后不再复习`);
 
         // 从当前题之后的 pool 中移除该词
         const curIdx = shiciState.currentIdx;
@@ -1610,6 +1627,9 @@ function toggleCurrentShiCiMastered() {
     } else {
         delete shiciProgress.masteredWords[w];
         ShiCiEbbinghausEngine.unmarkMastered(w);
+        if (typeof removeWordMastered === 'function') {
+            removeWordMastered(w);
+        }
         renderShiCiMasteryDiamonds(w, 'loss');
         showToast(`已取消【${w}】的熟词标记`);
     }
@@ -1627,11 +1647,6 @@ function toggleCurrentShiCiMastered() {
             if (actionBtn) actionBtn.className = 'single-next-btn show-answer-mode';
             if (actionText) actionText.innerText = '看答案';
         }
-    }
-
-    // 同时与全局熟词本打通
-    if (typeof toggleMasteredWord === 'function') {
-        toggleMasteredWord(w, currentQ.pinyin || '', meaningStr, 'shici');
     }
 }
 

@@ -552,7 +552,7 @@ function confirmExitRiddle() {
     if (typeof syncAllUserDataToCloud === 'function') {
         syncAllUserDataToCloud();
     }
-    switchView('view-hub');
+    switchView('view-hub', { direction: 'back' });
 }
 
 function selectRiddleCase(letterCase) {
@@ -947,7 +947,7 @@ function openNormalWordleHistoryModal() {
 }
 
 function exitWordleHistoryView() {
-    switchView(riddleHistoryPreviousView || 'view-riddle');
+    switchView(riddleHistoryPreviousView || 'view-riddle', { direction: 'back' });
 }
 
 function closeNormalWordleHistoryModal() {

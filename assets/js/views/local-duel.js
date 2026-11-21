@@ -1287,6 +1287,6 @@ function confirmExitLocalDuel() {
     if (localDuelState.p2.freezeTimer) clearTimeout(localDuelState.p2.freezeTimer);
     if (localDuelState.p2.freezeTick) clearInterval(localDuelState.p2.freezeTick);
     const target = (window.previousView && window.previousView !== 'view-local-duel') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView(target, { direction: 'back' });
 }
 

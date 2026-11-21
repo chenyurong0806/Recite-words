@@ -346,11 +346,18 @@ function renderSearchTabsRow() {
         (resultsHub && resultsHub.style.display !== 'none')
     );
 
+    const clearAllBtnHtml = `
+        <button type="button" class="hub-search-tabs-clear-btn" onclick="clearAllSearchTabs(event)" title="一键清除所有搜索标签页" aria-label="一键清除所有搜索标签页">
+            <span class="material-symbols-rounded" style="font-size:16px;">delete_sweep</span>
+            <span>清空</span>
+        </button>
+    `;
+
     tabsRows.forEach(el => {
         el.style.display = 'flex';
         el.classList.toggle('first-tab-active', isFirstActive);
         el.classList.toggle('has-results', hasResults);
-        el.innerHTML = `<div class="hub-search-tabs-list" onwheel="if (event.deltaY) { this.scrollLeft += event.deltaY; event.preventDefault(); }">${tabsHtml}</div>`;
+        el.innerHTML = `<div class="hub-search-tabs-list" onwheel="if (event.deltaY) { this.scrollLeft += event.deltaY; event.preventDefault(); }">${tabsHtml}</div>${clearAllBtnHtml}`;
         el.onwheel = (e) => {
             const list = el.querySelector('.hub-search-tabs-list');
             if (list && e.deltaY) {
@@ -361,6 +368,29 @@ function renderSearchTabsRow() {
     });
     updateSearchTabsCardBorderRadius();
 }
+
+function clearAllSearchTabs(event) {
+    if (event) event.stopPropagation();
+    if (!searchTabs || searchTabs.length === 0) return;
+    searchTabs = [];
+    activeSearchTabId = null;
+    saveSearchTabs();
+    renderSearchTabsRow();
+
+    const searchInp = document.getElementById('search-page-input');
+    if (searchInp) searchInp.value = '';
+    const clearBtn = document.getElementById('search-page-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    const suggs = document.getElementById('search-page-suggestions');
+    if (suggs) suggs.style.display = 'none';
+
+    closeInpageSearchResults();
+    showSearchHistoryView();
+    if (typeof showToast === 'function') {
+        showToast('已清除全部搜索标签页');
+    }
+}
+window.clearAllSearchTabs = clearAllSearchTabs;
 
 function updateSearchTabsCardBorderRadius() {
     const cfg = getSearchConfig();
@@ -839,6 +869,46 @@ function isSearchBookDownloaded(bookId, bookName) {
 }
 window.isSearchBookDownloaded = isSearchBookDownloaded;
 
+function isDorisEncryptedBook(item) {
+    if (!item) return false;
+    if (item.isDoris) return true;
+    const cat = String(item.category || '').trim().toLowerCase();
+    if (cat === 'doris') return true;
+    const rawId = String(item.bookId || item.id || '');
+    const idLower = rawId.toLowerCase();
+    if (idLower.startsWith('doris_') || idLower.includes('books/doris/') || idLower.includes('/doris/')) {
+        return true;
+    }
+    const cleanName = String(item.bookName || item.rawName || item.name || '').replace(/^[《📂📁\s]+|[》\s]+$/g, '').trim();
+    if (typeof BookManager !== 'undefined' && BookManager) {
+        if (Array.isArray(BookManager.dorisBooks) && BookManager.dorisBooks.some(db =>
+            db && (
+                (rawId && String(db.id || '').toLowerCase() === idLower) ||
+                (cleanName && (db.name === cleanName || db.rawName === cleanName))
+            )
+        )) {
+            return true;
+        }
+        if (rawId && typeof BookManager.getBookMeta === 'function') {
+            const meta = BookManager.getBookMeta(rawId);
+            if (meta && (meta.isDoris || String(meta.category || '').trim().toLowerCase() === 'doris')) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+window.isDorisEncryptedBook = isDorisEncryptedBook;
+
+function isAnyDorisBookDownloaded() {
+    const allBooks = (typeof getAllUniqueBooks === 'function') ? getAllUniqueBooks() : [];
+    return allBooks.some(b => {
+        if (!isDorisEncryptedBook(b)) return false;
+        const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+        return isSearchBookDownloaded(b.id, name);
+    });
+}
+
 function isSearchSourceEnabled(src) {
     if (!src) return false;
     const cfg = getSearchConfig();
@@ -863,6 +933,17 @@ function isSearchSourceEnabled(src) {
     // 排除实词
     if (rawName.includes('实词') || bookId.includes('实词')) return false;
 
+    // 加密词书统一归类为 Doris
+    if (bookId === '__doris__' || isDorisEncryptedBook(src)) {
+        if (bookId !== '__doris__' && !isSearchBookDownloaded(bookId, rawName)) {
+            return false;
+        }
+        if (visibility['__doris__'] !== undefined) return !!visibility['__doris__'];
+        if (bookId && bookId !== '__doris__' && visibility[bookId] !== undefined) return !!visibility[bookId];
+        if (rawName && visibility[rawName] !== undefined) return !!visibility[rawName];
+        return false;
+    }
+
     // 未下载词书严格不能作为释义来源
     if (!isSearchBookDownloaded(bookId, rawName)) {
         return false;
@@ -886,7 +967,15 @@ function isSearchSourceEnabled(src) {
 window.isSearchSourceEnabled = isSearchSourceEnabled;
 
 function updateSearchSourceSetting(key, val) {
-    if (val && key !== 'youdao' && key !== '__custom__') {
+    if (val && key === '__doris__') {
+        if (!isAnyDorisBookDownloaded()) {
+            if (typeof showToast === 'function') {
+                showToast('Doris 词书尚未下载，请先在词库中下载后再开启释义', 'warning');
+            }
+            renderSearchSettingsSourcesList();
+            return;
+        }
+    } else if (val && key !== 'youdao' && key !== '__custom__') {
         if (!isSearchBookDownloaded(key)) {
             if (typeof showToast === 'function') {
                 showToast('该词书尚未下载，请先在词库中下载后再开启释义', 'warning');
@@ -898,6 +987,16 @@ function updateSearchSourceSetting(key, val) {
     const cfg = getSearchConfig();
     if (!cfg.sourceVisibility) cfg.sourceVisibility = {};
     cfg.sourceVisibility[key] = !!val;
+    if (key === '__doris__') {
+        const allBooks = (typeof getAllUniqueBooks === 'function') ? getAllUniqueBooks() : [];
+        allBooks.forEach(b => {
+            if (isDorisEncryptedBook(b)) {
+                const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+                delete cfg.sourceVisibility[b.id];
+                if (name) delete cfg.sourceVisibility[name];
+            }
+        });
+    }
     saveSearchConfig(cfg);
     if (typeof renderSearchExplainsList === 'function') {
         renderSearchExplainsList();
@@ -909,13 +1008,18 @@ function renderSearchSettingsSourcesList() {
     const container = document.getElementById('search-settings-sources-list');
     if (!container) return;
 
-    // 1. 获取所有词书，并排除实词与自定义词书（自定义词书由独立项统一控制）
+    // 1. 获取所有词书，并排除实词与自定义词书（自定义词书由独立项统一控制，加密词书统一归类为 Doris）
     const allBooks = (typeof getAllUniqueBooks === 'function') ? getAllUniqueBooks() : [];
+    const dorisBooks = [];
     const nonShiCiBooks = allBooks.filter(b => {
         if (!b) return false;
         if (typeof isBookShiCi === 'function' && isBookShiCi(b)) return false;
         if (b.category === '实词' || String(b.id || '').includes('实词') || String(b.name || '').includes('实词')) return false;
         if (String(b.id || '').startsWith('custom_') || (typeof isLocalCustomBook === 'function' && isLocalCustomBook(b.id))) return false;
+        if (isDorisEncryptedBook(b)) {
+            dorisBooks.push(b);
+            return false;
+        }
         return true;
     });
 
@@ -935,6 +1039,18 @@ function renderSearchSettingsSourcesList() {
 
     const isYoudaoChecked = isSearchSourceEnabled({ type: 'youdao', id: 'youdao' });
     const isCustomChecked = isSearchSourceEnabled({ type: 'book', bookId: '__custom__', isCustom: true });
+    const hasDorisBooks = dorisBooks.length > 0;
+    const hasDownloadedDoris = hasDorisBooks && dorisBooks.some(b => {
+        const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+        return isSearchBookDownloaded(b.id, name);
+    });
+    const isDorisChecked = hasDownloadedDoris && (
+        isSearchSourceEnabled({ type: 'book', bookId: '__doris__', isDoris: true }) ||
+        dorisBooks.some(b => {
+            const name = (b.rawName || b.name || '').replace(/^[📂📁\s]+/, '').trim();
+            return isSearchSourceEnabled({ type: 'book', bookId: b.id, bookName: name, isDoris: true });
+        })
+    );
 
     let html = `
         <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
@@ -953,6 +1069,31 @@ function renderSearchSettingsSourcesList() {
             <input type="checkbox" class="md3-checkbox" ${isCustomChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__custom__', this.checked)">
         </label>
     `;
+
+    if (hasDorisBooks) {
+        if (hasDownloadedDoris) {
+            html += `
+                <label style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; cursor:pointer;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">加密</span>
+                        <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">Doris</span>
+                    </div>
+                    <input type="checkbox" class="md3-checkbox" ${isDorisChecked ? 'checked' : ''} onchange="updateSearchSourceSetting('__doris__', this.checked)">
+                </label>
+            `;
+        } else {
+            html += `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--md-sys-color-surface-container); border-radius:10px; opacity:0.55; cursor:not-allowed;" title="请先在词库中下载 Doris 词书" onclick="showToast('Doris 词书尚未下载，请先在词库中下载', 'warning')">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                        <span class="unified-source-badge book" style="margin:0; font-size:0.75rem; background:var(--md-sys-color-secondary-container); color:var(--md-sys-color-on-secondary-container);">加密</span>
+                        <span style="font-size:0.88rem; font-weight:600; color:var(--md-sys-color-on-surface);">Doris</span>
+                        <span class="badge" style="font-size:0.7rem; padding:1px 6px; border-radius:4px; background:var(--md-sys-color-surface-variant); color:var(--md-sys-color-outline); flex-shrink:0;">未下载</span>
+                    </div>
+                    <input type="checkbox" class="md3-checkbox" disabled onclick="event.stopPropagation(); showToast('Doris 词书尚未下载，请先在词库中下载', 'warning')">
+                </div>
+            `;
+        }
+    }
 
     presetItems.forEach(item => {
         const isDownloaded = isSearchBookDownloaded(item.id, item.name);
@@ -1185,35 +1326,70 @@ function showSearchHistoryView() {
     tabsRows.forEach(el => el.classList.remove('has-results'));
 }
 
+function focusSearchInputElement(inputEl) {
+    if (!inputEl) return;
+    try {
+        inputEl.focus({ preventScroll: true });
+    } catch (e) {
+        try { inputEl.focus(); } catch (e2) { }
+    }
+    try {
+        const len = (inputEl.value || '').length;
+        if (typeof inputEl.setSelectionRange === 'function') {
+            inputEl.setSelectionRange(len, len);
+        }
+    } catch (e) { }
+}
+
 function focusSearchFromHub() {
-    switchView('view-search');
+    switchView('view-search', { direction: 'forward' });
     showSearchHistoryView();
-    setTimeout(() => {
-        const inp = document.getElementById('search-page-input');
-        if (inp) inp.focus();
-    }, 50);
+    const inp = document.getElementById('search-page-input');
+    focusSearchInputElement(inp);
+    requestAnimationFrame(() => {
+        if (inp && document.activeElement !== inp) {
+            focusSearchInputElement(inp);
+        }
+    });
 }
 
 function openSearchPageFromHub(showKeyboard = false) {
+    const searchInp = document.getElementById('search-page-input');
+    if (typeof currentView !== 'undefined' && currentView === 'view-search') {
+        focusSearchInputElement(searchInp);
+        if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+            toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+        }
+        return;
+    }
+
     searchPreviousView = 'view-hub';
     searchPreviousSettingsBookId = null;
     const hubInp = document.getElementById('hub-search-input');
-    if (hubInp) hubInp.value = ''; // 首页搜索框始终保持清空
+    if (hubInp) {
+        hubInp.value = ''; // 首页搜索框始终保持清空
+        if (document.activeElement === hubInp) {
+            hubInp.blur();
+        }
+    }
     const clearBtnHub = document.getElementById('hub-search-clear-btn');
     if (clearBtnHub) clearBtnHub.style.display = 'none';
     const suggsHub = document.getElementById('hub-search-suggestions');
     if (suggsHub) suggsHub.style.display = 'none';
 
-    switchView('view-search');
-    const searchInp = document.getElementById('search-page-input');
+    switchView('view-search', { direction: 'forward' });
     if (searchInp) {
         showSearchHistoryView();
-        setTimeout(() => {
-            searchInp.focus();
-            if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
-                toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+        // 同步聚焦搜索框，确保桌面端与 iOS Safari 均在用户点击手势链内立即激活光标
+        focusSearchInputElement(searchInp);
+        if (showKeyboard && typeof toggleVirtualKeyboardFromSearch === 'function') {
+            toggleVirtualKeyboardFromSearch(null, 'search-page-input');
+        }
+        requestAnimationFrame(() => {
+            if (document.activeElement !== searchInp) {
+                focusSearchInputElement(searchInp);
             }
-        }, 60);
+        });
     }
 }
 window.openSearchPageFromHub = openSearchPageFromHub;
@@ -1259,7 +1435,7 @@ function exitSearchPage() {
     const targetBookId = searchPreviousSettingsBookId;
     searchPreviousView = null;
     searchPreviousSettingsBookId = null;
-    switchView(targetView);
+    switchView(targetView, { direction: 'back' });
     if (targetView === 'view-dictation') {
         if (typeof dictationState !== 'undefined' && dictationState && dictationState.answered && dictationState.currentQ) {
             const feedbackCard = document.getElementById('dictation-feedback-card');
@@ -1379,7 +1555,12 @@ function openHubSearchModal() {
     const modal = document.getElementById('hub-search-modal');
     if (modal) modal.classList.add('active');
     const inp = document.getElementById('modal-search-input');
-    if (inp) setTimeout(() => inp.focus(), 150);
+    if (inp) {
+        focusSearchInputElement(inp);
+        requestAnimationFrame(() => {
+            if (document.activeElement !== inp) focusSearchInputElement(inp);
+        });
+    }
 }
 
 function closeHubSearchModal() {

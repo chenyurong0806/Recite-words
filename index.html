@@ -720,8 +720,8 @@
                     <span class="material-symbols-rounded">arrow_back</span>
                 </button>
                 <div class="hub-search-wrapper" id="search-page-wrapper">
-                    <div class="hub-search-bar">
-                        <span class="material-symbols-rounded hub-search-icon" style="font-size:20px; width:20px; height:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center; margin-right:8px; flex-shrink:0;">search</span>
+                    <div class="hub-search-bar" onclick="var inp=document.getElementById('search-page-input'); if(inp && document.activeElement!==inp) inp.focus();">
+                        <span class="material-symbols-rounded hub-search-icon" style="font-size:20px; width:20px; height:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center; margin-right:8px; flex-shrink:0; cursor:pointer;">search</span>
                         <input type="text" id="search-page-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" oninput="handleSearchPageInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();handleSearchPageEnter(this);}">
                         <button type="button" class="hub-search-clear-btn" id="search-page-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="clearSearchPageInput(event)">
                             <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
@@ -818,7 +818,7 @@
             <div class="hub-search-wrapper" id="hub-search-wrapper">
                 <div class="hub-search-bar" onclick="openSearchPageFromHub()" style="cursor:pointer;">
                     <span class="material-symbols-rounded hub-search-icon">search</span>
-                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" onfocus="openSearchPageFromHub()" onclick="openSearchPageFromHub()" readonly>
+                    <input type="text" id="hub-search-input" class="hub-search-input" placeholder="搜索单词、词组或释义..." autocomplete="off" onclick="event.stopPropagation(); openSearchPageFromHub()" readonly>
                     <button type="button" class="hub-search-clear-btn" id="hub-search-clear-btn" style="display:none; width:28px; height:28px; padding:0; margin:0; flex-shrink:0; border:none; background:transparent; align-items:center; justify-content:center; border-radius:50%; cursor:pointer;" onclick="event.stopPropagation(); clearHubSearch(event)">
                         <span class="material-symbols-rounded" style="font-size:18px; width:18px; height:18px; line-height:1; display:inline-flex; align-items:center; justify-content:center;">close</span>
                     </button>
@@ -1021,7 +1021,7 @@
             <!-- 活动与排行榜入口并排区域 (离线模式下活动卡片隐藏，排行榜自适应占满整行) -->
             <div class="hub-extra-row" id="hub-activity-leaderboard-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 0;">
                 <!-- 活动入口卡片 (离线模式不显示) -->
-                <div class="card hub-activity-entry-card offline-hide" id="hub-activity-entry-card" onclick="openActivityView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; position: relative; margin-bottom: 0;">
+                <div class="card hub-activity-entry-card offline-hide" id="hub-activity-entry-card" onclick="openActivityView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; position: relative; margin-bottom: 0;">
                     <div style="display: flex; align-items: center; gap: 14px;">
                         <div style="position: relative; width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                             <span class="material-symbols-rounded" style="font-size: 26px;">campaign</span>
@@ -1039,7 +1039,7 @@
                 </div>
 
                 <!-- 排行榜入口卡片 -->
-                <div class="card leaderboard-entry-card" id="hub-leaderboard-entry-card" onclick="openLeaderboardView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; transition: all 0.2s ease; margin-bottom: 0;">
+                <div class="card leaderboard-entry-card" id="hub-leaderboard-entry-card" onclick="openLeaderboardView()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; margin-bottom: 0;">
                     <div style="display: flex; align-items: center; gap: 14px;">
                         <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                             <span class="material-symbols-rounded" style="font-size: 26px;">leaderboard</span>
@@ -2955,7 +2955,7 @@
                 </div>
 
                 <div class="settings-search-wrapper" style="margin: 4px 0 16px;">
-                    <div class="hub-search-bar" style="background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant);">
+                    <div class="hub-search-bar" onclick="var inp=document.getElementById('settings-filter-input'); if(inp && document.activeElement!==inp) inp.focus();" style="background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); cursor:text;">
                         <span class="material-symbols-rounded hub-search-icon">search</span>
                         <input type="text" id="settings-filter-input" class="hub-search-input" placeholder="搜索设置项..." autocomplete="off" oninput="filterSettingsRows(this.value)">
                     </div>

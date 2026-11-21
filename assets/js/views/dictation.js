@@ -165,7 +165,7 @@ function confirmExitDictation() {
         syncAllUserDataToCloud();
     }
     const target = (window.previousView && window.previousView !== 'view-dictation') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView(target, { direction: 'back' });
 }
 
 async function startDictationPractice() {

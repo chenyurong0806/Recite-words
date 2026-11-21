@@ -1051,10 +1051,10 @@ async function startSingleReview(specificBookId = null) {
         if (unreviewedDue.length > 0) {
             reviewTargets = [...unreviewedDue].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
         } else {
-            // 无急需待复习词汇时，抽取已学但尚未熟练掌握的词汇进行强化
+            // 无急需待复习词汇时，抽取已学但尚未熟练掌握的词汇进行强化（严格排除熟词）
             const allLearned = EbbinghausEngine.getAllLearnedWords().filter(r => {
                 const k = _normKey(r.word);
-                return wordMap.has(k) && !isWordMastered(k);
+                return wordMap.has(k) && !isWordMastered(k) && !(r.stage >= 5);
             });
 
             let unreviewedLearned = allLearned.filter(r => !sessionReviewedWords.has(_normKey(r.word)));
@@ -1198,6 +1198,6 @@ function confirmExitSingle() {
         syncAllUserDataToCloud();
     }
     const target = (window.previousView && window.previousView !== 'view-single') ? window.previousView : 'view-hub';
-    switchView(target);
+    switchView(target, { direction: 'back' });
 }
 

@@ -355,6 +355,8 @@ const EbbinghausEngine = {
             const shiciRecs = ShiCiEbbinghausEngine.getRecords() || {};
             Object.values(shiciRecs).forEach(r => {
                 if (!r || !r.word) return;
+                if (typeof ShiCiEbbinghausEngine.isWordMastered === 'function' && ShiCiEbbinghausEngine.isWordMastered(r.word)) return;
+                if (typeof isWordMastered === 'function' && isWordMastered(r.word)) return;
                 if (r.stage >= 1 && r.stage < 5 && r.nextReview) {
                     list.push({
                         word: r.word,
@@ -372,6 +374,33 @@ const EbbinghausEngine = {
         }
         list.sort((a, b) => a.nextReview - b.nextReview);
         return list;
+    },
+    markWordMastered(word, meaning = '', phone = '', bookId = null) {
+        if (!word) return;
+        const rawKey = String(word).trim().toLowerCase();
+        const normKey = normalizeWordKey(word);
+        if (!normKey) return;
+        const records = this.getRecords();
+        const existing = getEbbinghausRecordByWord(records, word);
+        const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+        const record = existing ? { ...existing, word: cleanWord } : {
+            word: cleanWord,
+            meaning: meaning || '',
+            phone: phone || '',
+            historyCount: 0
+        };
+        if (bookId) record.bookId = bookId;
+        if (meaning) record.meaning = meaning;
+        if (phone) record.phone = phone;
+        record.stage = 5;
+        record.nextReview = 0;
+        record.lastPracticed = Date.now();
+        records[normKey] = record;
+        if (rawKey && rawKey !== normKey && records[rawKey]) {
+            delete records[rawKey];
+        }
+        this.saveRecords(records);
+        this.updateDueBadge();
     },
     recordWord(word, meaning, phone, isSuccess, bookId = null) {
         if (!word) return;
@@ -397,7 +426,20 @@ const EbbinghausEngine = {
         record.lastPracticed = now;
         record.historyCount = (record.historyCount || 0) + 1;
 
-        const currentStage = (typeof record.stage === 'number') ? record.stage : (isMast ? 5 : 0);
+        // 标为熟词后永久免复习：保持已掌握状态，不再安排下次复习，也不因作答失误重置回待复习队列
+        if (isMast) {
+            record.stage = 5;
+            record.nextReview = 0;
+            records[normKey] = record;
+            if (rawKey && rawKey !== normKey && records[rawKey]) {
+                delete records[rawKey];
+            }
+            this.saveRecords(records);
+            this.updateDueBadge();
+            return;
+        }
+
+        const currentStage = (typeof record.stage === 'number') ? record.stage : 0;
 
         if (currentStage === 0) {
             if (isSuccess) {
@@ -421,7 +463,7 @@ const EbbinghausEngine = {
                 } else {
                     record.stage = 5;
                     record.nextReview = 0;
-                    ensureWordMastered(record.word, phone, meaning);
+                    ensureWordMastered(record.word, phone, meaning, true);
                 }
             } else {
                 record.stage = 1;
@@ -471,6 +513,14 @@ const EbbinghausEngine = {
         let modified = false;
         Object.values(records).forEach(rec => {
             if (!rec || typeof rec.stage !== 'number') return;
+            if (typeof isWordMastered === 'function' && isWordMastered(rec.word)) {
+                if (rec.stage < 5 || rec.nextReview) {
+                    rec.stage = 5;
+                    rec.nextReview = 0;
+                    modified = true;
+                }
+                return;
+            }
             if (rec.stage >= 1 && rec.stage <= 4 && rec.nextReview) {
                 if (rec.nextReview < todayStartMs) {
                     if (rec.lastOverduePenalizedDate !== todayStr) {
