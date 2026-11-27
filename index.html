@@ -36,24 +36,48 @@
 
     <meta name="referrer" content="no-referrer">
 
-    <!-- Google Fonts & Material Symbols (异步非阻塞加载，兼具离线本地优先秒开) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- 优先预加载精简图标字体子集（~98KB），显著加快首次打开图标显示速度 -->
+    <link rel="preload" href="./assets/fonts/material-symbols-rounded-subset.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!-- 首帧前同步识别 iOS 独立 PWA 模式，避免顶部系统模糊区域遮挡页面标题 -->
+    <script>
+        (function () {
+            try {
+                var ua = navigator.userAgent || '';
+                var isIos = (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
+                var isStandalone = Boolean(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+                if (isIos && isStandalone) {
+                    document.documentElement.classList.add('ios-pwa');
+                }
+            } catch (e) { }
+        })();
+    </script>
+
+    <!-- Google Fonts 文本字体异步非阻塞加载（图标字体改由本地子集优先极速加载，避免被远程阻塞） -->
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap"
         media="print" onload="this.media='all'">
     <noscript>
         <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+            href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap">
     </noscript>
     <style>
-        /* 离线/本地环境兜底加载 Google Material Symbols Rounded */
+        /* 本地精简子集图标字体（~98KB，涵盖全站所有图标，首次打开即刻显示） */
         @font-face {
             font-family: 'Material Symbols Rounded';
             font-style: normal;
+            font-weight: 400 700;
+            font-display: block;
+            src: url('./assets/fonts/material-symbols-rounded-subset.woff2') format('woff2'),
+                 url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
+        }
+        /* 完整图标字库按需兜底（仅在遇到未收录的动态云端图标时自动回落加载） */
+        @font-face {
+            font-family: 'Material Symbols Rounded Fallback';
+            font-style: normal;
             font-weight: 100 700;
             font-display: swap;
-            src: local('Material Symbols Rounded'), url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
+            src: url('./assets/fonts/material-symbols-rounded.woff2') format('woff2');
         }
         /* 海报换背景按钮冷却态 */
         #btn-poster-change-bg.poster-bg-cd { opacity: 0.5; cursor: not-allowed; }
@@ -103,7 +127,7 @@
     </script>
     <!-- Supabase JS Client (本地直接加载，零延迟秒开且离线无网环境下不卡顿) -->
     <script src="./assets/js/core/supabase.client.js"></script>
-    <script src="./assets/lib/html2pdf.bundle.min.js"></script>
+    <script src="./assets/lib/html2pdf.bundle.min.js" defer></script>
     <!-- 引入主样式表 -->
     <link rel="stylesheet" href="./assets/css/style.css">
     <!-- 核心基础设施 (Core Infrastructure) -->
@@ -754,12 +778,12 @@
 
         <!-- VIEW 2: 学习对战大厅 -->
         <div id="view-hub" class="view active">
-            <div class="app-bar">
+            <div class="app-bar hub-app-bar" id="hub-app-bar">
                 <div id="hub-header-title-box">
                     <h2 id="hub-header-title">首页</h2>
                     <p id="hub-welcome" style="font-size:0.85rem;"></p>
                 </div>
-                <div style="display:flex; gap: 10px; align-items:center; position: relative;">
+                <div id="hub-appbar-actions" class="hub-appbar-actions">
                     <div id="hub-user-level-badge" class="user-level-badge" style="display:none; font-weight:800; font-size:0.8rem; padding:3px 10px; border-radius:9999px;">
                         Lv. 1
                     </div>
@@ -772,15 +796,13 @@
                         <span class="material-symbols-rounded">mail</span>
                         <span id="hub-mailbox-unread-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:#dc2626; color:#ffffff; font-size:0.68rem; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; line-height:14px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.25); border:2px solid var(--md-sys-color-surface, #ffffff); box-sizing:border-box;">0</span>
                     </button>
-                    <div id="hub-user-pill" class="hub-user-pill" onclick="toggleHubUserDropdown(event)" title="账号菜单" style="cursor: pointer; position: relative;">
-                        <div style="position: relative; width: 28px; height: 28px; flex-shrink: 0; display: inline-flex;">
-                            <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap" style="width: 100%; height: 100%;">
-                                <span class="material-symbols-rounded" id="hub-user-avatar-icon" style="font-size:18px;">person</span>
-                                <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex';" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
-                            </div>
+                    <div id="hub-user-pill" class="hub-user-pill is-guest" onclick="toggleHubUserDropdown(event)" title="点击登录账号">
+                        <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap">
+                            <span class="material-symbols-rounded" id="hub-user-avatar-icon">person</span>
+                            <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex'; var p=document.getElementById('hub-user-pill'); if(p) p.classList.remove('has-custom-avatar');" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
                         </div>
-                        <span id="hub-user-name" style="font-weight:600; font-size:0.9rem; color:var(--md-sys-color-on-surface);">游客</span>
-                        <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px; color: var(--md-sys-color-outline);">arrow_drop_down</span>
+                        <span id="hub-user-name" class="hub-user-name">游客</span>
+                        <span id="hub-user-dropdown-arrow" class="material-symbols-rounded hub-user-dropdown-arrow" style="display:none;">arrow_drop_down</span>
                     </div>
 
                     <!-- hub-user-pill 下拉菜单 (MD3规范) -->

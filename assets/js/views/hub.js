@@ -26,6 +26,18 @@ let previousView = 'view-hub';
 window.previousView = previousView;
 let pendingBackClickAt = 0;
 let activeDomTransitionCleanup = null;
+let activeDomTransitionDirection = null;
+
+function cancelActiveDomTransition() {
+    if (typeof activeDomTransitionCleanup === 'function') {
+        const fn = activeDomTransitionCleanup;
+        activeDomTransitionCleanup = null;
+        activeDomTransitionDirection = null;
+        fn();
+    } else {
+        activeDomTransitionDirection = null;
+    }
+}
 
 function isMobilePageTransitionViewport() {
     if (typeof window === 'undefined') return false;
@@ -221,8 +233,7 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     };
 
     if (activeDomTransitionCleanup) {
-        activeDomTransitionCleanup();
-        activeDomTransitionCleanup = null;
+        cancelActiveDomTransition();
     }
 
     if (window.__skipNextBackAnimation) {
@@ -256,6 +267,8 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
 
     const docEl = document.documentElement;
     const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
+    const rawViewportW = window.innerWidth || document.documentElement.clientWidth || 375;
+    const fullSlideDistance = Math.ceil((rawViewportW / (metrics.zoomScale || 1)) + 28);
     const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
     docEl.classList.add(docClass);
     // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
@@ -267,18 +280,28 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     fromEl.style.width = `${metrics.width}px`;
     fromEl.style.height = 'auto';
     fromEl.style.minHeight = `${metrics.minHeight}px`;
+    fromEl.style.setProperty('--page-slide-out-x', `${fullSlideDistance}px`);
     fromEl.classList.add(outClass);
 
     // 在页面滑入动画类使目标层离屏偏移前先执行同步回调（如聚焦搜索框），防止 Safari/移动端拒绝聚焦离屏元素
     invokeCallback(options && options.onAfterDomUpdate);
 
+    toEl.style.setProperty('--page-slide-in-x', `${fullSlideDistance}px`);
     toEl.classList.add(inClass);
 
     let finished = false;
+    let fallbackTimer = null;
     const cleanup = () => {
         if (finished) return;
         finished = true;
-        if (activeDomTransitionCleanup === cleanup) activeDomTransitionCleanup = null;
+        if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+        }
+        if (activeDomTransitionCleanup === cleanup) {
+            activeDomTransitionCleanup = null;
+            activeDomTransitionDirection = null;
+        }
         primaryAnimEl.removeEventListener('animationend', onAnimEnd);
         fromEl.classList.remove(outClass);
         fromEl.style.top = '';
@@ -286,7 +309,9 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         fromEl.style.width = '';
         fromEl.style.height = '';
         fromEl.style.minHeight = '';
+        fromEl.style.removeProperty('--page-slide-out-x');
         toEl.classList.remove(inClass);
+        toEl.style.removeProperty('--page-slide-in-x');
         docEl.classList.remove(docClass);
         unlockContainer();
         invokeCallback(options && options.onTransitionEnd);
@@ -295,13 +320,14 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
         if (ev.target === primaryAnimEl) cleanup();
     };
     activeDomTransitionCleanup = cleanup;
+    activeDomTransitionDirection = direction;
     primaryAnimEl.addEventListener('animationend', onAnimEnd);
 
     if (typeof primaryAnimEl.getAnimations === 'function' && primaryAnimEl.getAnimations().length === 0) {
         cleanup();
         return;
     }
-    setTimeout(cleanup, isBack ? 560 : 480);
+    fallbackTimer = setTimeout(cleanup, isBack ? 560 : 480);
 }
 
 function runBackPageTransition(updateDom, fromEl = null, toEl = null, options = {}) {
@@ -571,8 +597,22 @@ window.addEventListener('pageshow', () => {
     checkNetworkStatus();
 });
 
+function isHubGuestUser() {
+    const hasLoggedInProfile = Boolean(typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.isLoggedIn);
+    const uname = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '';
+    return !hasLoggedInProfile || !uname || uname.startsWith('游客');
+}
+
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
+    // 游客状态下不需要下拉菜单，点击直接跳转登录页
+    if (isHubGuestUser()) {
+        closeHubUserDropdown();
+        if (typeof switchView === 'function') {
+            switchView('view-auth');
+        }
+        return;
+    }
     const dd = document.getElementById('hub-user-dropdown');
     if (!dd) return;
     const isVisible = dd.style.display === 'block';
@@ -587,6 +627,51 @@ function toggleHubUserDropdown(event) {
 function closeHubUserDropdown() {
     const dd = document.getElementById('hub-user-dropdown');
     if (dd) dd.style.display = 'none';
+}
+
+function syncHubAppBarCompactState() {
+    if (typeof document === 'undefined') return;
+    const appBar = document.getElementById('hub-app-bar') || document.querySelector('#view-hub .app-bar');
+    const titleBox = document.getElementById('hub-header-title-box');
+    const actionsBox = document.getElementById('hub-appbar-actions');
+    const userPill = document.getElementById('hub-user-pill');
+    if (!appBar || !titleBox || !actionsBox || !userPill) return;
+
+    const appBarStyle = window.getComputedStyle(appBar);
+    const padL = parseFloat(appBarStyle.paddingLeft) || 0;
+    const padR = parseFloat(appBarStyle.paddingRight) || 0;
+    const availableW = appBar.clientWidth - padL - padR;
+    if (availableW <= 0) return;
+
+    // 先以完整态测量整行所需宽度，若一行放不下则收起用户胶囊为仅显示图标/头像
+    userPill.classList.remove('compact-avatar-only');
+    const neededW = titleBox.offsetWidth + actionsBox.scrollWidth + 10;
+    if (neededW > availableW + 0.5) {
+        userPill.classList.add('compact-avatar-only');
+    }
+}
+window.syncHubAppBarCompactState = syncHubAppBarCompactState;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('resize', () => {
+        syncHubAppBarCompactState();
+    }, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+        const attachHubAppBarObserver = () => {
+            const appBar = document.getElementById('hub-app-bar');
+            if (!appBar || appBar._compactObserverAttached) return;
+            appBar._compactObserverAttached = true;
+            const ro = new ResizeObserver(() => {
+                syncHubAppBarCompactState();
+            });
+            ro.observe(appBar);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attachHubAppBarObserver);
+        } else {
+            attachHubAppBarObserver();
+        }
+    }
 }
 
 const DEFAULT_HOME_MODE_ORDER = [
@@ -653,6 +738,7 @@ function applyHomeLayoutConfig() {
     const appBarSearchBtn = document.getElementById('btn-hub-appbar-search');
     setDisplayIfChanged(searchWrapper, cfg.collapseSearchBar ? 'none' : '');
     setDisplayIfChanged(appBarSearchBtn, cfg.collapseSearchBar ? 'inline-flex' : 'none');
+    syncHubAppBarCompactState();
 
     // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
@@ -707,9 +793,11 @@ function updateHub() {
     if (!currentUser) currentUser = '游客';
     
     // 更新右上角用户胶囊与登录按钮
+    const userPillEl = document.getElementById('hub-user-pill');
     const userNameEl = document.getElementById('hub-user-name');
     const userImgEl = document.getElementById('hub-user-avatar-img');
     const userIconEl = document.getElementById('hub-user-avatar-icon');
+    const userArrowEl = document.getElementById('hub-user-dropdown-arrow');
     const loginBtnEl = document.getElementById('btn-hub-login');
     const profileTag = document.getElementById('hub-profile-tag');
 
@@ -722,22 +810,39 @@ function updateHub() {
         userImgEl.onerror = () => {
             userImgEl.style.display = 'none';
             userIconEl.style.display = 'inline-flex';
+            if (userPillEl) userPillEl.classList.remove('has-custom-avatar');
+            syncHubAppBarCompactState();
         };
         userImgEl.onload = () => {
             userImgEl.style.display = 'block';
             userIconEl.style.display = 'none';
+            if (userPillEl) userPillEl.classList.add('has-custom-avatar');
+            syncHubAppBarCompactState();
         };
         if (userImgEl.getAttribute('src') !== avatar) {
             userImgEl.src = avatar;
         }
         if (userImgEl.style.display !== 'block') userImgEl.style.display = 'block';
         if (userIconEl.style.display !== 'none') userIconEl.style.display = 'none';
+        if (userPillEl) userPillEl.classList.add('has-custom-avatar');
     } else if (userImgEl && userIconEl) {
         if (userImgEl.style.display !== 'none') userImgEl.style.display = 'none';
         if (userIconEl.style.display !== 'inline-flex') userIconEl.style.display = 'inline-flex';
+        if (userPillEl) userPillEl.classList.remove('has-custom-avatar');
     }
 
-    const isLoggedIn = currentUserProfile && currentUserProfile.isLoggedIn;
+    const isGuest = isHubGuestUser();
+    const isLoggedIn = !isGuest;
+    if (userPillEl) {
+        userPillEl.classList.toggle('is-guest', isGuest);
+        userPillEl.title = isGuest ? '点击登录账号' : '账号菜单';
+    }
+    if (userArrowEl) {
+        userArrowEl.style.display = isLoggedIn ? 'inline-flex' : 'none';
+    }
+    if (isGuest) {
+        closeHubUserDropdown();
+    }
     if (loginBtnEl) {
         loginBtnEl.style.display = isLoggedIn ? 'none' : 'inline-flex';
     }
@@ -754,6 +859,8 @@ function updateHub() {
             levelBadge.style.display = 'none';
         }
     }
+
+    syncHubAppBarCompactState();
 
     const ddUsername = document.getElementById('hub-dd-username');
     const ddLevelText = document.getElementById('hub-dd-level-text');
@@ -1170,8 +1277,17 @@ function isEnglishBook(b) {
     }
 
     let state = null;
+    let activeSettleRafId = 0;
+
+    function cancelSettleAnimation() {
+        if (activeSettleRafId) {
+            cancelAnimationFrame(activeSettleRafId);
+            activeSettleRafId = 0;
+        }
+    }
 
     function resetSwipeLayers(ctx) {
+        cancelSettleAnimation();
         if (!ctx) return;
         const { fromEl, toEl } = ctx;
         if (typeof ctx.unlockContainer === 'function') {
@@ -1201,26 +1317,52 @@ function isEnglishBook(b) {
         }
     }
 
-    function applyProgress(ctx, progress, dragWidth) {
-        const p = Math.max(0, Math.min(1, progress));
-        const outX = p * dragWidth;
-        const outOpacity = Math.max(0.08, 1 - p * 0.88);
+    function applyOffset(ctx, outX, dragWidth) {
+        const clampedX = Math.max(0, outX);
+        const p = Math.max(0, Math.min(1, clampedX / Math.max(1, dragWidth)));
+        const outOpacity = Math.max(0.72, 1 - p * 0.28);
         const inX = -INCOMING_OFFSET_RATIO * dragWidth * (1 - p);
         const inOpacity = 0.55 + p * 0.45;
 
-        ctx.fromEl.style.transform = `translate3d(${outX}px, 0, 0)`;
+        ctx.fromEl.style.transform = `translate3d(${clampedX}px, 0, 0)`;
         ctx.fromEl.style.opacity = String(outOpacity);
         ctx.toEl.style.transform = `translate3d(${inX}px, 0, 0)`;
         ctx.toEl.style.opacity = String(inOpacity);
     }
 
+    function computeReleaseVelocityPxPerSec(samples, now, zoomScale) {
+        if (!Array.isArray(samples) || samples.length < 2) return 0;
+        const last = samples[samples.length - 1];
+        const idleMs = Math.max(0, now - last.t);
+        if (idleMs > 160) return 0;
+        const windowStart = last.t - 95;
+        let first = samples[0];
+        for (let i = samples.length - 2; i >= 0; i--) {
+            first = samples[i];
+            if (samples[i].t <= windowStart) break;
+        }
+        const dtMs = Math.max(8, last.t - first.t);
+        const rawPxPerSec = ((last.x - first.x) / (zoomScale || 1)) / (dtMs / 1000);
+        const idleDecay = idleMs > 60 ? Math.max(0, 1 - (idleMs - 60) / 100) : 1;
+        return rawPxPerSec * idleDecay;
+    }
+
     function activateDragLayers(ctx, dragState) {
+        // 若正在播放进入新页面的定向动画，先立即收尾清除其位移与临时定位层，防止测量到偏移后的 left 导致原页面连带向右移动
+        if (activeDomTransitionCleanup) {
+            cancelActiveDomTransition();
+            if (ctx.fromEl && typeof ctx.fromEl.offsetWidth === 'number') {
+                void ctx.fromEl.offsetWidth;
+            }
+        }
+
         const rawViewportWidth = dragState.viewportWidth;
         const metrics = measureElementForFixedLayer(ctx.fromEl, window.innerHeight || 0);
         const zoomScale = metrics.zoomScale || 1;
         const dragWidth = rawViewportWidth / zoomScale;
         dragState.zoomScale = zoomScale;
         dragState.dragWidth = dragWidth;
+        dragState.commitTargetX = dragWidth + 28;
 
         const bodyStyle = window.getComputedStyle(document.body);
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
@@ -1244,7 +1386,7 @@ function isEnglishBook(b) {
         ctx.fromEl.style.transition = 'none';
         ctx.fromEl.classList.add('swipe-back-outgoing-layer');
 
-        applyProgress(ctx, 0, dragWidth);
+        applyOffset(ctx, 0, dragWidth);
     }
 
     window.addEventListener('touchstart', (e) => {

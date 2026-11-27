@@ -219,33 +219,35 @@ async function checkLocalIconFontAvailability() {
     const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocal) return;
 
+    const candidates = [
+        './assets/fonts/material-symbols-rounded-subset.woff2',
+        './assets/fonts/material-symbols-rounded.woff2',
+        './material-symbols-rounded.woff2'
+    ];
+
     if (typeof FontFace !== 'undefined') {
-        try {
-            const font = new FontFace('Material Symbols Rounded', 'url(./assets/fonts/material-symbols-rounded.woff2)');
-            await font.load();
-            document.fonts.add(font);
-            return;
-        } catch (e1) {
+        for (const fontUrl of candidates) {
             try {
-                const fontRoot = new FontFace('Material Symbols Rounded', 'url(./material-symbols-rounded.woff2)');
-                await fontRoot.load();
-                document.fonts.add(fontRoot);
+                const font = new FontFace('Material Symbols Rounded', `url(${fontUrl})`);
+                await font.load();
+                document.fonts.add(font);
                 return;
-            } catch (e2) {
-                if (document.fonts && document.fonts.check && document.fonts.check('24px "Material Symbols Rounded"', 'home')) {
-                    return;
-                }
-                showMissingIconsModal();
+            } catch (e) { }
+        }
+        if (document.fonts && document.fonts.check && document.fonts.check('24px "Material Symbols Rounded"', 'home')) {
+            return;
+        }
+        showMissingIconsModal();
+    } else {
+        for (const fontUrl of candidates) {
+            try {
+                const res = await fetch(fontUrl);
+                if (res.ok || res.status === 304 || res.status === 0) return;
+            } catch (e) {
+                return;
             }
         }
-    } else {
-        try {
-            const res = await fetch('./assets/fonts/material-symbols-rounded.woff2');
-            if (res.ok || res.status === 304 || res.status === 0) return;
-            showMissingIconsModal();
-        } catch (e) {
-            // 忽视网络读取异常，不主动触发弹窗
-        }
+        showMissingIconsModal();
     }
 }
 
