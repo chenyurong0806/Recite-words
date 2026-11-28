@@ -8,9 +8,14 @@
    ========================================================================== */
 function getMasteredWords() {
     if (!currentUser) return [];
+    const key = `vocab_mastered_words_${currentUser}`;
     try {
-        const raw = localStorage.getItem(`vocab_mastered_words_${currentUser}`);
-        return raw ? JSON.parse(raw) : [];
+        let raw = localStorage.getItem(key);
+        if (!raw && typeof SafeStorage !== 'undefined' && SafeStorage.getItem) {
+            raw = SafeStorage.getItem(key);
+        }
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
         return [];
     }
@@ -18,10 +23,39 @@ function getMasteredWords() {
 
 function saveMasteredWords(words) {
     if (!currentUser) return;
-    localStorage.setItem(`vocab_mastered_words_${currentUser}`, JSON.stringify(words));
+    const key = `vocab_mastered_words_${currentUser}`;
+    const str = JSON.stringify(Array.isArray(words) ? words : []);
+    try { localStorage.setItem(key, str); } catch (e) { }
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem(key, str);
+        }
+    } catch (e) { }
     if (window.SyncManager && typeof window.SyncManager.markPending === 'function') {
         window.SyncManager.markPending('mastered_words_update');
     }
+}
+
+function _updateMasteredRemovedMap(normKey, isRemoved) {
+    if (!currentUser || !normKey) return;
+    const key = `vocab_mastered_removed_${currentUser}`;
+    let map = {};
+    try {
+        const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem ? SafeStorage.getItem(key) : null) || localStorage.getItem(key);
+        if (raw) map = JSON.parse(raw) || {};
+    } catch (e) { map = {}; }
+    if (isRemoved) {
+        map[normKey] = Date.now();
+    } else if (map[normKey]) {
+        delete map[normKey];
+    }
+    const str = JSON.stringify(map);
+    try { localStorage.setItem(key, str); } catch (e) { }
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem(key, str);
+        }
+    } catch (e) { }
 }
 
 function _normMasteredKey(word) {
@@ -48,6 +82,7 @@ function toggleMasteredWord(word, phone = '', meaning = '', type = 'word') {
     if (existingIdx >= 0) {
         list.splice(existingIdx, 1);
         nowMastered = false;
+        _updateMasteredRemovedMap(clean, true);
         showToast(`已取消“${cleanWord}”的熟词标记`);
     } else {
         list.push({
@@ -57,12 +92,15 @@ function toggleMasteredWord(word, phone = '', meaning = '', type = 'word') {
             markedAt: Date.now()
         });
         nowMastered = true;
+        _updateMasteredRemovedMap(clean, false);
         showToast(`已将“${cleanWord}”标为熟词，以后不再复习`);
     }
     saveMasteredWords(list);
     if (type !== 'shici' && window.EbbinghausEngine) {
         if (nowMastered && typeof EbbinghausEngine.markWordMastered === 'function') {
             EbbinghausEngine.markWordMastered(cleanWord, meaning, phone);
+        } else if (!nowMastered && typeof EbbinghausEngine.unmarkWordMastered === 'function') {
+            EbbinghausEngine.unmarkWordMastered(cleanWord);
         } else {
             if (typeof EbbinghausEngine.invalidateProgressCache === 'function') EbbinghausEngine.invalidateProgressCache();
             if (typeof EbbinghausEngine.updateDueBadge === 'function') EbbinghausEngine.updateDueBadge();
@@ -77,6 +115,7 @@ function ensureWordMastered(word, phone = '', meaning = '', skipEbbinghausSync =
     const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
     const existingIdx = list.findIndex(item => _normMasteredKey(typeof item === 'string' ? item : item.word) === clean);
+    _updateMasteredRemovedMap(clean, false);
     if (existingIdx < 0) {
         list.push({
             word: cleanWord,
@@ -94,11 +133,17 @@ function ensureWordMastered(word, phone = '', meaning = '', skipEbbinghausSync =
 function removeWordMastered(word) {
     if (!currentUser || !word) return;
     const clean = _normMasteredKey(word);
+    const cleanWord = String(word).replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
     let list = getMasteredWords();
     const nextList = list.filter(item => _normMasteredKey(typeof item === 'string' ? item : item.word) !== clean);
+    _updateMasteredRemovedMap(clean, true);
     if (nextList.length !== list.length) {
         saveMasteredWords(nextList);
-        if (window.EbbinghausEngine) {
+    }
+    if (window.EbbinghausEngine) {
+        if (typeof EbbinghausEngine.unmarkWordMastered === 'function') {
+            EbbinghausEngine.unmarkWordMastered(cleanWord);
+        } else {
             if (typeof EbbinghausEngine.invalidateProgressCache === 'function') EbbinghausEngine.invalidateProgressCache();
             if (typeof EbbinghausEngine.updateDueBadge === 'function') EbbinghausEngine.updateDueBadge();
         }
@@ -2712,7 +2757,7 @@ function renderDetailedStatsSubview(range = currentDetailedStatsRange) {
 window.renderDetailedStatsSubview = renderDetailedStatsSubview;
 
 // ----------------- 复习计划子页面 (列出所有待复习的词，与词书内容列表风格统一，支持展开查看) -----------------
-let currentReviewPlanDateFilter = 'today'; // 'today' | 'tomorrow' | 'dayAfterTomorrow' | 'all'
+let currentReviewPlanDateFilter = 'today'; // 'today' | 'tomorrow' | 'dayAfterTomorrow' | 'other'
 
 function filterReviewPlanByDate(filterVal) {
     currentReviewPlanDateFilter = filterVal || 'today';
@@ -2790,10 +2835,12 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
 
     const filtered = allScheduled.filter(item => {
         const itemDateKey = toDateKey(new Date(item.nextReview));
-        if (currentReviewPlanDateFilter === 'all') return true;
         if (currentReviewPlanDateFilter === 'today') return item.nextReview <= now || itemDateKey === todayKey;
         if (currentReviewPlanDateFilter === 'tomorrow') return itemDateKey === tomorrowKey;
         if (currentReviewPlanDateFilter === 'dayAfterTomorrow') return itemDateKey === dayAfterTomorrowKey;
+        if (currentReviewPlanDateFilter === 'other' || currentReviewPlanDateFilter === 'all') {
+            return item.nextReview > now && itemDateKey !== todayKey && itemDateKey !== tomorrowKey && itemDateKey !== dayAfterTomorrowKey;
+        }
         return itemDateKey === currentReviewPlanDateFilter;
     });
 
@@ -2825,7 +2872,7 @@ function renderReviewPlanSubview(dateFilter = currentReviewPlanDateFilter) {
                     <div class="bc-item-title-meta">
                         <span class="bc-headword">${escapeHtml(item.word)}</span>
                         ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
-                        <span class="review-plan-time-badge ${tInfo.isUrgent ? 'urgent' : ''}" title="${tInfo.detail}">${tInfo.badge}</span>
+                        ${!tInfo.isUrgent ? `<span class="review-plan-time-badge" title="${tInfo.detail}">${tInfo.badge}</span>` : ''}
                     </div>
                     <div class="bc-item-actions" onclick="event.stopPropagation()">
                         <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">

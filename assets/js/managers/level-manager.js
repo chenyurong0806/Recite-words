@@ -466,6 +466,15 @@ const LevelManager = {
             try { renderMeView(); } catch (e) { }
         }
 
+        // 等级分发生变化时，若用户为新注册且尚未询问过排行榜展示意愿，弹窗询问一次
+        if (matchResult && matchResult.isRanked && matchResult.newRating !== matchResult.oldRating && u === (typeof currentUser !== 'undefined' ? currentUser : u)) {
+            if (typeof maybePromptLeaderboardOptIn === 'function') {
+                setTimeout(() => {
+                    maybePromptLeaderboardOptIn('rating_change');
+                }, 450);
+            }
+        }
+
         return matchResult;
     },
 

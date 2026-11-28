@@ -1083,13 +1083,17 @@
         <div id="view-leaderboard" class="view">
             <div class="leaderboard-wrapper" style="max-width: 820px; margin: 0 auto; width: 100%; padding: 12px 16px 40px;">
                 <!-- 顶部栏：返回按钮与标题 -->
-                <div class="subview-header">
-                    <div>
+                <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
                         <button type="button" class="nav-back-btn" onclick="exitLeaderboardView()" title="返回">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
                         <h3>排行榜</h3>
                     </div>
+                    <button type="button" class="btn btn-tonal btn-sm" id="btn-lb-visibility-toggle" onclick="toggleMyLeaderboardVisibility()" style="display:none; border-radius:9999px; gap:5px; align-items:center; height:34px; padding:0 12px; font-size:0.8rem; font-weight:700;" title="切换是否在排行榜中显示自己">
+                        <span class="material-symbols-rounded" id="lb-visibility-icon" style="font-size:16px;">visibility</span>
+                        <span id="lb-visibility-label">在榜显示</span>
+                    </button>
                 </div>
 
                 <!-- 顶部分类 Tabs (仿 Google MD3 规范) -->
@@ -1961,7 +1965,7 @@
                         <button type="button" class="settings-cat-tab active" data-filter="today" onclick="filterReviewPlanByDate('today')" role="tab" aria-selected="true">今天</button>
                         <button type="button" class="settings-cat-tab" data-filter="tomorrow" onclick="filterReviewPlanByDate('tomorrow')" role="tab" aria-selected="false">明天</button>
                         <button type="button" class="settings-cat-tab" data-filter="dayAfterTomorrow" onclick="filterReviewPlanByDate('dayAfterTomorrow')" role="tab" aria-selected="false">后天</button>
-                        <button type="button" class="settings-cat-tab" data-filter="all" onclick="filterReviewPlanByDate('all')" role="tab" aria-selected="false">全部</button>
+                        <button type="button" class="settings-cat-tab" data-filter="other" onclick="filterReviewPlanByDate('other')" role="tab" aria-selected="false">其他</button>
                     </div>
                 </div>
 
@@ -2881,7 +2885,7 @@
                 <div class="shici-quiz-card">
                     <!-- 顶部信息行：进度、词书、字词拼音、错题复测、◇◇◇◇◇掌握度、工具栏 -->
                     <div class="shici-top-header-row single-top-header-row">
-                        <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="single-top-header-left">
                             <span class="card-progress-counter" id="shici-progress-text">1/15</span>
                             <span class="single-book-badge" id="shici-book-badge" style="background-color:#E0F7FA; color:#006874;">文言实词</span>
                             <span class="shici-word-badge" id="shici-word-badge">
@@ -3511,6 +3515,7 @@
                         <div class="md3-chip selected" data-type="ranked" onclick="selectAiMatchType('ranked')">排位赛</div>
                         <div class="md3-chip" data-type="friendly" onclick="selectAiMatchType('friendly')">友谊赛</div>
                     </div>
+                    <div id="ai-match-type-hint" style="display:none; font-size:0.78rem; color:var(--md-sys-color-outline); margin-top:6px; line-height:1.4;"></div>
                 </div>
 
                 <div class="rule-group">
@@ -4974,9 +4979,6 @@
                     </button>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button type="button" class="btn btn-outlined btn-sm" onclick="closePosterPreviewModal()" style="border-radius: 9999px;">
-                        <span>取消</span>
-                    </button>
                     <button type="button" class="btn btn-tonal btn-sm" id="btn-poster-share-direct" onclick="handlePosterShareAction()" style="border-radius: 9999px; display: none !important;">
                         <span class="material-symbols-rounded" style="font-size:18px;">share</span>
                         <span>分享</span>

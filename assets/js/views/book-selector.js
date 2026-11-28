@@ -558,6 +558,23 @@ function renderLocalFolderTree(containerId, options = {}) {
     }
 
     const tree = buildLocalBooksTree(booksForTree, diskFolders);
+    if (!isManageMode) {
+        const sortSelectedFirst = (arr) => {
+            if (!Array.isArray(arr) || arr.length <= 1) return arr;
+            const sel = [];
+            const unsel = [];
+            arr.forEach(b => (isBookIdSelectedInCurrentMode(b.id) ? sel : unsel).push(b));
+            return sel.concat(unsel);
+        };
+        const sortFolderNodeBooks = (node) => {
+            if (!node) return;
+            if (Array.isArray(node.books)) node.books = sortSelectedFirst(node.books);
+            if (Array.isArray(node.children)) node.children.forEach(sortFolderNodeBooks);
+        };
+        if (Array.isArray(tree.rootFolders)) tree.rootFolders.forEach(sortFolderNodeBooks);
+        tree.uncatBooks = sortSelectedFirst(tree.uncatBooks);
+        tree.cloudBooks = sortSelectedFirst(tree.cloudBooks);
+    }
 
     const summaryChip = document.getElementById(isManageMode ? 'manage-books-summary-chip' : 'book-selector-summary-chip');
     if (summaryChip) {
@@ -1254,9 +1271,21 @@ function renderBookSelectorPage() {
         return;
     }
 
+    // 选择词书页面：将已选择的词书排在最前面（保持其余相对顺序）
+    const selectedBooksList = [];
+    const unselectedBooksList = [];
+    booksToDisplay.forEach(b => {
+        if (isBookIdSelectedInCurrentMode(b.id)) {
+            selectedBooksList.push(b);
+        } else {
+            unselectedBooksList.push(b);
+        }
+    });
+    const orderedBooks = selectedBooksList.concat(unselectedBooksList);
+
     container.innerHTML = `
         <div class="book-card-grid">
-            ${booksToDisplay.map(b => renderBookCardItem(b, false)).join('')}
+            ${orderedBooks.map(b => renderBookCardItem(b, false)).join('')}
         </div>
     `;
 }
@@ -2594,9 +2623,19 @@ function findWordEntryForDrawer(wordText, isShiCi = false) {
     if (!raw) return null;
     const lower = raw.toLowerCase();
 
-    if (isShiCi && typeof ShiCiManager !== 'undefined' && Array.isArray(ShiCiManager.words)) {
-        const hit = ShiCiManager.words.find(item => item && String(item.word || '').trim() === raw);
-        if (hit) return hit;
+    if (isShiCi && typeof ShiCiManager !== 'undefined') {
+        const searchLists = [];
+        if (Array.isArray(ShiCiManager.data)) searchLists.push(ShiCiManager.data);
+        if (Array.isArray(ShiCiManager.words)) searchLists.push(ShiCiManager.words);
+        if (ShiCiManager.bookCache && typeof ShiCiManager.bookCache === 'object') {
+            Object.values(ShiCiManager.bookCache).forEach(arr => {
+                if (Array.isArray(arr)) searchLists.push(arr);
+            });
+        }
+        for (let i = 0; i < searchLists.length; i++) {
+            const hit = searchLists[i].find(item => item && String(item.word || item.name || '').trim() === raw);
+            if (hit) return hit;
+        }
     }
 
     if (typeof BookManager !== 'undefined' && BookManager.bookCache) {
@@ -2661,6 +2700,12 @@ function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = n
         phoneDisplay = typeof formatPhonetic === 'function' ? formatPhonetic(phone) : phone;
     }
 
+    const resolvedSenses = (Array.isArray(w.senses) && w.senses.length > 0)
+        ? w.senses
+        : (isShiCi && Array.isArray(w.allSenses) && w.allSenses.length > 0)
+            ? w.allSenses
+            : (isShiCi && w.sense ? [w.sense] : null);
+
     const examplesList = [];
     if (Array.isArray(w.examples)) {
         w.examples.forEach(ex => {
@@ -2669,8 +2714,8 @@ function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = n
             }
         });
     }
-    if (Array.isArray(w.senses)) {
-        w.senses.forEach(s => {
+    if (Array.isArray(resolvedSenses)) {
+        resolvedSenses.forEach(s => {
             if (!s || !Array.isArray(s.examples)) return;
             const pos = s.pos || s.part_of_speech || '';
             const transText = Array.isArray(s.trans) ? s.trans.join('；') : (s.trans || s.meaning || '');
@@ -2681,16 +2726,23 @@ function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = n
             });
         });
     }
+    if (isShiCi && examplesList.length === 0 && (w.sentence || (w.example && w.example.sentence))) {
+        const exSent = w.sentence || w.example.sentence;
+        const exSrc = w.source || (w.example && w.example.source) || '';
+        const exPos = (w.sense && (w.sense.part_of_speech || w.sense.pos)) || w.pos || '';
+        const exMeaning = (w.sense && (w.sense.meaning || w.sense.trans)) || w.meaning || '';
+        examplesList.push({ pos: exPos, trans: String(exMeaning || '').replace(/★/g, '').trim(), en: exSent, zh: exSrc });
+    }
 
     let meaningsHtml = '';
     let flatMeaning = '';
     let topZhHeaderHtml = '';
-    if (isShiCi && Array.isArray(w.senses) && w.senses.length > 0) {
-        meaningsHtml = w.senses.map((s) => {
+    if (isShiCi && Array.isArray(resolvedSenses) && resolvedSenses.length > 0) {
+        meaningsHtml = resolvedSenses.map((s) => {
             const cleanMeaning = (s.meaning || s.trans || '').replace(/★/g, '').trim();
             const isStar = (s.meaning || s.trans || '').includes('★');
             const pos = s.part_of_speech || s.pos || '实词';
-            const isMistakeRow = Boolean(targetMistakeMeaning && (w.senses.length === 1 || isMistakeMeaningMatch(pos, cleanMeaning, targetMistakeMeaning)));
+            const isMistakeRow = Boolean(targetMistakeMeaning && (resolvedSenses.length === 1 || isMistakeMeaningMatch(pos, cleanMeaning, targetMistakeMeaning)));
             return `
                 <div class="bc-meaning-row ${isMistakeRow ? 'mistake-highlight' : ''}">
                     <span class="bc-pos-inline">${escapeHtml(pos)}</span>
@@ -2699,19 +2751,19 @@ function buildUnifiedWordDetailData(w, isShiCi = false, targetMistakeMeaning = n
                 </div>
             `;
         }).join('');
-        flatMeaning = w.senses.map(s => {
+        flatMeaning = resolvedSenses.map(s => {
             const pos = s.part_of_speech || s.pos || '';
             const m = (s.meaning || s.trans || '').replace(/★/g, '').trim();
             return (pos ? pos + ' ' : '') + m;
         }).join('   ');
-        topZhHeaderHtml = w.senses.map(s => {
+        topZhHeaderHtml = resolvedSenses.map(s => {
             const pos = s.part_of_speech || s.pos || '';
             const m = (s.meaning || s.trans || '').replace(/★/g, '').trim();
             return `<span class="bc-top-sense-seg">${pos ? `<span class="bc-pos-inline">${escapeHtml(pos)}</span> ` : ''}${escapeHtml(m)}</span>`;
         }).join(' ');
-    } else if (Array.isArray(w.senses) && w.senses.length > 0) {
+    } else if (Array.isArray(resolvedSenses) && resolvedSenses.length > 0) {
         const posMap = [];
-        w.senses.forEach(s => {
+        resolvedSenses.forEach(s => {
             if (!s) return;
             const pos = s.pos || s.part_of_speech || '';
             const rawTrans = Array.isArray(s.trans) ? s.trans.join('； ') : (s.trans || s.meaning || '');

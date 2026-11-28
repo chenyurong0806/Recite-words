@@ -7,6 +7,199 @@ let leaderboardActiveTab = 'level'; // 'level' | 'wordle'
 let leaderboardPreviousView = 'view-hub';
 let wordleLeaderboardDate = (new Date()).toISOString().slice(0, 10);
 let wordleLeaderboardSort = 'time'; // 'time' | 'attempts'
+let _leaderboardPromptInFlight = false;
+
+function isOnlineLoggedInLeaderboardUser(username = null) {
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
+    const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+    if (!u || u.startsWith('游客')) return false;
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+        if (!currentUserProfile.isLoggedIn) return false;
+        if (currentUserProfile.type === 'local' || currentUserProfile.type === 'guest') return false;
+    }
+    return true;
+}
+
+function getLeaderboardVisibilityPref(username = null) {
+    const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+    if (!u || u.startsWith('游客')) {
+        return { showOnLeaderboard: false, prompted: true, isDefaultLegacy: false };
+    }
+    const key = `vocab_leaderboard_pref_${u}`;
+    try {
+        const raw = (typeof SafeStorage !== 'undefined' && SafeStorage.getItem ? SafeStorage.getItem(key) : null) || localStorage.getItem(key);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                return {
+                    showOnLeaderboard: parsed.showOnLeaderboard !== false,
+                    prompted: parsed.prompted === true,
+                    updatedAt: parsed.updatedAt || 0,
+                    isDefaultLegacy: false
+                };
+            }
+        }
+    } catch (e) { }
+    // 老账号未显式设置过字段时默认保持上榜
+    return { showOnLeaderboard: true, prompted: true, updatedAt: 0, isDefaultLegacy: true };
+}
+window.getLeaderboardVisibilityPref = getLeaderboardVisibilityPref;
+
+function saveLeaderboardVisibilityPref(username, pref) {
+    const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+    if (!u || u.startsWith('游客')) return;
+    const payload = {
+        showOnLeaderboard: Boolean(pref && pref.showOnLeaderboard),
+        prompted: Boolean(pref && pref.prompted),
+        updatedAt: Date.now()
+    };
+    const key = `vocab_leaderboard_pref_${u}`;
+    const str = JSON.stringify(payload);
+    try { localStorage.setItem(key, str); } catch (e) { }
+    try {
+        if (typeof SafeStorage !== 'undefined' && SafeStorage.setItem) {
+            SafeStorage.setItem(key, str);
+        }
+    } catch (e) { }
+}
+window.saveLeaderboardVisibilityPref = saveLeaderboardVisibilityPref;
+
+function isAccountVisibleOnLeaderboard(acc, currUser = '') {
+    if (!acc) return false;
+    if (currUser && acc.username === currUser) {
+        return getLeaderboardVisibilityPref(currUser).showOnLeaderboard !== false;
+    }
+    if (typeof acc.show_on_leaderboard === 'boolean') {
+        return acc.show_on_leaderboard;
+    }
+    if (acc.user_data && typeof acc.user_data.show_on_leaderboard === 'boolean') {
+        return acc.user_data.show_on_leaderboard;
+    }
+    // 未设置过该字段的老用户默认显示在排行榜中
+    return true;
+}
+
+async function setUserLeaderboardVisibility(showOnLeaderboard, options = {}) {
+    const u = (typeof currentUser !== 'undefined' ? currentUser : '');
+    if (!isOnlineLoggedInLeaderboardUser(u)) return false;
+
+    const nextVisible = Boolean(showOnLeaderboard);
+    saveLeaderboardVisibilityPref(u, {
+        showOnLeaderboard: nextVisible,
+        prompted: true
+    });
+    updateLeaderboardVisibilityToggleUI();
+
+    if (typeof sbClient !== 'undefined' && sbClient) {
+        try {
+            const { data: existingRow } = await sbClient
+                .from('user_accounts')
+                .select('user_data')
+                .eq('username', u)
+                .maybeSingle();
+            const mergedUserData = {
+                ...((existingRow && existingRow.user_data && typeof existingRow.user_data === 'object') ? existingRow.user_data : {}),
+                show_on_leaderboard: nextVisible,
+                leaderboard_opt_in_prompted: true
+            };
+            const nowIso = new Date().toISOString();
+            const { error } = await sbClient
+                .from('user_accounts')
+                .update({
+                    show_on_leaderboard: nextVisible,
+                    user_data: mergedUserData,
+                    updated_at: nowIso
+                })
+                .eq('username', u);
+            if (error && error.message && error.message.includes('show_on_leaderboard')) {
+                await sbClient
+                    .from('user_accounts')
+                    .update({
+                        user_data: mergedUserData,
+                        updated_at: nowIso
+                    })
+                    .eq('username', u);
+            }
+        } catch (e) {
+            console.warn('[Leaderboard] Failed to persist visibility to Supabase:', e);
+        }
+    }
+
+    if (!options.silent && typeof showToast === 'function') {
+        showToast(nextVisible ? '已在排行榜中显示自己' : '已在排行榜中隐藏自己');
+    }
+
+    if (typeof currentView !== 'undefined' && currentView === 'view-leaderboard') {
+        if (leaderboardActiveTab === 'level') {
+            renderLevelLeaderboard();
+        } else {
+            renderWordleLeaderboard();
+        }
+    }
+    return true;
+}
+window.setUserLeaderboardVisibility = setUserLeaderboardVisibility;
+
+function updateLeaderboardVisibilityToggleUI() {
+    const btn = document.getElementById('btn-lb-visibility-toggle');
+    if (!btn) return;
+    const u = typeof currentUser !== 'undefined' ? currentUser : '';
+    if (!isOnlineLoggedInLeaderboardUser(u)) {
+        btn.style.display = 'none';
+        return;
+    }
+    const pref = getLeaderboardVisibilityPref(u);
+    const isShown = pref.showOnLeaderboard !== false;
+    btn.style.display = 'inline-flex';
+    const icon = document.getElementById('lb-visibility-icon');
+    const label = document.getElementById('lb-visibility-label');
+    if (icon) icon.innerText = isShown ? 'visibility' : 'visibility_off';
+    if (label) label.innerText = isShown ? '隐藏自己' : '显示自己';
+    btn.title = isShown ? '点击在排行榜中隐藏自己' : '点击在排行榜中显示自己';
+    btn.classList.toggle('btn-tonal', isShown);
+    btn.classList.toggle('btn-filled', !isShown);
+}
+window.updateLeaderboardVisibilityToggleUI = updateLeaderboardVisibilityToggleUI;
+
+async function toggleMyLeaderboardVisibility() {
+    const u = typeof currentUser !== 'undefined' ? currentUser : '';
+    if (!isOnlineLoggedInLeaderboardUser(u)) return;
+    const pref = getLeaderboardVisibilityPref(u);
+    await setUserLeaderboardVisibility(!(pref.showOnLeaderboard !== false));
+}
+window.toggleMyLeaderboardVisibility = toggleMyLeaderboardVisibility;
+
+async function maybePromptLeaderboardOptIn(reason = 'first_open') {
+    if (_leaderboardPromptInFlight) return;
+    const u = typeof currentUser !== 'undefined' ? currentUser : '';
+    if (!isOnlineLoggedInLeaderboardUser(u)) return;
+
+    const pref = getLeaderboardVisibilityPref(u);
+    if (pref.showOnLeaderboard || pref.prompted) return;
+
+    _leaderboardPromptInFlight = true;
+    try {
+        const msg = reason === 'rating_change'
+            ? '你的排位等级分已更新！是否希望在排行榜中显示你的成绩？（之后可随时在排行榜页面切换显示或隐藏）'
+            : '欢迎来到排行榜！新注册账号默认不上榜，是否希望在排行榜中显示自己？（之后可随时在排行榜页面切换显示或隐藏）';
+
+        let confirmed = false;
+        if (typeof showAppConfirm === 'function') {
+            confirmed = await showAppConfirm({
+                title: '是否在排行榜中显示自己？',
+                message: msg,
+                confirmText: '显示在排行榜',
+                cancelText: '暂不显示'
+            });
+        } else {
+            confirmed = confirm(msg);
+        }
+        await setUserLeaderboardVisibility(Boolean(confirmed), { silent: false });
+    } finally {
+        _leaderboardPromptInFlight = false;
+    }
+}
+window.maybePromptLeaderboardOptIn = maybePromptLeaderboardOptIn;
 
 function openLeaderboardView(tab = 'level') {
     leaderboardPreviousView = (typeof currentView !== 'undefined' && currentView !== 'view-leaderboard') ? currentView : 'view-hub';
@@ -24,7 +217,12 @@ function openLeaderboardView(tab = 'level') {
     if (typeof switchView === 'function') {
         switchView('view-leaderboard');
     }
+    updateLeaderboardVisibilityToggleUI();
     switchLeaderboardTab(leaderboardActiveTab);
+
+    setTimeout(() => {
+        maybePromptLeaderboardOptIn('first_open');
+    }, 320);
 }
 
 function exitLeaderboardView() {
@@ -202,6 +400,8 @@ async function renderLevelLeaderboard() {
         return;
     }
 
+    updateLeaderboardVisibilityToggleUI();
+
     listContainer.innerHTML = `
         <div style="text-align:center; padding:36px 12px; color:var(--md-sys-color-outline);">
             <span class="material-symbols-rounded rotating" style="font-size:32px;">sync</span>
@@ -214,13 +414,19 @@ async function renderLevelLeaderboard() {
     // 1. 从 Supabase 拉取已注册云端账号
     try {
         if (typeof sbClient !== 'undefined' && sbClient) {
-            const { data, error } = await sbClient
+            let queryRes = await sbClient
                 .from('user_accounts')
-                .select('username, avatar_url, level, user_data, updated_at')
+                .select('username, avatar_url, level, user_data, updated_at, show_on_leaderboard')
                 .limit(100);
-            if (!error && Array.isArray(data)) {
-                accounts = data;
-                data.forEach(acc => {
+            if (queryRes.error && queryRes.error.message && queryRes.error.message.includes('show_on_leaderboard')) {
+                queryRes = await sbClient
+                    .from('user_accounts')
+                    .select('username, avatar_url, level, user_data, updated_at')
+                    .limit(100);
+            }
+            if (!queryRes.error && Array.isArray(queryRes.data)) {
+                accounts = queryRes.data;
+                queryRes.data.forEach(acc => {
                     const ud = acc.user_data || {};
                     if (ud.account_type === 'bilibili' || ud.isBili === true || acc.account_type === 'bilibili') {
                         cachedBiliUsernamesSet.add(acc.username);
@@ -232,24 +438,31 @@ async function renderLevelLeaderboard() {
         console.warn('[Leaderboard] Failed to fetch accounts from Supabase:', e);
     }
 
-    // 2. 本地用户补充（若当前用户已登录且不在云端列表中）
+    // 2. 过滤隐藏不上榜账号，并在允许上榜时补充本地当前用户
     const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
     const isCurrBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
     if (isCurrBili && currUser) {
         cachedBiliUsernamesSet.add(currUser);
     }
+    const isCurrOnline = isOnlineLoggedInLeaderboardUser(currUser);
+    const isCurrVisible = !isCurrOnline || (getLeaderboardVisibilityPref(currUser).showOnLeaderboard !== false);
+
+    accounts = accounts.filter(acc => isAccountVisibleOnLeaderboard(acc, currUser));
+
     const hasCurrent = accounts.some(a => a.username === currUser);
-    if (!hasCurrent && currUser && !currUser.startsWith('游客')) {
+    if (isCurrVisible && !hasCurrent && currUser && !currUser.startsWith('游客')) {
         let currAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currUser) : '';
         let currLevelData = (typeof LevelManager !== 'undefined') ? LevelManager.getLevelData(currUser) : null;
         accounts.push({
             username: currUser,
             avatar_url: currAvatar,
             level: currLevelData ? currLevelData.level : 1,
+            show_on_leaderboard: true,
             user_data: {
                 levelData: currLevelData ? { level: currLevelData.level, score: currLevelData.score } : null,
                 account_type: isCurrBili ? 'bilibili' : 'cloud',
-                isBili: isCurrBili
+                isBili: isCurrBili,
+                show_on_leaderboard: true
             }
         });
     }
@@ -314,21 +527,26 @@ async function renderLevelLeaderboard() {
         return b.rank - a.rank;
     });
 
-    if (userScores.length === 0) {
-        listContainer.innerHTML = `
-            <div style="text-align:center; padding:36px; color:var(--md-sys-color-outline);">
-                <span class="material-symbols-rounded" style="font-size:36px; opacity:0.4;">military_tech</span>
-                <p style="margin-top:8px;">暂无等级排行数据</p>
-            </div>
-        `;
-        if (myRankBanner) myRankBanner.style.display = 'none';
-        return;
-    }
-
-    // 渲染“我的排名”横幅（展示段位与当前账号在全服的真实排名与实际等级分）
+    // 渲染“我的排名”横幅（展示段位与当前账号状态）
     const myIndex = userScores.findIndex(u => u.isMe);
     if (myRankBanner) {
-        if (myIndex >= 0 && !currUser.startsWith('游客')) {
+        if (isCurrOnline && !isCurrVisible) {
+            const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currUser) : { rank: 1, rating: 0 };
+            const myRating = Math.max(0, parseInt(myRankData.rating) || 0);
+            const myRank = (typeof LevelManager !== 'undefined') ? LevelManager.getRankFromRating(myRating) : (myRankData.rank || 1);
+            myRankBanner.style.display = 'flex';
+            myRankBanner.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 20px; border-radius:18px; background:#f1f5f9; color:#475569; margin-bottom:14px;';
+            myRankBanner.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <span class="material-symbols-rounded" style="font-size:22px; color:#64748b; flex-shrink:0;">visibility_off</span>
+                    <div style="min-width:0;">
+                        <div style="font-weight:700; font-size:0.95rem; color:#0f172a;">当前未在排行榜中显示</div>
+                        <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">${escapeHtml(currUser)} · ${myRank}段 ${myRating}分</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-filled btn-sm" onclick="setUserLeaderboardVisibility(true)" style="border-radius:9999px; flex-shrink:0;">显示在排行榜</button>
+            `;
+        } else if (myIndex >= 0 && !currUser.startsWith('游客')) {
             const myData = userScores[myIndex];
             myRankBanner.style.display = 'flex';
             myRankBanner.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-radius:18px; background:#e0f2fe; color:#0369a1; margin-bottom:14px;';
@@ -360,6 +578,16 @@ async function renderLevelLeaderboard() {
                 <button type="button" class="btn btn-filled btn-sm" onclick="switchView('view-auth')" style="border-radius:9999px;">去登录</button>
             `;
         }
+    }
+
+    if (userScores.length === 0) {
+        listContainer.innerHTML = `
+            <div style="text-align:center; padding:36px; color:var(--md-sys-color-outline);">
+                <span class="material-symbols-rounded" style="font-size:36px; opacity:0.4;">military_tech</span>
+                <p style="margin-top:8px;">暂无等级排行数据</p>
+            </div>
+        `;
+        return;
     }
 
     // 仅列出全服前 10 名
@@ -565,6 +793,9 @@ async function renderWordleLeaderboard() {
     if (sortSelect) sortSelect.value = wordleLeaderboardSort;
 
     const currUser = typeof currentUser !== 'undefined' ? currentUser : '';
+    const isCurrOnline = isOnlineLoggedInLeaderboardUser(currUser);
+    const isCurrVisible = !isCurrOnline || (getLeaderboardVisibilityPref(currUser).showOnLeaderboard !== false);
+    updateLeaderboardVisibilityToggleUI();
     const hasCompletedWordle = !isToday || checkUserFinishedWordleForDate(todayStr, currUser);
 
     // 1. 渲染今日/历史单词卡片 (通关后或历史日期直接展示该词及释义)
@@ -648,19 +879,27 @@ async function renderWordleLeaderboard() {
             }
 
             if (!recErr && Array.isArray(cloudRecs) && cloudRecs.length > 0) {
-                // 批量从 user_accounts 表查询用户头像以补全（保障跨用户、历史打卡头像展示）
+                // 批量从 user_accounts 表查询用户头像及上榜设置
                 const usernamesNeeded = [...new Set(cloudRecs.map(r => r.username).filter(Boolean))];
                 const avatarMap = {};
+                const visibilityMap = {};
                 if (usernamesNeeded.length > 0) {
                     try {
-                        const { data: userRows } = await sbClient
+                        let userRowsRes = await sbClient
                             .from('user_accounts')
-                            .select('username, avatar_url')
+                            .select('username, avatar_url, show_on_leaderboard, user_data')
                             .in('username', usernamesNeeded);
-                        if (Array.isArray(userRows)) {
-                            userRows.forEach(u => {
-                                if (u && u.username && u.avatar_url) {
-                                    avatarMap[u.username] = u.avatar_url;
+                        if (userRowsRes.error && userRowsRes.error.message && userRowsRes.error.message.includes('show_on_leaderboard')) {
+                            userRowsRes = await sbClient
+                                .from('user_accounts')
+                                .select('username, avatar_url, user_data')
+                                .in('username', usernamesNeeded);
+                        }
+                        if (Array.isArray(userRowsRes.data)) {
+                            userRowsRes.data.forEach(u => {
+                                if (u && u.username) {
+                                    if (u.avatar_url) avatarMap[u.username] = u.avatar_url;
+                                    visibilityMap[u.username] = isAccountVisibleOnLeaderboard(u, currUser);
                                 }
                             });
                         }
@@ -670,6 +909,8 @@ async function renderWordleLeaderboard() {
                 }
 
                 cloudRecs.forEach(r => {
+                    if (visibilityMap[r.username] === false) return;
+                    if (r.username === currUser && !isCurrVisible) return;
                     const avatarVal = r.avatar_url || avatarMap[r.username] || (typeof getUserAvatar === 'function' ? getUserAvatar(r.username) : '');
                     records.push({
                         username: r.username,
@@ -682,12 +923,19 @@ async function renderWordleLeaderboard() {
                 });
             } else {
                 // 兼容：查询 user_accounts 中的 user_data.wordle
-                const { data: userAccounts, error: uErr } = await sbClient
+                let uRes = await sbClient
                     .from('user_accounts')
-                    .select('username, avatar_url, user_data')
+                    .select('username, avatar_url, show_on_leaderboard, user_data')
                     .limit(100);
-                if (!uErr && Array.isArray(userAccounts)) {
-                    userAccounts.forEach(acc => {
+                if (uRes.error && uRes.error.message && uRes.error.message.includes('show_on_leaderboard')) {
+                    uRes = await sbClient
+                        .from('user_accounts')
+                        .select('username, avatar_url, user_data')
+                        .limit(100);
+                }
+                if (!uRes.error && Array.isArray(uRes.data)) {
+                    uRes.data.forEach(acc => {
+                        if (!isAccountVisibleOnLeaderboard(acc, currUser)) return;
                         if (acc.user_data && acc.user_data.wordle && acc.user_data.wordle[wordleLeaderboardDate]) {
                             const rec = acc.user_data.wordle[wordleLeaderboardDate];
                             if (rec && rec.isWon) {
@@ -709,33 +957,35 @@ async function renderWordleLeaderboard() {
         console.warn('[Leaderboard] Wordle fetch failed:', e);
     }
 
-    // 3. 本地用户记录合并（若本地已通关且列表未包含）
-    try {
-        const rawLocal = localStorage.getItem(`vocab_wordle_history_${currUser}`);
-        if (rawLocal) {
-            const localHist = JSON.parse(rawLocal);
-            const myDayRec = localHist[wordleLeaderboardDate];
-            if (myDayRec && myDayRec.isWon) {
-                const existingIdx = records.findIndex(r => r.username === currUser);
-                const myAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
-                    ? currentUserProfile.avatar
-                    : (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : '');
-                const item = {
-                    username: currUser,
-                    avatar: myAvatar,
-                    attempts: myDayRec.attempts || 6,
-                    timeSpent: myDayRec.timeSpent || 60,
-                    completedAt: myDayRec.timestamp || 0,
-                    isMe: true
-                };
-                if (existingIdx >= 0) {
-                    records[existingIdx] = item;
-                } else {
-                    records.push(item);
+    // 3. 本地用户记录合并（若本地已通关、允许上榜且列表未包含）
+    if (isCurrVisible) {
+        try {
+            const rawLocal = localStorage.getItem(`vocab_wordle_history_${currUser}`);
+            if (rawLocal) {
+                const localHist = JSON.parse(rawLocal);
+                const myDayRec = localHist[wordleLeaderboardDate];
+                if (myDayRec && myDayRec.isWon) {
+                    const existingIdx = records.findIndex(r => r.username === currUser);
+                    const myAvatar = (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.avatar)
+                        ? currentUserProfile.avatar
+                        : (typeof getUserAvatar === 'function' ? getUserAvatar(currUser) : '');
+                    const item = {
+                        username: currUser,
+                        avatar: myAvatar,
+                        attempts: myDayRec.attempts || 6,
+                        timeSpent: myDayRec.timeSpent || 60,
+                        completedAt: myDayRec.timestamp || 0,
+                        isMe: true
+                    };
+                    if (existingIdx >= 0) {
+                        records[existingIdx] = item;
+                    } else {
+                        records.push(item);
+                    }
                 }
             }
-        }
-    } catch (e) { }
+        } catch (e) { }
+    }
 
     if (records.length === 0) {
         listContainer.innerHTML = `

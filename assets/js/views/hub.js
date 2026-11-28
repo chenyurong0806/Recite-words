@@ -27,6 +27,38 @@ window.previousView = previousView;
 let pendingBackClickAt = 0;
 let activeDomTransitionCleanup = null;
 let activeDomTransitionDirection = null;
+if (typeof window !== 'undefined' && !window.__viewScrollPositions) {
+    window.__viewScrollPositions = {};
+}
+
+function getScrollStateKey(viewId, subviewKey = null) {
+    const sub = subviewKey || resolveCurrentSubviewKey(viewId);
+    return `${viewId || 'view-hub'}::${sub || 'main'}`;
+}
+
+function saveScrollPositionForState(viewId, subviewKey = null) {
+    if (typeof window === 'undefined' || !viewId) return;
+    if (!window.__viewScrollPositions) window.__viewScrollPositions = {};
+    const y = Math.max(0, window.scrollY || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop) || 0);
+    window.__viewScrollPositions[getScrollStateKey(viewId, subviewKey)] = y;
+}
+window.saveScrollPositionForState = saveScrollPositionForState;
+
+function restoreScrollPositionForState(viewId, subviewKey = null) {
+    if (typeof window === 'undefined' || !viewId) return 0;
+    const key = getScrollStateKey(viewId, subviewKey);
+    const savedY = (window.__viewScrollPositions && typeof window.__viewScrollPositions[key] === 'number')
+        ? Math.max(0, window.__viewScrollPositions[key])
+        : 0;
+    window.scrollTo({ top: savedY, behavior: 'instant' });
+    if (savedY > 0 && typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: savedY, behavior: 'instant' });
+        });
+    }
+    return savedY;
+}
+window.restoreScrollPositionForState = restoreScrollPositionForState;
 
 function cancelActiveDomTransition() {
     if (typeof activeDomTransitionCleanup === 'function') {
@@ -372,9 +404,8 @@ function switchView(viewId, options = {}) {
     const isInitialBoot = !fromEl || !fromEl.classList.contains('active');
     const skipTransition = Boolean(options && options.skipTransition);
 
-    const isBack = !skipTransition && !isSameView && !isInitialBoot && (
-        (options && options.direction === 'back') || isPendingBack
-    );
+    const isBackIntent = Boolean((options && options.direction === 'back') || isPendingBack);
+    const isBack = !skipTransition && !isSameView && !isInitialBoot && isBackIntent;
     const isTabSwitch = Boolean(
         (options && options.isTabSwitch) ||
         (ROOT_TAB_VIEWS.includes(prevViewId) && ROOT_TAB_VIEWS.includes(viewId) && !(options && options.direction === 'forward') && !isPendingBack)
@@ -382,6 +413,11 @@ function switchView(viewId, options = {}) {
     const isForward = !skipTransition && !isSameView && !isInitialBoot && !isBack && !isTabSwitch && (
         (options && options.direction === 'forward') || viewId !== 'view-hub'
     );
+
+    const leavingSubKey = prevViewId ? resolveCurrentSubviewKey(prevViewId) : 'main';
+    if (!isSameView && !isInitialBoot && prevViewId && !isBackIntent) {
+        saveScrollPositionForState(prevViewId, leavingSubKey);
+    }
 
     if (prevViewId && prevViewId !== viewId) {
         previousView = prevViewId;
@@ -432,8 +468,6 @@ function switchView(viewId, options = {}) {
             }
         }
 
-        window.scrollTo({ top: 0, behavior: 'instant' });
-
         if (viewId === 'view-hub') {
             const hubInp = document.getElementById('hub-search-input');
             if (hubInp) hubInp.value = '';
@@ -475,7 +509,7 @@ function switchView(viewId, options = {}) {
             }
         } else if (viewId === 'view-settings') {
             if (typeof switchSettingsSubview === 'function') {
-                switchSettingsSubview('main', true);
+                switchSettingsSubview('main', true, { preserveScroll: isBackIntent });
             }
         } else if (viewId === 'view-online') {
             const inRoomEl = document.getElementById('online-in-room');
@@ -499,6 +533,12 @@ function switchView(viewId, options = {}) {
             if (typeof restoreRiddleViewOverlays === 'function') {
                 restoreRiddleViewOverlays();
             }
+        }
+
+        if (isBackIntent) {
+            restoreScrollPositionForState(viewId, targetSubKey);
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
 

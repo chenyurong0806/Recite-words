@@ -15,28 +15,30 @@ function escapeRegex(str) {
 // 结算页面小结渲染函数 (扁平化极简结构)
 // ========================
 function getWordSettlementReviewStatus(word, isShiCi = false) {
-    if (!word) return { text: '1天后复习', isMastered: false };
+    if (!word) return { text: '', isMastered: false, hasReviewSchedule: false };
     const clean = word.trim();
     const isMast = isShiCi
         ? (typeof ShiCiEbbinghausEngine !== 'undefined' && ShiCiEbbinghausEngine.isWordMastered(clean))
         : (typeof isWordMastered === 'function' && isWordMastered(clean));
     if (isMast) {
-        return { text: '已标熟', isMastered: true };
+        return { text: '已标熟', isMastered: true, hasReviewSchedule: false };
     }
     const records = isShiCi
         ? (typeof ShiCiEbbinghausEngine !== 'undefined' ? ShiCiEbbinghausEngine.getRecords() : {})
         : (typeof EbbinghausEngine !== 'undefined' && EbbinghausEngine.getRecords ? EbbinghausEngine.getRecords() : {});
-    const rec = records[isShiCi ? clean : clean.toLowerCase()];
+    const rec = isShiCi
+        ? records[clean]
+        : ((typeof getEbbinghausRecordByWord === 'function') ? getEbbinghausRecordByWord(records, clean) : records[clean.toLowerCase()]);
     if (rec) {
         if (rec.stage >= 5) {
-            return { text: '已标熟', isMastered: true };
+            return { text: '已标熟', isMastered: true, hasReviewSchedule: false };
         }
-        if (rec.nextReview && rec.nextReview > Date.now()) {
+        if (rec.stage >= 1 && rec.nextReview && rec.nextReview > Date.now()) {
             const days = Math.max(1, Math.round((rec.nextReview - Date.now()) / 86400000));
-            return { text: `${days}天后复习`, isMastered: false };
+            return { text: `${days}天后复习`, isMastered: false, hasReviewSchedule: true };
         }
     }
-    return { text: '1天后复习', isMastered: false };
+    return { text: '', isMastered: false, hasReviewSchedule: false };
 }
 
 function formatSettlementMeaningsLines(q) {
@@ -181,33 +183,64 @@ function toggleSettlementWordMastered(btnEl) {
     if (icon) icon.innerText = nowMastered ? 'check_circle' : 'check_circle_outline';
 
     if (rowEl) {
-        const statusEl = rowEl.querySelector('.settlement-word-status-tag');
-        if (statusEl) {
-            const st = getWordSettlementReviewStatus(word, isShiCi);
-            const isMistake = rowEl.getAttribute('data-mistake') === '1';
-            statusEl.innerText = (!st.isMastered && isMistake) ? '错题' : st.text;
-            statusEl.classList.toggle('is-mastered', st.isMastered);
-            statusEl.classList.toggle('is-mistake', !st.isMastered && isMistake);
+        const metaEl = rowEl.querySelector('.bc-item-title-meta');
+        let statusEl = rowEl.querySelector('.settlement-word-status-tag');
+        const st = getWordSettlementReviewStatus(word, isShiCi);
+        if (nowMastered || st.isMastered) {
+            if (!statusEl && metaEl) {
+                statusEl = document.createElement('span');
+                metaEl.appendChild(statusEl);
+            }
+            if (statusEl) {
+                statusEl.className = 'settlement-word-status-tag is-mastered';
+                statusEl.innerText = '已标熟';
+            }
+        } else if (st.hasReviewSchedule && st.text) {
+            if (!statusEl && metaEl) {
+                statusEl = document.createElement('span');
+                metaEl.appendChild(statusEl);
+            }
+            if (statusEl) {
+                statusEl.className = 'settlement-word-status-tag';
+                statusEl.innerText = st.text;
+            }
+        } else if (statusEl) {
+            statusEl.remove();
         }
     }
 }
 window.toggleSettlementWordMastered = toggleSettlementWordMastered;
 
-function buildMinimalSummaryLayoutHtml(items) {
-    const mistakeCount = items.filter(i => i.isMistake).length;
+function buildMinimalSummaryLayoutHtml(items, options = {}) {
+    const safeItems = Array.isArray(items) ? items : [];
+    const topContentHtml = (options && options.topContentHtml) ? options.topContentHtml : '';
+    const hideExpandAll = Boolean(options && options.hideExpandAll);
+    const mistakeCount = safeItems.filter(i => i.isMistake).length;
     const defaultToMistakes = (mistakeCount > 0);
-    const visibleItems = items.filter(i => defaultToMistakes ? i.isMistake : true);
-    const lastVisibleItem = visibleItems.length > 0 ? visibleItems[visibleItems.length - 1] : null;
+    let lastVisibleIdx = -1;
+    safeItems.forEach((item, idx) => {
+        if (!defaultToMistakes || item.isMistake) {
+            lastVisibleIdx = idx;
+        }
+    });
 
-    const rowsHtml = items.map(item => {
+    const rowsHtml = safeItems.map((item, idx) => {
         const statusInfo = getWordSettlementReviewStatus(item.word, item.isShiCi);
         const lines = item.lines && item.lines.length > 0 ? item.lines : ['暂无释义'];
         const fullEntry = (typeof findWordEntryForDrawer === 'function')
             ? findWordEntryForDrawer(item.word, item.isShiCi)
             : null;
+        const fallbackSenses = item.rawObj?.senses || item.rawObj?.allSenses || (item.rawObj?.sense ? [item.rawObj.sense] : undefined);
         const wordObj = fullEntry
             ? { ...(item.rawObj || {}), ...fullEntry, phone: fullEntry.phone || item.phone || '', pinyin: fullEntry.pinyin || item.phone || '' }
-            : (item.rawObj || { word: item.word, phone: item.phone, pinyin: item.phone, meaning: lines.join('；') });
+            : {
+                ...(item.rawObj || {}),
+                word: item.word,
+                phone: item.phone || item.rawObj?.phone || '',
+                pinyin: item.phone || item.rawObj?.pinyin || '',
+                senses: fallbackSenses,
+                meaning: item.rawObj?.meaning || lines.join('；')
+            };
 
         const targetMistakeMeaning = item.isMistake
             ? (item.rawObj?.options && item.rawObj.options[item.rawObj.correctIdx]
@@ -224,10 +257,13 @@ function buildMinimalSummaryLayoutHtml(items) {
             };
 
         const isExp = Boolean(item.isMistake);
-        const statusCls = statusInfo.isMastered ? 'is-mastered' : (item.isMistake ? 'is-mistake' : '');
-        const statusLabel = (!statusInfo.isMastered && item.isMistake) ? '错题' : statusInfo.text;
+        const statusTagHtml = statusInfo.isMastered
+            ? `<span class="settlement-word-status-tag is-mastered">已标熟</span>`
+            : (statusInfo.hasReviewSchedule && statusInfo.text
+                ? `<span class="settlement-word-status-tag">${escapeHtml(statusInfo.text)}</span>`
+                : '');
         const isHiddenByFilter = defaultToMistakes && !item.isMistake;
-        const isLastVisible = (item === lastVisibleItem);
+        const isLastVisible = (idx === lastVisibleIdx);
 
         return `
             <div class="bc-unified-item settlement-minimal-row ${isExp ? 'expanded' : ''} ${isHiddenByFilter ? 'is-hidden-by-filter' : ''} ${isLastVisible ? 'is-last-visible' : ''}" onclick="toggleSettlementRowExpand(this, event)" data-mistake="${item.isMistake ? '1' : '0'}">
@@ -235,7 +271,7 @@ function buildMinimalSummaryLayoutHtml(items) {
                     <div class="bc-item-title-meta">
                         <span class="bc-headword settlement-summary-word ${item.isMistake ? 'is-mistake' : ''}">${escapeHtml(item.word)}</span>
                         ${detail.phoneDisplay ? `<span class="bc-phone">${escapeHtml(detail.phoneDisplay)}</span>` : ''}
-                        <span class="settlement-word-status-tag ${statusCls}">${escapeHtml(statusLabel)}</span>
+                        ${statusTagHtml}
                     </div>
                     <div class="bc-item-actions" onclick="event.stopPropagation()">
                         <button type="button" class="btn-circle-icon-action" data-word="${escapeHtml(item.word)}" onclick="if (typeof jumpToSearch === 'function') jumpToSearch(this.dataset.word);" title="查词" aria-label="查词">
@@ -259,6 +295,7 @@ function buildMinimalSummaryLayoutHtml(items) {
         `;
     }).join('');
 
+    const visibleItems = safeItems.filter(i => defaultToMistakes ? i.isMistake : true);
     const allExpanded = visibleItems.length > 0 && visibleItems.every(i => i.isMistake);
 
     return `
@@ -273,27 +310,33 @@ function buildMinimalSummaryLayoutHtml(items) {
                 <div class="settlement-summary-toolbar">
                     ${mistakeCount > 0 ? `
                         <div class="settings-category-tabs bc-type-tabs" id="settlement-filter-tabs" role="tablist" aria-label="小结筛选">
-                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? '' : 'active'}" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="${defaultToMistakes ? 'false' : 'true'}">全部 (${items.length})</button>
+                            <button type="button" class="settings-cat-tab ${defaultToMistakes ? '' : 'active'}" data-filter="all" onclick="setSettlementFilterMode('all', this)" role="tab" aria-selected="${defaultToMistakes ? 'false' : 'true'}">全部 (${safeItems.length})</button>
                             <button type="button" class="settings-cat-tab ${defaultToMistakes ? 'active' : ''}" data-filter="mistakes" onclick="setSettlementFilterMode('mistakes', this)" role="tab" aria-selected="${defaultToMistakes ? 'true' : 'false'}">仅错题 (${mistakeCount})</button>
                         </div>
                     ` : ''}
-                    <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
-                        <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
-                        <span>${allExpanded ? '收起全部' : '展开全部'}</span>
-                    </button>
+                    ${(!hideExpandAll && safeItems.length > 0) ? `
+                        <button type="button" class="btn btn-tonal btn-sm bc-expand-all-btn" id="btn-settlement-toggle-meanings" onclick="toggleSettlementMeaningsAll(this)">
+                            <span class="material-symbols-rounded" style="font-size:18px;">${allExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                            <span>${allExpanded ? '收起全部' : '展开全部'}</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
-            <div class="book-content-unified-wrapper">
-                <div class="book-content-unified-card settlement-summary-list" id="settlement-list-container">
-                    ${rowsHtml}
+            ${topContentHtml ? `<div class="settlement-top-extra-block">${topContentHtml}</div>` : ''}
+            ${safeItems.length > 0 ? `
+                <div class="book-content-unified-wrapper">
+                    <div class="book-content-unified-card settlement-summary-list" id="settlement-list-container">
+                        ${rowsHtml}
+                    </div>
                 </div>
-            </div>
+            ` : ''}
         </div>
     `;
 }
 
-function renderSingleSummaryHtml(pool, sessionMistakes) {
-    if (!Array.isArray(pool) || pool.length === 0) return '';
+function renderSingleSummaryHtml(pool, sessionMistakes, options = {}) {
+    const safePool = Array.isArray(pool) ? pool : [];
+    if (safePool.length === 0 && !(options && options.topContentHtml)) return '';
 
     const mistakeSet = new Set(
         Array.isArray(sessionMistakes) ? sessionMistakes.map(s => String(s).trim().toLowerCase()) :
@@ -302,13 +345,12 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
 
     const uniquePool = [];
     const seenWords = new Map();
-    pool.forEach(q => {
+    safePool.forEach(q => {
         if (!q || !q.word) return;
         const key = q.word.trim().toLowerCase();
-        const wasEverMistake = mistakeSet.has(key) || !q.isCorrect;
+        const wasEverMistake = mistakeSet.has(key) || (q.isCorrect === false);
         if (!seenWords.has(key)) {
-            const itemCopy = { ...q };
-            if (wasEverMistake) itemCopy.isCorrect = false;
+            const itemCopy = { ...q, isCorrect: !wasEverMistake };
             seenWords.set(key, itemCopy);
             uniquePool.push(itemCopy);
         } else {
@@ -322,14 +364,14 @@ function renderSingleSummaryHtml(pool, sessionMistakes) {
         phone: q.phone || '',
         lines: formatSettlementMeaningsLines(q),
         isMistake: !q.isCorrect,
-        isShiCi: false,
+        isShiCi: Boolean(q.isShiCi),
         rawObj: q
     }));
 
-    return buildMinimalSummaryLayoutHtml(items);
+    return buildMinimalSummaryLayoutHtml(items, options);
 }
 
-function renderShiCiSummaryHtml(pool) {
+function renderShiCiSummaryHtml(pool, options = {}) {
     if (!Array.isArray(pool) || pool.length === 0) return '';
     const uniquePool = [];
     const seen = new Map();
@@ -353,7 +395,7 @@ function renderShiCiSummaryHtml(pool) {
         rawObj: q
     }));
 
-    return buildMinimalSummaryLayoutHtml(items);
+    return buildMinimalSummaryLayoutHtml(items, options);
 }
 window.renderSingleSummaryHtml = renderSingleSummaryHtml;
 window.renderShiCiSummaryHtml = renderShiCiSummaryHtml;
@@ -441,6 +483,13 @@ const ShiCiEbbinghausEngine = {
 
         // 标为熟词后永久免复习：保持已掌握状态，不再安排下次复习
         if (forceMastered || isMast) {
+            if (forceMastered) {
+                const prevSt = (typeof record.stage === 'number' && record.stage < 5) ? record.stage : 0;
+                if (record.prevStage === undefined || prevSt < 5) {
+                    record.prevStage = prevSt;
+                    record.prevNextReview = (prevSt >= 1 && record.nextReview) ? record.nextReview : 0;
+                }
+            }
             record.stage = 5;
             record.nextReview = 0;
             records[key] = record;
@@ -506,8 +555,24 @@ const ShiCiEbbinghausEngine = {
         const key = word.trim();
         const records = this.getRecords();
         if (records[key]) {
-            records[key].stage = 4;
-            records[key].nextReview = Date.now() + EBBINGHAUS_INTERVALS[0];
+            const rec = records[key];
+            if (typeof rec.prevStage === 'number' && rec.prevStage >= 0 && rec.prevStage < 5) {
+                rec.stage = rec.prevStage;
+                if (rec.stage >= 1) {
+                    const fallbackInterval = EBBINGHAUS_INTERVALS[Math.min(rec.stage - 1, EBBINGHAUS_INTERVALS.length - 1)] || EBBINGHAUS_INTERVALS[0];
+                    rec.nextReview = rec.prevNextReview || (Date.now() + fallbackInterval);
+                } else {
+                    rec.nextReview = 0;
+                }
+            } else if ((rec.historyCount || 0) > 0) {
+                rec.stage = 4;
+                rec.nextReview = Date.now() + EBBINGHAUS_INTERVALS[0];
+            } else {
+                rec.stage = 0;
+                rec.nextReview = 0;
+            }
+            delete rec.prevStage;
+            delete rec.prevNextReview;
         }
         this.saveRecords(records);
         this.updateDueBadge();
@@ -1509,6 +1574,9 @@ function handleShiCiActionClick() {
         q.answered = true;
         q.isCorrect = true;
         q.skippedAsMastered = true;
+        if (!shiciState.completedWords) shiciState.completedWords = new Set();
+        shiciState.completedWords.add(q.word);
+        updateShiCiProgressDisplay();
         nextShiCiQuestion();
         return;
     }
@@ -1624,17 +1692,24 @@ function toggleCurrentShiCiMastered() {
         const prev = shiciState.pool.slice(0, curIdx + 1);
         const rem = shiciState.pool.slice(curIdx + 1).filter(item => item && item.word !== w);
         shiciState.pool = prev.concat(rem);
+        if (!shiciState.completedWords) shiciState.completedWords = new Set();
+        shiciState.completedWords.add(w);
     } else {
         delete shiciProgress.masteredWords[w];
         ShiCiEbbinghausEngine.unmarkMastered(w);
         if (typeof removeWordMastered === 'function') {
             removeWordMastered(w);
         }
+        if (!currentQ.answered && shiciState.completedWords) {
+            shiciState.completedWords.delete(w);
+        }
         renderShiCiMasteryDiamonds(w, 'loss');
         showToast(`已取消【${w}】的熟词标记`);
     }
     saveShiCiState();
     updateShiCiMasterBtn(isNow);
+    updateShiCiProgressDisplay();
+    saveShiCiSessionProgress();
 
     if (!shiciState.answered) {
         const actionBtn = document.getElementById('btn-shici-action');

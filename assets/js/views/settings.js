@@ -41,8 +41,13 @@ function openMeSubview(subviewKey, skipTransition = false) {
     const targetSubEl = (subviewKey === 'main')
         ? document.getElementById('me-subview-main')
         : document.getElementById(`settings-subview-${subviewKey}`);
-    const isBackToMain = Boolean(!skipTransition && subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'me-subview-main' && targetSubEl);
+    const isReturningToMain = Boolean(subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'me-subview-main');
+    const isBackToMain = Boolean(!skipTransition && isReturningToMain && targetSubEl);
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
+
+    if (subviewKey !== 'main' && currentSubEl && currentSubEl.id === 'me-subview-main' && typeof saveScrollPositionForState === 'function') {
+        saveScrollPositionForState('view-me', 'main');
+    }
 
     const performSwitch = () => {
         if (typeof updateNavVisibilityForState === 'function') {
@@ -90,7 +95,11 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 renderReviewPlanSubview();
             }
         }
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
+            restoreScrollPositionForState('view-me', 'main');
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
     };
 
     if (isBackToMain && typeof runBackPageTransition === 'function') {
@@ -226,7 +235,7 @@ window.setReduceMotion = setReduceMotion;
 window.handleToggleReduceMotion = handleToggleReduceMotion;
 if (typeof window !== 'undefined') window.initDisplaySettings = initDisplaySettings;
 
-function switchSettingsSubview(subviewKey, skipTransition = false) {
+function switchSettingsSubview(subviewKey, skipTransition = false, options = {}) {
     const meSubviews = ['books', 'words', 'mastered', 'trash'];
     if (meSubviews.includes(subviewKey)) {
         openMeSubview(subviewKey, skipTransition);
@@ -235,8 +244,13 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
 
     const currentSubEl = document.querySelector('#view-settings .settings-subview.active');
     const targetSubEl = document.getElementById(`settings-subview-${subviewKey}`);
-    const isBackToMain = Boolean(!skipTransition && subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'settings-subview-main' && targetSubEl);
+    const isReturningToMain = Boolean(subviewKey === 'main' && currentSubEl && currentSubEl.id !== 'settings-subview-main');
+    const isBackToMain = Boolean(!skipTransition && isReturningToMain && targetSubEl);
     const isForwardToSub = Boolean(!skipTransition && subviewKey !== 'main' && currentSubEl && targetSubEl && currentSubEl !== targetSubEl);
+
+    if (subviewKey !== 'main' && currentSubEl && currentSubEl.id === 'settings-subview-main' && typeof saveScrollPositionForState === 'function') {
+        saveScrollPositionForState('view-settings', 'main');
+    }
 
     const performSubviewSwitch = () => {
         if (typeof updateNavVisibilityForState === 'function') {
@@ -263,7 +277,14 @@ function switchSettingsSubview(subviewKey, skipTransition = false) {
                 renderEditHomeSettings();
             }
         }
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        if (options && options.preserveScroll) {
+            return;
+        }
+        if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
+            restoreScrollPositionForState('view-settings', 'main');
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
     };
 
     if (isBackToMain && typeof runBackPageTransition === 'function') {
@@ -1972,12 +1993,28 @@ function filterTrashWordsDisplay() {
     container.innerHTML = filtered.map(buildTrashWordRowHtml).join('');
 }
 
-var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.13.0';
+var APP_VERSION = (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : '2.14.0';
 const APP_CHANGELOG = [
+    {
+        version: 'v2.14.0',
+        date: '2026-11-28',
+        badge: '当前版本',
+        items: [
+            '熟词云端同步修复：修复熟词列表在云端同步合并时被误清空的严重 Bug，双端统一持久化与删除记录合并，确保同步后熟词完整保留；取消熟词标记时恢复原有掌握度并正常播放扣星动画。',
+            '页面返回滚动位置记忆与防抖优化：返回上一页面及个人中心/设置主页时自动恢复之前的滚动位置，不再强制回到顶部；使用稳定滚动条占位避免有/无滚动条页面切换时产生横向跳变；修复进入登录页时顶部过渡背景未完全遮挡的问题。',
+            '排行榜隐私与上榜引导升级：新注册账号默认不上榜，首次打开排行榜或排位等级分发生变化时弹窗询问是否显示在排行榜中，并支持随时在排行榜页面一键切换显示或隐藏自己。',
+            '对战小结全面优化：将统计摘要头移至顶部并移除“展开全部”按钮；修复对战中错题识别与记录异常；移除多余的“错题”标签，取消熟词时同步移除“已标熟”标签；补全展开词条卡片之间的分割线。',
+            '实词学习与小结修复：修复实词小结卡片展开后显示“暂无释义”的问题；修复背实词顶部进度计数（如 0 / 15）的排版与标熟同步问题。',
+            '复习计划精简：将“全部”选项卡调整为“其他”（展示今日/明日/后日以外的计划），并移除紧急状态标签（review-plan-time-badge urgent）。',
+            '晒成绩海报升级：新增“今日学习时长”与“累计学习时长”数据卡片；优化长词组与长释义的自适应缩放换行，避免超出海报宽度；移除海报预览弹窗中多余的“取消”按钮。',
+            '词书选择与背词设置优化：选择词书页面将已选词书置顶排列；切换“词性及释义展示”方式后立即刷新并生效；人机模式无法选择排位赛时，在“对战模式”下方提供小字原因说明。',
+            '界面细节修复：确保查看词书页面展开搜索框时工具栏不换行；修复 MD3 浮动输入框标签（如修改用户名弹窗）背景色与容器背景不符的问题。'
+        ]
+    },
     {
         version: 'v2.13.0',
         date: '2026-11-21',
-        badge: '当前版本',
+        badge: '历史版本',
         items: [
             '搜索聚焦稳定性全面修复：优化首页搜索框（避免只读占位输入框抢占焦点）、顶部折叠搜索按钮及展开式搜索按钮的聚焦时机，确保在页面进入与输入框展开过渡期间同步激活光标并在过渡结束后自动兜底校验。',
             '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',

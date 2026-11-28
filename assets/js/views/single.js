@@ -436,18 +436,38 @@ function selectSingleOrder(order) {
 }
 window.selectSingleOrder = selectSingleOrder;
 
-function applyMeaningModeToPool(pool, mode, startIdx = 0) {
+function applyMeaningModeToPool(pool, mode, startIdx = 0, force = false) {
     if (!Array.isArray(pool) || pool.length === 0) return false;
     const targetMode = (mode === 'random') ? 'random' : 'all';
-    const refList = (typeof dictionary !== 'undefined' && Array.isArray(dictionary) && dictionary.length >= 4) ? dictionary : pool;
+    let refList = (typeof dictionary !== 'undefined' && Array.isArray(dictionary) && dictionary.length >= 4) ? dictionary : [];
+    if (refList.length < 4 && typeof BookManager !== 'undefined' && BookManager.bookCache) {
+        const cached = [];
+        Object.values(BookManager.bookCache).forEach(arr => {
+            if (Array.isArray(arr) && arr.length > 0) cached.push(...arr);
+        });
+        if (cached.length >= 4) refList = cached;
+    }
+    if (refList.length < 4) {
+        refList = (typeof DEFAULT_WORDS !== 'undefined' && Array.isArray(DEFAULT_WORDS) && DEFAULT_WORDS.length >= 4)
+            ? [...pool, ...DEFAULT_WORDS]
+            : pool;
+    }
     let changed = false;
     for (let i = Math.max(0, startIdx); i < pool.length; i++) {
         const q = pool[i];
         if (!q || q.answered || q.isShiCi) continue;
-        if (q._appliedMeaningMode === targetMode) continue;
-        const entries = (typeof getWordMeaningEntries === 'function')
+        if (!force && q._appliedMeaningMode === targetMode) continue;
+        const fullEntry = (typeof findWordEntryForDrawer === 'function') ? findWordEntryForDrawer(q.word, false) : null;
+        let entries = (typeof getWordMeaningEntries === 'function')
             ? getWordMeaningEntries(q)
             : (Array.isArray(q.meanings) ? q.meanings : []);
+        if (fullEntry && typeof getWordMeaningEntries === 'function') {
+            const fullEntries = getWordMeaningEntries(fullEntry);
+            if (fullEntries.length > entries.length) {
+                entries = fullEntries;
+                q.meanings = fullEntries;
+            }
+        }
         let nextMeaning = q.meaning || '---';
         if (targetMode === 'random') {
             if (entries.length > 0) {
@@ -455,8 +475,9 @@ function applyMeaningModeToPool(pool, mode, startIdx = 0) {
                 nextMeaning = ((picked.pos ? picked.pos + ' ' : '') + (picked.meaning || '')).trim();
             }
         } else {
+            const sourceObj = (entries.length > 0) ? { ...q, meanings: entries } : (fullEntry || q);
             nextMeaning = (typeof formatWordAllMeanings === 'function')
-                ? formatWordAllMeanings(q)
+                ? formatWordAllMeanings(sourceObj)
                 : nextMeaning;
         }
         q.meaning = nextMeaning;
@@ -481,13 +502,16 @@ function selectSingleMeaningMode(mode) {
     }
 
     // 同步刷新当前进行中或已保存未答完的题库，确保切换“词性及释义展示”后立即生效
-    if (typeof singleState !== 'undefined' && Array.isArray(singleState.pool) && singleState.pool.length > 0) {
+    if (typeof singleState !== 'undefined' && singleState && Array.isArray(singleState.pool) && singleState.pool.length > 0) {
         const startAt = singleState.answered ? (singleState.currentIdx + 1) : singleState.currentIdx;
-        if (applyMeaningModeToPool(singleState.pool, nextMode, startAt)) {
+        const refreshed = applyMeaningModeToPool(singleState.pool, nextMode, startAt, true);
+        if (refreshed) {
             saveSingleProgress();
-            if (typeof gameMode !== 'undefined' && gameMode === 'single' && typeof renderSingleQuestion === 'function') {
-                renderSingleQuestion();
-            }
+        }
+        const isViewingSingle = (typeof currentView !== 'undefined' && currentView === 'view-single')
+            || (typeof gameMode !== 'undefined' && gameMode === 'single');
+        if (isViewingSingle && typeof renderSingleQuestion === 'function') {
+            renderSingleQuestion();
         }
     }
     if (typeof currentUser !== 'undefined' && currentUser) {
@@ -497,7 +521,7 @@ function selectSingleMeaningMode(mode) {
                 if (!raw) return;
                 const parsed = JSON.parse(raw);
                 if (parsed && Array.isArray(parsed.pool)) {
-                    if (applyMeaningModeToPool(parsed.pool, nextMode, parsed.currentIdx || 0)) {
+                    if (applyMeaningModeToPool(parsed.pool, nextMode, parsed.currentIdx || 0, true)) {
                         parsed.meaningMode = nextMode;
                         localStorage.setItem(key, JSON.stringify(parsed));
                     }

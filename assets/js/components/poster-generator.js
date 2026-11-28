@@ -1098,6 +1098,81 @@
         }
     }
 
+    function wrapCanvasTextLines(ctx, text, maxWidth, font, maxLines = 3) {
+        const str = String(text || '').trim();
+        if (!str) return [];
+        ctx.save();
+        ctx.font = font;
+        if (ctx.measureText(str).width <= maxWidth) {
+            ctx.restore();
+            return [str];
+        }
+        const hasSpaces = /\s/.test(str);
+        const tokens = hasSpaces ? str.split(/\s+/) : Array.from(str);
+        const lines = [];
+        let current = '';
+
+        const pushBrokenToken = (tok) => {
+            let chunk = '';
+            for (const ch of Array.from(tok)) {
+                if (ctx.measureText(chunk + ch).width > maxWidth && chunk) {
+                    lines.push(chunk);
+                    chunk = ch;
+                } else {
+                    chunk += ch;
+                }
+            }
+            return chunk;
+        };
+
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
+            const sep = (hasSpaces && current) ? ' ' : '';
+            const candidate = current + sep + tok;
+            if (ctx.measureText(candidate).width <= maxWidth) {
+                current = candidate;
+            } else {
+                if (current) lines.push(current);
+                if (ctx.measureText(tok).width > maxWidth) {
+                    current = pushBrokenToken(tok);
+                } else {
+                    current = tok;
+                }
+            }
+        }
+        if (current) lines.push(current);
+
+        if (lines.length > maxLines) {
+            const trimmed = lines.slice(0, maxLines);
+            let last = trimmed[maxLines - 1];
+            while (last.length > 1 && ctx.measureText(last + '...').width > maxWidth) {
+                last = last.slice(0, -1).trimEnd();
+            }
+            trimmed[maxLines - 1] = last + '...';
+            ctx.restore();
+            return trimmed;
+        }
+        ctx.restore();
+        return lines;
+    }
+
+    function drawAutoFitText(ctx, text, x, y, maxWidth, baseSize, minSize, weight, color, options = {}) {
+        const str = String(text || '');
+        ctx.save();
+        let size = baseSize;
+        ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
+        while (size > minSize && ctx.measureText(str).width > maxWidth) {
+            size -= 2;
+            ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
+        }
+        ctx.fillStyle = color || '#1A1C1E';
+        ctx.textAlign = options.align || 'left';
+        ctx.textBaseline = options.baseline || 'top';
+        ctx.fillText(str, x, y);
+        ctx.restore();
+        return size;
+    }
+
     /**
      * 在海报风景背景上绘制抽取的单词或实词
      * 规范：
@@ -1105,7 +1180,8 @@
      * 2. 更改音标字体，确保美观（使用优选排印字体栈）；
      * 3. 删除毛玻璃边框；
      * 4. 动态对比度：背景浅色用黑色字体，背景深色用白色字体；
-     * 5. 实词不显示拼音，并在释义下方展示对应例句。
+     * 5. 实词不显示拼音，并在释义下方展示对应例句；
+     * 6. 长词组自动缩放字号并按词换行，确保永不超出海报宽度。
      */
     function drawPosterWordOverlay(ctx, width, wordInfo, topH) {
         if (!wordInfo || !wordInfo.word) return;
@@ -1122,10 +1198,7 @@
             phoneText = `/${phoneText}/`;
         }
 
-        let meaningText = wordInfo.meaning ? String(wordInfo.meaning).replace(/★/g, '').trim() : '';
-        if (meaningText.length > 28) {
-            meaningText = meaningText.slice(0, 28) + '...';
-        }
+        const meaningText = wordInfo.meaning ? String(wordInfo.meaning).replace(/★/g, '').trim() : '';
 
         // 实词例句 (仅实词展示在释义下方)
         let exampleText = '';
@@ -1139,16 +1212,43 @@
                     }
                 }
             }
-            if (exampleText && exampleText.length > 32) {
-                exampleText = exampleText.slice(0, 32) + '...';
-            }
         }
 
         const textX = 48;
-        const textY = 110;
+        const textY = 104;
+        const maxTextW = width - textX * 2;
+
+        // 1. 先计算单词/长词组的自适应字号与折行结果
+        let wordFontSize = isChinese ? 58 : 52;
+        ctx.font = `bold ${wordFontSize}px ${FONT_FAMILY}`;
+        let wordLines = [wordText];
+        if (ctx.measureText(wordText).width > maxTextW) {
+            // 先尝试缩小字号单行容纳（适合较长单词或中等词组）
+            let fittedSingle = false;
+            const minSingleSize = wordText.includes(' ') ? 38 : 32;
+            for (let sz = wordFontSize - 2; sz >= minSingleSize; sz -= 2) {
+                ctx.font = `bold ${sz}px ${FONT_FAMILY}`;
+                if (ctx.measureText(wordText).width <= maxTextW) {
+                    wordFontSize = sz;
+                    fittedSingle = true;
+                    break;
+                }
+            }
+            if (!fittedSingle) {
+                // 长词组：适度缩小字号并按词自然换行（最多 3 行）
+                wordFontSize = 38;
+                wordLines = wrapCanvasTextLines(ctx, wordText, maxTextW, `bold ${wordFontSize}px ${FONT_FAMILY}`, 3);
+                if (wordLines.length >= 3) {
+                    wordFontSize = 34;
+                    wordLines = wrapCanvasTextLines(ctx, wordText, maxTextW, `bold ${wordFontSize}px ${FONT_FAMILY}`, 3);
+                }
+            }
+        }
+        const wordLineH = Math.round(wordFontSize * 1.24);
+        const wordBlockH = wordLines.length * wordLineH;
 
         // 动态检测背景区域亮度 (感知亮度 > 140 为浅色背景，否则为深色背景)
-        const lum = getBackgroundBrightness(ctx, textX, textY, 360, 220);
+        const lum = getBackgroundBrightness(ctx, textX, textY, Math.min(maxTextW, 450), Math.min(260, wordBlockH + 150));
         const isLightBg = lum > 140;
 
         const mainColor = isLightBg ? '#0F172A' : '#FFFFFF';
@@ -1162,38 +1262,56 @@
         ctx.shadowBlur = shadowBlur;
         ctx.shadowOffsetY = isLightBg ? 1 : 2;
 
-        // 1. 单词大字 (不强制大写，优雅自然)
-        drawText(ctx, wordText, textX, textY, {
-            font: `bold ${isChinese ? 58 : 52}px ${FONT_FAMILY}`,
-            color: mainColor
-        });
-
-        let nextY = textY + (isChinese ? 72 : 68);
-
-        // 2. 音标 (使用专用美观排印字体)
-        if (phoneText) {
-            const PHONETIC_FONT = '"Segoe UI", -apple-system, BlinkMacSystemFont, "Lucida Sans Unicode", "Arial Unicode MS", "PingFang SC", sans-serif';
-            drawText(ctx, phoneText, textX, nextY, {
-                font: `500 22px ${PHONETIC_FONT}`,
-                color: subColor
-            });
-            nextY += 38;
-        }
-
-        // 3. 中文释义
-        if (meaningText) {
-            drawText(ctx, meaningText, textX, nextY, {
-                font: `bold 22px ${FONT_FAMILY}`,
+        // 1. 绘制单词/词组大字
+        let nextY = textY;
+        wordLines.forEach((line) => {
+            drawText(ctx, line, textX, nextY, {
+                font: `bold ${wordFontSize}px ${FONT_FAMILY}`,
                 color: mainColor
             });
-            nextY += 36;
+            nextY += wordLineH;
+        });
+        nextY += 8;
+
+        // 2. 音标 (使用专用美观排印字体，超出宽度自动折行)
+        if (phoneText) {
+            const PHONETIC_FONT = '"Segoe UI", -apple-system, BlinkMacSystemFont, "Lucida Sans Unicode", "Arial Unicode MS", "PingFang SC", sans-serif';
+            const phoneFont = `500 22px ${PHONETIC_FONT}`;
+            const phoneLines = wrapCanvasTextLines(ctx, phoneText, maxTextW, phoneFont, 2);
+            phoneLines.forEach((line) => {
+                drawText(ctx, line, textX, nextY, {
+                    font: phoneFont,
+                    color: subColor
+                });
+                nextY += 32;
+            });
+            nextY += 6;
         }
 
-        // 4. 实词例句 (仅在实词时显示在释义下方)
+        // 3. 中文释义 (超出宽度自动折行，最多 2 行)
+        if (meaningText) {
+            const meaningFont = `bold 22px ${FONT_FAMILY}`;
+            const meaningLines = wrapCanvasTextLines(ctx, meaningText, maxTextW, meaningFont, 2);
+            meaningLines.forEach((line) => {
+                drawText(ctx, line, textX, nextY, {
+                    font: meaningFont,
+                    color: mainColor
+                });
+                nextY += 32;
+            });
+            nextY += 6;
+        }
+
+        // 4. 实词例句 (仅在实词时显示在释义下方，超出宽度自动折行，最多 2 行)
         if (exampleText) {
-            drawText(ctx, exampleText, textX, nextY, {
-                font: `500 17px ${FONT_FAMILY}`,
-                color: exampleColor
+            const exampleFont = `500 17px ${FONT_FAMILY}`;
+            const exampleLines = wrapCanvasTextLines(ctx, exampleText, maxTextW, exampleFont, 2);
+            exampleLines.forEach((line) => {
+                drawText(ctx, line, textX, nextY, {
+                    font: exampleFont,
+                    color: exampleColor
+                });
+                nextY += 26;
             });
         }
 
@@ -1226,9 +1344,8 @@
         const ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
 
-        // 结构设计：海报信息整体靠下显示，上方大面积显示风景背景图
-        // topH = 840 (上方约 63% 纯风景图), 下部 494px 纯白数据区
-        const topH = 840;
+        // 结构设计：上方大面积风景背景图 + 下部纯净白底 2×2 学习数据区（词数与学习时长）
+        const topH = 740;
         const bottomY = topH;
         const bottomH = height - bottomY;
 
@@ -1261,43 +1378,74 @@
             baseline: 'middle'
         });
 
-        // 4. 只显示今日已学词数、累计学习词数 (超大数字排版，完全平铺无外框)
+        // 4. 统计数据：今日已学词数、累计学习词数、今日学习时长、累计学习时长
+        const summaryStats = (typeof DailyStudyTracker !== 'undefined' && typeof DailyStudyTracker.getSummaryStats === 'function')
+            ? DailyStudyTracker.getSummaryStats()
+            : null;
         const todayLogs = (typeof DailyStudyTracker !== 'undefined' && DailyStudyTracker.getLogs) ? DailyStudyTracker.getLogs() : {};
         const todayKey = (typeof DailyStudyTracker !== 'undefined' && DailyStudyTracker.getTodayStr) ? DailyStudyTracker.getTodayStr() : '';
         const todayData = (todayKey && todayLogs[todayKey]) ? todayLogs[todayKey] : { learned: 0 };
 
         const stats = (typeof userStats !== 'undefined' && userStats) ? userStats : { total: 0 };
-        const totalWords = stats.total || 0;
-        const todayLearned = (todayData && typeof todayData.learned === 'number') ? todayData.learned : (options.sessionTotal || 0);
+        const totalWords = summaryStats ? Math.max(summaryStats.totalWords || 0, stats.total || 0) : (stats.total || 0);
+        const todayLearned = summaryStats
+            ? (summaryStats.todayLearnAndReview || summaryStats.todayLearned || options.sessionTotal || 0)
+            : ((todayData && typeof todayData.learned === 'number') ? todayData.learned : (options.sessionTotal || 0));
+        const todayDurationText = summaryStats && summaryStats.todayDurationFormatted
+            ? summaryStats.todayDurationFormatted
+            : ((typeof DailyStudyTracker !== 'undefined' && typeof DailyStudyTracker.formatDuration === 'function')
+                ? DailyStudyTracker.formatDuration(todayData.durationSeconds || 0, true)
+                : '0分钟');
+        const totalDurationText = summaryStats && summaryStats.totalDurationFormatted
+            ? summaryStats.totalDurationFormatted
+            : '0分钟';
 
-        const dataY = bottomY + 105;
+        const dataY1 = bottomY + 88;
+        const dataY2 = dataY1 + 146;
         const col1X = 48;
         const col2X = width / 2 + 20;
+        const colMaxW = (width / 2) - 56;
 
-        // 列1：今日已学词数
-        drawText(ctx, `${todayLearned}`, col1X, dataY, {
-            font: `bold 64px ${FONT_FAMILY}`,
-            color: '#1A1C1E'
-        });
-        drawText(ctx, '今日已学词数', col1X, dataY + 76, {
+        // 第 1 行左：今日已学词数
+        drawAutoFitText(ctx, `${todayLearned}`, col1X, dataY1, colMaxW, 56, 36, 'bold', '#1A1C1E');
+        drawText(ctx, '今日已学词数', col1X, dataY1 + 66, {
             font: `bold 16px ${FONT_FAMILY}`,
             color: '#1A1C1E'
         });
-        drawText(ctx, 'TODAY I LEARNED', col1X, dataY + 104, {
+        drawText(ctx, 'TODAY I LEARNED', col1X, dataY1 + 92, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });
 
-        // 列2：累计学习词数
-        drawText(ctx, `${totalWords}`, col2X, dataY, {
-            font: `bold 64px ${FONT_FAMILY}`,
-            color: '#1A1C1E'
-        });
-        drawText(ctx, '累计学习词数', col2X, dataY + 76, {
+        // 第 1 行右：累计学习词数
+        drawAutoFitText(ctx, `${totalWords}`, col2X, dataY1, colMaxW, 56, 36, 'bold', '#1A1C1E');
+        drawText(ctx, '累计学习词数', col2X, dataY1 + 66, {
             font: `bold 16px ${FONT_FAMILY}`,
             color: '#1A1C1E'
         });
-        drawText(ctx, 'WORDS LEARNED', col2X, dataY + 104, {
+        drawText(ctx, 'WORDS LEARNED', col2X, dataY1 + 92, {
+            font: `600 11px ${FONT_FAMILY}`,
+            color: '#74777F'
+        });
+
+        // 第 2 行左：今日学习时长
+        drawAutoFitText(ctx, todayDurationText, col1X, dataY2, colMaxW, 44, 28, 'bold', '#1A1C1E');
+        drawText(ctx, '今日学习时长', col1X, dataY2 + 56, {
+            font: `bold 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, "TODAY'S STUDY TIME", col1X, dataY2 + 82, {
+            font: `600 11px ${FONT_FAMILY}`,
+            color: '#74777F'
+        });
+
+        // 第 2 行右：累计学习时长
+        drawAutoFitText(ctx, totalDurationText, col2X, dataY2, colMaxW, 44, 28, 'bold', '#1A1C1E');
+        drawText(ctx, '累计学习时长', col2X, dataY2 + 56, {
+            font: `bold 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, 'TOTAL STUDY TIME', col2X, dataY2 + 82, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });

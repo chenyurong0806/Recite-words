@@ -1924,6 +1924,7 @@ function resetPlayerState(state, pool) {
         try { return JSON.parse(JSON.stringify(q)); } catch (e) { return Object.assign({}, q); }
     });
     state.pool = [...safeList];
+    state.mistakes = [];
     state.timerId = null;
 }
 
@@ -2202,8 +2203,10 @@ function checkArenaPhraseAnswer() {
     const q = arenaPhraseState.q;
     userStats.total++;
     state.total++;
+    if (q) q.answered = true;
 
     if (isRight) {
+        if (q && q.isCorrect !== false) q.isCorrect = true;
         userStats.correct++;
         state.score++;
         if (userStats.mistakes && userStats.mistakes[q.word]) {
@@ -2240,6 +2243,11 @@ function checkArenaPhraseAnswer() {
             renderQuestion(state);
         }, 300);
     } else {
+        if (q) {
+            q.isCorrect = false;
+            if (!Array.isArray(state.mistakes)) state.mistakes = [];
+            if (q.word && !state.mistakes.includes(q.word)) state.mistakes.push(q.word);
+        }
         recordUserMistake(currentUser, q.word, q.meaning, '');
 
         arenaPhraseState.targetWords.forEach((tw, i) => {
@@ -2357,6 +2365,12 @@ function revealArenaPhraseAnswerWithPenalty() {
     state.frozen = true;
     state.answeringLock = true;
     const q = arenaPhraseState.q;
+    if (q) {
+        q.answered = true;
+        q.isCorrect = false;
+        if (!Array.isArray(state.mistakes)) state.mistakes = [];
+        if (q.word && !state.mistakes.includes(q.word)) state.mistakes.push(q.word);
+    }
     recordUserMistake(currentUser, q.word, q.meaning, '');
 
     arenaPhraseState.targetWords.forEach((tw, i) => {
@@ -2442,14 +2456,21 @@ function handleAnswer(idx, clickX, clickY) {
 
     userStats.total++;
     state.total++;
+    if (q) q.answered = true;
 
     if (isRight) {
+        if (q && q.isCorrect !== false) q.isCorrect = true;
         userStats.correct++;
         state.score++;
         if (userStats.mistakes && userStats.mistakes[q.word]) {
             delete userStats.mistakes[q.word];
         }
     } else {
+        if (q) {
+            q.isCorrect = false;
+            if (!Array.isArray(state.mistakes)) state.mistakes = [];
+            if (q.word && !state.mistakes.includes(q.word)) state.mistakes.push(q.word);
+        }
         if (q.isShiCi) {
             recordShiCiUserMistake(currentUser, {
                 word: q.word,
@@ -2859,7 +2880,7 @@ function endGame(msg, broadcastToPeer) {
     }
 
     const matchSummaryPool = (p1State && Array.isArray(p1State.pool))
-        ? p1State.pool.slice(0, Math.max((p1State.currentIdx || 0) + 1, p1State.score || 0))
+        ? p1State.pool.filter(q => q && q.answered)
         : [];
     const matchMistakes = (p1State && Array.isArray(p1State.mistakes)) ? p1State.mistakes : [];
 
@@ -2973,26 +2994,28 @@ function renderResult() {
         const myAvatar = (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : '');
         const myAvatarHtml = myAvatar ? `<img src="${escapeHtml(myAvatar)}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">` : `<div style="width:44px; height:44px; border-radius:50%; background:var(--p1-sys-color, #ba1a1a); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">person</span></div>`;
         const aiAvatarHtml = `<div style="width:44px; height:44px; border-radius:50%; background:var(--p2-sys-color, #006874); color:white; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded" style="font-size:26px;">smart_toy</span></div>`;
-        const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(gameResult.pool) && gameResult.pool.length > 0)
-            ? renderSingleSummaryHtml(gameResult.pool, gameResult.sessionMistakes || [])
-            : '';
-        details.innerHTML = `
-                <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-                        ${myAvatarHtml}
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
-                        <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
-                    </div>
-                    <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-                        ${aiAvatarHtml}
-                        <div style="font-weight:700; color:var(--p2-sys-color);">系统AI (${aiRank}段)</div>
-                        <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
-                    </div>
+        const duelScoreboardHtml = `
+            <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l); text-align:center;">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    ${myAvatarHtml}
+                    <div style="font-weight:700; color:var(--p1-sys-color);">${escapeHtml(currentUser || '我方')}</div>
+                    <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                 </div>
-                ${renderMatchResultBadgeHtml(gameResult.matchResult)}
-                ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
-            `;
+                <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    ${aiAvatarHtml}
+                    <div style="font-weight:700; color:var(--p2-sys-color);">系统AI (${aiRank}段)</div>
+                    <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
+                </div>
+            </div>
+            ${renderMatchResultBadgeHtml(gameResult.matchResult)}
+        `;
+        details.innerHTML = (typeof renderSingleSummaryHtml === 'function')
+            ? renderSingleSummaryHtml(Array.isArray(gameResult.pool) ? gameResult.pool : [], gameResult.sessionMistakes || [], {
+                topContentHtml: duelScoreboardHtml,
+                hideExpandAll: true
+            })
+            : duelScoreboardHtml;
     } else {
         btnBackRoom.style.display = 'inline-flex';
         if (isHost) {
@@ -3009,24 +3032,26 @@ function renderResult() {
 
         const oppoTitle = isHost ? guestName : hostName;
         const oppoRankDisplay = currentMatchOppoRank ? ` (${currentMatchOppoRank}段)` : '';
-        const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(gameResult.pool) && gameResult.pool.length > 0)
-            ? renderSingleSummaryHtml(gameResult.pool, gameResult.sessionMistakes || [])
-            : '';
-        details.innerHTML = `
-                <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l);">
-                    <div>
-                        <div style="font-weight:700; color:var(--p1-sys-color);">${currentUser}</div>
-                        <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
-                    </div>
-                    <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
-                    <div>
-                        <div style="font-weight:700; color:var(--p2-sys-color);">${oppoTitle || '对手'}${oppoRankDisplay}</div>
-                        <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
-                    </div>
+        const onlineScoreboardHtml = `
+            <div style="display:flex; justify-content:space-around; align-items:center; background:var(--md-sys-color-surface-container); padding:16px; border-radius:var(--md-shape-l); text-align:center;">
+                <div>
+                    <div style="font-weight:700; color:var(--p1-sys-color);">${escapeHtml(currentUser || '我方')}</div>
+                    <div style="font-size:2rem; font-weight:800;">${gameResult.p1Score} 题</div>
                 </div>
-                ${renderMatchResultBadgeHtml(gameResult.matchResult)}
-                ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
-            `;
+                <div style="font-weight:700; color:var(--md-sys-color-outline);">VS</div>
+                <div>
+                    <div style="font-weight:700; color:var(--p2-sys-color);">${escapeHtml(oppoTitle || '对手')}${oppoRankDisplay}</div>
+                    <div style="font-size:2rem; font-weight:800;">${gameResult.p2Score} 题</div>
+                </div>
+            </div>
+            ${renderMatchResultBadgeHtml(gameResult.matchResult)}
+        `;
+        details.innerHTML = (typeof renderSingleSummaryHtml === 'function')
+            ? renderSingleSummaryHtml(Array.isArray(gameResult.pool) ? gameResult.pool : [], gameResult.sessionMistakes || [], {
+                topContentHtml: onlineScoreboardHtml,
+                hideExpandAll: true
+            })
+            : onlineScoreboardHtml;
     }
 }
 

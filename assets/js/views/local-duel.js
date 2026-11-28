@@ -684,6 +684,10 @@ function checkLocalPhraseAnswer(player) {
     if (isRight) {
         pState.answered = true;
         pState.score++;
+        if (phrState.q) {
+            phrState.q.answered = true;
+            if (phrState.q.isCorrect !== false) phrState.q.isCorrect = true;
+        }
 
         phrState.placed.forEach((cid, i) => {
             const slotEl = document.getElementById(`local-slot-${player}-${i}`);
@@ -715,6 +719,12 @@ function checkLocalPhraseAnswer(player) {
             generateLocalDuelQuestion(player);
         }, 300);
     } else {
+        if (phrState.q) {
+            phrState.q.answered = true;
+            phrState.q.isCorrect = false;
+            if (!Array.isArray(pState.mistakes)) pState.mistakes = [];
+            if (phrState.q.word && !pState.mistakes.includes(phrState.q.word)) pState.mistakes.push(phrState.q.word);
+        }
         const pName = (pState && pState.name) || (player === 'p1' ? (currentUser || '红方') : (localDuelConfig.opponentName || '蓝方'));
         recordUserMistake(pName, phrState.targetWords.join(' '), phrState.correctMeaning || phrState.q?.meaning, '');
 
@@ -832,6 +842,12 @@ function handleLocalRevealPhrase(e, player) {
     if (!pState || !phrState) return;
 
     const pName = (pState && pState.name) || (player === 'p1' ? (currentUser || '红方') : (localDuelConfig.opponentName || '蓝方'));
+    if (phrState.q) {
+        phrState.q.answered = true;
+        phrState.q.isCorrect = false;
+        if (!Array.isArray(pState.mistakes)) pState.mistakes = [];
+        if (phrState.q.word && !pState.mistakes.includes(phrState.q.word)) pState.mistakes.push(phrState.q.word);
+    }
     recordUserMistake(pName, phrState.targetWords.join(' '), phrState.correctMeaning || phrState.q?.meaning, '');
 
     if (pState.freezeTimer) clearTimeout(pState.freezeTimer);
@@ -944,6 +960,8 @@ function handleLocalDuelAnswer(player, optIdx) {
     if (optIdx === q.correctIdx) {
         pState.answered = true;
         pState.score++;
+        q.answered = true;
+        if (q.isCorrect !== false) q.isCorrect = true;
         if (card) card.classList.add('correct');
         const scoreEl = document.getElementById(`local-score-${player}`);
         if (scoreEl) scoreEl.innerText = pState.score;
@@ -962,6 +980,10 @@ function handleLocalDuelAnswer(player, optIdx) {
             generateLocalDuelQuestion(player);
         }, 180);
     } else {
+        q.answered = true;
+        q.isCorrect = false;
+        if (!Array.isArray(pState.mistakes)) pState.mistakes = [];
+        if (q.word && !pState.mistakes.includes(q.word)) pState.mistakes.push(q.word);
         if (card) card.classList.add('wrong');
         const correctCard = optContainer ? optContainer.querySelector(`[data-idx="${q.correctIdx}"]`) : null;
         if (correctCard) correctCard.classList.add('correct');
@@ -1229,36 +1251,37 @@ function endLocalDuel(winner, detailText) {
     }
 
     const pool = (localDuelState.p1 && Array.isArray(localDuelState.p1.pool))
-        ? localDuelState.p1.pool.slice(0, Math.max((localDuelState.p1.currentIdx || 0) + 1, p1Final || 0))
-        : (localDuelState.matchPool || []);
+        ? localDuelState.p1.pool.filter(q => q && q.answered)
+        : [];
     const mistakes = [];
     if (localDuelState.p1 && Array.isArray(localDuelState.p1.mistakes)) {
         mistakes.push(...localDuelState.p1.mistakes);
     }
-    const summaryHtml = (typeof renderSingleSummaryHtml === 'function' && Array.isArray(pool) && pool.length > 0)
-        ? renderSingleSummaryHtml(pool, mistakes)
-        : '';
+
+    const localScoreboardHtml = `
+            <p style="font-size:1.15rem; font-weight:700; margin:10px 0; text-align:center;">${detailText || ''}</p>
+            <div style="display:flex; justify-content:center; gap:24px; font-size:1.25rem; font-weight:800; margin:16px 0; text-align:center;">
+                <span style="color:var(--p1-sys-color);">🔴 ${escapeHtml(p1Name)}: ${p1Final} 题</span>
+                <span style="color:var(--md-sys-color-outline);">VS</span>
+                <span style="color:var(--p2-sys-color);">🔵 ${escapeHtml(p2Name)}: ${p2Final} 题</span>
+            </div>
+            ${rankDetailsHtml}
+        `;
+    const summaryHtml = (typeof renderSingleSummaryHtml === 'function')
+        ? renderSingleSummaryHtml(pool, mistakes, { topContentHtml: localScoreboardHtml, hideExpandAll: true })
+        : localScoreboardHtml;
 
     document.getElementById('result-icon').innerText = icon;
     document.getElementById('result-message').innerText = title;
-    document.getElementById('result-details').innerHTML = `
-            <p style="font-size:1.15rem; font-weight:700; margin:10px 0;">${detailText || ''}</p>
-            <div style="display:flex; justify-content:center; gap:24px; font-size:1.25rem; font-weight:800; margin:16px 0;">
-                <span style="color:var(--p1-sys-color);">🔴 ${p1Name}: ${p1Final} 题</span>
-                <span style="color:var(--md-sys-color-outline);">VS</span>
-                <span style="color:var(--p2-sys-color);">🔵 ${p2Name}: ${p2Final} 题</span>
-            </div>
-            ${rankDetailsHtml}
-            ${summaryHtml ? `<div style="margin-top:16px; width:100%; text-align:left;">${summaryHtml}</div>` : ''}
-        `;
+    document.getElementById('result-details').innerHTML = summaryHtml;
 
     const viewResultEl = document.getElementById('view-result');
     if (viewResultEl) {
-        viewResultEl.classList.toggle('is-study-summary-mode', Boolean(summaryHtml));
+        viewResultEl.classList.toggle('is-study-summary-mode', true);
     }
     const resultCard = document.querySelector('#view-result .card');
     if (resultCard) {
-        resultCard.style.maxWidth = summaryHtml ? '680px' : '500px';
+        resultCard.style.maxWidth = '680px';
     }
 
     const btnBack = document.getElementById('btn-back-room');

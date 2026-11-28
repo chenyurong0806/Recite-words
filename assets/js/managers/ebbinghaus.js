@@ -389,6 +389,13 @@ const EbbinghausEngine = {
             phone: phone || '',
             historyCount: 0
         };
+        if (existing && typeof existing.stage === 'number' && existing.stage < 5) {
+            record.prevStage = existing.stage;
+            record.prevNextReview = existing.nextReview || 0;
+        } else if (!existing) {
+            record.prevStage = 0;
+            record.prevNextReview = 0;
+        }
         if (bookId) record.bookId = bookId;
         if (meaning) record.meaning = meaning;
         if (phone) record.phone = phone;
@@ -401,6 +408,49 @@ const EbbinghausEngine = {
         }
         this.saveRecords(records);
         this.updateDueBadge();
+    },
+    unmarkWordMastered(word) {
+        if (!word) return;
+        const rawKey = String(word).trim().toLowerCase();
+        const normKey = normalizeWordKey(word);
+        if (!normKey) return;
+        const records = this.getRecords();
+        const existing = getEbbinghausRecordByWord(records, word);
+        if (!existing) {
+            this.invalidateProgressCache();
+            this.updateDueBadge();
+            return;
+        }
+        const record = { ...existing };
+        if (typeof record.stage === 'number' && record.stage >= 5) {
+            if (typeof record.prevStage === 'number' && record.prevStage >= 0 && record.prevStage < 5) {
+                record.stage = record.prevStage;
+                if (record.stage >= 1) {
+                    const fallbackInterval = EBBINGHAUS_INTERVALS[Math.min(record.stage - 1, EBBINGHAUS_INTERVALS.length - 1)] || EBBINGHAUS_INTERVALS[0];
+                    record.nextReview = record.prevNextReview || (Date.now() + fallbackInterval);
+                } else {
+                    record.nextReview = 0;
+                }
+            } else if ((record.historyCount || 0) > 0) {
+                record.stage = 4;
+                record.nextReview = Date.now() + EBBINGHAUS_INTERVALS[0];
+            } else {
+                record.stage = 0;
+                record.nextReview = 0;
+            }
+            delete record.prevStage;
+            delete record.prevNextReview;
+            record.lastPracticed = Date.now();
+            records[normKey] = record;
+            if (rawKey && rawKey !== normKey && records[rawKey]) {
+                delete records[rawKey];
+            }
+            this.saveRecords(records);
+            this.updateDueBadge();
+        } else {
+            this.invalidateProgressCache();
+            this.updateDueBadge();
+        }
     },
     recordWord(word, meaning, phone, isSuccess, bookId = null) {
         if (!word) return;

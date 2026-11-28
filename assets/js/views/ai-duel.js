@@ -243,7 +243,8 @@ function updateAiDuelSliderHint() {
 }
 
 function updateAiDuelSettingsChips() {
-    const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+    const isLocal = (typeof isLocalAccount === 'function' && isLocalAccount());
+    const isGuest = isLocal ? false : ((typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客')));
     if (isGuest && aiDuelConfig.matchType === 'ranked') {
         aiDuelConfig.matchType = 'friendly';
     }
@@ -267,6 +268,17 @@ function updateAiDuelSettingsChips() {
             c.title = '';
         }
     });
+
+    const matchTypeHintEl = document.getElementById('ai-match-type-hint');
+    if (matchTypeHintEl) {
+        if (isGuest) {
+            matchTypeHintEl.innerText = '当前为游客模式，无法参与排位赛，请先登录账号。';
+            matchTypeHintEl.style.display = 'block';
+        } else {
+            matchTypeHintEl.innerText = '';
+            matchTypeHintEl.style.display = 'none';
+        }
+    }
 
     // 段位滑块更新：物理滑动条始终固定为 1~9，绝不缩短滑块轨道
     const slider = document.getElementById('ai-difficulty-slider');
@@ -413,7 +425,8 @@ async function startAiDuelFromModal() {
 
 async function startAiDuel() {
     if (aiDuelConfig.matchType === 'ranked') {
-        const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
+        const isLocal = (typeof isLocalAccount === 'function' && isLocalAccount());
+        const isGuest = isLocal ? false : ((typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客')));
         if (isGuest) {
             showToast('游客禁止参与排位赛，已自动切换为友谊赛');
             aiDuelConfig.matchType = 'friendly';

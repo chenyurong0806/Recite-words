@@ -553,24 +553,47 @@ async function supabaseRegisterUser(arg1, arg2, arg3 = '') {
     }
 
     const hashedPassword = await hashPassword(password);
-    const { data, error } = await sbClient
+    const initialUserData = {
+        show_on_leaderboard: false,
+        leaderboard_opt_in_prompted: false
+    };
+    const baseInsertRow = {
+        username: cleanName,
+        password: hashedPassword,
+        avatar_url: avatarUrl || '',
+        device_id: deviceId,
+        is_banned: false,
+        user_data: initialUserData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+    };
+    let { data, error } = await sbClient
         .from('user_accounts')
-        .insert([{
-            username: cleanName,
-            password: hashedPassword,
-            avatar_url: avatarUrl || '',
-            device_id: deviceId,
-            is_banned: false,
-            user_data: {},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        }])
+        .insert([{ ...baseInsertRow, show_on_leaderboard: false }])
         .select()
         .single();
+
+    if (error && error.message && error.message.includes('show_on_leaderboard')) {
+        const fallbackRes = await sbClient
+            .from('user_accounts')
+            .insert([baseInsertRow])
+            .select()
+            .single();
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+    }
 
     if (error) {
         throw new Error(error.message || '注册失败，请稍后重试');
     }
+
+    try {
+        safeWriteJsonStorage(`vocab_leaderboard_pref_${cleanName}`, {
+            showOnLeaderboard: false,
+            prompted: false,
+            updatedAt: Date.now()
+        });
+    } catch (e) { }
 
     // 注册成功，记录在本地设备绑定标记中
     try {
@@ -914,7 +937,7 @@ function safeWriteJsonStorage(key, val) {
 }
 
 function normalizeSyncWordKey(word) {
-    return String(word || '').trim().toLowerCase();
+    return String(word || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 function mergeEbbinghausMaps(localMap, cloudMap) {
@@ -1049,7 +1072,18 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
 
     const ebbinghaus = safeParseJsonStorage(`vocab_ebbinghaus_db_${u}`, null);
     const daily_logs = safeParseJsonStorage(`vocab_daily_logs_${u}`, null);
-    const mastered_words = safeParseJsonStorage(`vocab_mastered_words_${u}`, null);
+    let mastered_words = safeParseJsonStorage(`vocab_mastered_words_${u}`, null);
+    try {
+        const rawLsMastered = typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_mastered_words_${u}`) : null;
+        if (rawLsMastered) {
+            const parsedLs = JSON.parse(rawLsMastered);
+            if (Array.isArray(parsedLs) && (!Array.isArray(mastered_words) || (parsedLs.length > 0 && mastered_words.length === 0))) {
+                mastered_words = parsedLs;
+                safeWriteJsonStorage(`vocab_mastered_words_${u}`, parsedLs);
+            }
+        }
+    } catch (e) { }
+    const mastered_removed = safeParseJsonStorage(`vocab_mastered_removed_${u}`, null);
     const wordle_history = safeParseJsonStorage(`vocab_wordle_history_${u}`, null);
     const shici_progress = safeParseJsonStorage(`shici_progress_${u}`, null) || safeParseJsonStorage(`vocab_shici_progress_${u}`, null);
     const shici_ebbinghaus = safeParseJsonStorage(`shici_ebbinghaus_db_${u}`, null);
@@ -1061,6 +1095,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
     const local_duel_config = safeParseJsonStorage('vocab_local_duel_config', null);
     const room_preset = safeParseJsonStorage(`vocab_room_preset_${u}`, null);
     const riddle_history = safeParseJsonStorage(`vocab_riddle_daily_history_${u}`, null);
+    const lb_pref = safeParseJsonStorage(`vocab_leaderboard_pref_${u}`, null);
 
     let levelData = null;
     let rankData = null;
@@ -1091,7 +1126,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         isBili: isBiliAccount,
         ebbinghaus: ebbinghaus || {},
         daily_logs: daily_logs || {},
-        mastered_words: mastered_words || [],
+        mastered_words: Array.isArray(mastered_words) ? mastered_words : [],
+        mastered_removed: (mastered_removed && typeof mastered_removed === 'object') ? mastered_removed : {},
         wordle_history: wordle_history || {},
         shici_progress: shici_progress || {},
         shici_ebbinghaus: shici_ebbinghaus || {},
@@ -1103,6 +1139,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         local_duel_config: local_duel_config || null,
         room_preset: room_preset || null,
         riddle_history: riddle_history || null,
+        show_on_leaderboard: (lb_pref && typeof lb_pref.showOnLeaderboard === 'boolean') ? lb_pref.showOnLeaderboard : undefined,
+        leaderboard_opt_in_prompted: (lb_pref && typeof lb_pref.prompted === 'boolean') ? lb_pref.prompted : undefined,
         exp_level: levelData ? levelData.level : 1,
         exp_score: levelData ? levelData.score : 0,
         level: rankData ? rankData.rank : 1,
@@ -1118,6 +1156,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         ebbinghaus: payload.ebbinghaus,
         daily_logs: payload.daily_logs,
         mastered_words: payload.mastered_words,
+        mastered_removed: payload.mastered_removed,
         wordle_history: payload.wordle_history,
         shici_progress: payload.shici_progress,
         shici_ebbinghaus: payload.shici_ebbinghaus,
@@ -1129,6 +1168,8 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         local_duel_config: payload.local_duel_config,
         room_preset: payload.room_preset,
         riddle_history: payload.riddle_history,
+        show_on_leaderboard: payload.show_on_leaderboard,
+        leaderboard_opt_in_prompted: payload.leaderboard_opt_in_prompted,
         level: payload.level,
         score: payload.score
     };
@@ -1145,9 +1186,17 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
         level: payload.level,
         updated_at: payload.updated_at
     };
+    if (typeof payload.show_on_leaderboard === 'boolean') {
+        updateObj.show_on_leaderboard = payload.show_on_leaderboard;
+    }
 
     if (options.keepalive && typeof fetch === 'function') {
         try {
+            const keepaliveBody = {
+                user_data: payload,
+                level: payload.level,
+                updated_at: payload.updated_at
+            };
             fetch(`${SUPABASE_URL}/rest/v1/user_accounts?username=eq.${encodeURIComponent(u)}`, {
                 method: 'PATCH',
                 headers: {
@@ -1156,7 +1205,7 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal'
                 },
-                body: JSON.stringify(updateObj),
+                body: JSON.stringify(keepaliveBody),
                 keepalive: true
             }).catch(() => { });
             if (currentHash) window._lastCloudSyncHash[u] = currentHash;
@@ -1179,13 +1228,17 @@ async function syncAllUserDataToCloud(targetUsername = null, options = {}) {
             updatedRows = data;
 
             if (error) {
-                if (error.message && error.message.includes('level')) {
+                if (error.message && (error.message.includes('level') || error.message.includes('show_on_leaderboard'))) {
+                    const fallbackUpdate = {
+                        user_data: payload,
+                        updated_at: payload.updated_at
+                    };
+                    if (!error.message.includes('level')) {
+                        fallbackUpdate.level = payload.level;
+                    }
                     const { data: d2, error: err2 } = await sbClient
                         .from('user_accounts')
-                        .update({
-                            user_data: payload,
-                            updated_at: payload.updated_at
-                        })
+                        .update(fallbackUpdate)
                         .eq('username', u)
                         .select('username');
                     updatedRows = d2;
@@ -1271,21 +1324,70 @@ function mergeRankObjects(localRank, cloudRank) {
     return (locScore > cldScore) ? { ...localRank } : { ...cloudRank };
 }
 
-function mergeMasteredWordLists(localList, cloudList) {
-    const seen = new Set();
-    const result = [];
-    const pushItem = (w) => {
-        if (!w || typeof w !== 'string') return;
-        const clean = w.trim();
-        if (!clean) return;
-        const norm = normalizeSyncWordKey(clean);
-        if (seen.has(norm)) return;
-        seen.add(norm);
-        result.push(clean);
+function mergeMasteredRemovedMaps(localRemoved, cloudRemoved) {
+    const merged = {};
+    const addMap = (src) => {
+        if (!src || typeof src !== 'object') return;
+        Object.keys(src).forEach(k => {
+            const norm = normalizeSyncWordKey(k);
+            const ts = Number(src[k] || 0);
+            if (!norm || !ts) return;
+            if (!merged[norm] || ts > merged[norm]) {
+                merged[norm] = ts;
+            }
+        });
+    };
+    addMap(cloudRemoved);
+    addMap(localRemoved);
+    return merged;
+}
+
+function mergeMasteredWordLists(localList, cloudList, removedMap = null) {
+    const byKey = new Map();
+    const removed = (removedMap && typeof removedMap === 'object') ? removedMap : {};
+    const pushItem = (item) => {
+        if (!item) return;
+        let cleanWord = '';
+        let phone = '';
+        let meaning = '';
+        let markedAt = 0;
+        if (typeof item === 'string') {
+            cleanWord = item.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+        } else if (typeof item === 'object') {
+            cleanWord = String(item.word || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+            phone = item.phone || '';
+            meaning = item.meaning || '';
+            markedAt = Number(item.markedAt || 0);
+        } else {
+            return;
+        }
+        if (!cleanWord) return;
+        const norm = normalizeSyncWordKey(cleanWord);
+        if (!norm) return;
+        const removedTs = Number(removed[norm] || 0);
+        if (removedTs > 0 && markedAt <= removedTs) {
+            return;
+        }
+        const existing = byKey.get(norm);
+        if (!existing) {
+            byKey.set(norm, {
+                word: cleanWord,
+                phone: phone,
+                meaning: meaning,
+                markedAt: markedAt || Date.now()
+            });
+        } else {
+            byKey.set(norm, {
+                word: cleanWord || existing.word,
+                phone: phone || existing.phone || '',
+                meaning: meaning || existing.meaning || '',
+                markedAt: Math.max(markedAt || 0, existing.markedAt || 0) || Date.now()
+            });
+        }
     };
     (Array.isArray(cloudList) ? cloudList : []).forEach(pushItem);
     (Array.isArray(localList) ? localList : []).forEach(pushItem);
-    return result;
+    return Array.from(byKey.values());
 }
 
 function mergeWordleHistoryMaps(localHist, cloudHist) {
@@ -1424,10 +1526,22 @@ function restoreUserDataFromCloud(user, options = {}) {
         } catch (e) { }
     }
 
-    if (Array.isArray(ud.mastered_words)) {
+    if (Array.isArray(ud.mastered_words) || (ud.mastered_removed && typeof ud.mastered_removed === 'object')) {
         try {
-            const localMastered = safeParseJsonStorage(`vocab_mastered_words_${u}`, []);
-            const mergedMastered = mergeMasteredWordLists(localMastered, ud.mastered_words);
+            let localMastered = safeParseJsonStorage(`vocab_mastered_words_${u}`, []);
+            try {
+                const rawLs = typeof localStorage !== 'undefined' ? localStorage.getItem(`vocab_mastered_words_${u}`) : null;
+                if (rawLs) {
+                    const parsedLs = JSON.parse(rawLs);
+                    if (Array.isArray(parsedLs) && parsedLs.length > (Array.isArray(localMastered) ? localMastered.length : 0)) {
+                        localMastered = parsedLs;
+                    }
+                }
+            } catch (e) { }
+            const localRemoved = safeParseJsonStorage(`vocab_mastered_removed_${u}`, {});
+            const mergedRemoved = mergeMasteredRemovedMaps(localRemoved, ud.mastered_removed);
+            safeWriteJsonStorage(`vocab_mastered_removed_${u}`, mergedRemoved);
+            const mergedMastered = mergeMasteredWordLists(localMastered, Array.isArray(ud.mastered_words) ? ud.mastered_words : [], mergedRemoved);
             safeWriteJsonStorage(`vocab_mastered_words_${u}`, mergedMastered);
         } catch (e) { }
     }
@@ -1463,6 +1577,26 @@ function restoreUserDataFromCloud(user, options = {}) {
     applyConfigIfNewer(`shici_config_${u}`, ud.shici_config);
     applyConfigIfNewer(`vocab_room_preset_${u}`, ud.room_preset);
     applyConfigIfNewer(`vocab_riddle_daily_history_${u}`, ud.riddle_history);
+
+    // 排行榜可见性偏好恢复（默认兼容老用户，新用户为 false）
+    try {
+        const hasCloudLbPref = (typeof user.show_on_leaderboard === 'boolean') || (typeof ud.show_on_leaderboard === 'boolean');
+        if (hasCloudLbPref) {
+            const cloudShow = (typeof user.show_on_leaderboard === 'boolean') ? user.show_on_leaderboard : ud.show_on_leaderboard;
+            const cloudPrompted = (typeof ud.leaderboard_opt_in_prompted === 'boolean')
+                ? ud.leaderboard_opt_in_prompted
+                : Boolean(cloudShow);
+            const localPref = safeParseJsonStorage(`vocab_leaderboard_pref_${u}`, null);
+            const localUpdatedAt = (localPref && typeof localPref.updatedAt === 'number') ? localPref.updatedAt : 0;
+            if (!localPref || (!keepLocalConfigs && cloudUpdatedMs >= localUpdatedAt)) {
+                safeWriteJsonStorage(`vocab_leaderboard_pref_${u}`, {
+                    showOnLeaderboard: Boolean(cloudShow),
+                    prompted: Boolean(cloudPrompted),
+                    updatedAt: cloudUpdatedMs || Date.now()
+                });
+            }
+        }
+    } catch (e) { }
 
     if (Array.isArray(ud.single_selected_books) && ud.single_selected_books.length > 0) {
         const localUserBooks = safeParseJsonStorage(`vocab_single_selected_books_${u}`, null);
@@ -1508,6 +1642,9 @@ function restoreUserDataFromCloud(user, options = {}) {
         if (typeof updateHubResumeButtons === 'function') {
             try { updateHubResumeButtons(); } catch (e) { }
         }
+        if (typeof updateLeaderboardVisibilityToggleUI === 'function') {
+            try { updateLeaderboardVisibilityToggleUI(); } catch (e) { }
+        }
         if (typeof currentView !== 'undefined' && currentView === 'view-me') {
             if (typeof renderMeView === 'function') {
                 try { renderMeView(); } catch (e) { }
@@ -1550,27 +1687,50 @@ async function supabaseSyncBiliUser(biliProfile) {
             }).eq('username', u).then(() => { }).catch(() => { });
             return existing;
         } else {
-            // 新建记录
+            // 新建记录：默认不上榜
             const newUserData = {
                 account_type: 'bilibili',
                 isBili: true,
                 open_id: biliProfile.toyOpenId || '',
+                show_on_leaderboard: false,
+                leaderboard_opt_in_prompted: false,
                 rank_data: { rank: 1, rating: 0, isPromotionReady: false, battles: { total: 0, wins: 0, losses: 0, draws: 0 } },
                 stats: { total: 0, correct: 0, mistakes: {} }
             };
-            const { data: created, error: insErr } = await sbClient
+            const nowIso = new Date().toISOString();
+            const insertRow = {
+                username: u,
+                password: '',
+                avatar_url: biliProfile.avatar || '',
+                level: 1,
+                show_on_leaderboard: false,
+                user_data: newUserData,
+                created_at: nowIso,
+                updated_at: nowIso
+            };
+            let { data: created, error: insErr } = await sbClient
                 .from('user_accounts')
-                .insert([{
-                    username: u,
-                    password: '',
-                    avatar_url: biliProfile.avatar || '',
-                    level: 1,
-                    user_data: newUserData,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }])
+                .insert([insertRow])
                 .select()
                 .single();
+            if (insErr && insErr.message && insErr.message.includes('show_on_leaderboard')) {
+                const fallbackRow = { ...insertRow };
+                delete fallbackRow.show_on_leaderboard;
+                const retryRes = await sbClient
+                    .from('user_accounts')
+                    .insert([fallbackRow])
+                    .select()
+                    .single();
+                created = retryRes.data;
+                insErr = retryRes.error;
+            }
+            if (!insErr && created) {
+                safeWriteJsonStorage(`vocab_leaderboard_pref_${u}`, {
+                    showOnLeaderboard: false,
+                    prompted: false,
+                    updatedAt: Date.now()
+                });
+            }
             return created || null;
         }
     } catch (e) {
