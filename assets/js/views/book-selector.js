@@ -127,9 +127,9 @@ function openBookSelectorPage(mode = 'single') {
     };
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
 
-    switchView('view-book-selector');
     renderBookSelectorCategoryTabs();
     renderBookSelectorPage();
+    switchView('view-book-selector');
 }
 
 function exitBookSelectorPage() {
@@ -1583,9 +1583,9 @@ function openManageBooksPage(prevView = null) {
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     manageBooksActiveCategory = isOffline ? '全部' : '我的';
 
-    switchView('view-manage-books');
     renderManageBooksCategoryTabs();
     renderManageBooksPage();
+    switchView('view-manage-books');
     if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
         ElectronManager.scanAndSyncLocalBooks(true);
     }

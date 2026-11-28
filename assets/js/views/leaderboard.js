@@ -8,6 +8,8 @@ let leaderboardPreviousView = 'view-hub';
 let wordleLeaderboardDate = (new Date()).toISOString().slice(0, 10);
 let wordleLeaderboardSort = 'time'; // 'time' | 'attempts'
 let _leaderboardPromptInFlight = false;
+let _leaderboardVisibilityUpdating = false;
+let _leaderboardVisibilityPendingTarget = null;
 
 function isOnlineLoggedInLeaderboardUser(username = null) {
     if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
@@ -82,61 +84,88 @@ function isAccountVisibleOnLeaderboard(acc, currUser = '') {
 async function setUserLeaderboardVisibility(showOnLeaderboard, options = {}) {
     const u = (typeof currentUser !== 'undefined' ? currentUser : '');
     if (!isOnlineLoggedInLeaderboardUser(u)) return false;
+    if (_leaderboardVisibilityUpdating) return false;
 
     const nextVisible = Boolean(showOnLeaderboard);
-    saveLeaderboardVisibilityPref(u, {
-        showOnLeaderboard: nextVisible,
-        prompted: true
-    });
+    const prevPref = getLeaderboardVisibilityPref(u);
+
+    // 点击后先立即改变按钮状态并锁定等待响应，避免重复点击与延迟无反馈
+    _leaderboardVisibilityUpdating = true;
+    _leaderboardVisibilityPendingTarget = nextVisible;
     updateLeaderboardVisibilityToggleUI();
 
-    if (typeof sbClient !== 'undefined' && sbClient) {
-        try {
-            const { data: existingRow } = await sbClient
-                .from('user_accounts')
-                .select('user_data')
-                .eq('username', u)
-                .maybeSingle();
-            const mergedUserData = {
-                ...((existingRow && existingRow.user_data && typeof existingRow.user_data === 'object') ? existingRow.user_data : {}),
-                show_on_leaderboard: nextVisible,
-                leaderboard_opt_in_prompted: true
-            };
-            const nowIso = new Date().toISOString();
-            const { error } = await sbClient
-                .from('user_accounts')
-                .update({
+    let remoteFailed = false;
+    try {
+        if (typeof sbClient !== 'undefined' && sbClient) {
+            try {
+                const { data: existingRow, error: fetchErr } = await sbClient
+                    .from('user_accounts')
+                    .select('user_data')
+                    .eq('username', u)
+                    .maybeSingle();
+                if (fetchErr) throw fetchErr;
+                const mergedUserData = {
+                    ...((existingRow && existingRow.user_data && typeof existingRow.user_data === 'object') ? existingRow.user_data : {}),
                     show_on_leaderboard: nextVisible,
-                    user_data: mergedUserData,
-                    updated_at: nowIso
-                })
-                .eq('username', u);
-            if (error && error.message && error.message.includes('show_on_leaderboard')) {
-                await sbClient
+                    leaderboard_opt_in_prompted: true
+                };
+                const nowIso = new Date().toISOString();
+                const { error } = await sbClient
                     .from('user_accounts')
                     .update({
+                        show_on_leaderboard: nextVisible,
                         user_data: mergedUserData,
                         updated_at: nowIso
                     })
                     .eq('username', u);
+                if (error && error.message && error.message.includes('show_on_leaderboard')) {
+                    const { error: fallbackErr } = await sbClient
+                        .from('user_accounts')
+                        .update({
+                            user_data: mergedUserData,
+                            updated_at: nowIso
+                        })
+                        .eq('username', u);
+                    if (fallbackErr) throw fallbackErr;
+                } else if (error) {
+                    throw error;
+                }
+            } catch (e) {
+                remoteFailed = true;
+                console.warn('[Leaderboard] Failed to persist visibility to Supabase:', e);
             }
-        } catch (e) {
-            console.warn('[Leaderboard] Failed to persist visibility to Supabase:', e);
         }
-    }
 
-    if (!options.silent && typeof showToast === 'function') {
-        showToast(nextVisible ? '已在排行榜中显示自己' : '已在排行榜中隐藏自己');
-    }
-
-    if (typeof currentView !== 'undefined' && currentView === 'view-leaderboard') {
-        if (leaderboardActiveTab === 'level') {
-            renderLevelLeaderboard();
-        } else {
-            renderWordleLeaderboard();
+        if (remoteFailed) {
+            saveLeaderboardVisibilityPref(u, prevPref);
+            if (!options.silent && typeof showToast === 'function') {
+                showToast('切换失败，请检查网络后重试');
+            }
+            return false;
         }
+
+        saveLeaderboardVisibilityPref(u, {
+            showOnLeaderboard: nextVisible,
+            prompted: true
+        });
+
+        if (!options.silent && typeof showToast === 'function') {
+            showToast(nextVisible ? '已在排行榜中显示自己' : '已在排行榜中隐藏自己');
+        }
+
+        if (typeof currentView !== 'undefined' && currentView === 'view-leaderboard') {
+            if (leaderboardActiveTab === 'level') {
+                await renderLevelLeaderboard();
+            } else {
+                await renderWordleLeaderboard();
+            }
+        }
+        return true;
+    } finally {
+        _leaderboardVisibilityUpdating = false;
+        _leaderboardVisibilityPendingTarget = null;
+        updateLeaderboardVisibilityToggleUI();
     }
-    return true;
 }
 window.setUserLeaderboardVisibility = setUserLeaderboardVisibility;
 
@@ -149,13 +178,32 @@ function updateLeaderboardVisibilityToggleUI() {
         return;
     }
     const pref = getLeaderboardVisibilityPref(u);
-    const isShown = pref.showOnLeaderboard !== false;
+    const isPending = Boolean(_leaderboardVisibilityUpdating && typeof _leaderboardVisibilityPendingTarget === 'boolean');
+    const isShown = isPending ? _leaderboardVisibilityPendingTarget : (pref.showOnLeaderboard !== false);
     btn.style.display = 'inline-flex';
     const icon = document.getElementById('lb-visibility-icon');
     const label = document.getElementById('lb-visibility-label');
-    if (icon) icon.innerText = isShown ? 'visibility' : 'visibility_off';
-    if (label) label.innerText = isShown ? '隐藏自己' : '显示自己';
-    btn.title = isShown ? '点击在排行榜中隐藏自己' : '点击在排行榜中显示自己';
+
+    btn.disabled = isPending;
+    btn.classList.toggle('is-loading', isPending);
+    if (isPending) {
+        btn.setAttribute('aria-busy', 'true');
+    } else {
+        btn.removeAttribute('aria-busy');
+    }
+
+    if (icon) {
+        icon.innerText = isPending ? 'sync' : (isShown ? 'visibility' : 'visibility_off');
+        icon.classList.toggle('rotating', isPending);
+    }
+    if (label) {
+        label.innerText = isPending
+            ? (isShown ? '显示中...' : '隐藏中...')
+            : (isShown ? '隐藏自己' : '显示自己');
+    }
+    btn.title = isPending
+        ? (isShown ? '正在排行榜中显示自己，请稍候...' : '正在排行榜中隐藏自己，请稍候...')
+        : (isShown ? '点击在排行榜中隐藏自己' : '点击在排行榜中显示自己');
     btn.classList.toggle('btn-tonal', isShown);
     btn.classList.toggle('btn-filled', !isShown);
 }
@@ -164,6 +212,7 @@ window.updateLeaderboardVisibilityToggleUI = updateLeaderboardVisibilityToggleUI
 async function toggleMyLeaderboardVisibility() {
     const u = typeof currentUser !== 'undefined' ? currentUser : '';
     if (!isOnlineLoggedInLeaderboardUser(u)) return;
+    if (_leaderboardVisibilityUpdating) return;
     const pref = getLeaderboardVisibilityPref(u);
     await setUserLeaderboardVisibility(!(pref.showOnLeaderboard !== false));
 }
@@ -214,11 +263,11 @@ function openLeaderboardView(tab = 'level') {
         stopDailyTimer();
     }
 
+    updateLeaderboardVisibilityToggleUI();
+    switchLeaderboardTab(leaderboardActiveTab);
     if (typeof switchView === 'function') {
         switchView('view-leaderboard');
     }
-    updateLeaderboardVisibilityToggleUI();
-    switchLeaderboardTab(leaderboardActiveTab);
 
     setTimeout(() => {
         maybePromptLeaderboardOptIn('first_open');

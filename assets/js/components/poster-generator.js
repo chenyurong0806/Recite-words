@@ -313,7 +313,7 @@
             try {
                 localStorage.removeItem(_POSTER_BG_STORAGE_KEY);
             } catch (e) { }
-            const failMsg = (typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式下默认使用极简纯白背景' : '未能加载到新背景，已切换为极简纯白背景';
+            const failMsg = (typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式下默认使用纯白背景' : '无法加载新背景，已切换为纯白背景';
             if (typeof showToast === 'function') showToast(failMsg);
         } else {
             _cachedBgImage = newImg;
@@ -487,7 +487,7 @@
             if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.savePosterImage === 'function') {
                 const res = await window.electronAPI.savePosterImage(base64Data, fname);
                 if (res && res.success) {
-                    if (typeof showToast === 'function') showToast('🎉 海报已成功保存至本地！');
+                    if (typeof showToast === 'function') showToast('海报已成功保存至本地！');
                     return true;
                 } else if (res && res.canceled) {
                     return false;
@@ -568,7 +568,7 @@
                         base64Data: base64Data,
                         hintMsg: '保存海报需要相册访问权限'
                     });
-                    if (typeof showToast === 'function') showToast('🎉 海报已成功保存至本地相册！');
+                    if (typeof showToast === 'function') showToast('海报已成功保存至本地相册！');
                     return true;
                 }
             } catch (e) {
@@ -605,8 +605,8 @@
         if (typeof navigator !== 'undefined' && navigator.share) {
             try {
                 await navigator.share({
-                    title: '词迹 Recite Words',
-                    text: '我在「词迹」沉浸式背单词与联机对战，快来一起玩吧！',
+                    title: '词迹',
+                    text: '让背词更有趣！',
                     url: (typeof window !== 'undefined' && window.location && window.location.href) || 'https://www.bilibili.com/toy/cyr/index.html'
                 });
                 return true;
@@ -1318,6 +1318,124 @@
         ctx.restore();
     }
 
+    /**
+     * 将统计数值拆分为“数字片段”与“单位/文字片段”（如 "2小时35分" -> 2 / 小时 / 35 / 分）
+     */
+    function tokenizeStatValue(rawValue) {
+        const str = String(rawValue == null ? '' : rawValue).trim();
+        if (!str) return [];
+        const tokens = [];
+        const re = /(\d+(?:\.\d+)?)|([^\d]+)/g;
+        let match;
+        while ((match = re.exec(str)) !== null) {
+            if (match[1] !== undefined) {
+                tokens.push({ text: match[1], isNum: true });
+            } else if (match[2] !== undefined) {
+                const cleaned = match[2].trim();
+                if (cleaned) {
+                    tokens.push({ text: cleaned, isNum: false });
+                }
+            }
+        }
+        return tokens;
+    }
+
+    /**
+     * 计算“彩色突出数字 + 缩小单位文字”混排后的渲染总宽度
+     */
+    function measureMixedStatWidth(ctx, rawValue, numSize, options = {}) {
+        const tokens = tokenizeStatValue(rawValue);
+        if (tokens.length === 0) return 0;
+        const numWeight = options.numWeight || '700';
+        const unitWeight = options.unitWeight || '600';
+        const unitRatio = typeof options.unitRatio === 'number' ? options.unitRatio : 0.42;
+        const minUnitSize = typeof options.minUnitSize === 'number' ? options.minUnitSize : 16;
+        const unitSize = Math.max(minUnitSize, Math.round(numSize * unitRatio));
+        const numToUnitGap = Math.max(3, Math.round(numSize * 0.08));
+        const unitToNumGap = Math.max(5, Math.round(numSize * 0.14));
+
+        ctx.save();
+        let totalWidth = 0;
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
+            if (i > 0) {
+                const prev = tokens[i - 1];
+                if (prev.isNum && !tok.isNum) totalWidth += numToUnitGap;
+                else if (!prev.isNum && tok.isNum) totalWidth += unitToNumGap;
+                else totalWidth += 2;
+            }
+            ctx.font = tok.isNum
+                ? `${numWeight} ${numSize}px ${FONT_FAMILY}`
+                : `${unitWeight} ${unitSize}px ${FONT_FAMILY}`;
+            totalWidth += ctx.measureText(tok.text).width;
+        }
+        ctx.restore();
+        return totalWidth;
+    }
+
+    /**
+     * 绘制“不同颜色突出数字 + 缩小单位文字”的混排统计值（按基线齐平）
+     */
+    function drawMixedStatValue(ctx, rawValue, x, topY, numSize, options = {}) {
+        const tokens = tokenizeStatValue(rawValue);
+        if (tokens.length === 0) return;
+
+        const numWeight = options.numWeight || '700';
+        const unitWeight = options.unitWeight || '600';
+        const unitRatio = typeof options.unitRatio === 'number' ? options.unitRatio : 0.42;
+        const minUnitSize = typeof options.minUnitSize === 'number' ? options.minUnitSize : 16;
+        const unitSize = Math.max(minUnitSize, Math.round(numSize * unitRatio));
+        const numColor = options.numColor || '#0061A4';
+        const unitColor = options.unitColor || '#5F6368';
+        const align = options.align || 'left';
+        const numToUnitGap = Math.max(3, Math.round(numSize * 0.08));
+        const unitToNumGap = Math.max(5, Math.round(numSize * 0.14));
+
+        const totalW = measureMixedStatWidth(ctx, rawValue, numSize, {
+            numWeight,
+            unitWeight,
+            unitRatio,
+            minUnitSize
+        });
+
+        let curX = x;
+        if (align === 'center') curX = x - totalW / 2;
+        else if (align === 'right') curX = x - totalW;
+
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+
+        ctx.font = `${numWeight} ${numSize}px ${FONT_FAMILY}`;
+        const refMetrics = ctx.measureText('0');
+        const ascent = (refMetrics && typeof refMetrics.actualBoundingBoxAscent === 'number' && refMetrics.actualBoundingBoxAscent > 0)
+            ? refMetrics.actualBoundingBoxAscent
+            : Math.round(numSize * 0.78);
+        const baselineY = Math.round(topY + ascent + numSize * 0.08);
+
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
+            if (i > 0) {
+                const prev = tokens[i - 1];
+                if (prev.isNum && !tok.isNum) curX += numToUnitGap;
+                else if (!prev.isNum && tok.isNum) curX += unitToNumGap;
+                else curX += 2;
+            }
+            if (tok.isNum) {
+                ctx.font = `${numWeight} ${numSize}px ${FONT_FAMILY}`;
+                ctx.fillStyle = numColor;
+                ctx.fillText(tok.text, curX, baselineY);
+            } else {
+                ctx.font = `${unitWeight} ${unitSize}px ${FONT_FAMILY}`;
+                ctx.fillStyle = unitColor;
+                const unitOffsetY = /[\u4e00-\u9fa5]/.test(tok.text) ? -1 : 0;
+                ctx.fillText(tok.text, curX, baselineY + unitOffsetY);
+            }
+            curX += ctx.measureText(tok.text).width;
+        }
+        ctx.restore();
+    }
+
     /* ==========================================================================
        1. 生成学习成绩海报 (背单词小结 / 个人中心成长报告) - 极简结构
        ========================================================================== */
@@ -1406,34 +1524,30 @@
         const col2X = width / 2 + 20;
         const colMaxW = (width / 2) - 56;
 
-        // 统一计算四项核心指标的共同字号，确保上下行字体、粗细、字号与行距完全一致
-        const computeFitFontSize = (text, baseSize, minSize, weight) => {
-            const str = String(text || '');
-            ctx.save();
+        // 统一计算四项核心指标的共同数字字号（缩小“小时”“分钟”等汉字单位，保持上下行数字字号与行距完全一致）
+        const statWeight = '700';
+        const computeFitMixedFontSize = (text, baseSize, minSize) => {
             let sz = baseSize;
-            ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
-            while (sz > minSize && ctx.measureText(str).width > colMaxW) {
+            while (sz > minSize && measureMixedStatWidth(ctx, text, sz, { numWeight: statWeight }) > colMaxW) {
                 sz -= 2;
-                ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
             }
-            ctx.restore();
             return sz;
         };
-        const statWeight = '700';
         const statFontSize = Math.min(
-            computeFitFontSize(`${todayLearned}`, 50, 34, statWeight),
-            computeFitFontSize(`${totalWords}`, 50, 34, statWeight),
-            computeFitFontSize(todayDurationText, 50, 34, statWeight),
-            computeFitFontSize(totalDurationText, 50, 34, statWeight)
+            computeFitMixedFontSize(`${todayLearned}`, 52, 34),
+            computeFitMixedFontSize(`${totalWords}`, 52, 34),
+            computeFitMixedFontSize(todayDurationText, 52, 34),
+            computeFitMixedFontSize(totalDurationText, 52, 34)
         );
-        const statFont = `${statWeight} ${statFontSize}px ${FONT_FAMILY}`;
         const labelOffset = Math.round(statFontSize + 14);
         const subOffset = labelOffset + 26;
+        const unitTextColor = '#5F6368';
 
         // 第 1 行左：今日已学词数
-        drawText(ctx, `${todayLearned}`, col1X, dataY1, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, `${todayLearned}`, col1X, dataY1, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#0061A4',
+            unitColor: unitTextColor
         });
         drawText(ctx, '今日已学词数', col1X, dataY1 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -1445,9 +1559,10 @@
         });
 
         // 第 1 行右：累计学习词数
-        drawText(ctx, `${totalWords}`, col2X, dataY1, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, `${totalWords}`, col2X, dataY1, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#006874',
+            unitColor: unitTextColor
         });
         drawText(ctx, '累计学习词数', col2X, dataY1 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -1459,9 +1574,10 @@
         });
 
         // 第 2 行左：今日学习时长
-        drawText(ctx, todayDurationText, col1X, dataY2, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, todayDurationText, col1X, dataY2, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#6750A4',
+            unitColor: unitTextColor
         });
         drawText(ctx, '今日学习时长', col1X, dataY2 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -1473,9 +1589,10 @@
         });
 
         // 第 2 行右：累计学习时长
-        drawText(ctx, totalDurationText, col2X, dataY2, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, totalDurationText, col2X, dataY2, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#B45309',
+            unitColor: unitTextColor
         });
         drawText(ctx, '累计学习时长', col2X, dataY2 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -1727,9 +1844,10 @@
         if (!isTimerOn) {
             // 未开启计时器：直接居中显示尝试次数
             const centerX = width / 2;
-            drawText(ctx, `${attemptsCount}`, centerX, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E',
+            drawMixedStatValue(ctx, `${attemptsCount}`, centerX, dataY, 64, {
+                numWeight: '700',
+                numColor: '#6750A4',
+                unitColor: '#5F6368',
                 align: 'center'
             });
             drawText(ctx, '尝试次数', centerX, dataY + 76, {
@@ -1746,11 +1864,17 @@
             // 开启计时器：双列并排显示
             const col1X = 54;
             const col2X = width / 2 + 30;
+            const wordleColMaxW = (width / 2) - 64;
+            let wordleStatSize = 64;
+            while (wordleStatSize > 38 && measureMixedStatWidth(ctx, `${timeDisplay}`, wordleStatSize, { numWeight: '700', unitRatio: 0.44 }) > wordleColMaxW) {
+                wordleStatSize -= 2;
+            }
 
             // 尝试次数
-            drawText(ctx, `${attemptsCount}`, col1X, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E'
+            drawMixedStatValue(ctx, `${attemptsCount}`, col1X, dataY, wordleStatSize, {
+                numWeight: '700',
+                numColor: '#6750A4',
+                unitColor: '#5F6368'
             });
             drawText(ctx, '尝试次数', col1X, dataY + 76, {
                 font: `bold 16px ${FONT_FAMILY}`,
@@ -1762,9 +1886,11 @@
             });
 
             // 用时
-            drawText(ctx, `${timeDisplay}`, col2X, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E'
+            drawMixedStatValue(ctx, `${timeDisplay}`, col2X, dataY, wordleStatSize, {
+                numWeight: '700',
+                numColor: '#006874',
+                unitColor: '#5F6368',
+                unitRatio: 0.44
             });
             drawText(ctx, '用时', col2X, dataY + 76, {
                 font: `bold 16px ${FONT_FAMILY}`,

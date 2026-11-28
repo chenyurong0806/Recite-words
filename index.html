@@ -800,43 +800,60 @@
                         Lv. 1
                     </div>
                     <!-- 收起搜索栏时显示在顶栏的搜索图标按钮 -->
-                    <button type="button" class="hub-mailbox-btn" id="btn-hub-appbar-search" onclick="openSearchPageFromHub()" title="搜索单词、词组或释义" style="display:none;">
-                        <span class="material-symbols-rounded">search</span>
+                    <button type="button" class="hub-mailbox-btn" id="btn-hub-appbar-search" onclick="openSearchPageFromHub()" title="搜索单词、词组或释义" aria-label="搜索单词、词组或释义" style="display:none;">
+                        <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                    </button>
+                    <!-- 收起活动卡片时显示在顶栏的活动图标按钮 (离线模式隐藏) -->
+                    <button type="button" class="hub-mailbox-btn offline-hide" id="btn-hub-appbar-activity" onclick="openActivityView()" title="活动" aria-label="活动" style="display:none;">
+                        <span class="material-symbols-rounded" aria-hidden="true">campaign</span>
+                        <span id="hub-appbar-activity-unread-badge" class="hub-appbar-unread-badge" style="display:none;">0</span>
+                    </button>
+                    <!-- 收起排行榜卡片时显示在顶栏的排行榜图标按钮 -->
+                    <button type="button" class="hub-mailbox-btn" id="btn-hub-appbar-leaderboard" onclick="openLeaderboardView()" title="排行榜" aria-label="排行榜" style="display:none;">
+                        <span class="material-symbols-rounded" aria-hidden="true">leaderboard</span>
                     </button>
                     <!-- 邮箱入口按钮 (移到段位与用户胶囊之间，统一胶囊圆角与高度样式，离线模式隐藏) -->
-                    <button type="button" class="hub-mailbox-btn offline-hide" id="btn-hub-mailbox" onclick="openMailboxView()" title="系统邮箱">
-                        <span class="material-symbols-rounded">mail</span>
+                    <button type="button" class="hub-mailbox-btn offline-hide" id="btn-hub-mailbox" onclick="openMailboxView()" title="系统邮箱" aria-label="系统邮箱">
+                        <span class="material-symbols-rounded" aria-hidden="true">mail</span>
                         <span id="hub-mailbox-unread-badge" style="display:none; position:absolute; top:-5px; right:-5px; background:#dc2626; color:#ffffff; font-size:0.68rem; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; line-height:14px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.25); border:2px solid var(--md-sys-color-surface, #ffffff); box-sizing:border-box;">0</span>
                     </button>
-                    <div id="hub-user-pill" class="hub-user-pill is-guest" onclick="toggleHubUserDropdown(event)" title="点击登录账号">
+                    <div id="hub-user-pill" class="hub-user-pill is-guest" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" onclick="toggleHubUserDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHubUserDropdown(event);}" title="点击登录账号">
                         <div class="hub-user-avatar-wrap" id="hub-user-avatar-wrap">
-                            <span class="material-symbols-rounded" id="hub-user-avatar-icon">person</span>
+                            <span class="material-symbols-rounded" id="hub-user-avatar-icon" aria-hidden="true">person</span>
                             <img id="hub-user-avatar-img" src="" alt="头像" referrerpolicy="no-referrer" onerror="this.style.display='none'; document.getElementById('hub-user-avatar-icon').style.display='inline-flex'; var p=document.getElementById('hub-user-pill'); if(p) p.classList.remove('has-custom-avatar');" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
                         </div>
                         <span id="hub-user-name" class="hub-user-name">游客</span>
-                        <span id="hub-user-dropdown-arrow" class="material-symbols-rounded hub-user-dropdown-arrow" style="display:none;">arrow_drop_down</span>
+                        <span id="hub-user-dropdown-arrow" class="material-symbols-rounded hub-user-dropdown-arrow" aria-hidden="true" style="display:none;">arrow_drop_down</span>
                     </div>
 
                     <!-- hub-user-pill 下拉菜单 (MD3规范) -->
-                    <div id="hub-user-dropdown" class="md3-menu-dropdown" style="display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:999; min-width:210px; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:8px 0; overflow:hidden;">
-                        <button type="button" class="hub-dd-item" onclick="switchView('view-me'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                            <span class="material-symbols-rounded" style="font-size:18px;">person</span>
-                            <span>个人中心</span>
+                    <div id="hub-user-dropdown" class="md3-menu-dropdown hub-user-dropdown" role="menu" aria-labelledby="hub-user-pill" style="display:none;">
+                        <button type="button" class="hub-dd-item" role="menuitem" onclick="switchView('view-me'); closeHubUserDropdown();">
+                            <span class="material-symbols-rounded" aria-hidden="true">person</span>
+                            <span class="hub-dd-label">个人中心</span>
                         </button>
                         <div id="hub-dd-logged-actions" style="display:none;">
-                            <button type="button" class="hub-dd-item" onclick="handleSwitchAccount(); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-on-surface); text-align:left;">
-                                <span class="material-symbols-rounded" style="font-size:18px;">switch_account</span>
-                                <span>切换账号</span>
+                            <button type="button" id="hub-dd-dnd-btn" class="hub-dd-item hub-dd-dnd-item offline-hide" role="menuitemcheckbox" aria-checked="false" onclick="toggleDoNotDisturbMode(event)">
+                                <span class="material-symbols-rounded" id="hub-dd-dnd-icon" aria-hidden="true">do_not_disturb_off</span>
+                                <span class="hub-dd-label">免打扰</span>
+                                <span class="hub-dd-switch-pill" aria-hidden="true">
+                                    <span class="hub-dd-switch-thumb"></span>
+                                </span>
                             </button>
-                            <button type="button" class="hub-dd-item" onclick="handleAuthLogout(); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:#dc2626; text-align:left;">
-                                <span class="material-symbols-rounded" style="font-size:18px;">logout</span>
-                                <span>退出登录</span>
+                            <hr class="hub-dd-divider">
+                            <button type="button" class="hub-dd-item" role="menuitem" onclick="handleSwitchAccount(); closeHubUserDropdown();">
+                                <span class="material-symbols-rounded" aria-hidden="true">switch_account</span>
+                                <span class="hub-dd-label">切换账号</span>
+                            </button>
+                            <button type="button" class="hub-dd-item hub-dd-item-danger" role="menuitem" onclick="handleAuthLogout(); closeHubUserDropdown();">
+                                <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+                                <span class="hub-dd-label">退出登录</span>
                             </button>
                         </div>
                         <div id="hub-dd-guest-actions" style="display:block;">
-                            <button type="button" class="hub-dd-item" onclick="switchView('view-auth'); closeHubUserDropdown();" style="display:flex; align-items:center; gap:10px; width:100%; padding:8px 16px; border:none; background:transparent; font-family:inherit; font-size:0.88rem; cursor:pointer; color:var(--md-sys-color-primary); text-align:left;">
-                                <span class="material-symbols-rounded" style="font-size:18px;">login</span>
-                                <span>登录账号</span>
+                            <button type="button" class="hub-dd-item hub-dd-item-primary" role="menuitem" onclick="switchView('view-auth'); closeHubUserDropdown();">
+                                <span class="material-symbols-rounded" aria-hidden="true">login</span>
+                                <span class="hub-dd-label">登录账号</span>
                             </button>
                         </div>
                     </div>
@@ -864,7 +881,8 @@
             </div>
 
             <!-- 模式卡片 -->
-            <div class="modes-grid">
+            <div class="modes-grid-container">
+            <div class="modes-grid" data-visible-count="5">
                 <!-- 模式 1: 联机模式 (远程对决 / 人机对决 / 希沃同屏) -->
                 <div class="mode-card" data-home-card-id="mode-duel">
                     <div>
@@ -971,7 +989,7 @@
                 </div>
 
                 <!-- 模式 4: Wordle 单词谜题 -->
-                <div class="mode-card" data-home-card-id="mode-riddle">
+                <div class="mode-card mode-card-span-3col-2" data-home-card-id="mode-riddle">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -989,7 +1007,7 @@
                             <span class="material-symbols-rounded">today</span>
                             <span class="btn-label-text">今日Wordle</span>
                         </button>
-                        <button class="btn btn-outlined" onclick="openBookSelectorPage('riddle');">
+                        <button class="btn btn-outlined mode-card-btn-full mode-card-btn-full-online-only" onclick="openBookSelectorPage('riddle');">
                             <span class="material-symbols-rounded">auto_stories</span>
                             <span class="btn-label-text">选择词书</span>
                         </button>
@@ -997,7 +1015,7 @@
                 </div>
 
                 <!-- 模式 5: 听音/看义默写 -->
-                <div class="mode-card" data-home-card-id="mode-dictation">
+                <div class="mode-card mode-card-span-3col-2 mode-card-span-full-2col" data-home-card-id="mode-dictation">
                     <div>
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -1007,7 +1025,7 @@
                         <h3>英语默写</h3>
                     </div>
                     <div class="mode-card-btn-row" style="margin-top: 16px;">
-                        <button class="btn btn-filled" style="background: #0061A4;" onclick="startDictationPractice();">
+                        <button class="btn btn-filled mode-card-btn-full" style="background: #0061A4;" onclick="startDictationPractice();">
                             <span class="material-symbols-rounded">edit_note</span>
                             <span class="btn-label-text">开始默写</span>
                         </button>
@@ -1023,6 +1041,7 @@
                 </div>
 
                 
+            </div>
             </div>
 
             <!-- 实时在线玩家卡片 (MD3 规范，彻底修复文字竖排/挤压问题) -->
@@ -3263,39 +3282,19 @@
             <!-- 子页面 5: 编辑首页子页面 -->
             <div id="settings-subview-edit-home" class="settings-subview">
                 <div class="subview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                         <button type="button" class="nav-back-btn" onclick="switchSettingsSubview('main')" title="返回设置">
                             <span class="material-symbols-rounded">arrow_back</span>
                         </button>
-                        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">编辑首页</h3>
+                        <div style="min-width:0;">
+                            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">编辑首页</h3>
+                            <p style="margin:4px 0 0; font-size:0.78rem; color:var(--md-sys-color-outline); line-height:1.35;">自定义首页卡片显示与排序，收起后的模块可在首页顶栏打开</p>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-outlined btn-sm" onclick="resetHomeLayoutDefault()">
+                    <button type="button" class="btn btn-outlined btn-sm" onclick="resetHomeLayoutDefault()" style="flex-shrink:0;">
                         <span class="material-symbols-rounded" style="font-size:16px;">restart_alt</span>
                         <span class="btn-label-text">恢复默认</span>
                     </button>
-                </div>
-
-                <div class="settings-section-title">
-                    <span class="material-symbols-rounded" style="font-size:20px;">search</span>
-                    <span>搜索栏</span>
-                </div>
-                <div class="settings-card">
-                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-                        <div class="settings-row-left" style="flex:1; min-width:0;">
-                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
-                                <span class="material-symbols-rounded">search</span>
-                            </div>
-                            <div class="settings-row-text">
-                                <h4>收起搜索栏</h4>
-                            </div>
-                        </div>
-                        <label class="md3-switch" style="flex-shrink:0;">
-                            <input type="checkbox" id="switch-home-collapse-search" onchange="toggleHomeSearchBarCollapse(this.checked)">
-                            <span class="md3-switch-track">
-                                <span class="md3-switch-thumb"></span>
-                            </span>
-                        </label>
-                    </div>
                 </div>
 
                 <div class="settings-section-title">
@@ -3306,20 +3305,68 @@
 
                 <div class="settings-section-title">
                     <span class="material-symbols-rounded" style="font-size:20px;">view_agenda</span>
-                    <span>其他板块</span>
+                    <span>隐藏与收起</span>
                 </div>
                 <div class="settings-card">
                     <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
                         <div class="settings-row-left" style="flex:1; min-width:0;">
-                            <div class="settings-icon-box">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
                                 <span class="material-symbols-rounded">group</span>
                             </div>
                             <div class="settings-row-text">
-                                <h4 style="margin:0;">在线玩家</h4>
+                                <h4 style="margin:0;">隐藏在线玩家</h4>
                             </div>
                         </div>
                         <label class="md3-switch" style="flex-shrink:0;">
-                            <input type="checkbox" id="switch-home-card-online-players" checked onchange="toggleHomeCardVisibility('hub-online-players-card', this.checked)">
+                            <input type="checkbox" role="switch" aria-label="隐藏在线玩家" id="switch-home-card-online-players" onchange="toggleHomeCardVisibility('hub-online-players-card', !this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">search</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="margin:0;">收起搜索栏</h4>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" role="switch" aria-label="收起搜索栏" id="switch-home-collapse-search" onchange="toggleHomeSearchBarCollapse(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="settings-row offline-hide" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">campaign</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="margin:0;">收起活动卡片</h4>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" role="switch" aria-label="收起活动卡片" id="switch-home-collapse-activity" onchange="toggleHomeActivityCardCollapse(this.checked)">
+                            <span class="md3-switch-track">
+                                <span class="md3-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                        <div class="settings-row-left" style="flex:1; min-width:0;">
+                            <div class="settings-icon-box" style="background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">
+                                <span class="material-symbols-rounded">leaderboard</span>
+                            </div>
+                            <div class="settings-row-text">
+                                <h4 style="margin:0;">收起排行榜卡片</h4>
+                            </div>
+                        </div>
+                        <label class="md3-switch" style="flex-shrink:0;">
+                            <input type="checkbox" role="switch" aria-label="收起排行榜卡片" id="switch-home-collapse-leaderboard" onchange="toggleHomeLeaderboardCardCollapse(this.checked)">
                             <span class="md3-switch-track">
                                 <span class="md3-switch-thumb"></span>
                             </span>
@@ -3715,7 +3762,7 @@
             </div>
 
             <div class="modal-body">
-                <div class="rule-group">
+                <div class="rule-group" id="shici-settings-group-order">
                     <span class="rule-label">学习顺序</span>
                     <div class="chip-group" id="chips-shici-order">
                         <div class="md3-chip selected" id="chip-shici-seq" onclick="selectShiCiOrderMode('sequential')">
@@ -3729,7 +3776,7 @@
                     </div>
                 </div>
 
-                <div class="md3-slider-row">
+                <div class="md3-slider-row" id="shici-settings-group-learn-batch">
                     <div class="md3-slider-header">
                         <span class="md3-slider-label">学习节奏（每组学习数量）</span>
                         <span class="md3-slider-value-badge" id="badge-shici-batch">15 题</span>
@@ -3745,7 +3792,7 @@
                     </div>
                 </div>
 
-                <div class="md3-slider-row">
+                <div class="md3-slider-row" id="shici-settings-group-review-batch">
                     <div class="md3-slider-header">
                         <span class="md3-slider-label">复习节奏（每组复习数量）</span>
                         <span class="md3-slider-value-badge" id="badge-shici-review-batch">20 题</span>
@@ -3761,7 +3808,7 @@
                     </div>
                 </div>
 
-                <div class="rule-group" style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="rule-group" id="shici-settings-group-retest" style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <span class="rule-label" style="margin:0;">即时复习</span>
                         <p style="font-size:0.8rem; color:var(--md-sys-color-outline); margin:2px 0 0 0;">答错后过 3 题重问 + 组末再问</p>
@@ -3775,7 +3822,7 @@
                 </div>
 
                 <!-- 清除当前学习与复习进度 -->
-                <div class="rule-group" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
+                <div class="rule-group" id="shici-settings-group-clear-progress" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
                         <div>
                             <span class="rule-label" style="margin-bottom: 2px;">新词学习进度</span>
@@ -3810,7 +3857,7 @@
                 </button>
                 <button type="button" class="btn btn-filled btn-touch-large" style="flex:1;" onclick="saveShiCiSettings()">
                     <span class="material-symbols-rounded">check</span>
-                    <span class="btn-label-text">确定</span>
+                    <span class="btn-label-text">保存设置</span>
                 </button>
             </div>
         </div>
@@ -3956,7 +4003,7 @@
             </div>
 
             <div class="modal-body">
-                <div class="rule-group">
+                <div class="rule-group" id="single-settings-group-order">
                     <span class="rule-label">学习顺序</span>
                     <div class="chip-group" id="chips-single-order">
                         <div class="md3-chip selected" id="chip-single-order-seq" onclick="selectSingleOrder('sequence')">
@@ -3978,7 +4025,7 @@
                     </div>
                 </div>
 
-                <div class="md3-slider-row">
+                <div class="md3-slider-row" id="single-settings-group-learn-batch">
                     <div class="md3-slider-header">
                         <span class="md3-slider-label">学习节奏（每组学习数量）</span>
                         <span class="md3-slider-value-badge" id="badge-single-learn-batch">10 词</span>
@@ -3994,7 +4041,7 @@
                     </div>
                 </div>
 
-                <div class="md3-slider-row">
+                <div class="md3-slider-row" id="single-settings-group-review-batch">
                     <div class="md3-slider-header">
                         <span class="md3-slider-label">复习节奏（每组复习数量）</span>
                         <span class="md3-slider-value-badge" id="badge-single-review-batch">20 词</span>
@@ -4037,7 +4084,7 @@
                 </div>
 
                     <!-- 清除学习与复习进度 -->
-                    <div class="rule-group" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
+                    <div class="rule-group" id="single-settings-group-clear-progress" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant);">
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
                             <div>
                                 <span class="rule-label" style="margin-bottom: 2px;">新词学习进度</span>

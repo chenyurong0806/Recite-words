@@ -60,6 +60,9 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (isActive && typeof suppressChildTransitionsForNextFrame === 'function') {
+                    suppressChildTransitionsForNextFrame(el);
+                }
                 if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
@@ -97,7 +100,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         }
         if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
             restoreScrollPositionForState('view-me', 'main');
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -261,6 +264,9 @@ function switchSettingsSubview(subviewKey, skipTransition = false, options = {})
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (isActive && typeof suppressChildTransitionsForNextFrame === 'function') {
+                    suppressChildTransitionsForNextFrame(el);
+                }
                 if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
@@ -282,7 +288,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false, options = {})
         }
         if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
             restoreScrollPositionForState('view-settings', 'main');
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -2000,27 +2006,27 @@ const APP_CHANGELOG = [
         date: '2026-11-28',
         badge: '当前版本',
         items: [
-            '首次打开图标加载提速：为本地精简图标字体子集增加高优先级预加载并提前触发字体解码，全站业务脚本改为按序非阻塞 defer 加载，显著加快首次进入页面的图标渲染速度。',
-            '页面返回与手势惯性动画升级：修复直接点击返回按钮时退出层离屏幕右端差一截的问题；iOS 边缘滑动返回松手后改为临界阻尼惯性弹簧物理模型，自然承接手指滑动速度补全剩余动画；修复进入新页面途中左滑打断导致原页面连带右移的问题。',
-            '晒成绩海报与学习时长体验优化：恢复原版海报字体并统一四项学习指标的字号与字重，学习时长不足 1 分钟统一显示为“1分钟”；对战海报顶部改为随机抽取展示词（支持换词），将对战模式移至得分上方作为独立标题，并移除多余的天梯底行。',
-            '排行榜与对决界面细节修复：修复排行榜长昵称导致“B站”徽标与右侧段位分数紧贴重叠的问题；修复对战答错等待提示条与上方选项卡片宽度不一致的问题。',
-            'iOS PWA 与 B站 App Toy 安全区适配：接入新版 Toy JS SDK 容器能力（getContainerState / onContainerChange），在 B站 App 内直接读取 SDK 返回的 CSS px 安全区（top / right / bottom / left）动态适配屏幕旋转与沉浸态，并自动避让顶部胶囊按钮与底部互动条；增强 iOS 独立 PWA 顶部安全区避让；首页顶栏移除默认用户图标蓝色底色并统一图标尺寸，游客点击直接跳转登录页，单行放不下时自动收起为纯图标/头像。'
+            '优化首次打开速度，加快图标渲染。',
+            '优化页面返回与 iOS 左滑返回手势动画。',
+            '优化晒成绩海报与学习时长显示。',
+            '适配 iOS PWA 与 B站 App 安全区。',
+            '优化手机端发音与切页体验，不再打断后台音乐。',
+            '背单词与背实词设置改为点击保存后统一生效。',
+            '修复若干bug。'
         ]
     },
     {
         version: 'v2.14.0',
-        date: '2026-11-28',
+        date: '2026-11-27',
         badge: '历史版本',
         items: [
-            '熟词云端同步修复：修复熟词列表在云端同步合并时被误清空的严重 Bug，双端统一持久化与删除记录合并，确保同步后熟词完整保留；取消熟词标记时恢复原有掌握度并正常播放扣星动画。',
-            '页面返回滚动位置记忆与防抖优化：返回上一页面及个人中心/设置主页时自动恢复之前的滚动位置，不再强制回到顶部；使用稳定滚动条占位避免有/无滚动条页面切换时产生横向跳变；修复进入登录页时顶部过渡背景未完全遮挡的问题。',
-            '排行榜隐私与上榜引导升级：新注册账号默认不上榜，首次打开排行榜或排位等级分发生变化时弹窗询问是否显示在排行榜中，并支持随时在排行榜页面一键切换显示或隐藏自己。',
-            '对战小结全面优化：将统计摘要头移至顶部并移除“展开全部”按钮；修复对战中错题识别与记录异常；移除多余的“错题”标签，取消熟词时同步移除“已标熟”标签；补全展开词条卡片之间的分割线。',
-            '实词学习与小结修复：修复实词小结卡片展开后显示“暂无释义”的问题；修复背实词顶部进度计数（如 0 / 15）的排版与标熟同步问题。',
-            '复习计划精简：将“全部”选项卡调整为“其他”（展示今日/明日/后日以外的计划），并移除紧急状态标签（review-plan-time-badge urgent）。',
-            '晒成绩海报升级：新增“今日学习时长”与“累计学习时长”数据卡片；优化长词组与长释义的自适应缩放换行，避免超出海报宽度；移除海报预览弹窗多余的“取消”按钮。',
-            '词书选择与背词设置优化：选择词书页面将已选词书置顶排列；切换“词性及释义展示”方式后立即刷新并生效；人机模式无法选择排位赛时，在“对战模式”下方提供小字原因说明。',
-            '界面细节修复：确保查看词书页面展开搜索框时工具栏不换行；修复 MD3 浮动输入框标签（如修改用户名弹窗）背景色与容器背景不符的问题。'
+            '修复熟词云端同步后被误清空的bug。',
+            '支持返回上一页时恢复滚动位置。',
+            '新注册账号默认不上榜，支持一键显示或隐藏自己。',
+            '优化对战小结与实词小结。',
+            '晒成绩海报新增今日与累计学习时长。',
+            '优化词书选择与背词设置。',
+            '修复若干bug。'
         ]
     },
     {
@@ -2028,13 +2034,12 @@ const APP_CHANGELOG = [
         date: '2026-11-21',
         badge: '历史版本',
         items: [
-            '搜索聚焦稳定性全面修复：优化首页搜索框（避免只读占位输入框抢占焦点）、顶部折叠搜索按钮及展开式搜索按钮的聚焦时机，确保在页面进入与输入框展开过渡期间同步激活光标并在过渡结束后自动兜底校验。',
-            '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',
-            '搜索设置释义来源归类：将搜索设置“释义来源”列表中的所有加密词书统一归类为独立的「Doris」来源选项，支持统一开关控制。',
-            '手机端导航栏自动隐藏：在手机端（<= 767px）进入所有新页面及个人中心/设置二级子页面时统一隐藏底部栏与左侧栏，仅在首页、个人中心主页和设置主页保留导航栏。',
-            '手机端页面滑入/返回与 iOS 手势体验优化：取消宽屏设备返回动画；修复手机端左滑返回过程中及返回上一页后的页面尺寸跳变问题（修正缩放系数、固定定位包含块与容器高度锁定，并调整状态提交顺序）；iOS 边缘左滑返回支持依据页面宽度、剩余距离与手势滑动力度动态调节过渡速度。',
-            '返回首页稳定性修复：优化首页布局刷新与卡片过渡属性，修复回到首页时重复重排刷新卡片及触发卡片位移动画的问题。',
-            '熟词永久免复习：优化单词与文言实词熟词机制，将词汇标为熟词后立即同步记为已掌握并清零复习计划，后续不再安排或抽取复习，也不受逾期惩罚或误答重置影响。'
+            '优化熟词机制，标为熟词后不再安排复习。',
+            '修复搜索框聚焦异常，支持一键清空搜索标签页。',
+            '搜索设置中加密词书统一归类为「Doris」。',
+            '优化手机端导航栏与页面切换动画。',
+            '优化 iOS 左滑返回手势。',
+            '修复若干bug。'
         ]
     },
     {
@@ -2042,16 +2047,12 @@ const APP_CHANGELOG = [
         date: '2026-11-15',
         badge: '历史版本',
         items: [
-            '跨设备云端数据同步修复：完善 Supabase 多设备登录、全量快照拉取与双向合并逻辑，解决同一账号在不同设备间进度与学习统计不一致的问题。',
-            '关闭自动同步与手动同步修复：修复关闭“自动同步”后顶部“同步数据”按钮在部分改动下不显示、记忆库与熟词变更未标记待同步，以及手动点击同步时被后台重试状态拦截或被预拉取覆盖本地配置导致云端未收到数据的问题。',
-            '词性及释义展示设置修复：修复全局词性筛选与词条释义展示设置失效或不同步的异常。',
-            '个人中心与移动端排版优化：缩小“最近学习词书”范围胶囊按钮尺寸、修复进度条统计数值异常，并重排词书元数据、内联进度条及“更多类型”下拉菜单定位，彻底解决菜单偏移至左上角的问题。',
-            '详细数据页面图表体验升级：选中图表中的某一天后自动平滑居中聚焦并实时展示当日详细数据；关闭“显示详细数据”开关时仍强制标注选中日期的数据，并在学习时长趋势折线图选中点下方保留至 X 轴的辅助虚线；移除多余虚线、选中外容器框及“点击任意柱条查看当日详细数据”提示；修复邻近日期在 X 轴的重叠问题，高亮强调底部日期胶囊并精简重复文字。',
-            '个人中心卡片与设置图标统一：优化“最近学习词书”封面与内联进度条的底部对齐效果；将“自定义首页”设置页中的各模式图标统一调整为圆形样式，与顶部搜索图标保持一致。',
-            '查词结果页交互与结构优化：将加入本地词书与修改释义操作按钮上移至词头右侧并统一为与发音按钮协调的胶囊/圆形样式；将“添加到本地词书”面板移至分割线与词典来源标签栏上方，改用 bc-section-select-trigger 下拉样式、去除词数冗余并重构自适应布局避免按钮与下拉框重叠；自动加粗例句与辨析例句中的查询关键词。',
-            '复习计划与交互精简：移除复习计划卡片上的阶段标签（review-plan-stage-tag）及页面滑动返回手势。',
-            '查看词书内容页面升级：优化窄屏/移动端工具栏双行网格结构（第一行左侧分类筛选 + 右侧可平滑展开搜索，第二行等宽排列类型与展示模式选项卡），同时保留并增强非实词词库的 A–Z 首字母分类筛选。',
-            '数据中心界面精简：移除个人中心列表中冗余的“数据同步”入口行，保持界面简洁。'
+            '修复跨设备云端同步与手动同步异常。',
+            '修复词性及释义展示设置失效的问题。',
+            '优化详细数据页面图表交互。',
+            '优化查词结果页与查看词书内容页面。',
+            '优化个人中心与移动端排版。',
+            '修复若干bug。'
         ]
     },
     {
@@ -2059,20 +2060,14 @@ const APP_CHANGELOG = [
         date: '2026-11-08',
         badge: '历史版本',
         items: [
-            '背词与对战全模式小结上线：为背单词、背实词、人机对战、同屏对决、远程联机模式全面配备轻量扁平化小结页，排版风格保持高度一致，支持查看答题词条、音标、释义、复习状态与即时标熟。',
-            '个人中心数据中心重构升级：顶部“晒成绩”按需替换为“同步数据”胶囊按钮（仅在存在未同步数据时灵动显示），支持一键云端对齐；数据统计卡片修复 undefined 异常并完善持久化；并将“晒成绩”、“下载学习数据”与“自动同步”开关整合至数据中心操作列表。',
-            '个人中心架构与词书卡片瘦身：彻底移除多余的“备份与管理”模块，将离线模式开关整合至设置“网络与离线”；最近学习词书卡片移除冗余嵌套容器与双重外边框，更多操作菜单更新为绝对定位优雅弹窗；若词书无需更新则自动禁用“更新词书”按钮。',
-            '“管理账号”全新子页面：顶部卡片精致展示用户头像、用户名、平台认证徽章与段位积分进度条；完整支持修改用户名、修改密码、切换账号、删除账号及退出登录，切换账号返回交互无缝回跳当前管理页，退出登录顺畅回到首页。',
-            '详细数据子页面视觉重构：将“每日新学与复习词数”堆叠柱状图调整至“学习时长趋势”折线图前方，删除冗余的“词汇掌握度阶段分布”图表，聚焦关键学习数据。',
-            '复习计划子页面全面优化：新增复习概览状态看板与快速日期筛选芯片（全部、待复习、今日、明日、未来7天），支持按具体日期精准筛选，优化紧急待复习呼吸灯徽章与音频试听。',
-            '熟词本与回收站（已删除词汇）改版：顶栏改用 MD3 风格词书选择下拉列表，搜索框升级为右上角图标展开框；移除“清空熟词”与“永久删除”冗余按钮；词条卡片样式与查看词书内容页面全面统一。',
-            '查看词书内容页面视觉与交互打磨：顶部工具栏统一为 32px 紧凑 MD3 胶囊风格；全部分类下拉框在仅有多分类时才展示；词条标题取消加粗，音标独立为分离圆角标签；典型例句关键词自动加粗高亮；修复反义词等拓展项解析为 [object Object] 的问题；彻底支持文言词组与短语点击展开与发音。',
-            '背单词与背实词答题界面增强：答题卡片右上角掌握度菱形（◇ ◇ ◇ ◇ ◇）随作答正确率与熟词标记实时动态演进；工具栏全面换用规范 MD3 图标 ↩（撤回/上一个）与 ↪（重做/返回），界面更简洁高级。',
-            '首页与布局优化：个人下拉菜单去除重复的用户名与段位信息；首页移除版权信息页脚；排行榜卡片右侧“查看”按钮位置与活动卡片统一右对齐。',
-            '设置“编辑首页”优化：各模式图标采用统一的色块图标容器，移除模式卡片冗余描述文本；美化卡片上移/下移按钮；修复切换卡片显示开关时动画被重绘打断的问题；删除活动与排行榜卡片选项（受保护始终常驻）。',
-            '道具系统优化：我的道具中为已过期的道具右上角增加删除按钮，支持本地与云端安全销毁已过期道具。',
-            '“减弱动画效果”开启时，精准恢复所有输入框（包括 Wordle、搜索框等）的光标与输入动效。',
-            '彻底清理错题本与状态设置遗留代码，系统轻量化运行更流畅。'
+            '背单词、背实词与对战全模式新增小结页。',
+            '新增「管理账号」页面。',
+            '重构个人中心数据中心与详细数据页面。',
+            '优化复习计划、熟词本与回收站页面。',
+            '优化查看词书内容页面与背词答题界面。',
+            '优化首页布局与自定义首页设置。',
+            '支持清理已过期道具。',
+            '修复若干bug。'
         ]
     },
     {
@@ -2080,30 +2075,14 @@ const APP_CHANGELOG = [
         date: '2026-11-01',
         badge: '历史版本',
         items: [
-            '统一词书卡片、筛选下拉菜单及数量统计字体，全面采用页面标准 UI 字体。',
-            '优化词书封面排版设计，封面文字标题在色块卡片中严格垂直与水平居中。',
-            '优化词书卡片结构，移除冗余分类标签与不支持Wordle标签，紧凑掌握度与进度条垂直间隙，确保与封面底部严丝合缝平齐。',
-            '在 Wordle 选词页面中对不支持 Wordle 模式的词书直接标灰并禁止点击选择。',
-            '词书筛选下拉菜单升级：标题重命名为“选择分类”，移除子项“板块”前缀并优化文字与容器结构，彻底避免文字过长截断。',
-            '晒成绩结果页分享按钮样式与交互动画升级，全面对齐 Wordle 挑战海报按钮的 MD3 Tonal 风格与按压缩放动画反馈。',
-            '搜索设置功能拓展：优化“显示相关词组”与“显示相关链接”文字描述，新增“显示例句”、“显示反义词”、“显示辨析”开关，支持对考纲拓展项自由定制展示并实时生效。',
-            '优化查词与词典页面视觉效果，去除相关词组外边框并统一相关链接样式。',
-            '在设置中添加“减弱动画效果”功能，确保在低性能设备上流畅运行。',
-            '修复减弱动态效果开启时切换至个人中心界面的画面抖动问题。',
-            '放缓页面切换淡入位移动画时长至 0.32s，大幅提升视效平滑度。',
-            '拆分词书学习范围为“板块”与“类型”两个独立的 MD3 下拉菜单，重做交互 UI 并修复弹出定位偏差。',
-            '统一词书卡片网格布局，信息紧凑上移并严格与封面高度齐平，管理词书模式下隐藏学习范围按钮。',
-            '修复词书操作更多菜单的右边缘定位偏移，彻底解决菜单被屏幕右边缘裁切的问题。',
-            '修复管理词书中点击“查看内容”误跳回设置页面的问题，支持在当前页面以弹窗形式快速查阅展开词条。',
-            '移除管理词书卡片操作菜单中冗余的“板块与类型设置”选项。',
-            '重构词书内容查看子页面（参考背词小结页面），采用统一列表容器展示，默认折叠释义并提供查词、发音与标熟词快捷按钮，点击词条可向下展开详情。',
-            '优化背单词小结页面，合并所有词条为统一容器并支持展开查词、发音与标为熟词。',
-            '优化背单词小结滚动条可见度，提升对比度。',
-            '优化搜索标签栏鼠标滚轮横向滚动支持。',
-            '修复主页在各端导航与切换时的页面结构突变与卡片间距问题。',
-            '修复 Electron 本地词书读取中不规范参数引发的 DeprecationWarning 告警。',
-            '全面适配《高中考纲》词书与专属例句、派生、辨析、反义拓展项。',
-            '修复若干已知 UI 与交互问题。'
+            '添加「减弱动画效果」设置。',
+            '搜索设置新增例句、反义词与辨析显示开关。',
+            '词书学习范围拆分为「板块」与「类型」两个下拉菜单。',
+            '重构词书内容查看与背词小结页面。',
+            '统一词书卡片、封面与筛选菜单样式。',
+            '全面适配《高中考纲》词书。',
+            'Wordle 选词页面禁用不支持的词书。',
+            '修复若干bug。'
         ]
     },
     {
@@ -2832,7 +2811,17 @@ function renderEditHomeSettings() {
 
     const chkOnlinePlayers = document.getElementById('switch-home-card-online-players');
     if (chkOnlinePlayers) {
-        chkOnlinePlayers.checked = !hiddenSet.has('hub-online-players-card');
+        chkOnlinePlayers.checked = hiddenSet.has('hub-online-players-card');
+    }
+
+    const chkCollapseActivity = document.getElementById('switch-home-collapse-activity');
+    if (chkCollapseActivity) {
+        chkCollapseActivity.checked = Boolean(cfg.collapseActivityCard);
+    }
+
+    const chkCollapseLeaderboard = document.getElementById('switch-home-collapse-leaderboard');
+    if (chkCollapseLeaderboard) {
+        chkCollapseLeaderboard.checked = Boolean(cfg.collapseLeaderboardCard);
     }
 
     const chkCalendar = document.getElementById('switch-home-card-calendar');
@@ -2890,9 +2879,38 @@ function toggleHomeSearchBarCollapse(checked) {
 }
 window.toggleHomeSearchBarCollapse = toggleHomeSearchBarCollapse;
 
+function toggleHomeActivityCardCollapse(checked) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    cfg.collapseActivityCard = Boolean(checked);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+    if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
+        ActivityManager.updateBadge();
+    }
+}
+window.toggleHomeActivityCardCollapse = toggleHomeActivityCardCollapse;
+
+function toggleHomeLeaderboardCardCollapse(checked) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    cfg.collapseLeaderboardCard = Boolean(checked);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+}
+window.toggleHomeLeaderboardCardCollapse = toggleHomeLeaderboardCardCollapse;
+
 function toggleHomeCardVisibility(cardId, isVisible) {
-    if (cardId === 'hub-activity-entry-card' || cardId === 'hub-leaderboard-entry-card') {
-        showToast('活动与排行榜卡片禁止隐藏');
+    if (cardId === 'hub-activity-entry-card') {
+        toggleHomeActivityCardCollapse(!isVisible);
+        return;
+    }
+    if (cardId === 'hub-leaderboard-entry-card') {
+        toggleHomeLeaderboardCardCollapse(!isVisible);
         return;
     }
     if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
@@ -2932,9 +2950,14 @@ function resetHomeLayoutDefault() {
     if (typeof saveHomeLayoutConfig !== 'function') return;
     saveHomeLayoutConfig({
         collapseSearchBar: false,
+        collapseActivityCard: false,
+        collapseLeaderboardCard: false,
         hiddenCards: [],
         modeOrder: Object.keys(HOME_MODE_CARD_META)
     });
+    if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
+        ActivityManager.updateBadge();
+    }
     renderEditHomeSettings();
     showToast('已恢复默认首页布局');
 }

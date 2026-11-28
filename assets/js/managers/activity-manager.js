@@ -416,12 +416,12 @@
                 }
                 if (!r.completed) {
                     if (!this.isBiliAppEnv()) {
-                        if (typeof showToast === 'function') showToast('关注检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                        if (typeof showToast === 'function') showToast('请前往 App 内操作');
                         return;
                     }
                     const isFollow = await this.detectFollowTask();
                     if (!isFollow) {
-                        if (typeof showToast === 'function') showToast('检测到您尚未关注作者账号，请关注后重试');
+                        if (typeof showToast === 'function') showToast('请关注后重试');
                         return;
                     }
                 }
@@ -463,12 +463,12 @@
                     }
                     if (!vt.likeCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.likeCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成点赞，请点赞后重试');
+                            if (typeof showToast === 'function') showToast('请点赞后重试');
                             return;
                         }
                     }
@@ -496,12 +496,12 @@
                     }
                     if (!vt.favCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.favCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成收藏，请收藏后重试');
+                            if (typeof showToast === 'function') showToast('请收藏后重试');
                             return;
                         }
                     }
@@ -529,12 +529,12 @@
                     }
                     if (!vt.coinCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.coinCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成投币，请投币支持后重试');
+                            if (typeof showToast === 'function') showToast('请投币支持后重试');
                             return;
                         }
                     }
@@ -578,7 +578,7 @@
         doActivityAction(action) {
             if (this.isGuest()) {
                 if (typeof showToast === 'function') {
-                    showToast('游客模式仅支持查看活动，请登录账号后参与！');
+                    showToast('请登录账号后参与活动！');
                 }
                 return;
             }
@@ -653,35 +653,41 @@
         // 更新首页活动图标右上角的徽标及卡片显示
         updateBadge() {
             const badgeEl = document.getElementById('hub-activity-unread-badge');
+            const appBarBadgeEl = document.getElementById('hub-appbar-activity-unread-badge');
             const entryCard = document.getElementById('hub-activity-entry-card');
+            const appBarBtn = document.getElementById('btn-hub-appbar-activity');
+            const homeCfg = (typeof getHomeLayoutConfig === 'function') ? getHomeLayoutConfig() : null;
+            const isCollapsed = Boolean(homeCfg && homeCfg.collapseActivityCard);
 
             if (!this.isAvailable()) {
                 if (entryCard) entryCard.style.display = 'none';
+                if (appBarBtn) appBarBtn.style.display = 'none';
                 if (badgeEl) badgeEl.style.display = 'none';
+                if (appBarBadgeEl) appBarBadgeEl.style.display = 'none';
                 return;
             }
 
             const availActivities = this.getAvailableActivities();
 
-            // 非离线模式下，始终显示活动入口卡片（无论是否为 toy 平台）
+            // 非离线模式下，按首页布局设置决定展示活动卡片或顶栏收起图标
             if (entryCard) {
-                entryCard.style.display = 'flex';
+                entryCard.style.display = isCollapsed ? 'none' : 'flex';
+            }
+            if (appBarBtn) {
+                appBarBtn.style.display = isCollapsed ? 'inline-flex' : 'none';
             }
 
-            if (!badgeEl) return;
-
-            if (availActivities.length === 0) {
-                badgeEl.style.display = 'none';
-                return;
-            }
-
-            const count = this.getUnreadAndPendingCount();
-            if (count > 0) {
-                badgeEl.style.display = 'inline-flex';
-                badgeEl.innerText = count > 99 ? '99+' : String(count);
-            } else {
-                badgeEl.style.display = 'none';
-            }
+            const count = (availActivities.length === 0) ? 0 : this.getUnreadAndPendingCount();
+            const badgeText = count > 99 ? '99+' : String(count);
+            [badgeEl, appBarBadgeEl].forEach(el => {
+                if (!el) return;
+                if (count > 0) {
+                    el.style.display = 'inline-flex';
+                    el.innerText = badgeText;
+                } else {
+                    el.style.display = 'none';
+                }
+            });
         },
 
         // 标记某活动为已读
@@ -1083,10 +1089,10 @@
         const badgeEl = document.getElementById('hub-activity-unread-badge');
         if (badgeEl) badgeEl.style.display = 'none';
 
+        ActivityManager.renderActivitiesView();
         if (typeof switchView === 'function') {
             switchView('view-activity');
         }
-        ActivityManager.renderActivitiesView();
     };
     window.openActivityModal = window.openActivityView;
     ActivityManager.openActivityModal = window.openActivityView;

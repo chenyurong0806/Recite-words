@@ -270,18 +270,43 @@ function persistSingleConfig() {
 }
 
 let singleConfig = normalizeSingleConfig();
+let singleSettingsDraft = null;
 loadSingleConfig();
+
+function getActiveSingleSessionContext() {
+    const inView = (typeof currentView !== 'undefined' && currentView === 'view-single');
+    const hasState = Boolean(typeof singleState !== 'undefined' && singleState && Array.isArray(singleState.pool) && singleState.pool.length > 0);
+    const inSession = inView && hasState;
+    const isReview = inSession && Boolean(singleState.isReview || String(singleState.sessionName || '').includes('复习'));
+    return { inSession, isReview };
+}
+
+function updateSingleSettingsModalVisibility() {
+    const { inSession, isReview } = getActiveSingleSessionContext();
+    const orderGroup = document.getElementById('single-settings-group-order');
+    const learnGroup = document.getElementById('single-settings-group-learn-batch');
+    const reviewGroup = document.getElementById('single-settings-group-review-batch');
+    const clearGroup = document.getElementById('single-settings-group-clear-progress');
+
+    // 在学习新词或复习时隐藏学习顺序与清空学习/复习进度；学习新词时隐藏复习节奏，复习时隐藏学习节奏
+    if (orderGroup) orderGroup.style.display = inSession ? 'none' : '';
+    if (clearGroup) clearGroup.style.display = inSession ? 'none' : '';
+    if (learnGroup) learnGroup.style.display = (inSession && isReview) ? 'none' : '';
+    if (reviewGroup) reviewGroup.style.display = (inSession && !isReview) ? 'none' : '';
+}
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
     if (!modal) return;
     loadSingleConfig();
+    singleSettingsDraft = normalizeSingleConfig(singleConfig);
     const tip = document.getElementById('audio-online-tip');
     if (tip) {
         tip.innerText = navigator.onLine ? '(需联网)' : '(离线待联网时自动发音)';
         tip.style.color = navigator.onLine ? 'var(--md-sys-color-outline)' : 'var(--md-sys-color-error)';
     }
-    updateSingleSettingsChips();
+    updateSingleSettingsModalVisibility();
+    updateSingleSettingsChips(singleSettingsDraft);
     updateSingleProgressStatusUI(); // 检查并更新当前进度状态
     modal.classList.add('active');
 }
@@ -388,24 +413,26 @@ function clearCurrentSingleProgress() {
 }
 
 function closeSingleSettings() {
+    singleSettingsDraft = null;
     const modal = document.getElementById('modal-single-settings');
     if (modal) modal.classList.remove('active');
 }
 
-function updateSingleSettingsChips() {
+function updateSingleSettingsChips(cfg = null) {
+    const activeCfg = cfg || singleSettingsDraft || singleConfig;
     const orderSeq = document.getElementById('chip-single-order-seq');
     const orderRand = document.getElementById('chip-single-order-rand');
-    if (orderSeq) orderSeq.classList.toggle('selected', singleConfig.order !== 'random');
-    if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
+    if (orderSeq) orderSeq.classList.toggle('selected', activeCfg.order !== 'random');
+    if (orderRand) orderRand.classList.toggle('selected', activeCfg.order === 'random');
 
     const meaningAll = document.getElementById('chip-single-meaning-all');
     const meaningRand = document.getElementById('chip-single-meaning-rand') || document.getElementById('chip-single-meaning-random');
-    if (meaningAll) meaningAll.classList.toggle('selected', singleConfig.meaningMode !== 'random');
-    if (meaningRand) meaningRand.classList.toggle('selected', singleConfig.meaningMode === 'random');
+    if (meaningAll) meaningAll.classList.toggle('selected', activeCfg.meaningMode !== 'random');
+    if (meaningRand) meaningRand.classList.toggle('selected', activeCfg.meaningMode === 'random');
 
     const learnSlider = document.getElementById('slider-single-learn-batch');
     if (learnSlider) {
-        learnSlider.value = singleConfig.learnBatch || 10;
+        learnSlider.value = activeCfg.learnBatch || 10;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(learnSlider, val => `${val} 词`);
         }
@@ -413,7 +440,7 @@ function updateSingleSettingsChips() {
 
     const reviewSlider = document.getElementById('slider-single-review-batch');
     if (reviewSlider) {
-        reviewSlider.value = singleConfig.reviewBatch || 20;
+        reviewSlider.value = activeCfg.reviewBatch || 20;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 词`);
         }
@@ -421,16 +448,22 @@ function updateSingleSettingsChips() {
 
     const retestSwitch = document.getElementById('switch-single-retest');
     if (retestSwitch) {
-        retestSwitch.checked = (singleConfig.immediateRetest !== false);
+        retestSwitch.checked = (activeCfg.immediateRetest !== false);
     }
     const autoplaySwitch = document.getElementById('switch-single-autoplay');
     if (autoplaySwitch) {
-        autoplaySwitch.checked = (singleConfig.autoPlayAudio === true);
+        autoplaySwitch.checked = (activeCfg.autoPlayAudio === true);
     }
 }
 
 function selectSingleOrder(order) {
-    singleConfig.order = (order === 'random') ? 'random' : 'sequence';
+    const val = (order === 'random') ? 'random' : 'sequence';
+    if (singleSettingsDraft) {
+        singleSettingsDraft.order = val;
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
+    singleConfig.order = val;
     updateSingleSettingsChips();
     persistSingleConfig();
 }
@@ -492,26 +525,13 @@ function applyMeaningModeToPool(pool, mode, startIdx = 0, force = false) {
     return changed;
 }
 
-function selectSingleMeaningMode(mode) {
-    const nextMode = (mode === 'random') ? 'random' : 'all';
-    singleConfig.meaningMode = nextMode;
-    updateSingleSettingsChips();
-    persistSingleConfig();
-    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
-        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
-    }
-
-    // 同步刷新当前进行中或已保存未答完的题库，确保切换“词性及释义展示”后立即生效
+function applySingleMeaningModeToActiveAndSaved(nextMode) {
+    // 同步刷新当前进行中或已保存未答完的题库，确保保存“词性及释义展示”后立即生效
     if (typeof singleState !== 'undefined' && singleState && Array.isArray(singleState.pool) && singleState.pool.length > 0) {
         const startAt = singleState.answered ? (singleState.currentIdx + 1) : singleState.currentIdx;
         const refreshed = applyMeaningModeToPool(singleState.pool, nextMode, startAt, true);
         if (refreshed) {
             saveSingleProgress();
-        }
-        const isViewingSingle = (typeof currentView !== 'undefined' && currentView === 'view-single')
-            || (typeof gameMode !== 'undefined' && gameMode === 'single');
-        if (isViewingSingle && typeof renderSingleQuestion === 'function') {
-            renderSingleQuestion();
         }
     }
     if (typeof currentUser !== 'undefined' && currentUser) {
@@ -530,10 +550,38 @@ function selectSingleMeaningMode(mode) {
         });
     }
 }
+
+function selectSingleMeaningMode(mode) {
+    const nextMode = (mode === 'random') ? 'random' : 'all';
+    if (singleSettingsDraft) {
+        singleSettingsDraft.meaningMode = nextMode;
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
+    singleConfig.meaningMode = nextMode;
+    updateSingleSettingsChips();
+    persistSingleConfig();
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
+    }
+    applySingleMeaningModeToActiveAndSaved(nextMode);
+    const isViewingSingle = (typeof currentView !== 'undefined' && currentView === 'view-single')
+        || (typeof gameMode !== 'undefined' && gameMode === 'single');
+    if (isViewingSingle && typeof renderSingleQuestion === 'function') {
+        renderSingleQuestion();
+    }
+}
 window.selectSingleMeaningMode = selectSingleMeaningMode;
 
 function handleSingleLearnBatchSlider(val) {
-    const num = parseInt(val) || 10;
+    const num = parseInt(val, 10) || 10;
+    if (singleSettingsDraft) {
+        singleSettingsDraft.learnBatch = num;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
+        }
+        return;
+    }
     singleConfig.learnBatch = num;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
@@ -543,7 +591,14 @@ function handleSingleLearnBatchSlider(val) {
 window.handleSingleLearnBatchSlider = handleSingleLearnBatchSlider;
 
 function handleSingleReviewBatchSlider(val) {
-    const num = parseInt(val) || 20;
+    const num = parseInt(val, 10) || 20;
+    if (singleSettingsDraft) {
+        singleSettingsDraft.reviewBatch = num;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
+        }
+        return;
+    }
     singleConfig.reviewBatch = num;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
@@ -561,6 +616,11 @@ function selectReviewBatch(val) {
 }
 
 function selectImmediateRetest(val) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.immediateRetest = Boolean(val);
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
     singleConfig.immediateRetest = Boolean(val);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -568,6 +628,10 @@ function selectImmediateRetest(val) {
 window.selectImmediateRetest = selectImmediateRetest;
 
 function toggleSingleRetestSwitch(checked) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.immediateRetest = Boolean(checked);
+        return;
+    }
     singleConfig.immediateRetest = Boolean(checked);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -575,6 +639,11 @@ function toggleSingleRetestSwitch(checked) {
 window.toggleSingleRetestSwitch = toggleSingleRetestSwitch;
 
 function selectAutoPlayAudio(val) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.autoPlayAudio = Boolean(val);
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
     singleConfig.autoPlayAudio = Boolean(val);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -585,6 +654,10 @@ function selectAutoPlayAudio(val) {
 window.selectAutoPlayAudio = selectAutoPlayAudio;
 
 function toggleSingleAutoplaySwitch(checked) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.autoPlayAudio = Boolean(checked);
+        return;
+    }
     singleConfig.autoPlayAudio = Boolean(checked);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -594,18 +667,260 @@ function toggleSingleAutoplaySwitch(checked) {
 }
 window.toggleSingleAutoplaySwitch = toggleSingleAutoplaySwitch;
 
-function saveSingleSettings() {
+function recountSinglePoolBaseTargetTotal(pool) {
+    const _normKey = (w) => typeof normalizeWordKey === 'function'
+        ? normalizeWordKey(w)
+        : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const keys = new Set();
+    (pool || []).forEach(q => {
+        if (q && !q._isRetest && q.word) {
+            const k = _normKey(q.word);
+            if (k) keys.add(k);
+        }
+    });
+    return keys.size || (pool ? pool.length : 0);
+}
+
+function shrinkActiveSinglePoolToBatch(targetBatch) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const lockedIdx = Math.max(singleState.currentIdx || 0, singleState.maxReachedIdx || 0);
+    let currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (currentBaseCount <= targetBatch) return;
+
+    for (let i = singleState.pool.length - 1; i > lockedIdx && currentBaseCount > targetBatch; i--) {
+        const item = singleState.pool[i];
+        if (!item || item.answered || item._isRetest) continue;
+        singleState.pool.splice(i, 1);
+        currentBaseCount--;
+    }
+    singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+}
+
+async function applyBatchSizeChangeToActiveSingleLearnSession(newBatch) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (newBatch === currentBaseCount) return;
+
+    if (newBatch < currentBaseCount) {
+        shrinkActiveSinglePoolToBatch(newBatch);
+        return;
+    }
+
+    const need = newBatch - currentBaseCount;
+    if (need <= 0 || !singleSelectedBookIds || singleSelectedBookIds.length === 0) return;
+
+    try {
+        const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+        if (!words || words.length === 0) return;
+        dictionary = words;
+
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        const existingKeys = new Set(singleState.pool.map(q => _normKey(q && q.word)).filter(Boolean));
+        const learnedMap = EbbinghausEngine.getRecords();
+        const seenCandidateKeys = new Set();
+        const candidateWords = words.filter(w => {
+            if (!w || !w.word) return false;
+            const normK = _normKey(w.word);
+            if (!normK || seenCandidateKeys.has(normK) || existingKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
+            if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
+            return true;
+        });
+
+        if (candidateWords.length === 0) return;
+        const extraTargets = (singleConfig.order === 'random')
+            ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, need)
+            : candidateWords.slice(0, need);
+        if (extraTargets.length === 0) return;
+
+        const extraPool = generateShuffledPoolFromWords(extraTargets, extraTargets.length, singleConfig.meaningMode || 'all');
+        if (Array.isArray(extraPool) && extraPool.length > 0) {
+            singleState.pool.push(...extraPool);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+    } catch (e) {
+        console.warn('[SingleSettings] Expand learn batch failed:', e);
+    }
+}
+
+async function applyBatchSizeChangeToActiveSingleReviewSession(newBatchSetting) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const isAll = newBatchSetting >= 45;
+    const currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (!isAll && newBatchSetting === currentBaseCount) return;
+
+    if (!isAll && newBatchSetting < currentBaseCount) {
+        shrinkActiveSinglePoolToBatch(newBatchSetting);
+        return;
+    }
+
+    try {
+        const specificBookId = (typeof currentReviewBookId !== 'undefined' && currentReviewBookId && currentReviewBookId !== 'all')
+            ? currentReviewBookId
+            : null;
+        let targetBookIds = [];
+        if (specificBookId) {
+            if (specificBookId === 'other_due') {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
+            } else {
+                targetBookIds = [specificBookId];
+            }
+        } else {
+            const booksWithDue = getBooksWithDueWords();
+            if (booksWithDue.length > 0) {
+                targetBookIds = booksWithDue.map(b => b.id);
+            } else {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
+            }
+        }
+
+        let words = await BookManager.loadMultipleBooks(targetBookIds);
+        if (!words || words.length === 0) {
+            words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+        }
+
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        const wordMap = new Map();
+        words.forEach(w => {
+            if (w && w.word) wordMap.set(_normKey(w.word), w);
+        });
+
+        let dueRecords = [];
+        if (specificBookId === 'other_due') {
+            const knownDueKeys = new Set();
+            getBooksWithDueWords().forEach(b => {
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add(_normKey(d.word)));
+            });
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has(_normKey(r.word)));
+        } else if (specificBookId) {
+            dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        } else {
+            dueRecords = EbbinghausEngine.getDueWords();
+        }
+
+        const existingKeys = new Set(singleState.pool.map(q => _normKey(q && q.word)).filter(Boolean));
+        let candidateRecords = dueRecords.filter(r => {
+            const k = _normKey(r && r.word);
+            return k && !existingKeys.has(k) && !sessionReviewedWords.has(k);
+        });
+
+        if (candidateRecords.length === 0) {
+            candidateRecords = EbbinghausEngine.getAllLearnedWords().filter(r => {
+                const k = _normKey(r && r.word);
+                return k && wordMap.has(k) && !isWordMastered(k) && !(r.stage >= 5) && !existingKeys.has(k) && !sessionReviewedWords.has(k);
+            });
+        }
+
+        if (candidateRecords.length === 0) return;
+        candidateRecords.sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+        const need = isAll ? candidateRecords.length : Math.max(0, newBatchSetting - currentBaseCount);
+        const selectedExtra = candidateRecords.slice(0, need);
+        if (selectedExtra.length === 0) return;
+
+        const wordsList = selectedExtra.map(r => {
+            const existing = wordMap.get(_normKey(r.word));
+            const bId = r.bookId || (targetBookIds.length > 0 ? targetBookIds[0] : null);
+            if (existing) {
+                return { ...existing, bookId: bId, bookName: '复习' };
+            }
+            const fallbackParsed = (typeof parsePosMeaningString === 'function')
+                ? parsePosMeaningString(r.meaning || '---')
+                : [{ pos: '', meaning: r.meaning || '---' }];
+            return {
+                word: r.word,
+                phone: r.phone || '',
+                bookId: bId,
+                bookName: '复习',
+                meanings: fallbackParsed.length > 0 ? fallbackParsed : [{ pos: '', meaning: r.meaning || '---' }]
+            };
+        });
+
+        const extraPool = generateShuffledPoolFromWords(wordsList, wordsList.length, singleConfig.meaningMode || 'all');
+        if (Array.isArray(extraPool) && extraPool.length > 0) {
+            singleState.pool.push(...extraPool);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+    } catch (e) {
+        console.warn('[SingleSettings] Expand review batch failed:', e);
+    }
+}
+
+async function saveSingleSettings() {
+    const prevConfig = normalizeSingleConfig(singleConfig);
+    const nextConfig = normalizeSingleConfig(singleSettingsDraft || singleConfig);
+
+    const learnSlider = document.getElementById('slider-single-learn-batch');
+    if (learnSlider) nextConfig.learnBatch = parseInt(learnSlider.value, 10) || nextConfig.learnBatch;
+    const reviewSlider = document.getElementById('slider-single-review-batch');
+    if (reviewSlider) nextConfig.reviewBatch = parseInt(reviewSlider.value, 10) || nextConfig.reviewBatch;
     const retestSwitch = document.getElementById('switch-single-retest');
-    if (retestSwitch) {
-        singleConfig.immediateRetest = Boolean(retestSwitch.checked);
-    }
+    if (retestSwitch) nextConfig.immediateRetest = Boolean(retestSwitch.checked);
     const autoplaySwitch = document.getElementById('switch-single-autoplay');
-    if (autoplaySwitch) {
-        singleConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
-    }
+    if (autoplaySwitch) nextConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
+
+    singleConfig = nextConfig;
     persistSingleConfig();
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
+    }
+
+    const { inSession, isReview } = getActiveSingleSessionContext();
     closeSingleSettings();
-    showToast('设置已保存');
+
+    const meaningChanged = prevConfig.meaningMode !== singleConfig.meaningMode;
+    if (meaningChanged) {
+        applySingleMeaningModeToActiveAndSaved(singleConfig.meaningMode);
+    }
+
+    if (inSession && singleState && Array.isArray(singleState.pool)) {
+        // 关闭即时复习时，立即移除后续尚未作答的复测题
+        if (prevConfig.immediateRetest !== false && singleConfig.immediateRetest === false) {
+            const curIdx = singleState.currentIdx || 0;
+            singleState.pool = singleState.pool.filter((item, idx) => idx <= curIdx || !item || !item._isRetest || item.answered);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+
+        // 学习节奏 / 复习节奏变更后立即应用到当前学习/复习组
+        if (!isReview && prevConfig.learnBatch !== singleConfig.learnBatch) {
+            await applyBatchSizeChangeToActiveSingleLearnSession(singleConfig.learnBatch);
+        } else if (isReview && prevConfig.reviewBatch !== singleConfig.reviewBatch) {
+            await applyBatchSizeChangeToActiveSingleReviewSession(singleConfig.reviewBatch);
+        }
+
+        saveSingleProgress();
+        if (typeof updateSingleProgressDisplay === 'function') {
+            updateSingleProgressDisplay();
+        }
+        if (meaningChanged && typeof renderSingleQuestion === 'function') {
+            renderSingleQuestion();
+        } else if (!prevConfig.autoPlayAudio && singleConfig.autoPlayAudio && navigator.onLine) {
+            const q = singleState.pool[singleState.currentIdx];
+            const isPhrase = Boolean(q && (q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0))));
+            if (q && q.word && (!isPhrase || singleState.answered) && typeof playWordAudio === 'function') {
+                playWordAudio(q.word);
+            }
+        }
+    }
+
+    if (typeof updateHubResumeButtons === 'function') {
+        updateHubResumeButtons();
+    }
+
+    if (!navigator.onLine && !prevConfig.autoPlayAudio && singleConfig.autoPlayAudio) {
+        showToast('设置已保存（自动发音联网后生效）');
+    } else {
+        showToast('设置已保存并生效');
+    }
 }
 
 

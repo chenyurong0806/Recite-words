@@ -190,7 +190,7 @@ function isOfflineMode() {
 function setOfflineMode(enabled, force = false) {
     if (!enabled && isElectronApp() && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
         if (typeof showToast === 'function') {
-            showToast('当前设备未连接网络，强制保持离线模式');
+            showToast('当前设备未连接网络，已切换为离线模式');
         }
         try { localStorage.setItem('vocab_offline_mode', 'true'); } catch (e) {}
         handleOfflineModeChange(true);

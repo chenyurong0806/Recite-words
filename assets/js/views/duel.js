@@ -7,6 +7,7 @@
    6. 联机大厅与房间设置 (专属房间、房间预设、实时对战与高并发保护)
    ========================================================================== */
 let userExclusiveRoomPreset = null;
+let userExclusiveRoomPresetOwner = '';
 let activeEditingPreset = null;
 let activeInviteRules = null;
 let activeInviteTarget = null;
@@ -141,12 +142,102 @@ function getUserRoomCode(username) {
     return Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(-6);
 }
 
+function getExistingDuelBookIdSet(options = {}) {
+    const excludeLocal = Boolean(options && options.excludeLocal);
+    const idSet = new Set();
+    const hasAvailable = typeof BookManager !== 'undefined' && Array.isArray(BookManager.availableBooks) && BookManager.availableBooks.length > 0;
+    const baseList = hasAvailable
+        ? BookManager.availableBooks
+        : ((typeof BookManager !== 'undefined' && Array.isArray(BookManager.fallbackBooks)) ? BookManager.fallbackBooks : []);
+
+    baseList.forEach(b => {
+        if (!b || !b.id) return;
+        if (excludeLocal && (String(b.id).startsWith('custom_') || b.id === 'builtin_default')) return;
+        idSet.add(b.id);
+        if (b.path) idSet.add(b.path);
+    });
+
+    if (typeof BookManager !== 'undefined' && Array.isArray(BookManager.dorisBooks)) {
+        BookManager.dorisBooks.forEach(b => {
+            if (!b || !b.id) return;
+            idSet.add(b.id);
+            if (b.path) idSet.add(b.path);
+        });
+    }
+
+    if (!excludeLocal && Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (!b || !b.id) return;
+            idSet.add(b.id);
+        });
+    }
+
+    return idSet;
+}
+
+function getFallbackExistingDuelBookId(existingIds) {
+    const defaultId = 'books/高中/高中考纲.json';
+    if (existingIds.has(defaultId)) return defaultId;
+    const hasAvailable = typeof BookManager !== 'undefined' && Array.isArray(BookManager.availableBooks) && BookManager.availableBooks.length > 0;
+    const baseList = hasAvailable
+        ? BookManager.availableBooks
+        : ((typeof BookManager !== 'undefined' && Array.isArray(BookManager.fallbackBooks)) ? BookManager.fallbackBooks : []);
+    const firstCloud = baseList.find(b => b && b.id && b.id !== 'builtin_default' && existingIds.has(b.id));
+    if (firstCloud) return firstCloud.id;
+    const firstAny = existingIds.values().next().value;
+    return firstAny || defaultId;
+}
+
+function sanitizeDuelPresetBooks(bookIds, options = {}) {
+    const fallbackIfEmpty = options.fallbackIfEmpty !== false;
+    const input = Array.isArray(bookIds) ? bookIds : [];
+    const existingIds = getExistingDuelBookIdSet(options);
+    const legacyMap = (typeof BookManager !== 'undefined' && BookManager.legacyBookMap) ? BookManager.legacyBookMap : {};
+    const cleaned = [];
+    const seen = new Set();
+    let removedCount = 0;
+
+    input.forEach(rawId => {
+        if (!rawId || typeof rawId !== 'string') {
+            removedCount++;
+            return;
+        }
+        const mappedId = legacyMap[rawId] || rawId;
+        const resolvedId = existingIds.has(rawId)
+            ? rawId
+            : (existingIds.has(mappedId) ? mappedId : null);
+
+        if (!resolvedId) {
+            removedCount++;
+            return;
+        }
+        if (!seen.has(resolvedId)) {
+            seen.add(resolvedId);
+            cleaned.push(resolvedId);
+        }
+    });
+
+    if (cleaned.length === 0 && fallbackIfEmpty) {
+        const fb = getFallbackExistingDuelBookId(existingIds);
+        if (fb) cleaned.push(fb);
+    }
+
+    const changed = removedCount > 0 ||
+        cleaned.length !== input.length ||
+        cleaned.some((id, idx) => id !== input[idx]);
+
+    return { books: cleaned, removedCount, changed };
+}
+window.sanitizeDuelPresetBooks = sanitizeDuelPresetBooks;
+
 function getDefaultRoomPreset(user) {
     const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(user) : (!user || user.startsWith('游客'));
     const name = user ? `${user}的房间` : '对战房间';
-    const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
+    const rawBooks = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
         : ['books/高中/高中考纲.json'];
+    const matchType = isGuest ? 'friendly' : 'ranked';
+    const { books } = sanitizeDuelPresetBooks(rawBooks, { excludeLocal: matchType === 'ranked' });
     return {
         name: name,
         capacity: 2,
@@ -154,26 +245,48 @@ function getDefaultRoomPreset(user) {
         duration: 120,
         winLead: 6,
         gaugeStyle: 'tug',
-        matchType: isGuest ? 'friendly' : 'ranked',
+        matchType: matchType,
         meaningMode: 'all',
         selectedBooks: books
     };
 }
 
 function getUserExclusivePreset() {
-    if (userExclusiveRoomPreset) return userExclusiveRoomPreset;
-    try {
-        const saved = localStorage.getItem('vocab_room_preset_' + currentUser);
-        if (saved) {
-            userExclusiveRoomPreset = JSON.parse(saved);
-            return userExclusiveRoomPreset;
+    const owner = currentUser || '';
+    if (!userExclusiveRoomPreset || userExclusiveRoomPresetOwner !== owner) {
+        userExclusiveRoomPreset = null;
+        userExclusiveRoomPresetOwner = owner;
+        try {
+            const saved = localStorage.getItem('vocab_room_preset_' + owner);
+            if (saved) {
+                userExclusiveRoomPreset = JSON.parse(saved);
+            }
+        } catch (e) { }
+        if (!userExclusiveRoomPreset && currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
+            userExclusiveRoomPreset = JSON.parse(JSON.stringify(currentUserProfile.user_data.room_preset));
         }
-    } catch (e) { }
-    if (currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
-        userExclusiveRoomPreset = currentUserProfile.user_data.room_preset;
-        return userExclusiveRoomPreset;
+        if (!userExclusiveRoomPreset) {
+            userExclusiveRoomPreset = getDefaultRoomPreset(owner);
+        }
     }
-    userExclusiveRoomPreset = getDefaultRoomPreset(currentUser);
+
+    if (userExclusiveRoomPreset && Array.isArray(userExclusiveRoomPreset.selectedBooks)) {
+        const sanitized = sanitizeDuelPresetBooks(userExclusiveRoomPreset.selectedBooks, {
+            excludeLocal: userExclusiveRoomPreset.matchType === 'ranked'
+        });
+        if (sanitized.changed) {
+            userExclusiveRoomPreset.selectedBooks = sanitized.books;
+            try {
+                if (owner) {
+                    localStorage.setItem('vocab_room_preset_' + owner, JSON.stringify(userExclusiveRoomPreset));
+                }
+            } catch (e) { }
+            if (currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
+                currentUserProfile.user_data.room_preset = JSON.parse(JSON.stringify(userExclusiveRoomPreset));
+            }
+        }
+    }
+
     return userExclusiveRoomPreset;
 }
 
@@ -183,6 +296,10 @@ function openRoomPresetModal() {
         return;
     }
     activeEditingPreset = JSON.parse(JSON.stringify(getUserExclusivePreset()));
+    const sanitized = sanitizeDuelPresetBooks(activeEditingPreset.selectedBooks, {
+        excludeLocal: activeEditingPreset.matchType === 'ranked'
+    });
+    activeEditingPreset.selectedBooks = sanitized.books;
     
     const nameInput = document.getElementById('preset-room-name-input');
     if (nameInput) nameInput.value = activeEditingPreset.name || `${currentUser}的房间`;
@@ -367,8 +484,13 @@ async function saveRoomPreset() {
     const nameVal = (nameInput ? nameInput.value : '').trim();
     activeEditingPreset.name = nameVal || `${currentUser}的房间`;
     activeEditingPreset.capacity = 2;
+    const sanitized = sanitizeDuelPresetBooks(activeEditingPreset.selectedBooks, {
+        excludeLocal: activeEditingPreset.matchType === 'ranked'
+    });
+    activeEditingPreset.selectedBooks = sanitized.books;
 
     userExclusiveRoomPreset = JSON.parse(JSON.stringify(activeEditingPreset));
+    userExclusiveRoomPresetOwner = currentUser || '';
     try {
         localStorage.setItem('vocab_room_preset_' + currentUser, JSON.stringify(userExclusiveRoomPreset));
     } catch (e) { }
@@ -3283,39 +3405,144 @@ async function cleanAccountSwitchPresence(oldUser, newUser) {
     }
 
     CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
+    userExclusiveRoomPreset = null;
+    userExclusiveRoomPresetOwner = '';
+    lastTrackedPresenceStatus = null;
+    lastPresenceRestPushTime = 0;
     syncGlobalPresenceState();
     fetchOnlineRoomsList();
 }
 window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
-async function updateMyLobbyPresence() {
-    if (!currentUser || !globalLobbyChannel) return;
-    let myRank = 1;
-    let myRating = 0;
-    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
-        const rd = LevelManager.getUserRankData(currentUser);
-        myRank = rd.rank;
-        myRating = rd.rating;
-    }
-    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const status = isPlayingMatch ? 'playing' : 'idle';
+const LEARNING_PRESENCE_VIEWS = new Set([
+    'view-single',
+    'view-shici',
+    'view-dictation',
+    'view-riddle'
+]);
+
+let lastTrackedPresenceStatus = null;
+let lastPresenceRestPushTime = 0;
+
+function isInLearningView(viewId) {
+    const v = viewId || (typeof currentView !== 'undefined' ? currentView : 'view-hub');
+    return LEARNING_PRESENCE_VIEWS.has(v);
+}
+window.isInLearningView = isInLearningView;
+
+function getDndStorageKey(username) {
+    const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+    return u ? `vocab_dnd_mode_${u}` : 'vocab_dnd_mode';
+}
+
+function isDoNotDisturbEnabled() {
     try {
-        await globalLobbyChannel.track({
-            username: currentUser,
-            sessionId: CLIENT_SESSION_ID,
-            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-            level: myRank,
-            rank: myRank,
-            rating: myRating,
-            isBili: isBili,
-            status: status,
-            joinedAt: Date.now()
-        });
+        return localStorage.getItem(getDndStorageKey()) === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+window.isDoNotDisturbEnabled = isDoNotDisturbEnabled;
+
+function computeMyPresenceStatus(viewId) {
+    const v = viewId || (typeof currentView !== 'undefined' ? currentView : 'view-hub');
+    if (isDoNotDisturbEnabled()) return 'invisible';
+    if (isInLearningView(v)) return 'invisible';
+    if (isPlayingMatch || v === 'view-game' || v === 'view-local-duel') return 'playing';
+    return 'idle';
+}
+window.computeMyPresenceStatus = computeMyPresenceStatus;
+
+function pushRestOnlineBeacon(statusVal, force = false) {
+    if (!sbClient || !currentUser) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+    const nowMs = Date.now();
+    if (!force && (nowMs - lastPresenceRestPushTime < 45000)) return;
+    lastPresenceRestPushTime = nowMs;
+
+    try {
+        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+        const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+        const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+        const effectiveStatus = statusVal || computeMyPresenceStatus();
+        const isInvisible = (effectiveStatus === 'invisible');
+
+        sbClient.from('rooms').upsert({
+            code: `ONL_${getUserRoomCode(currentUser)}`,
+            name: currentUser,
+            host: currentUser,
+            capacity: 2,
+            player_count: isInvisible ? 0 : 1,
+            status: effectiveStatus,
+            is_temporary: true,
+            config: {
+                avatar: myAvatar,
+                rank: myRankData.rank,
+                rating: myRankData.rating,
+                isBili: isBili,
+                status: effectiveStatus,
+                invisible: isInvisible,
+                clientSession: CLIENT_SESSION_ID
+            },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+        if (!isInvisible && currentUserProfile && currentUserProfile.isLoggedIn) {
+            sbClient.from('user_accounts').update({
+                updated_at: new Date().toISOString()
+            }).eq('username', currentUser).then(() => { }).catch(() => { });
+        }
     } catch (e) { }
 }
 
-function initGlobalPresence() {
-    if (!currentUser || !sbClient) return;
+function setDoNotDisturbEnabled(enabled, options = {}) {
+    const nextVal = Boolean(enabled);
+    try {
+        localStorage.setItem(getDndStorageKey(), nextVal ? 'true' : 'false');
+    } catch (e) { }
+
+    if (typeof syncHubDndUI === 'function') {
+        syncHubDndUI();
+    }
+
+    if (nextVal && currentIncomingInvite) {
+        if (matchInviteTimer) clearInterval(matchInviteTimer);
+        const modal = document.getElementById('modal-match-invite');
+        if (modal) modal.classList.remove('active');
+        markInviteHandled(currentIncomingInvite);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: currentIncomingInvite.from,
+                accepted: false,
+                isDnd: true,
+                isInvisible: true,
+                roomCode: currentIncomingInvite.roomCode
+            });
+        }
+        currentIncomingInvite = null;
+    }
+
+    if (typeof updateMyLobbyPresence === 'function') {
+        updateMyLobbyPresence(true);
+    }
+
+    if (!options.silent && typeof showToast === 'function') {
+        showToast(nextVal ? '已开启免打扰：不再显示在在线玩家中，且不接收邀请' : '已关闭免打扰：恢复在线状态');
+    }
+}
+window.setDoNotDisturbEnabled = setDoNotDisturbEnabled;
+
+function toggleDoNotDisturbMode(event) {
+    if (event) event.stopPropagation();
+    const nextVal = !isDoNotDisturbEnabled();
+    setDoNotDisturbEnabled(nextVal);
+}
+window.toggleDoNotDisturbMode = toggleDoNotDisturbMode;
+
+async function updateMyLobbyPresence(forceRestSync = false) {
+    if (!currentUser) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
 
     let myRank = 1;
     let myRating = 0;
@@ -3325,7 +3552,70 @@ function initGlobalPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
+    const status = computeMyPresenceStatus();
+    const isInvisible = (status === 'invisible');
+    const statusChanged = (lastTrackedPresenceStatus !== status);
+    lastTrackedPresenceStatus = status;
+
+    if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
+        try {
+            await globalLobbyChannel.track({
+                username: currentUser,
+                sessionId: CLIENT_SESSION_ID,
+                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                level: myRank,
+                rank: myRank,
+                rating: myRating,
+                isBili: isBili,
+                status: status,
+                invisible: isInvisible,
+                joinedAt: Date.now()
+            });
+        } catch (e) { }
+    } else if (!globalLobbyChannel && !isConnectingLobby) {
+        initGlobalPresence();
+    }
+
+    if (forceRestSync || statusChanged) {
+        pushRestOnlineBeacon(status, true);
+    }
+}
+window.updateMyLobbyPresence = updateMyLobbyPresence;
+
+function syncPresenceForCurrentView(viewId) {
+    if (!currentUser || !sbClient) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+    const nextStatus = computeMyPresenceStatus(viewId);
+    const statusChanged = (lastTrackedPresenceStatus !== nextStatus);
+
+    if (!globalLobbyChannel || (globalLobbyChannel.state !== 'joined' && globalLobbyChannel.state !== 'subscribing') || lobbyCurrentChannelUser !== currentUser) {
+        initGlobalPresence();
+        if (statusChanged || nextStatus === 'invisible') {
+            lastTrackedPresenceStatus = nextStatus;
+            pushRestOnlineBeacon(nextStatus, true);
+        }
+    } else if (statusChanged) {
+        updateMyLobbyPresence(true);
+    }
+}
+window.syncPresenceForCurrentView = syncPresenceForCurrentView;
+
+function initGlobalPresence() {
+    if (!currentUser || !sbClient) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+    let myRank = 1;
+    let myRating = 0;
+    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+        const rd = LevelManager.getUserRankData(currentUser);
+        myRank = rd.rank;
+        myRating = rd.rating;
+    }
+    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+    const initialStatus = computeMyPresenceStatus();
+    const isInvisible = (initialStatus === 'invisible');
+    lastTrackedPresenceStatus = initialStatus;
 
     if (globalLobbyChannel) {
         if ((globalLobbyChannel.state === 'joined' || globalLobbyChannel.state === 'subscribing') && lobbyCurrentChannelUser === currentUser) {
@@ -3341,6 +3631,7 @@ function initGlobalPresence() {
                             rating: myRating,
                             isBili: isBili,
                             status: initialStatus,
+                            invisible: isInvisible,
                             joinedAt: Date.now()
                         }).catch(() => {});
                     }
@@ -3409,6 +3700,7 @@ function initGlobalPresence() {
                 rating: myRating,
                 isBili: isBili,
                 status: initialStatus,
+                invisible: isInvisible,
                 joinedAt: Date.now()
             }).catch(() => {});
         }
@@ -3480,6 +3772,9 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
+                const liveStatus = computeMyPresenceStatus();
+                const liveInvisible = (liveStatus === 'invisible');
+                lastTrackedPresenceStatus = liveStatus;
                 if (chan && typeof chan.track === 'function') {
                     try {
                         await chan.track({
@@ -3490,13 +3785,15 @@ function initGlobalPresence() {
                             rank: myRank,
                             rating: myRating,
                             isBili: isBili,
-                            status: initialStatus,
+                            status: liveStatus,
+                            invisible: liveInvisible,
                             joinedAt: Date.now()
                         });
                     } catch (e) {
                         console.warn('[Presence] track error:', e);
                     }
                 }
+                pushRestOnlineBeacon(liveStatus, true);
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -3534,6 +3831,12 @@ function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
         if (!currentUser) return;
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+        const currentStatus = computeMyPresenceStatus();
+        const isInvisible = (currentStatus === 'invisible');
+        lastTrackedPresenceStatus = currentStatus;
+
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
                 let myRank = 1;
@@ -3544,7 +3847,6 @@ function startPresenceHeartbeat() {
                     myRating = rd.rating;
                 }
                 const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-                const initialStatus = isPlayingMatch ? 'playing' : 'idle';
                 globalLobbyChannel.track({
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
@@ -3553,7 +3855,8 @@ function startPresenceHeartbeat() {
                     rank: myRank,
                     rating: myRating,
                     isBili: isBili,
-                    status: initialStatus,
+                    status: currentStatus,
+                    invisible: isInvisible,
                     joinedAt: Date.now()
                 });
             } catch (e) { }
@@ -3571,48 +3874,17 @@ function startPresenceHeartbeat() {
         }
 
         // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（节流控制：每 45 秒最多 1 次，对决中严格跳过）
-        const nowMs = Date.now();
-        if (!isPlayingMatch && (nowMs - lastRestOnlineFetchTime >= 45000)) {
-            try {
-                if (sbClient && currentUser) {
-                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                    const statusVal = 'idle';
-                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-
-                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                    sbClient.from('rooms').upsert({
-                        code: `ONL_${getUserRoomCode(currentUser)}`,
-                        name: currentUser,
-                        host: currentUser,
-                        capacity: 2,
-                        player_count: 1,
-                        status: statusVal,
-                        is_temporary: true,
-                        config: {
-                            avatar: myAvatar,
-                            rank: myRankData.rank,
-                            rating: myRankData.rating,
-                            isBili: isBili,
-                            status: statusVal,
-                            clientSession: CLIENT_SESSION_ID
-                        },
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
-                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                        sbClient.from('user_accounts').update({
-                            updated_at: new Date().toISOString()
-                        }).eq('username', currentUser).then(() => { }).catch(() => { });
-                    }
-                }
-            } catch (e) { }
+        if (!isPlayingMatch) {
+            pushRestOnlineBeacon(currentStatus, false);
         }
 
-        // 3. 跨网络对战邀请监听兜底：若 WebSocket 广播被运营商防火墙丢弃，通过云端 rooms 表接收邀请
+        // 3. 跨网络对战邀请监听兜底：除学习页面、对局中、免打扰外的所有页面均可接收云端邀请
         try {
-            if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && (currentView === 'view-hub' || currentView === 'view-online')) {
+            const canReceiveInviteOnView = !isDoNotDisturbEnabled() &&
+                !isInLearningView() &&
+                currentView !== 'view-game' &&
+                currentView !== 'view-local-duel';
+            if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && canReceiveInviteOnView) {
                 const inRoomEl = document.getElementById('online-in-room');
                 const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
                 if (!isInRoom) {
@@ -3657,6 +3929,7 @@ function startPresenceHeartbeat() {
 
 let cachedRestOnlineUsers = [];
 let lastRestOnlineFetchTime = 0;
+let lastRestInvisibleUsers = new Set();
 
 async function fetchRestOnlineUsers() {
     if (!sbClient) return [];
@@ -3669,6 +3942,7 @@ async function fetchRestOnlineUsers() {
         const threshold = new Date(now - 300 * 1000).toISOString();
         const results = [];
         const seen = new Set();
+        const invisibleUsers = new Set();
 
         // 1. 获取 rooms 表中的在线信标 (覆盖游客与已登录用户)
         const { data: beaconRooms } = await sbClient
@@ -3683,7 +3957,13 @@ async function fetchRestOnlineUsers() {
             beaconRooms.forEach(br => {
                 const uName = br.host || br.name;
                 const cfg = br.config || {};
-                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) return;
+                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) {
+                    if (uName) {
+                        invisibleUsers.add(uName);
+                        seen.add(uName);
+                    }
+                    return;
+                }
                 if (uName && !seen.has(uName)) {
                     seen.add(uName);
                     results.push({
@@ -3712,14 +3992,18 @@ async function fetchRestOnlineUsers() {
         if (Array.isArray(accounts)) {
             accounts.forEach(acc => {
                 const uData = acc.user_data || {};
-                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) return;
-                if (acc.username && !seen.has(acc.username)) {
+                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) {
+                    if (acc.username) invisibleUsers.add(acc.username);
+                    return;
+                }
+                if (acc.username && !seen.has(acc.username) && !invisibleUsers.has(acc.username)) {
                     seen.add(acc.username);
                     results.push(acc);
                 }
             });
         }
 
+        lastRestInvisibleUsers = invisibleUsers;
         cachedRestOnlineUsers = results;
         lastRestOnlineFetchTime = now;
         return results;
@@ -3727,10 +4011,11 @@ async function fetchRestOnlineUsers() {
     return cachedRestOnlineUsers;
 }
 
-// 在线玩家过滤掉自己、当前客户端会话、隐身用户，跨网络融合并展示等级与对局状态
+// 在线玩家过滤掉自己、当前客户端会话、隐身/免打扰/学习中用户，跨网络融合并展示等级与对局状态
 async function syncGlobalPresenceState() {
     const state = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
     const onlineUsersMap = new Map();
+    const invisibleUsers = new Set();
     const isLogged = isCurrentUserLoggedIn();
     const savedGuestName = (typeof SafeStorage !== 'undefined') ? SafeStorage.getItem('vocab_guest_name') : null;
 
@@ -3748,8 +4033,12 @@ async function syncGlobalPresenceState() {
         if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
         // 4. 已登录用户：彻底过滤本地历史游客账号
         if (isLogged && savedGuestName && (k === savedGuestName || pUsername === savedGuestName)) return;
-        // 5. 隐身用户不展示在列表中
-        if (pres.status === 'invisible' || pres.invisible === true) return;
+        // 5. 隐身/免打扰/学习中用户不展示在列表中，并阻止被 REST 兜底重新加入
+        if (pres.status === 'invisible' || pres.invisible === true) {
+            invisibleUsers.add(pUsername);
+            invisibleUsers.add(k);
+            return;
+        }
 
         let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
         if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -3773,17 +4062,23 @@ async function syncGlobalPresenceState() {
     // 2. 跨网络兜底：融合 REST 活跃用户（即使不同网络环境 WebSocket 连接不畅也能互相发现）
     try {
         const restUsers = await fetchRestOnlineUsers();
+        if (lastRestInvisibleUsers && lastRestInvisibleUsers.size > 0) {
+            lastRestInvisibleUsers.forEach(u => invisibleUsers.add(u));
+        }
         restUsers.forEach(ru => {
             const uName = ru.username;
             if (!uName || uName === currentUser) return;
             if (recentlySwitchedAccounts.has(uName)) return;
             if (isLogged && savedGuestName && uName === savedGuestName) return;
+            if (invisibleUsers.has(uName)) return;
             const uData = ru.user_data || {};
-            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) return;
+            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) {
+                invisibleUsers.add(uName);
+                return;
+            }
             if (!onlineUsersMap.has(uName)) {
                 let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
                 if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
-                const uData = ru.user_data || {};
                 const rankVal = uData.rank_data?.rank || ru.level || 1;
                 const ratingVal = uData.rank_data?.rating || 0;
                 const isBiliVal = (uData.account_type === 'bilibili' || uData.isBili === true);
@@ -3801,12 +4096,13 @@ async function syncGlobalPresenceState() {
         });
     } catch (e) { }
 
-    // 3. 融合活跃房间房主（房主处于在线等待对战状态）
+    // 3. 融合活跃房间房主（房主处于在线等待对战状态，且未开启免打扰/隐身）
     if (cachedDbRooms && cachedDbRooms.length > 0) {
         const now = Date.now();
         cachedDbRooms.forEach(r => {
             if (r.code && r.code.startsWith('ONL_')) return;
             if (r.host && r.host !== currentUser && r.status === 'waiting') {
+                if (invisibleUsers.has(r.host)) return;
                 if (isLogged && savedGuestName && r.host === savedGuestName) return;
                 const roomAge = now - new Date(r.updated_at || r.created_at || now).getTime();
                 if (roomAge < 120000 && !onlineUsersMap.has(r.host)) {
@@ -3970,12 +4266,16 @@ function openCreateMatchInviteModal(targetUser) {
     const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
 
     if (isLogged) {
-        // 使用专属房间预设
+        // 使用专属房间预设，并移除不存在的词书
         const preset = getUserExclusivePreset();
         activeInviteRules = JSON.parse(JSON.stringify(preset));
         if (isTargetGuest || isMeGuest) {
             activeInviteRules.matchType = 'friendly';
         }
+        const sanitized = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, {
+            excludeLocal: activeInviteRules.matchType === 'ranked'
+        });
+        activeInviteRules.selectedBooks = sanitized.books;
 
         if (presetView) {
             presetView.style.display = 'block';
@@ -3992,10 +4292,12 @@ function openCreateMatchInviteModal(targetUser) {
         if (toggleBtnText) toggleBtnText.innerText = '修改规则';
         if (toggleBtnIcon) toggleBtnIcon.innerText = 'edit';
     } else {
-        // 游客模式：直接显示规则编辑
+        // 游客模式：直接显示规则编辑，并移除不存在的词书
         activeInviteRules = getDefaultRoomPreset(currentUser);
         activeInviteRules.name = `${currentUser}的挑战房`;
         activeInviteRules.matchType = 'friendly';
+        const sanitized = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, { excludeLocal: false });
+        activeInviteRules.selectedBooks = sanitized.books;
         if (presetView) presetView.style.display = 'none';
         if (rulesEditor) rulesEditor.style.display = 'flex';
         if (roomNameField) roomNameField.style.display = 'block';
@@ -4280,6 +4582,11 @@ async function confirmAndSendMatchInvite() {
         effectiveMatchType = 'friendly';
     }
 
+    const sanitizedBooks = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, {
+        excludeLocal: effectiveMatchType === 'ranked'
+    });
+    activeInviteRules.selectedBooks = sanitizedBooks.books;
+
     const matchConfig = {
         name: finalRoomName,
         capacity: 2,
@@ -4289,7 +4596,7 @@ async function confirmAndSendMatchInvite() {
         matchType: effectiveMatchType,
         meaningMode: activeInviteRules.meaningMode || 'all',
         targetUser: activeInviteTarget,
-        selectedBooks: activeInviteRules.selectedBooks || ['books/高中/高中考纲.json']
+        selectedBooks: activeInviteRules.selectedBooks
     };
 
     // 保存到 Supabase 房间表
@@ -4438,9 +4745,43 @@ function handleReceivedMatchInvite(payload) {
         });
     }
 
-    // 1. 如果当前玩家正处于对局中或已在房间内，自动回复正忙并防刷
-    const isInGameOrRoom = (typeof roomCode !== 'undefined' && roomCode) ||
-        (typeof currentView !== 'undefined' && (currentView === 'view-online' || currentView === 'view-duel'));
+    // 0. 免打扰模式下不接收任何邀请
+    if (isDoNotDisturbEnabled()) {
+        markInviteHandled(payload);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isDnd: true,
+                isInvisible: true,
+                roomCode: payload.roomCode
+            });
+        }
+        return;
+    }
+
+    // 1. 学习页面中不视为在线，不弹出邀请打扰学习
+    if (isInLearningView()) {
+        markInviteHandled(payload);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isLearning: true,
+                isInvisible: true,
+                roomCode: payload.roomCode
+            });
+        }
+        return;
+    }
+
+    // 2. 如果当前玩家正处于对局中或已在房间内，自动回复正忙并防刷
+    const inRoomEl = document.getElementById('online-in-room');
+    const isInRoomView = Boolean((typeof roomCode !== 'undefined' && roomCode) || (inRoomEl && inRoomEl.style.display !== 'none'));
+    const isInGameOrRoom = isInRoomView || isPlayingMatch ||
+        (typeof currentView !== 'undefined' && (currentView === 'view-game' || currentView === 'view-local-duel' || currentView === 'view-duel'));
     if (isInGameOrRoom) {
         markInviteHandled(payload);
         if (globalLobbyChannel) {
@@ -4802,9 +5143,13 @@ function handleMatchInviteResponse(payload) {
         connectSupabaseChannel(roomCode);
         switchView('view-online');
     } else {
-        const reason = payload.isInvisible
-            ? '当前处于隐身状态，已自动拒绝对决'
-            : (payload.isBusy ? '当前正在对局中，无法接受邀请' : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'));
+        const reason = payload.isDnd
+            ? '已开启免打扰，暂不接收对战邀请'
+            : (payload.isLearning
+                ? '正在学习中，暂不接收对战邀请'
+                : (payload.isInvisible
+                    ? '当前处于隐身状态，已自动拒绝对决'
+                    : (payload.isBusy ? '当前正在对局中，无法接受邀请' : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'))));
         showToast(`玩家【${payload.from}】${reason}`);
         if (payload.roomCode && payload.roomCode !== getUserRoomCode(currentUser)) {
             sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
@@ -4961,15 +5306,19 @@ async function fetchOnlineRoomsList(manual = false) {
         }
     });
 
-    // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，自动调出邀请弹窗
-    const myInviteRoom = (dbRooms || []).find(r => {
+    // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，且当前未开启免打扰、未在学习中、未在对局或房间内，自动调出邀请弹窗
+    const canAcceptDbFallbackInvite = !isDoNotDisturbEnabled() &&
+        !isInLearningView() &&
+        !isPlayingMatch &&
+        !(typeof roomCode !== 'undefined' && roomCode);
+    const myInviteRoom = canAcceptDbFallbackInvite ? (dbRooms || []).find(r => {
         if (!r.code || r.code.startsWith('ONL_')) return false;
         if (r.status !== 'waiting' || r.host === currentUser) return false;
         const cfg = r.config || {};
         if (cfg.targetUser !== currentUser) return false;
         const age = now - new Date(r.updated_at || r.created_at || now).getTime();
         return age < 25000;
-    });
+    }) : null;
     if (myInviteRoom) {
         const inviteCandidate = {
             from: myInviteRoom.host,

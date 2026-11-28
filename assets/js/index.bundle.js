@@ -191,7 +191,7 @@ function isOfflineMode() {
 function setOfflineMode(enabled, force = false) {
     if (!enabled && isElectronApp() && (window._isDeviceOfflineForce || (typeof navigator !== 'undefined' && !navigator.onLine))) {
         if (typeof showToast === 'function') {
-            showToast('当前设备未连接网络，强制保持离线模式');
+            showToast('当前设备未连接网络，已切换为离线模式');
         }
         try { localStorage.setItem('vocab_offline_mode', 'true'); } catch (e) {}
         handleOfflineModeChange(true);
@@ -2982,19 +2982,48 @@ const VocabOfflineDB = {
 const AudioCache = new Map(); // 缓存最近 60 个音频实例，实现 0 延迟二次秒播
 const MAX_CACHE_SIZE = 60;
 let currentActiveAudio = null;
-let isAudioUnlocked = false;
 
-// 移动端/Safari Web Audio 交互解锁
-function ensureAudioContextUnlocked() {
-    if (isAudioUnlocked) return;
+function isMobileAudioDevice() {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+    return false;
+}
+
+// 手机端配置环境混音音频会话（ambient），避免播放单词发音时直接打断后台音乐/播客等音频内容
+function ensureMobileAmbientAudioSession() {
+    if (!isMobileAudioDevice()) return;
     try {
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.resume();
+        if (typeof navigator !== 'undefined' && navigator.audioSession) {
+            if (navigator.audioSession.type !== 'ambient') {
+                navigator.audioSession.type = 'ambient';
+            }
         }
-        isAudioUnlocked = true;
     } catch (e) { }
 }
-document.addEventListener('pointerdown', ensureAudioContextUnlocked, { once: true });
+
+function createWordAudioElement(url) {
+    const audio = new Audio();
+    audio.playsInline = true;
+    try {
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
+        audio.setAttribute('x-webkit-airplay', 'deny');
+    } catch (e) { }
+    audio.preload = isMobileAudioDevice() ? 'metadata' : 'auto';
+    audio.src = url;
+    return audio;
+}
+
+ensureMobileAmbientAudioSession();
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            ensureMobileAmbientAudioSession();
+        }
+    });
+}
 
 // ==========================================================================
 // 2. 文本清洗与发音类型分类器
@@ -3046,6 +3075,10 @@ function detectAudioCategory(text) {
 function speakNative(text, lang = 'en-US', rate = 0.95) {
     if (typeof window === 'undefined' || !window.speechSynthesis) return false;
     try {
+        ensureMobileAmbientAudioSession();
+        if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        }
         window.speechSynthesis.cancel(); // 停止当前正在播放的声音，防止重叠
         const u = new SpeechSynthesisUtterance(text);
         u.lang = lang;
@@ -3109,11 +3142,14 @@ function playWordAudio(rawText, type = null) {
         type = Number(type);
     }
     if (!rawText) return;
-    ensureAudioContextUnlocked();
+    ensureMobileAmbientAudioSession();
 
     // 停止正在播放的实例
     if (currentActiveAudio) {
-        try { currentActiveAudio.pause(); } catch (e) { }
+        try {
+            currentActiveAudio.pause();
+            currentActiveAudio.currentTime = 0;
+        } catch (e) { }
         currentActiveAudio = null;
     }
 
@@ -3133,6 +3169,9 @@ function playWordAudio(rawText, type = null) {
             try {
                 cachedAudio.currentTime = 0;
                 currentActiveAudio = cachedAudio;
+                cachedAudio.onended = () => {
+                    if (currentActiveAudio === cachedAudio) currentActiveAudio = null;
+                };
                 cachedAudio.play().catch(() => {});
                 return;
             } catch (e) {
@@ -3142,15 +3181,23 @@ function playWordAudio(rawText, type = null) {
 
         const baiduUrl = `https://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(cleanText)}&spd=5&source=web`;
         const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanText)}&le=zh`;
-        const audio = new Audio(baiduUrl);
+        const audio = createWordAudioElement(baiduUrl);
         currentActiveAudio = audio;
+
+        audio.onended = () => {
+            if (currentActiveAudio === audio) currentActiveAudio = null;
+        };
 
         let hasFallenBack = false;
         audio.onerror = () => {
             if (!hasFallenBack) {
                 hasFallenBack = true;
-                const fallbackAudio = new Audio(youdaoUrl);
+                ensureMobileAmbientAudioSession();
+                const fallbackAudio = createWordAudioElement(youdaoUrl);
                 currentActiveAudio = fallbackAudio;
+                fallbackAudio.onended = () => {
+                    if (currentActiveAudio === fallbackAudio) currentActiveAudio = null;
+                };
                 fallbackAudio.play().then(() => {
                     AudioCache.set(cacheKey, fallbackAudio);
                 }).catch(() => {});
@@ -3162,8 +3209,12 @@ function playWordAudio(rawText, type = null) {
         }).catch(() => {
             if (!hasFallenBack) {
                 hasFallenBack = true;
-                const fallbackAudio = new Audio(youdaoUrl);
+                ensureMobileAmbientAudioSession();
+                const fallbackAudio = createWordAudioElement(youdaoUrl);
                 currentActiveAudio = fallbackAudio;
+                fallbackAudio.onended = () => {
+                    if (currentActiveAudio === fallbackAudio) currentActiveAudio = null;
+                };
                 fallbackAudio.play().then(() => {
                     AudioCache.set(cacheKey, fallbackAudio);
                 }).catch(() => {});
@@ -3208,6 +3259,9 @@ function playWordAudio(rawText, type = null) {
         try {
             cachedAudio.currentTime = 0;
             currentActiveAudio = cachedAudio;
+            cachedAudio.onended = () => {
+                if (currentActiveAudio === cachedAudio) currentActiveAudio = null;
+            };
             cachedAudio.play().catch(() => {
                 speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
             });
@@ -3219,15 +3273,15 @@ function playWordAudio(rawText, type = null) {
 
     // 未命中缓存：在线环境下播放有道语音，失败或被拦截时可靠回退到原生语音
     const netUrl = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`;
-    const audio = new Audio(netUrl);
+    const audio = createWordAudioElement(netUrl);
     currentActiveAudio = audio;
 
     audio.onended = () => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
     };
 
     audio.onerror = () => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
         speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     };
 
@@ -3238,21 +3292,25 @@ function playWordAudio(rawText, type = null) {
         }
         AudioCache.set(wordKey, audio);
     }).catch(() => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
         speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     });
 }
 
 function playNetworkAudioFallback(url, fallbackText = null, lang = 'en-US') {
     try {
-        const audio = new Audio(url);
+        ensureMobileAmbientAudioSession();
+        const audio = createWordAudioElement(url);
         currentActiveAudio = audio;
+        audio.onended = () => {
+            if (currentActiveAudio === audio) currentActiveAudio = null;
+        };
         audio.onerror = () => {
-            currentActiveAudio = null;
+            if (currentActiveAudio === audio) currentActiveAudio = null;
             if (fallbackText) speakNative(fallbackText, lang, 0.95);
         };
         audio.play().catch(() => {
-            currentActiveAudio = null;
+            if (currentActiveAudio === audio) currentActiveAudio = null;
             if (fallbackText) speakNative(fallbackText, lang, 0.95);
         });
     } catch (e) {
@@ -3268,14 +3326,15 @@ function preloadWordAudio(rawText, type = null) {
         type = getDefaultPronunciationAccent();
     }
     if (!rawText || !navigator.onLine) return;
+    // 手机端跳过后台主动 preload=auto，避免提前抢占系统媒体会话打断后台音频
+    if (isMobileAudioDevice()) return;
     const cleanText = cleanAudioText(rawText);
     if (!cleanText || detectAudioCategory(cleanText) !== 'english_word') return;
 
     const wordKey = `${cleanText.toLowerCase()}_type${type}`;
     if (AudioCache.has(wordKey)) return;
 
-    const audio = new Audio(`https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`);
-    audio.preload = 'auto';
+    const audio = createWordAudioElement(`https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`);
     AudioCache.set(wordKey, audio);
 }
 
@@ -9189,12 +9248,12 @@ window.LevelManager = LevelManager;
                 }
                 if (!r.completed) {
                     if (!this.isBiliAppEnv()) {
-                        if (typeof showToast === 'function') showToast('关注检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                        if (typeof showToast === 'function') showToast('请前往 App 内操作');
                         return;
                     }
                     const isFollow = await this.detectFollowTask();
                     if (!isFollow) {
-                        if (typeof showToast === 'function') showToast('检测到您尚未关注作者账号，请关注后重试');
+                        if (typeof showToast === 'function') showToast('请关注后重试');
                         return;
                     }
                 }
@@ -9236,12 +9295,12 @@ window.LevelManager = LevelManager;
                     }
                     if (!vt.likeCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.likeCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成点赞，请点赞后重试');
+                            if (typeof showToast === 'function') showToast('请点赞后重试');
                             return;
                         }
                     }
@@ -9269,12 +9328,12 @@ window.LevelManager = LevelManager;
                     }
                     if (!vt.favCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.favCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成收藏，请收藏后重试');
+                            if (typeof showToast === 'function') showToast('请收藏后重试');
                             return;
                         }
                     }
@@ -9302,12 +9361,12 @@ window.LevelManager = LevelManager;
                     }
                     if (!vt.coinCompleted) {
                         if (!this.isBiliAppEnv()) {
-                            if (typeof showToast === 'function') showToast('互动检测仅在哔哩哔哩 App 内支持，请在 App 内操作');
+                            if (typeof showToast === 'function') showToast('请前往 App 内操作');
                             return;
                         }
                         await this.detectVideoInteractionTasks(bvid);
                         if (!vt.coinCompleted) {
-                            if (typeof showToast === 'function') showToast('尚未完成投币，请投币支持后重试');
+                            if (typeof showToast === 'function') showToast('请投币支持后重试');
                             return;
                         }
                     }
@@ -9351,7 +9410,7 @@ window.LevelManager = LevelManager;
         doActivityAction(action) {
             if (this.isGuest()) {
                 if (typeof showToast === 'function') {
-                    showToast('游客模式仅支持查看活动，请登录账号后参与！');
+                    showToast('请登录账号后参与活动！');
                 }
                 return;
             }
@@ -9426,35 +9485,41 @@ window.LevelManager = LevelManager;
         // 更新首页活动图标右上角的徽标及卡片显示
         updateBadge() {
             const badgeEl = document.getElementById('hub-activity-unread-badge');
+            const appBarBadgeEl = document.getElementById('hub-appbar-activity-unread-badge');
             const entryCard = document.getElementById('hub-activity-entry-card');
+            const appBarBtn = document.getElementById('btn-hub-appbar-activity');
+            const homeCfg = (typeof getHomeLayoutConfig === 'function') ? getHomeLayoutConfig() : null;
+            const isCollapsed = Boolean(homeCfg && homeCfg.collapseActivityCard);
 
             if (!this.isAvailable()) {
                 if (entryCard) entryCard.style.display = 'none';
+                if (appBarBtn) appBarBtn.style.display = 'none';
                 if (badgeEl) badgeEl.style.display = 'none';
+                if (appBarBadgeEl) appBarBadgeEl.style.display = 'none';
                 return;
             }
 
             const availActivities = this.getAvailableActivities();
 
-            // 非离线模式下，始终显示活动入口卡片（无论是否为 toy 平台）
+            // 非离线模式下，按首页布局设置决定展示活动卡片或顶栏收起图标
             if (entryCard) {
-                entryCard.style.display = 'flex';
+                entryCard.style.display = isCollapsed ? 'none' : 'flex';
+            }
+            if (appBarBtn) {
+                appBarBtn.style.display = isCollapsed ? 'inline-flex' : 'none';
             }
 
-            if (!badgeEl) return;
-
-            if (availActivities.length === 0) {
-                badgeEl.style.display = 'none';
-                return;
-            }
-
-            const count = this.getUnreadAndPendingCount();
-            if (count > 0) {
-                badgeEl.style.display = 'inline-flex';
-                badgeEl.innerText = count > 99 ? '99+' : String(count);
-            } else {
-                badgeEl.style.display = 'none';
-            }
+            const count = (availActivities.length === 0) ? 0 : this.getUnreadAndPendingCount();
+            const badgeText = count > 99 ? '99+' : String(count);
+            [badgeEl, appBarBadgeEl].forEach(el => {
+                if (!el) return;
+                if (count > 0) {
+                    el.style.display = 'inline-flex';
+                    el.innerText = badgeText;
+                } else {
+                    el.style.display = 'none';
+                }
+            });
         },
 
         // 标记某活动为已读
@@ -9856,10 +9921,10 @@ window.LevelManager = LevelManager;
         const badgeEl = document.getElementById('hub-activity-unread-badge');
         if (badgeEl) badgeEl.style.display = 'none';
 
+        ActivityManager.renderActivitiesView();
         if (typeof switchView === 'function') {
             switchView('view-activity');
         }
-        ActivityManager.renderActivitiesView();
     };
     window.openActivityModal = window.openActivityView;
     ActivityManager.openActivityModal = window.openActivityView;
@@ -10656,10 +10721,10 @@ window.LevelManager = LevelManager;
             if (typeof showToast === 'function') showToast('离线模式下无法查看邮箱');
             return;
         }
+        MailManager.renderMailboxView();
         if (typeof switchView === 'function') {
             switchView('view-mailbox');
         }
-        MailManager.renderMailboxView();
         MailManager.fetchMails();
     };
 
@@ -12170,7 +12235,7 @@ function closeAvatarCropperModal() {
             try {
                 localStorage.removeItem(_POSTER_BG_STORAGE_KEY);
             } catch (e) { }
-            const failMsg = (typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式下默认使用极简纯白背景' : '未能加载到新背景，已切换为极简纯白背景';
+            const failMsg = (typeof isOfflineMode === 'function' && isOfflineMode()) ? '离线模式下默认使用纯白背景' : '无法加载新背景，已切换为纯白背景';
             if (typeof showToast === 'function') showToast(failMsg);
         } else {
             _cachedBgImage = newImg;
@@ -12344,7 +12409,7 @@ function closeAvatarCropperModal() {
             if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.savePosterImage === 'function') {
                 const res = await window.electronAPI.savePosterImage(base64Data, fname);
                 if (res && res.success) {
-                    if (typeof showToast === 'function') showToast('🎉 海报已成功保存至本地！');
+                    if (typeof showToast === 'function') showToast('海报已成功保存至本地！');
                     return true;
                 } else if (res && res.canceled) {
                     return false;
@@ -12425,7 +12490,7 @@ function closeAvatarCropperModal() {
                         base64Data: base64Data,
                         hintMsg: '保存海报需要相册访问权限'
                     });
-                    if (typeof showToast === 'function') showToast('🎉 海报已成功保存至本地相册！');
+                    if (typeof showToast === 'function') showToast('海报已成功保存至本地相册！');
                     return true;
                 }
             } catch (e) {
@@ -12462,8 +12527,8 @@ function closeAvatarCropperModal() {
         if (typeof navigator !== 'undefined' && navigator.share) {
             try {
                 await navigator.share({
-                    title: '词迹 Recite Words',
-                    text: '我在「词迹」沉浸式背单词与联机对战，快来一起玩吧！',
+                    title: '词迹',
+                    text: '让背词更有趣！',
                     url: (typeof window !== 'undefined' && window.location && window.location.href) || 'https://www.bilibili.com/toy/cyr/index.html'
                 });
                 return true;
@@ -13175,6 +13240,124 @@ function closeAvatarCropperModal() {
         ctx.restore();
     }
 
+    /**
+     * 将统计数值拆分为“数字片段”与“单位/文字片段”（如 "2小时35分" -> 2 / 小时 / 35 / 分）
+     */
+    function tokenizeStatValue(rawValue) {
+        const str = String(rawValue == null ? '' : rawValue).trim();
+        if (!str) return [];
+        const tokens = [];
+        const re = /(\d+(?:\.\d+)?)|([^\d]+)/g;
+        let match;
+        while ((match = re.exec(str)) !== null) {
+            if (match[1] !== undefined) {
+                tokens.push({ text: match[1], isNum: true });
+            } else if (match[2] !== undefined) {
+                const cleaned = match[2].trim();
+                if (cleaned) {
+                    tokens.push({ text: cleaned, isNum: false });
+                }
+            }
+        }
+        return tokens;
+    }
+
+    /**
+     * 计算“彩色突出数字 + 缩小单位文字”混排后的渲染总宽度
+     */
+    function measureMixedStatWidth(ctx, rawValue, numSize, options = {}) {
+        const tokens = tokenizeStatValue(rawValue);
+        if (tokens.length === 0) return 0;
+        const numWeight = options.numWeight || '700';
+        const unitWeight = options.unitWeight || '600';
+        const unitRatio = typeof options.unitRatio === 'number' ? options.unitRatio : 0.42;
+        const minUnitSize = typeof options.minUnitSize === 'number' ? options.minUnitSize : 16;
+        const unitSize = Math.max(minUnitSize, Math.round(numSize * unitRatio));
+        const numToUnitGap = Math.max(3, Math.round(numSize * 0.08));
+        const unitToNumGap = Math.max(5, Math.round(numSize * 0.14));
+
+        ctx.save();
+        let totalWidth = 0;
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
+            if (i > 0) {
+                const prev = tokens[i - 1];
+                if (prev.isNum && !tok.isNum) totalWidth += numToUnitGap;
+                else if (!prev.isNum && tok.isNum) totalWidth += unitToNumGap;
+                else totalWidth += 2;
+            }
+            ctx.font = tok.isNum
+                ? `${numWeight} ${numSize}px ${FONT_FAMILY}`
+                : `${unitWeight} ${unitSize}px ${FONT_FAMILY}`;
+            totalWidth += ctx.measureText(tok.text).width;
+        }
+        ctx.restore();
+        return totalWidth;
+    }
+
+    /**
+     * 绘制“不同颜色突出数字 + 缩小单位文字”的混排统计值（按基线齐平）
+     */
+    function drawMixedStatValue(ctx, rawValue, x, topY, numSize, options = {}) {
+        const tokens = tokenizeStatValue(rawValue);
+        if (tokens.length === 0) return;
+
+        const numWeight = options.numWeight || '700';
+        const unitWeight = options.unitWeight || '600';
+        const unitRatio = typeof options.unitRatio === 'number' ? options.unitRatio : 0.42;
+        const minUnitSize = typeof options.minUnitSize === 'number' ? options.minUnitSize : 16;
+        const unitSize = Math.max(minUnitSize, Math.round(numSize * unitRatio));
+        const numColor = options.numColor || '#0061A4';
+        const unitColor = options.unitColor || '#5F6368';
+        const align = options.align || 'left';
+        const numToUnitGap = Math.max(3, Math.round(numSize * 0.08));
+        const unitToNumGap = Math.max(5, Math.round(numSize * 0.14));
+
+        const totalW = measureMixedStatWidth(ctx, rawValue, numSize, {
+            numWeight,
+            unitWeight,
+            unitRatio,
+            minUnitSize
+        });
+
+        let curX = x;
+        if (align === 'center') curX = x - totalW / 2;
+        else if (align === 'right') curX = x - totalW;
+
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+
+        ctx.font = `${numWeight} ${numSize}px ${FONT_FAMILY}`;
+        const refMetrics = ctx.measureText('0');
+        const ascent = (refMetrics && typeof refMetrics.actualBoundingBoxAscent === 'number' && refMetrics.actualBoundingBoxAscent > 0)
+            ? refMetrics.actualBoundingBoxAscent
+            : Math.round(numSize * 0.78);
+        const baselineY = Math.round(topY + ascent + numSize * 0.08);
+
+        for (let i = 0; i < tokens.length; i++) {
+            const tok = tokens[i];
+            if (i > 0) {
+                const prev = tokens[i - 1];
+                if (prev.isNum && !tok.isNum) curX += numToUnitGap;
+                else if (!prev.isNum && tok.isNum) curX += unitToNumGap;
+                else curX += 2;
+            }
+            if (tok.isNum) {
+                ctx.font = `${numWeight} ${numSize}px ${FONT_FAMILY}`;
+                ctx.fillStyle = numColor;
+                ctx.fillText(tok.text, curX, baselineY);
+            } else {
+                ctx.font = `${unitWeight} ${unitSize}px ${FONT_FAMILY}`;
+                ctx.fillStyle = unitColor;
+                const unitOffsetY = /[\u4e00-\u9fa5]/.test(tok.text) ? -1 : 0;
+                ctx.fillText(tok.text, curX, baselineY + unitOffsetY);
+            }
+            curX += ctx.measureText(tok.text).width;
+        }
+        ctx.restore();
+    }
+
     /* ==========================================================================
        1. 生成学习成绩海报 (背单词小结 / 个人中心成长报告) - 极简结构
        ========================================================================== */
@@ -13263,34 +13446,30 @@ function closeAvatarCropperModal() {
         const col2X = width / 2 + 20;
         const colMaxW = (width / 2) - 56;
 
-        // 统一计算四项核心指标的共同字号，确保上下行字体、粗细、字号与行距完全一致
-        const computeFitFontSize = (text, baseSize, minSize, weight) => {
-            const str = String(text || '');
-            ctx.save();
+        // 统一计算四项核心指标的共同数字字号（缩小“小时”“分钟”等汉字单位，保持上下行数字字号与行距完全一致）
+        const statWeight = '700';
+        const computeFitMixedFontSize = (text, baseSize, minSize) => {
             let sz = baseSize;
-            ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
-            while (sz > minSize && ctx.measureText(str).width > colMaxW) {
+            while (sz > minSize && measureMixedStatWidth(ctx, text, sz, { numWeight: statWeight }) > colMaxW) {
                 sz -= 2;
-                ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
             }
-            ctx.restore();
             return sz;
         };
-        const statWeight = '700';
         const statFontSize = Math.min(
-            computeFitFontSize(`${todayLearned}`, 50, 34, statWeight),
-            computeFitFontSize(`${totalWords}`, 50, 34, statWeight),
-            computeFitFontSize(todayDurationText, 50, 34, statWeight),
-            computeFitFontSize(totalDurationText, 50, 34, statWeight)
+            computeFitMixedFontSize(`${todayLearned}`, 52, 34),
+            computeFitMixedFontSize(`${totalWords}`, 52, 34),
+            computeFitMixedFontSize(todayDurationText, 52, 34),
+            computeFitMixedFontSize(totalDurationText, 52, 34)
         );
-        const statFont = `${statWeight} ${statFontSize}px ${FONT_FAMILY}`;
         const labelOffset = Math.round(statFontSize + 14);
         const subOffset = labelOffset + 26;
+        const unitTextColor = '#5F6368';
 
         // 第 1 行左：今日已学词数
-        drawText(ctx, `${todayLearned}`, col1X, dataY1, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, `${todayLearned}`, col1X, dataY1, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#0061A4',
+            unitColor: unitTextColor
         });
         drawText(ctx, '今日已学词数', col1X, dataY1 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -13302,9 +13481,10 @@ function closeAvatarCropperModal() {
         });
 
         // 第 1 行右：累计学习词数
-        drawText(ctx, `${totalWords}`, col2X, dataY1, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, `${totalWords}`, col2X, dataY1, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#006874',
+            unitColor: unitTextColor
         });
         drawText(ctx, '累计学习词数', col2X, dataY1 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -13316,9 +13496,10 @@ function closeAvatarCropperModal() {
         });
 
         // 第 2 行左：今日学习时长
-        drawText(ctx, todayDurationText, col1X, dataY2, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, todayDurationText, col1X, dataY2, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#6750A4',
+            unitColor: unitTextColor
         });
         drawText(ctx, '今日学习时长', col1X, dataY2 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -13330,9 +13511,10 @@ function closeAvatarCropperModal() {
         });
 
         // 第 2 行右：累计学习时长
-        drawText(ctx, totalDurationText, col2X, dataY2, {
-            font: statFont,
-            color: '#1A1C1E'
+        drawMixedStatValue(ctx, totalDurationText, col2X, dataY2, statFontSize, {
+            numWeight: statWeight,
+            numColor: '#B45309',
+            unitColor: unitTextColor
         });
         drawText(ctx, '累计学习时长', col2X, dataY2 + labelOffset, {
             font: `700 16px ${FONT_FAMILY}`,
@@ -13584,9 +13766,10 @@ function closeAvatarCropperModal() {
         if (!isTimerOn) {
             // 未开启计时器：直接居中显示尝试次数
             const centerX = width / 2;
-            drawText(ctx, `${attemptsCount}`, centerX, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E',
+            drawMixedStatValue(ctx, `${attemptsCount}`, centerX, dataY, 64, {
+                numWeight: '700',
+                numColor: '#6750A4',
+                unitColor: '#5F6368',
                 align: 'center'
             });
             drawText(ctx, '尝试次数', centerX, dataY + 76, {
@@ -13603,11 +13786,17 @@ function closeAvatarCropperModal() {
             // 开启计时器：双列并排显示
             const col1X = 54;
             const col2X = width / 2 + 30;
+            const wordleColMaxW = (width / 2) - 64;
+            let wordleStatSize = 64;
+            while (wordleStatSize > 38 && measureMixedStatWidth(ctx, `${timeDisplay}`, wordleStatSize, { numWeight: '700', unitRatio: 0.44 }) > wordleColMaxW) {
+                wordleStatSize -= 2;
+            }
 
             // 尝试次数
-            drawText(ctx, `${attemptsCount}`, col1X, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E'
+            drawMixedStatValue(ctx, `${attemptsCount}`, col1X, dataY, wordleStatSize, {
+                numWeight: '700',
+                numColor: '#6750A4',
+                unitColor: '#5F6368'
             });
             drawText(ctx, '尝试次数', col1X, dataY + 76, {
                 font: `bold 16px ${FONT_FAMILY}`,
@@ -13619,9 +13808,11 @@ function closeAvatarCropperModal() {
             });
 
             // 用时
-            drawText(ctx, `${timeDisplay}`, col2X, dataY, {
-                font: `bold 64px ${FONT_FAMILY}`,
-                color: '#1A1C1E'
+            drawMixedStatValue(ctx, `${timeDisplay}`, col2X, dataY, wordleStatSize, {
+                numWeight: '700',
+                numColor: '#006874',
+                unitColor: '#5F6368',
+                unitRatio: 0.44
             });
             drawText(ctx, '用时', col2X, dataY + 76, {
                 font: `bold 16px ${FONT_FAMILY}`,
@@ -14905,21 +15096,61 @@ function saveScrollPositionForState(viewId, subviewKey = null) {
 }
 window.saveScrollPositionForState = saveScrollPositionForState;
 
-function restoreScrollPositionForState(viewId, subviewKey = null) {
+function getSavedScrollPositionForState(viewId, subviewKey = null) {
     if (typeof window === 'undefined' || !viewId) return 0;
     const key = getScrollStateKey(viewId, subviewKey);
-    const savedY = (window.__viewScrollPositions && typeof window.__viewScrollPositions[key] === 'number')
+    return (window.__viewScrollPositions && typeof window.__viewScrollPositions[key] === 'number')
         ? Math.max(0, window.__viewScrollPositions[key])
         : 0;
+}
+window.getSavedScrollPositionForState = getSavedScrollPositionForState;
+
+function restoreScrollPositionForState(viewId, subviewKey = null) {
+    if (typeof window === 'undefined' || !viewId) return 0;
+    if (window.__deferScrollRestoreForSwipeBack) return 0;
+    const savedY = getSavedScrollPositionForState(viewId, subviewKey);
     window.scrollTo({ top: savedY, behavior: 'instant' });
+    try {
+        if (document.documentElement) document.documentElement.scrollTop = savedY;
+        if (document.body) document.body.scrollTop = savedY;
+    } catch (e) { }
     if (savedY > 0 && typeof requestAnimationFrame === 'function') {
         requestAnimationFrame(() => {
-            window.scrollTo({ top: savedY, behavior: 'instant' });
+            if (window.__deferScrollRestoreForSwipeBack) return;
+            const curY = window.scrollY || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop) || 0;
+            if (Math.abs(curY - savedY) > 2) {
+                window.scrollTo({ top: savedY, behavior: 'instant' });
+            }
         });
     }
     return savedY;
 }
 window.restoreScrollPositionForState = restoreScrollPositionForState;
+
+function suppressChildTransitionsForNextFrame(el) {
+    if (!el || !el.classList) return;
+    if (el._suppressTransitionsRaf1) {
+        cancelAnimationFrame(el._suppressTransitionsRaf1);
+        el._suppressTransitionsRaf1 = 0;
+    }
+    if (el._suppressTransitionsRaf2) {
+        cancelAnimationFrame(el._suppressTransitionsRaf2);
+        el._suppressTransitionsRaf2 = 0;
+    }
+    el.classList.add('view-suppress-transitions');
+    if (typeof requestAnimationFrame === 'function') {
+        el._suppressTransitionsRaf1 = requestAnimationFrame(() => {
+            el._suppressTransitionsRaf1 = 0;
+            el._suppressTransitionsRaf2 = requestAnimationFrame(() => {
+                el._suppressTransitionsRaf2 = 0;
+                el.classList.remove('view-suppress-transitions');
+            });
+        });
+    } else {
+        setTimeout(() => el.classList.remove('view-suppress-transitions'), 32);
+    }
+}
+window.suppressChildTransitionsForNextFrame = suppressChildTransitionsForNextFrame;
 
 function cancelActiveDomTransition() {
     if (typeof activeDomTransitionCleanup === 'function') {
@@ -15166,10 +15397,7 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const fullSlideDistance = Math.ceil((rawViewportW / zoomScale) + Math.max(80, Math.abs(metrics.left || 0) + 80));
     const unlockContainer = lockContainerHeightForLayering(fromEl, zoomScale);
     docEl.classList.add(docClass);
-    // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
-    toEl.classList.add('no-enter-anim');
-    updateDom();
-
+    // 先锁定退出层固定定位与过渡类，再执行 updateDom 移除 .active，防止退出层在切页瞬间掉入 :not(.active) 塌陷为 height:0 / content-visibility:hidden
     fromEl.style.top = `${metrics.top}px`;
     fromEl.style.left = `${metrics.left}px`;
     fromEl.style.width = `${metrics.width}px`;
@@ -15177,6 +15405,11 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     fromEl.style.minHeight = `${metrics.minHeight}px`;
     fromEl.style.setProperty('--page-slide-out-x', `${fullSlideDistance}px`);
     fromEl.classList.add(outClass);
+
+    // 提前给目标层加上 no-enter-anim 与过渡抑制类，避免子元素从隐藏态/旧尺寸过渡错位及过渡结束重放闪烁
+    toEl.classList.add('no-enter-anim');
+    suppressChildTransitionsForNextFrame(toEl);
+    updateDom();
 
     // 在页面滑入动画类使目标层离屏偏移前先执行同步回调（如聚焦搜索框），防止 Safari/移动端拒绝聚焦离屏元素
     invokeCallback(options && options.onAfterDomUpdate);
@@ -15319,6 +15552,7 @@ function switchView(viewId, options = {}) {
             const v = views[i];
             const isTarget = (v.id === viewId);
             if (isTarget) {
+                if (!isSameView) suppressChildTransitionsForNextFrame(v);
                 if (isTabSwitch) v.classList.remove('no-enter-anim');
                 if (!v.classList.contains('active')) v.classList.add('active');
                 v.inert = false;
@@ -15339,13 +15573,12 @@ function switchView(viewId, options = {}) {
             const hubSuggs = document.getElementById('hub-search-suggestions');
             if (hubSuggs) hubSuggs.style.display = 'none';
             updateHub();
-            requestAnimationFrame(() => {
-                if (currentUser && typeof initGlobalPresence === 'function') {
-                    initGlobalPresence();
-                }
-            });
         } else if (viewId === 'view-auth') {
             if (typeof renderAuthView === 'function') renderAuthView();
+        } else if (viewId === 'view-single') {
+            if (typeof checkCardToolbarOverflow === 'function') {
+                checkCardToolbarOverflow();
+            }
         } else if (viewId === 'view-me') {
             const activeKey = window.__targetMeSubview || 'main';
             window.__targetMeSubview = null;
@@ -15356,9 +15589,10 @@ function switchView(viewId, options = {}) {
                     : document.getElementById(`settings-subview-${k}`);
                 if (el) {
                     const isActiveSub = (k === activeKey);
-                    if (isActiveSub && (isBack || skipTransition || window.__skipNextBackAnimation)) {
+                    if (isActiveSub) {
+                        // 进入个人中心视图时由 #view-me 统一承担入场动画，避免子视图叠加双重位移动画导致瞬间错位
                         el.classList.add('no-enter-anim');
-                    } else if (!isActiveSub) {
+                    } else {
                         el.classList.remove('no-enter-anim');
                     }
                     el.classList.toggle('active', isActiveSub);
@@ -15372,6 +15606,8 @@ function switchView(viewId, options = {}) {
             }
         } else if (viewId === 'view-settings') {
             if (typeof switchSettingsSubview === 'function') {
+                const mainSub = document.getElementById('settings-subview-main');
+                if (mainSub) mainSub.classList.add('no-enter-anim');
                 switchSettingsSubview('main', true, { preserveScroll: isBackIntent });
             }
         } else if (viewId === 'view-online') {
@@ -15381,7 +15617,6 @@ function switchView(viewId, options = {}) {
                 requestAnimationFrame(() => {
                     if (typeof fetchOnlineRoomsList === 'function') {
                         fetchOnlineRoomsList();
-                        initGlobalPresence();
                     }
                 });
             }
@@ -15398,9 +15633,19 @@ function switchView(viewId, options = {}) {
             }
         }
 
+        // 在线状态同步：除学习页面外均视为在线（免打扰除外）；进入/离开学习页面时立即刷新状态
+        requestAnimationFrame(() => {
+            if (!currentUser) return;
+            if (typeof syncPresenceForCurrentView === 'function') {
+                syncPresenceForCurrentView(viewId);
+            } else if (typeof initGlobalPresence === 'function') {
+                initGlobalPresence();
+            }
+        });
+
         if (isBackIntent) {
             restoreScrollPositionForState(viewId, targetSubKey);
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -15506,6 +15751,21 @@ function isHubGuestUser() {
     return !hasLoggedInProfile || !uname || uname.startsWith('游客');
 }
 
+function syncHubDndUI() {
+    const isDnd = (typeof isDoNotDisturbEnabled === 'function') ? isDoNotDisturbEnabled() : false;
+    const dndBtn = document.getElementById('hub-dd-dnd-btn');
+    const dndIcon = document.getElementById('hub-dd-dnd-icon');
+    if (dndBtn) {
+        dndBtn.setAttribute('aria-checked', isDnd ? 'true' : 'false');
+        dndBtn.classList.toggle('is-dnd-active', isDnd);
+        dndBtn.title = isDnd ? '免打扰已开启：点击恢复在线' : '开启免打扰：隐藏在线状态并拒收邀请';
+    }
+    if (dndIcon) {
+        dndIcon.innerText = isDnd ? 'do_not_disturb_on' : 'do_not_disturb_off';
+    }
+}
+window.syncHubDndUI = syncHubDndUI;
+
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
     // 游客状态下不需要下拉菜单，点击直接跳转登录页
@@ -15517,19 +15777,27 @@ function toggleHubUserDropdown(event) {
         return;
     }
     const dd = document.getElementById('hub-user-dropdown');
+    const pill = document.getElementById('hub-user-pill');
     if (!dd) return;
     const isVisible = dd.style.display === 'block';
     if (isVisible) {
         closeHubUserDropdown();
     } else {
         updateHub();
+        syncHubDndUI();
         dd.style.display = 'block';
+        if (pill) pill.setAttribute('aria-expanded', 'true');
     }
 }
 
-function closeHubUserDropdown() {
+function closeHubUserDropdown(restoreFocus = false) {
     const dd = document.getElementById('hub-user-dropdown');
+    const pill = document.getElementById('hub-user-pill');
     if (dd) dd.style.display = 'none';
+    if (pill) {
+        pill.setAttribute('aria-expanded', 'false');
+        if (restoreFocus) pill.focus();
+    }
 }
 
 function syncHubAppBarCompactState() {
@@ -15596,6 +15864,8 @@ const DEFAULT_HOME_MODE_ORDER = [
 function getHomeLayoutConfig() {
     const def = {
         collapseSearchBar: false,
+        collapseActivityCard: false,
+        collapseLeaderboardCard: false,
         hiddenCards: [],
         modeOrder: [...DEFAULT_HOME_MODE_ORDER]
     };
@@ -15613,6 +15883,8 @@ function getHomeLayoutConfig() {
         });
         return {
             collapseSearchBar: Boolean(parsed.collapseSearchBar),
+            collapseActivityCard: Boolean(parsed.collapseActivityCard),
+            collapseLeaderboardCard: Boolean(parsed.collapseLeaderboardCard),
             hiddenCards: hidden,
             modeOrder: order
         };
@@ -15625,6 +15897,8 @@ window.getHomeLayoutConfig = getHomeLayoutConfig;
 function saveHomeLayoutConfig(cfg) {
     const clean = {
         collapseSearchBar: Boolean(cfg.collapseSearchBar),
+        collapseActivityCard: Boolean(cfg.collapseActivityCard),
+        collapseLeaderboardCard: Boolean(cfg.collapseLeaderboardCard),
         hiddenCards: Array.isArray(cfg.hiddenCards)
             ? cfg.hiddenCards.filter(id => id !== 'hub-activity-entry-card' && id !== 'hub-leaderboard-entry-card')
             : [],
@@ -15649,14 +15923,26 @@ function applyHomeLayoutConfig() {
     const appBarSearchBtn = document.getElementById('btn-hub-appbar-search');
     setDisplayIfChanged(searchWrapper, cfg.collapseSearchBar ? 'none' : '');
     setDisplayIfChanged(appBarSearchBtn, cfg.collapseSearchBar ? 'inline-flex' : 'none');
-    syncHubAppBarCompactState();
 
-    // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
+    // 2. 活动与排行榜卡片收起/展开控制（收起后在首页顶栏显示对应图标入口）
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+    const showActivityCard = !isOffline && !cfg.collapseActivityCard;
+    const showLeaderboardCard = !cfg.collapseLeaderboardCard;
+
     const actCard = document.getElementById('hub-activity-entry-card');
-    setDisplayIfChanged(actCard, isOffline ? 'none' : 'flex');
+    setDisplayIfChanged(actCard, showActivityCard ? 'flex' : 'none');
+    const appBarActBtn = document.getElementById('btn-hub-appbar-activity');
+    setDisplayIfChanged(appBarActBtn, (!isOffline && cfg.collapseActivityCard) ? 'inline-flex' : 'none');
+
     const lbCard = document.getElementById('hub-leaderboard-entry-card');
-    setDisplayIfChanged(lbCard, 'flex');
+    setDisplayIfChanged(lbCard, showLeaderboardCard ? 'flex' : 'none');
+    const appBarLbBtn = document.getElementById('btn-hub-appbar-leaderboard');
+    setDisplayIfChanged(appBarLbBtn, cfg.collapseLeaderboardCard ? 'inline-flex' : 'none');
+
+    const actLbRow = document.getElementById('hub-activity-leaderboard-row');
+    setDisplayIfChanged(actLbRow, (showActivityCard || showLeaderboardCard) ? 'grid' : 'none');
+
+    syncHubAppBarCompactState();
 
     // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
     const onlineCard = document.getElementById('hub-online-players-card');
@@ -15681,15 +15967,35 @@ function applyHomeLayoutConfig() {
         const orderChanged = currentOrder.length !== targetOrder.length ||
             targetOrder.some((cid, idx) => currentOrder[idx] !== cid);
 
+        const visibleCards = [];
         targetOrder.forEach(cid => {
             const el = cardMap.get(cid);
             if (el) {
-                setDisplayIfChanged(el, hiddenSet.has(cid) ? 'none' : '');
+                const isHidden = hiddenSet.has(cid);
+                setDisplayIfChanged(el, isHidden ? 'none' : '');
+                el.classList.remove('mode-card-span-full-2col', 'mode-card-span-3col-2', 'mode-card-span-3col-full');
+                if (!isHidden) {
+                    visibleCards.push(el);
+                }
                 if (orderChanged) {
                     modesGrid.appendChild(el);
                 }
             }
         });
+
+        const visibleCount = visibleCards.length;
+        modesGrid.dataset.visibleCount = String(visibleCount);
+        modesGrid.classList.toggle('modes-grid-6col', visibleCount >= 5 && visibleCount % 3 === 2);
+
+        if (visibleCount >= 3 && visibleCount % 2 === 1) {
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-full-2col');
+        }
+        if (visibleCount >= 5 && visibleCount % 3 === 2) {
+            visibleCards[visibleCount - 2].classList.add('mode-card-span-3col-2');
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-3col-2');
+        } else if (visibleCount >= 7 && visibleCount % 3 === 1) {
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-3col-full');
+        }
     }
 }
 window.applyHomeLayoutConfig = applyHomeLayoutConfig;
@@ -15697,6 +16003,15 @@ window.applyHomeLayoutConfig = applyHomeLayoutConfig;
 document.addEventListener('pointerdown', (e) => {
     if (!e.target.closest('#hub-user-pill') && !e.target.closest('#hub-user-dropdown')) {
         closeHubUserDropdown();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const dd = document.getElementById('hub-user-dropdown');
+        if (dd && dd.style.display === 'block') {
+            closeHubUserDropdown(true);
+        }
     }
 });
 
@@ -15791,6 +16106,7 @@ function updateHub() {
         ddLogged.style.display = isLogged ? 'block' : 'none';
         ddGuest.style.display = isLogged ? 'none' : 'block';
     }
+    syncHubDndUI();
 
     const statTotal = document.getElementById('stat-total');
     const statAcc = document.getElementById('stat-acc');
@@ -15811,8 +16127,9 @@ function updateHub() {
         window.DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
     }
 
-    requestAnimationFrame(() => {
-        if (window.EbbinghausEngine) {
+    // 同步刷新徽标与搜索标签，避免切换回首页后首帧显示旧计数或顶栏在次帧发生宽度跳变
+    try {
+        if (window.EbbinghausEngine && typeof window.EbbinghausEngine.updateDueBadge === 'function') {
             window.EbbinghausEngine.updateDueBadge();
         }
         if (typeof updateHubShiCiBadge === 'function') {
@@ -15821,13 +16138,14 @@ function updateHub() {
         if (typeof initSearchTabs === 'function') {
             initSearchTabs();
         }
-        if (typeof ActivityManager !== 'undefined') {
+        if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
             ActivityManager.updateBadge();
         }
-        if (typeof MailManager !== 'undefined') {
+        if (typeof MailManager !== 'undefined' && typeof MailManager.updateBadge === 'function') {
             MailManager.updateBadge();
         }
-    });
+    } catch (e) { }
+    syncHubAppBarCompactState();
 }
 
 // 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
@@ -16116,6 +16434,8 @@ function isEnglishBook(b) {
             return {
                 fromEl: activeSub,
                 toEl: mainSub,
+                targetViewId: 'view-me',
+                targetSubKey: 'main',
                 commit: () => {
                     const backBtn = activeSub.querySelector('.nav-back-btn');
                     if (backBtn && typeof backBtn.click === 'function') {
@@ -16135,6 +16455,8 @@ function isEnglishBook(b) {
             return {
                 fromEl: activeSub,
                 toEl: mainSub,
+                targetViewId: 'view-settings',
+                targetSubKey: 'main',
                 commit: () => {
                     if (typeof switchSettingsSubview === 'function') {
                         switchSettingsSubview('main', true);
@@ -16171,9 +16493,15 @@ function isEnglishBook(b) {
         const toEl = document.getElementById(targetViewId);
         if (!fromEl || !toEl || fromEl === toEl) return null;
 
+        const targetSubKey = (targetViewId === 'view-me' && window.__authReturnMeSubview)
+            ? window.__authReturnMeSubview
+            : resolveCurrentSubviewKey(targetViewId);
+
         return {
             fromEl,
             toEl,
+            targetViewId,
+            targetSubKey,
             commit: () => {
                 const backBtn = fromEl.querySelector('.nav-back-btn:not(.search-page-settings-btn), .search-page-back-btn');
                 if (backBtn && typeof backBtn.click === 'function') {
@@ -16338,17 +16666,21 @@ function isEnglishBook(b) {
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
         const toCbRect = getFixedContainingBlockRect(ctx.toEl);
         const toTop = bodyPadTop - ((toCbRect.top || 0) / zoomScale);
+        const rawSavedY = getSavedScrollPositionForState(ctx.targetViewId, ctx.targetSubKey);
+        const viewportVisualH = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0;
 
         ctx.unlockContainer = lockContainerHeightForLayering(ctx.fromEl, zoomScale);
         document.documentElement.classList.add('swipe-back-active');
 
-        ctx.toEl.style.top = `${toTop}px`;
+        // 预先将目标层直接定位到其记忆滚动位置（top - savedY），避免左滑过程中先看到顶部、松手后再跳回原位置
+        ctx.targetSavedY = rawSavedY;
         ctx.toEl.style.left = `${stableLeft}px`;
         ctx.toEl.style.width = `${stableWidth}px`;
-        ctx.toEl.style.minHeight = `${metrics.minHeight}px`;
+        ctx.toEl.style.minHeight = `${Math.max(metrics.minHeight, (viewportVisualH + rawSavedY) / zoomScale)}px`;
         ctx.toEl.style.transition = 'none';
         ctx.toEl.style.animation = '';
         ctx.toEl.classList.add('swipe-back-incoming-layer');
+        ctx.toEl.style.top = `${toTop - (rawSavedY / zoomScale)}px`;
 
         ctx.fromEl.style.top = `${metrics.top}px`;
         ctx.fromEl.style.left = `${stableLeft}px`;
@@ -16464,15 +16796,31 @@ function isEnglishBook(b) {
             cancelSettleAnimation();
             state = null;
             if (shouldCommit) {
+                const targetViewId = current.ctx.targetViewId;
+                const targetSubKey = current.ctx.targetSubKey;
+                const targetSavedY = Math.max(0, Number(current.ctx.targetSavedY) || 0);
                 if (current.ctx.toEl) {
                     current.ctx.toEl.classList.add('no-enter-anim');
+                    suppressChildTransitionsForNextFrame(current.ctx.toEl);
                 }
                 window.__skipNextBackAnimation = true;
+                window.__deferScrollRestoreForSwipeBack = true;
                 try {
-                    // 先在保持双层定位（目标页已静止于 (0,0)）期间提交视图状态切换，再解除固定定位，彻底消除返回后的 1 帧尺寸/排版跳变
+                    // 先在保持双层定位期间提交视图状态切换，延后滚动恢复直至退出固定层，彻底消除先回到顶部再跳回原位置的闪烁
                     current.ctx.commit();
                 } finally {
                     resetSwipeLayers(current.ctx);
+                    window.__deferScrollRestoreForSwipeBack = false;
+                    // 解除固定定位的同一同步帧内立刻恢复到原滚动位置，视觉与拖拽终点像素级无缝衔接
+                    if (targetSavedY > 0) {
+                        window.scrollTo({ top: targetSavedY, behavior: 'instant' });
+                        try {
+                            if (document.documentElement) document.documentElement.scrollTop = targetSavedY;
+                            if (document.body) document.body.scrollTop = targetSavedY;
+                        } catch (e) { }
+                    } else if (targetViewId) {
+                        restoreScrollPositionForState(targetViewId, targetSubKey);
+                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
             } else {
@@ -16665,9 +17013,9 @@ function openBookSelectorPage(mode = 'single') {
     };
     if (titleEl) titleEl.textContent = modeNames[mode] || '选择词书';
 
-    switchView('view-book-selector');
     renderBookSelectorCategoryTabs();
     renderBookSelectorPage();
+    switchView('view-book-selector');
 }
 
 function exitBookSelectorPage() {
@@ -18121,9 +18469,9 @@ function openManageBooksPage(prevView = null) {
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
     manageBooksActiveCategory = isOffline ? '全部' : '我的';
 
-    switchView('view-manage-books');
     renderManageBooksCategoryTabs();
     renderManageBooksPage();
+    switchView('view-manage-books');
     if (typeof ElectronManager !== 'undefined' && ElectronManager.isAvailable()) {
         ElectronManager.scanAndSyncLocalBooks(true);
     }
@@ -20980,6 +21328,8 @@ let leaderboardPreviousView = 'view-hub';
 let wordleLeaderboardDate = (new Date()).toISOString().slice(0, 10);
 let wordleLeaderboardSort = 'time'; // 'time' | 'attempts'
 let _leaderboardPromptInFlight = false;
+let _leaderboardVisibilityUpdating = false;
+let _leaderboardVisibilityPendingTarget = null;
 
 function isOnlineLoggedInLeaderboardUser(username = null) {
     if (typeof isOfflineMode === 'function' && isOfflineMode()) return false;
@@ -21054,61 +21404,88 @@ function isAccountVisibleOnLeaderboard(acc, currUser = '') {
 async function setUserLeaderboardVisibility(showOnLeaderboard, options = {}) {
     const u = (typeof currentUser !== 'undefined' ? currentUser : '');
     if (!isOnlineLoggedInLeaderboardUser(u)) return false;
+    if (_leaderboardVisibilityUpdating) return false;
 
     const nextVisible = Boolean(showOnLeaderboard);
-    saveLeaderboardVisibilityPref(u, {
-        showOnLeaderboard: nextVisible,
-        prompted: true
-    });
+    const prevPref = getLeaderboardVisibilityPref(u);
+
+    // 点击后先立即改变按钮状态并锁定等待响应，避免重复点击与延迟无反馈
+    _leaderboardVisibilityUpdating = true;
+    _leaderboardVisibilityPendingTarget = nextVisible;
     updateLeaderboardVisibilityToggleUI();
 
-    if (typeof sbClient !== 'undefined' && sbClient) {
-        try {
-            const { data: existingRow } = await sbClient
-                .from('user_accounts')
-                .select('user_data')
-                .eq('username', u)
-                .maybeSingle();
-            const mergedUserData = {
-                ...((existingRow && existingRow.user_data && typeof existingRow.user_data === 'object') ? existingRow.user_data : {}),
-                show_on_leaderboard: nextVisible,
-                leaderboard_opt_in_prompted: true
-            };
-            const nowIso = new Date().toISOString();
-            const { error } = await sbClient
-                .from('user_accounts')
-                .update({
+    let remoteFailed = false;
+    try {
+        if (typeof sbClient !== 'undefined' && sbClient) {
+            try {
+                const { data: existingRow, error: fetchErr } = await sbClient
+                    .from('user_accounts')
+                    .select('user_data')
+                    .eq('username', u)
+                    .maybeSingle();
+                if (fetchErr) throw fetchErr;
+                const mergedUserData = {
+                    ...((existingRow && existingRow.user_data && typeof existingRow.user_data === 'object') ? existingRow.user_data : {}),
                     show_on_leaderboard: nextVisible,
-                    user_data: mergedUserData,
-                    updated_at: nowIso
-                })
-                .eq('username', u);
-            if (error && error.message && error.message.includes('show_on_leaderboard')) {
-                await sbClient
+                    leaderboard_opt_in_prompted: true
+                };
+                const nowIso = new Date().toISOString();
+                const { error } = await sbClient
                     .from('user_accounts')
                     .update({
+                        show_on_leaderboard: nextVisible,
                         user_data: mergedUserData,
                         updated_at: nowIso
                     })
                     .eq('username', u);
+                if (error && error.message && error.message.includes('show_on_leaderboard')) {
+                    const { error: fallbackErr } = await sbClient
+                        .from('user_accounts')
+                        .update({
+                            user_data: mergedUserData,
+                            updated_at: nowIso
+                        })
+                        .eq('username', u);
+                    if (fallbackErr) throw fallbackErr;
+                } else if (error) {
+                    throw error;
+                }
+            } catch (e) {
+                remoteFailed = true;
+                console.warn('[Leaderboard] Failed to persist visibility to Supabase:', e);
             }
-        } catch (e) {
-            console.warn('[Leaderboard] Failed to persist visibility to Supabase:', e);
         }
-    }
 
-    if (!options.silent && typeof showToast === 'function') {
-        showToast(nextVisible ? '已在排行榜中显示自己' : '已在排行榜中隐藏自己');
-    }
-
-    if (typeof currentView !== 'undefined' && currentView === 'view-leaderboard') {
-        if (leaderboardActiveTab === 'level') {
-            renderLevelLeaderboard();
-        } else {
-            renderWordleLeaderboard();
+        if (remoteFailed) {
+            saveLeaderboardVisibilityPref(u, prevPref);
+            if (!options.silent && typeof showToast === 'function') {
+                showToast('切换失败，请检查网络后重试');
+            }
+            return false;
         }
+
+        saveLeaderboardVisibilityPref(u, {
+            showOnLeaderboard: nextVisible,
+            prompted: true
+        });
+
+        if (!options.silent && typeof showToast === 'function') {
+            showToast(nextVisible ? '已在排行榜中显示自己' : '已在排行榜中隐藏自己');
+        }
+
+        if (typeof currentView !== 'undefined' && currentView === 'view-leaderboard') {
+            if (leaderboardActiveTab === 'level') {
+                await renderLevelLeaderboard();
+            } else {
+                await renderWordleLeaderboard();
+            }
+        }
+        return true;
+    } finally {
+        _leaderboardVisibilityUpdating = false;
+        _leaderboardVisibilityPendingTarget = null;
+        updateLeaderboardVisibilityToggleUI();
     }
-    return true;
 }
 window.setUserLeaderboardVisibility = setUserLeaderboardVisibility;
 
@@ -21121,13 +21498,32 @@ function updateLeaderboardVisibilityToggleUI() {
         return;
     }
     const pref = getLeaderboardVisibilityPref(u);
-    const isShown = pref.showOnLeaderboard !== false;
+    const isPending = Boolean(_leaderboardVisibilityUpdating && typeof _leaderboardVisibilityPendingTarget === 'boolean');
+    const isShown = isPending ? _leaderboardVisibilityPendingTarget : (pref.showOnLeaderboard !== false);
     btn.style.display = 'inline-flex';
     const icon = document.getElementById('lb-visibility-icon');
     const label = document.getElementById('lb-visibility-label');
-    if (icon) icon.innerText = isShown ? 'visibility' : 'visibility_off';
-    if (label) label.innerText = isShown ? '隐藏自己' : '显示自己';
-    btn.title = isShown ? '点击在排行榜中隐藏自己' : '点击在排行榜中显示自己';
+
+    btn.disabled = isPending;
+    btn.classList.toggle('is-loading', isPending);
+    if (isPending) {
+        btn.setAttribute('aria-busy', 'true');
+    } else {
+        btn.removeAttribute('aria-busy');
+    }
+
+    if (icon) {
+        icon.innerText = isPending ? 'sync' : (isShown ? 'visibility' : 'visibility_off');
+        icon.classList.toggle('rotating', isPending);
+    }
+    if (label) {
+        label.innerText = isPending
+            ? (isShown ? '显示中...' : '隐藏中...')
+            : (isShown ? '隐藏自己' : '显示自己');
+    }
+    btn.title = isPending
+        ? (isShown ? '正在排行榜中显示自己，请稍候...' : '正在排行榜中隐藏自己，请稍候...')
+        : (isShown ? '点击在排行榜中隐藏自己' : '点击在排行榜中显示自己');
     btn.classList.toggle('btn-tonal', isShown);
     btn.classList.toggle('btn-filled', !isShown);
 }
@@ -21136,6 +21532,7 @@ window.updateLeaderboardVisibilityToggleUI = updateLeaderboardVisibilityToggleUI
 async function toggleMyLeaderboardVisibility() {
     const u = typeof currentUser !== 'undefined' ? currentUser : '';
     if (!isOnlineLoggedInLeaderboardUser(u)) return;
+    if (_leaderboardVisibilityUpdating) return;
     const pref = getLeaderboardVisibilityPref(u);
     await setUserLeaderboardVisibility(!(pref.showOnLeaderboard !== false));
 }
@@ -21186,11 +21583,11 @@ function openLeaderboardView(tab = 'level') {
         stopDailyTimer();
     }
 
+    updateLeaderboardVisibilityToggleUI();
+    switchLeaderboardTab(leaderboardActiveTab);
     if (typeof switchView === 'function') {
         switchView('view-leaderboard');
     }
-    updateLeaderboardVisibilityToggleUI();
-    switchLeaderboardTab(leaderboardActiveTab);
 
     setTimeout(() => {
         maybePromptLeaderboardOptIn('first_open');
@@ -25030,18 +25427,43 @@ function persistSingleConfig() {
 }
 
 let singleConfig = normalizeSingleConfig();
+let singleSettingsDraft = null;
 loadSingleConfig();
+
+function getActiveSingleSessionContext() {
+    const inView = (typeof currentView !== 'undefined' && currentView === 'view-single');
+    const hasState = Boolean(typeof singleState !== 'undefined' && singleState && Array.isArray(singleState.pool) && singleState.pool.length > 0);
+    const inSession = inView && hasState;
+    const isReview = inSession && Boolean(singleState.isReview || String(singleState.sessionName || '').includes('复习'));
+    return { inSession, isReview };
+}
+
+function updateSingleSettingsModalVisibility() {
+    const { inSession, isReview } = getActiveSingleSessionContext();
+    const orderGroup = document.getElementById('single-settings-group-order');
+    const learnGroup = document.getElementById('single-settings-group-learn-batch');
+    const reviewGroup = document.getElementById('single-settings-group-review-batch');
+    const clearGroup = document.getElementById('single-settings-group-clear-progress');
+
+    // 在学习新词或复习时隐藏学习顺序与清空学习/复习进度；学习新词时隐藏复习节奏，复习时隐藏学习节奏
+    if (orderGroup) orderGroup.style.display = inSession ? 'none' : '';
+    if (clearGroup) clearGroup.style.display = inSession ? 'none' : '';
+    if (learnGroup) learnGroup.style.display = (inSession && isReview) ? 'none' : '';
+    if (reviewGroup) reviewGroup.style.display = (inSession && !isReview) ? 'none' : '';
+}
 
 function openSingleSettings() {
     const modal = document.getElementById('modal-single-settings');
     if (!modal) return;
     loadSingleConfig();
+    singleSettingsDraft = normalizeSingleConfig(singleConfig);
     const tip = document.getElementById('audio-online-tip');
     if (tip) {
         tip.innerText = navigator.onLine ? '(需联网)' : '(离线待联网时自动发音)';
         tip.style.color = navigator.onLine ? 'var(--md-sys-color-outline)' : 'var(--md-sys-color-error)';
     }
-    updateSingleSettingsChips();
+    updateSingleSettingsModalVisibility();
+    updateSingleSettingsChips(singleSettingsDraft);
     updateSingleProgressStatusUI(); // 检查并更新当前进度状态
     modal.classList.add('active');
 }
@@ -25148,24 +25570,26 @@ function clearCurrentSingleProgress() {
 }
 
 function closeSingleSettings() {
+    singleSettingsDraft = null;
     const modal = document.getElementById('modal-single-settings');
     if (modal) modal.classList.remove('active');
 }
 
-function updateSingleSettingsChips() {
+function updateSingleSettingsChips(cfg = null) {
+    const activeCfg = cfg || singleSettingsDraft || singleConfig;
     const orderSeq = document.getElementById('chip-single-order-seq');
     const orderRand = document.getElementById('chip-single-order-rand');
-    if (orderSeq) orderSeq.classList.toggle('selected', singleConfig.order !== 'random');
-    if (orderRand) orderRand.classList.toggle('selected', singleConfig.order === 'random');
+    if (orderSeq) orderSeq.classList.toggle('selected', activeCfg.order !== 'random');
+    if (orderRand) orderRand.classList.toggle('selected', activeCfg.order === 'random');
 
     const meaningAll = document.getElementById('chip-single-meaning-all');
     const meaningRand = document.getElementById('chip-single-meaning-rand') || document.getElementById('chip-single-meaning-random');
-    if (meaningAll) meaningAll.classList.toggle('selected', singleConfig.meaningMode !== 'random');
-    if (meaningRand) meaningRand.classList.toggle('selected', singleConfig.meaningMode === 'random');
+    if (meaningAll) meaningAll.classList.toggle('selected', activeCfg.meaningMode !== 'random');
+    if (meaningRand) meaningRand.classList.toggle('selected', activeCfg.meaningMode === 'random');
 
     const learnSlider = document.getElementById('slider-single-learn-batch');
     if (learnSlider) {
-        learnSlider.value = singleConfig.learnBatch || 10;
+        learnSlider.value = activeCfg.learnBatch || 10;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(learnSlider, val => `${val} 词`);
         }
@@ -25173,7 +25597,7 @@ function updateSingleSettingsChips() {
 
     const reviewSlider = document.getElementById('slider-single-review-batch');
     if (reviewSlider) {
-        reviewSlider.value = singleConfig.reviewBatch || 20;
+        reviewSlider.value = activeCfg.reviewBatch || 20;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 词`);
         }
@@ -25181,16 +25605,22 @@ function updateSingleSettingsChips() {
 
     const retestSwitch = document.getElementById('switch-single-retest');
     if (retestSwitch) {
-        retestSwitch.checked = (singleConfig.immediateRetest !== false);
+        retestSwitch.checked = (activeCfg.immediateRetest !== false);
     }
     const autoplaySwitch = document.getElementById('switch-single-autoplay');
     if (autoplaySwitch) {
-        autoplaySwitch.checked = (singleConfig.autoPlayAudio === true);
+        autoplaySwitch.checked = (activeCfg.autoPlayAudio === true);
     }
 }
 
 function selectSingleOrder(order) {
-    singleConfig.order = (order === 'random') ? 'random' : 'sequence';
+    const val = (order === 'random') ? 'random' : 'sequence';
+    if (singleSettingsDraft) {
+        singleSettingsDraft.order = val;
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
+    singleConfig.order = val;
     updateSingleSettingsChips();
     persistSingleConfig();
 }
@@ -25252,26 +25682,13 @@ function applyMeaningModeToPool(pool, mode, startIdx = 0, force = false) {
     return changed;
 }
 
-function selectSingleMeaningMode(mode) {
-    const nextMode = (mode === 'random') ? 'random' : 'all';
-    singleConfig.meaningMode = nextMode;
-    updateSingleSettingsChips();
-    persistSingleConfig();
-    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
-        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
-    }
-
-    // 同步刷新当前进行中或已保存未答完的题库，确保切换“词性及释义展示”后立即生效
+function applySingleMeaningModeToActiveAndSaved(nextMode) {
+    // 同步刷新当前进行中或已保存未答完的题库，确保保存“词性及释义展示”后立即生效
     if (typeof singleState !== 'undefined' && singleState && Array.isArray(singleState.pool) && singleState.pool.length > 0) {
         const startAt = singleState.answered ? (singleState.currentIdx + 1) : singleState.currentIdx;
         const refreshed = applyMeaningModeToPool(singleState.pool, nextMode, startAt, true);
         if (refreshed) {
             saveSingleProgress();
-        }
-        const isViewingSingle = (typeof currentView !== 'undefined' && currentView === 'view-single')
-            || (typeof gameMode !== 'undefined' && gameMode === 'single');
-        if (isViewingSingle && typeof renderSingleQuestion === 'function') {
-            renderSingleQuestion();
         }
     }
     if (typeof currentUser !== 'undefined' && currentUser) {
@@ -25290,10 +25707,38 @@ function selectSingleMeaningMode(mode) {
         });
     }
 }
+
+function selectSingleMeaningMode(mode) {
+    const nextMode = (mode === 'random') ? 'random' : 'all';
+    if (singleSettingsDraft) {
+        singleSettingsDraft.meaningMode = nextMode;
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
+    singleConfig.meaningMode = nextMode;
+    updateSingleSettingsChips();
+    persistSingleConfig();
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
+    }
+    applySingleMeaningModeToActiveAndSaved(nextMode);
+    const isViewingSingle = (typeof currentView !== 'undefined' && currentView === 'view-single')
+        || (typeof gameMode !== 'undefined' && gameMode === 'single');
+    if (isViewingSingle && typeof renderSingleQuestion === 'function') {
+        renderSingleQuestion();
+    }
+}
 window.selectSingleMeaningMode = selectSingleMeaningMode;
 
 function handleSingleLearnBatchSlider(val) {
-    const num = parseInt(val) || 10;
+    const num = parseInt(val, 10) || 10;
+    if (singleSettingsDraft) {
+        singleSettingsDraft.learnBatch = num;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
+        }
+        return;
+    }
     singleConfig.learnBatch = num;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-learn-batch', v => `${v} 词`);
@@ -25303,7 +25748,14 @@ function handleSingleLearnBatchSlider(val) {
 window.handleSingleLearnBatchSlider = handleSingleLearnBatchSlider;
 
 function handleSingleReviewBatchSlider(val) {
-    const num = parseInt(val) || 20;
+    const num = parseInt(val, 10) || 20;
+    if (singleSettingsDraft) {
+        singleSettingsDraft.reviewBatch = num;
+        if (typeof updateMd3SliderUI === 'function') {
+            updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
+        }
+        return;
+    }
     singleConfig.reviewBatch = num;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-single-review-batch', v => v >= 45 ? '全部' : `${v} 词`);
@@ -25321,6 +25773,11 @@ function selectReviewBatch(val) {
 }
 
 function selectImmediateRetest(val) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.immediateRetest = Boolean(val);
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
     singleConfig.immediateRetest = Boolean(val);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -25328,6 +25785,10 @@ function selectImmediateRetest(val) {
 window.selectImmediateRetest = selectImmediateRetest;
 
 function toggleSingleRetestSwitch(checked) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.immediateRetest = Boolean(checked);
+        return;
+    }
     singleConfig.immediateRetest = Boolean(checked);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -25335,6 +25796,11 @@ function toggleSingleRetestSwitch(checked) {
 window.toggleSingleRetestSwitch = toggleSingleRetestSwitch;
 
 function selectAutoPlayAudio(val) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.autoPlayAudio = Boolean(val);
+        updateSingleSettingsChips(singleSettingsDraft);
+        return;
+    }
     singleConfig.autoPlayAudio = Boolean(val);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -25345,6 +25811,10 @@ function selectAutoPlayAudio(val) {
 window.selectAutoPlayAudio = selectAutoPlayAudio;
 
 function toggleSingleAutoplaySwitch(checked) {
+    if (singleSettingsDraft) {
+        singleSettingsDraft.autoPlayAudio = Boolean(checked);
+        return;
+    }
     singleConfig.autoPlayAudio = Boolean(checked);
     updateSingleSettingsChips();
     persistSingleConfig();
@@ -25354,18 +25824,260 @@ function toggleSingleAutoplaySwitch(checked) {
 }
 window.toggleSingleAutoplaySwitch = toggleSingleAutoplaySwitch;
 
-function saveSingleSettings() {
+function recountSinglePoolBaseTargetTotal(pool) {
+    const _normKey = (w) => typeof normalizeWordKey === 'function'
+        ? normalizeWordKey(w)
+        : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const keys = new Set();
+    (pool || []).forEach(q => {
+        if (q && !q._isRetest && q.word) {
+            const k = _normKey(q.word);
+            if (k) keys.add(k);
+        }
+    });
+    return keys.size || (pool ? pool.length : 0);
+}
+
+function shrinkActiveSinglePoolToBatch(targetBatch) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const lockedIdx = Math.max(singleState.currentIdx || 0, singleState.maxReachedIdx || 0);
+    let currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (currentBaseCount <= targetBatch) return;
+
+    for (let i = singleState.pool.length - 1; i > lockedIdx && currentBaseCount > targetBatch; i--) {
+        const item = singleState.pool[i];
+        if (!item || item.answered || item._isRetest) continue;
+        singleState.pool.splice(i, 1);
+        currentBaseCount--;
+    }
+    singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+}
+
+async function applyBatchSizeChangeToActiveSingleLearnSession(newBatch) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (newBatch === currentBaseCount) return;
+
+    if (newBatch < currentBaseCount) {
+        shrinkActiveSinglePoolToBatch(newBatch);
+        return;
+    }
+
+    const need = newBatch - currentBaseCount;
+    if (need <= 0 || !singleSelectedBookIds || singleSelectedBookIds.length === 0) return;
+
+    try {
+        const words = await BookManager.loadMultipleBooks(singleSelectedBookIds);
+        if (!words || words.length === 0) return;
+        dictionary = words;
+
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        const existingKeys = new Set(singleState.pool.map(q => _normKey(q && q.word)).filter(Boolean));
+        const learnedMap = EbbinghausEngine.getRecords();
+        const seenCandidateKeys = new Set();
+        const candidateWords = words.filter(w => {
+            if (!w || !w.word) return false;
+            const normK = _normKey(w.word);
+            if (!normK || seenCandidateKeys.has(normK) || existingKeys.has(normK)) return false;
+            if (isWordMastered(normK)) return false;
+            const rec = typeof getEbbinghausRecordByWord === 'function'
+                ? getEbbinghausRecordByWord(learnedMap, w.word)
+                : (learnedMap[normK] || learnedMap[w.word.trim().toLowerCase()]);
+            if (rec && rec.stage >= 1) return false;
+            seenCandidateKeys.add(normK);
+            return true;
+        });
+
+        if (candidateWords.length === 0) return;
+        const extraTargets = (singleConfig.order === 'random')
+            ? [...candidateWords].sort(() => 0.5 - Math.random()).slice(0, need)
+            : candidateWords.slice(0, need);
+        if (extraTargets.length === 0) return;
+
+        const extraPool = generateShuffledPoolFromWords(extraTargets, extraTargets.length, singleConfig.meaningMode || 'all');
+        if (Array.isArray(extraPool) && extraPool.length > 0) {
+            singleState.pool.push(...extraPool);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+    } catch (e) {
+        console.warn('[SingleSettings] Expand learn batch failed:', e);
+    }
+}
+
+async function applyBatchSizeChangeToActiveSingleReviewSession(newBatchSetting) {
+    if (!singleState || !Array.isArray(singleState.pool) || singleState.pool.length === 0) return;
+    const isAll = newBatchSetting >= 45;
+    const currentBaseCount = recountSinglePoolBaseTargetTotal(singleState.pool);
+    if (!isAll && newBatchSetting === currentBaseCount) return;
+
+    if (!isAll && newBatchSetting < currentBaseCount) {
+        shrinkActiveSinglePoolToBatch(newBatchSetting);
+        return;
+    }
+
+    try {
+        const specificBookId = (typeof currentReviewBookId !== 'undefined' && currentReviewBookId && currentReviewBookId !== 'all')
+            ? currentReviewBookId
+            : null;
+        let targetBookIds = [];
+        if (specificBookId) {
+            if (specificBookId === 'other_due') {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
+            } else {
+                targetBookIds = [specificBookId];
+            }
+        } else {
+            const booksWithDue = getBooksWithDueWords();
+            if (booksWithDue.length > 0) {
+                targetBookIds = booksWithDue.map(b => b.id);
+            } else {
+                targetBookIds = (singleSelectedBookIds && singleSelectedBookIds.length > 0) ? singleSelectedBookIds : ['books/高中/高中考纲.json'];
+            }
+        }
+
+        let words = await BookManager.loadMultipleBooks(targetBookIds);
+        if (!words || words.length === 0) {
+            words = (typeof DEFAULT_WORDS !== 'undefined' ? DEFAULT_WORDS : []);
+        }
+
+        const _normKey = (w) => typeof normalizeWordKey === 'function'
+            ? normalizeWordKey(w)
+            : String(w || '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        const wordMap = new Map();
+        words.forEach(w => {
+            if (w && w.word) wordMap.set(_normKey(w.word), w);
+        });
+
+        let dueRecords = [];
+        if (specificBookId === 'other_due') {
+            const knownDueKeys = new Set();
+            getBooksWithDueWords().forEach(b => {
+                EbbinghausEngine.getDueWordsForBooks([b.id]).forEach(d => knownDueKeys.add(_normKey(d.word)));
+            });
+            dueRecords = EbbinghausEngine.getDueWords().filter(r => !knownDueKeys.has(_normKey(r.word)));
+        } else if (specificBookId) {
+            dueRecords = EbbinghausEngine.getDueWordsForBooks(targetBookIds);
+        } else {
+            dueRecords = EbbinghausEngine.getDueWords();
+        }
+
+        const existingKeys = new Set(singleState.pool.map(q => _normKey(q && q.word)).filter(Boolean));
+        let candidateRecords = dueRecords.filter(r => {
+            const k = _normKey(r && r.word);
+            return k && !existingKeys.has(k) && !sessionReviewedWords.has(k);
+        });
+
+        if (candidateRecords.length === 0) {
+            candidateRecords = EbbinghausEngine.getAllLearnedWords().filter(r => {
+                const k = _normKey(r && r.word);
+                return k && wordMap.has(k) && !isWordMastered(k) && !(r.stage >= 5) && !existingKeys.has(k) && !sessionReviewedWords.has(k);
+            });
+        }
+
+        if (candidateRecords.length === 0) return;
+        candidateRecords.sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+        const need = isAll ? candidateRecords.length : Math.max(0, newBatchSetting - currentBaseCount);
+        const selectedExtra = candidateRecords.slice(0, need);
+        if (selectedExtra.length === 0) return;
+
+        const wordsList = selectedExtra.map(r => {
+            const existing = wordMap.get(_normKey(r.word));
+            const bId = r.bookId || (targetBookIds.length > 0 ? targetBookIds[0] : null);
+            if (existing) {
+                return { ...existing, bookId: bId, bookName: '复习' };
+            }
+            const fallbackParsed = (typeof parsePosMeaningString === 'function')
+                ? parsePosMeaningString(r.meaning || '---')
+                : [{ pos: '', meaning: r.meaning || '---' }];
+            return {
+                word: r.word,
+                phone: r.phone || '',
+                bookId: bId,
+                bookName: '复习',
+                meanings: fallbackParsed.length > 0 ? fallbackParsed : [{ pos: '', meaning: r.meaning || '---' }]
+            };
+        });
+
+        const extraPool = generateShuffledPoolFromWords(wordsList, wordsList.length, singleConfig.meaningMode || 'all');
+        if (Array.isArray(extraPool) && extraPool.length > 0) {
+            singleState.pool.push(...extraPool);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+    } catch (e) {
+        console.warn('[SingleSettings] Expand review batch failed:', e);
+    }
+}
+
+async function saveSingleSettings() {
+    const prevConfig = normalizeSingleConfig(singleConfig);
+    const nextConfig = normalizeSingleConfig(singleSettingsDraft || singleConfig);
+
+    const learnSlider = document.getElementById('slider-single-learn-batch');
+    if (learnSlider) nextConfig.learnBatch = parseInt(learnSlider.value, 10) || nextConfig.learnBatch;
+    const reviewSlider = document.getElementById('slider-single-review-batch');
+    if (reviewSlider) nextConfig.reviewBatch = parseInt(reviewSlider.value, 10) || nextConfig.reviewBatch;
     const retestSwitch = document.getElementById('switch-single-retest');
-    if (retestSwitch) {
-        singleConfig.immediateRetest = Boolean(retestSwitch.checked);
-    }
+    if (retestSwitch) nextConfig.immediateRetest = Boolean(retestSwitch.checked);
     const autoplaySwitch = document.getElementById('switch-single-autoplay');
-    if (autoplaySwitch) {
-        singleConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
-    }
+    if (autoplaySwitch) nextConfig.autoPlayAudio = Boolean(autoplaySwitch.checked);
+
+    singleConfig = nextConfig;
     persistSingleConfig();
+    if (window.SyncManager && typeof window.SyncManager.enqueue === 'function') {
+        window.SyncManager.enqueue('single_config', { timestamp: Date.now() }, false);
+    }
+
+    const { inSession, isReview } = getActiveSingleSessionContext();
     closeSingleSettings();
-    showToast('设置已保存');
+
+    const meaningChanged = prevConfig.meaningMode !== singleConfig.meaningMode;
+    if (meaningChanged) {
+        applySingleMeaningModeToActiveAndSaved(singleConfig.meaningMode);
+    }
+
+    if (inSession && singleState && Array.isArray(singleState.pool)) {
+        // 关闭即时复习时，立即移除后续尚未作答的复测题
+        if (prevConfig.immediateRetest !== false && singleConfig.immediateRetest === false) {
+            const curIdx = singleState.currentIdx || 0;
+            singleState.pool = singleState.pool.filter((item, idx) => idx <= curIdx || !item || !item._isRetest || item.answered);
+            singleState.targetTotal = recountSinglePoolBaseTargetTotal(singleState.pool);
+        }
+
+        // 学习节奏 / 复习节奏变更后立即应用到当前学习/复习组
+        if (!isReview && prevConfig.learnBatch !== singleConfig.learnBatch) {
+            await applyBatchSizeChangeToActiveSingleLearnSession(singleConfig.learnBatch);
+        } else if (isReview && prevConfig.reviewBatch !== singleConfig.reviewBatch) {
+            await applyBatchSizeChangeToActiveSingleReviewSession(singleConfig.reviewBatch);
+        }
+
+        saveSingleProgress();
+        if (typeof updateSingleProgressDisplay === 'function') {
+            updateSingleProgressDisplay();
+        }
+        if (meaningChanged && typeof renderSingleQuestion === 'function') {
+            renderSingleQuestion();
+        } else if (!prevConfig.autoPlayAudio && singleConfig.autoPlayAudio && navigator.onLine) {
+            const q = singleState.pool[singleState.currentIdx];
+            const isPhrase = Boolean(q && (q.isPhrase !== undefined ? q.isPhrase : (q.word && q.word.trim().includes(' ') && (!q.senses || q.senses.length === 0))));
+            if (q && q.word && (!isPhrase || singleState.answered) && typeof playWordAudio === 'function') {
+                playWordAudio(q.word);
+            }
+        }
+    }
+
+    if (typeof updateHubResumeButtons === 'function') {
+        updateHubResumeButtons();
+    }
+
+    if (!navigator.onLine && !prevConfig.autoPlayAudio && singleConfig.autoPlayAudio) {
+        showToast('设置已保存（自动发音联网后生效）');
+    } else {
+        showToast('设置已保存并生效');
+    }
 }
 
 
@@ -26531,7 +27243,7 @@ function toggleMasteredWord(word, phone = '', meaning = '', type = 'word') {
         });
         nowMastered = true;
         _updateMasteredRemovedMap(clean, false);
-        showToast(`已将“${cleanWord}”标为熟词，以后不再复习`);
+        showToast(`已标为熟词，以后将不再复习`);
     }
     saveMasteredWords(list);
     if (type !== 'shici' && window.EbbinghausEngine) {
@@ -26611,7 +27323,7 @@ function toggleCurrentWordMastered() {
         updateSingleProgressDisplay();
         saveSingleProgress();
         if (typeof showToast === 'function') {
-            showToast(`已将“${q.word}”标为熟词，以后将不再复习`);
+            showToast(`已标为熟词，以后将不再复习`);
         }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
@@ -29932,6 +30644,7 @@ async function confirmCreateCustomBook() {
    6. 联机大厅与房间设置 (专属房间、房间预设、实时对战与高并发保护)
    ========================================================================== */
 let userExclusiveRoomPreset = null;
+let userExclusiveRoomPresetOwner = '';
 let activeEditingPreset = null;
 let activeInviteRules = null;
 let activeInviteTarget = null;
@@ -30066,12 +30779,102 @@ function getUserRoomCode(username) {
     return Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(-6);
 }
 
+function getExistingDuelBookIdSet(options = {}) {
+    const excludeLocal = Boolean(options && options.excludeLocal);
+    const idSet = new Set();
+    const hasAvailable = typeof BookManager !== 'undefined' && Array.isArray(BookManager.availableBooks) && BookManager.availableBooks.length > 0;
+    const baseList = hasAvailable
+        ? BookManager.availableBooks
+        : ((typeof BookManager !== 'undefined' && Array.isArray(BookManager.fallbackBooks)) ? BookManager.fallbackBooks : []);
+
+    baseList.forEach(b => {
+        if (!b || !b.id) return;
+        if (excludeLocal && (String(b.id).startsWith('custom_') || b.id === 'builtin_default')) return;
+        idSet.add(b.id);
+        if (b.path) idSet.add(b.path);
+    });
+
+    if (typeof BookManager !== 'undefined' && Array.isArray(BookManager.dorisBooks)) {
+        BookManager.dorisBooks.forEach(b => {
+            if (!b || !b.id) return;
+            idSet.add(b.id);
+            if (b.path) idSet.add(b.path);
+        });
+    }
+
+    if (!excludeLocal && Array.isArray(window.customBooks)) {
+        window.customBooks.forEach(b => {
+            if (!b || !b.id) return;
+            idSet.add(b.id);
+        });
+    }
+
+    return idSet;
+}
+
+function getFallbackExistingDuelBookId(existingIds) {
+    const defaultId = 'books/高中/高中考纲.json';
+    if (existingIds.has(defaultId)) return defaultId;
+    const hasAvailable = typeof BookManager !== 'undefined' && Array.isArray(BookManager.availableBooks) && BookManager.availableBooks.length > 0;
+    const baseList = hasAvailable
+        ? BookManager.availableBooks
+        : ((typeof BookManager !== 'undefined' && Array.isArray(BookManager.fallbackBooks)) ? BookManager.fallbackBooks : []);
+    const firstCloud = baseList.find(b => b && b.id && b.id !== 'builtin_default' && existingIds.has(b.id));
+    if (firstCloud) return firstCloud.id;
+    const firstAny = existingIds.values().next().value;
+    return firstAny || defaultId;
+}
+
+function sanitizeDuelPresetBooks(bookIds, options = {}) {
+    const fallbackIfEmpty = options.fallbackIfEmpty !== false;
+    const input = Array.isArray(bookIds) ? bookIds : [];
+    const existingIds = getExistingDuelBookIdSet(options);
+    const legacyMap = (typeof BookManager !== 'undefined' && BookManager.legacyBookMap) ? BookManager.legacyBookMap : {};
+    const cleaned = [];
+    const seen = new Set();
+    let removedCount = 0;
+
+    input.forEach(rawId => {
+        if (!rawId || typeof rawId !== 'string') {
+            removedCount++;
+            return;
+        }
+        const mappedId = legacyMap[rawId] || rawId;
+        const resolvedId = existingIds.has(rawId)
+            ? rawId
+            : (existingIds.has(mappedId) ? mappedId : null);
+
+        if (!resolvedId) {
+            removedCount++;
+            return;
+        }
+        if (!seen.has(resolvedId)) {
+            seen.add(resolvedId);
+            cleaned.push(resolvedId);
+        }
+    });
+
+    if (cleaned.length === 0 && fallbackIfEmpty) {
+        const fb = getFallbackExistingDuelBookId(existingIds);
+        if (fb) cleaned.push(fb);
+    }
+
+    const changed = removedCount > 0 ||
+        cleaned.length !== input.length ||
+        cleaned.some((id, idx) => id !== input[idx]);
+
+    return { books: cleaned, removedCount, changed };
+}
+window.sanitizeDuelPresetBooks = sanitizeDuelPresetBooks;
+
 function getDefaultRoomPreset(user) {
     const isGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(user) : (!user || user.startsWith('游客'));
     const name = user ? `${user}的房间` : '对战房间';
-    const books = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
+    const rawBooks = (typeof singleSelectedBookIds !== 'undefined' && Array.isArray(singleSelectedBookIds) && singleSelectedBookIds.length > 0)
         ? [...singleSelectedBookIds]
         : ['books/高中/高中考纲.json'];
+    const matchType = isGuest ? 'friendly' : 'ranked';
+    const { books } = sanitizeDuelPresetBooks(rawBooks, { excludeLocal: matchType === 'ranked' });
     return {
         name: name,
         capacity: 2,
@@ -30079,26 +30882,48 @@ function getDefaultRoomPreset(user) {
         duration: 120,
         winLead: 6,
         gaugeStyle: 'tug',
-        matchType: isGuest ? 'friendly' : 'ranked',
+        matchType: matchType,
         meaningMode: 'all',
         selectedBooks: books
     };
 }
 
 function getUserExclusivePreset() {
-    if (userExclusiveRoomPreset) return userExclusiveRoomPreset;
-    try {
-        const saved = localStorage.getItem('vocab_room_preset_' + currentUser);
-        if (saved) {
-            userExclusiveRoomPreset = JSON.parse(saved);
-            return userExclusiveRoomPreset;
+    const owner = currentUser || '';
+    if (!userExclusiveRoomPreset || userExclusiveRoomPresetOwner !== owner) {
+        userExclusiveRoomPreset = null;
+        userExclusiveRoomPresetOwner = owner;
+        try {
+            const saved = localStorage.getItem('vocab_room_preset_' + owner);
+            if (saved) {
+                userExclusiveRoomPreset = JSON.parse(saved);
+            }
+        } catch (e) { }
+        if (!userExclusiveRoomPreset && currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
+            userExclusiveRoomPreset = JSON.parse(JSON.stringify(currentUserProfile.user_data.room_preset));
         }
-    } catch (e) { }
-    if (currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
-        userExclusiveRoomPreset = currentUserProfile.user_data.room_preset;
-        return userExclusiveRoomPreset;
+        if (!userExclusiveRoomPreset) {
+            userExclusiveRoomPreset = getDefaultRoomPreset(owner);
+        }
     }
-    userExclusiveRoomPreset = getDefaultRoomPreset(currentUser);
+
+    if (userExclusiveRoomPreset && Array.isArray(userExclusiveRoomPreset.selectedBooks)) {
+        const sanitized = sanitizeDuelPresetBooks(userExclusiveRoomPreset.selectedBooks, {
+            excludeLocal: userExclusiveRoomPreset.matchType === 'ranked'
+        });
+        if (sanitized.changed) {
+            userExclusiveRoomPreset.selectedBooks = sanitized.books;
+            try {
+                if (owner) {
+                    localStorage.setItem('vocab_room_preset_' + owner, JSON.stringify(userExclusiveRoomPreset));
+                }
+            } catch (e) { }
+            if (currentUserProfile && currentUserProfile.user_data && currentUserProfile.user_data.room_preset) {
+                currentUserProfile.user_data.room_preset = JSON.parse(JSON.stringify(userExclusiveRoomPreset));
+            }
+        }
+    }
+
     return userExclusiveRoomPreset;
 }
 
@@ -30108,6 +30933,10 @@ function openRoomPresetModal() {
         return;
     }
     activeEditingPreset = JSON.parse(JSON.stringify(getUserExclusivePreset()));
+    const sanitized = sanitizeDuelPresetBooks(activeEditingPreset.selectedBooks, {
+        excludeLocal: activeEditingPreset.matchType === 'ranked'
+    });
+    activeEditingPreset.selectedBooks = sanitized.books;
     
     const nameInput = document.getElementById('preset-room-name-input');
     if (nameInput) nameInput.value = activeEditingPreset.name || `${currentUser}的房间`;
@@ -30292,8 +31121,13 @@ async function saveRoomPreset() {
     const nameVal = (nameInput ? nameInput.value : '').trim();
     activeEditingPreset.name = nameVal || `${currentUser}的房间`;
     activeEditingPreset.capacity = 2;
+    const sanitized = sanitizeDuelPresetBooks(activeEditingPreset.selectedBooks, {
+        excludeLocal: activeEditingPreset.matchType === 'ranked'
+    });
+    activeEditingPreset.selectedBooks = sanitized.books;
 
     userExclusiveRoomPreset = JSON.parse(JSON.stringify(activeEditingPreset));
+    userExclusiveRoomPresetOwner = currentUser || '';
     try {
         localStorage.setItem('vocab_room_preset_' + currentUser, JSON.stringify(userExclusiveRoomPreset));
     } catch (e) { }
@@ -33208,39 +34042,144 @@ async function cleanAccountSwitchPresence(oldUser, newUser) {
     }
 
     CLIENT_SESSION_ID = 'sess_' + Math.random().toString(36).slice(2) + Date.now();
+    userExclusiveRoomPreset = null;
+    userExclusiveRoomPresetOwner = '';
+    lastTrackedPresenceStatus = null;
+    lastPresenceRestPushTime = 0;
     syncGlobalPresenceState();
     fetchOnlineRoomsList();
 }
 window.cleanAccountSwitchPresence = cleanAccountSwitchPresence;
 
-async function updateMyLobbyPresence() {
-    if (!currentUser || !globalLobbyChannel) return;
-    let myRank = 1;
-    let myRating = 0;
-    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
-        const rd = LevelManager.getUserRankData(currentUser);
-        myRank = rd.rank;
-        myRating = rd.rating;
-    }
-    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const status = isPlayingMatch ? 'playing' : 'idle';
+const LEARNING_PRESENCE_VIEWS = new Set([
+    'view-single',
+    'view-shici',
+    'view-dictation',
+    'view-riddle'
+]);
+
+let lastTrackedPresenceStatus = null;
+let lastPresenceRestPushTime = 0;
+
+function isInLearningView(viewId) {
+    const v = viewId || (typeof currentView !== 'undefined' ? currentView : 'view-hub');
+    return LEARNING_PRESENCE_VIEWS.has(v);
+}
+window.isInLearningView = isInLearningView;
+
+function getDndStorageKey(username) {
+    const u = username || (typeof currentUser !== 'undefined' ? currentUser : '');
+    return u ? `vocab_dnd_mode_${u}` : 'vocab_dnd_mode';
+}
+
+function isDoNotDisturbEnabled() {
     try {
-        await globalLobbyChannel.track({
-            username: currentUser,
-            sessionId: CLIENT_SESSION_ID,
-            avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
-            level: myRank,
-            rank: myRank,
-            rating: myRating,
-            isBili: isBili,
-            status: status,
-            joinedAt: Date.now()
-        });
+        return localStorage.getItem(getDndStorageKey()) === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+window.isDoNotDisturbEnabled = isDoNotDisturbEnabled;
+
+function computeMyPresenceStatus(viewId) {
+    const v = viewId || (typeof currentView !== 'undefined' ? currentView : 'view-hub');
+    if (isDoNotDisturbEnabled()) return 'invisible';
+    if (isInLearningView(v)) return 'invisible';
+    if (isPlayingMatch || v === 'view-game' || v === 'view-local-duel') return 'playing';
+    return 'idle';
+}
+window.computeMyPresenceStatus = computeMyPresenceStatus;
+
+function pushRestOnlineBeacon(statusVal, force = false) {
+    if (!sbClient || !currentUser) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+    const nowMs = Date.now();
+    if (!force && (nowMs - lastPresenceRestPushTime < 45000)) return;
+    lastPresenceRestPushTime = nowMs;
+
+    try {
+        const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
+        const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
+        const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+        const effectiveStatus = statusVal || computeMyPresenceStatus();
+        const isInvisible = (effectiveStatus === 'invisible');
+
+        sbClient.from('rooms').upsert({
+            code: `ONL_${getUserRoomCode(currentUser)}`,
+            name: currentUser,
+            host: currentUser,
+            capacity: 2,
+            player_count: isInvisible ? 0 : 1,
+            status: effectiveStatus,
+            is_temporary: true,
+            config: {
+                avatar: myAvatar,
+                rank: myRankData.rank,
+                rating: myRankData.rating,
+                isBili: isBili,
+                status: effectiveStatus,
+                invisible: isInvisible,
+                clientSession: CLIENT_SESSION_ID
+            },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'code' }).then(() => { }).catch(() => { });
+
+        if (!isInvisible && currentUserProfile && currentUserProfile.isLoggedIn) {
+            sbClient.from('user_accounts').update({
+                updated_at: new Date().toISOString()
+            }).eq('username', currentUser).then(() => { }).catch(() => { });
+        }
     } catch (e) { }
 }
 
-function initGlobalPresence() {
-    if (!currentUser || !sbClient) return;
+function setDoNotDisturbEnabled(enabled, options = {}) {
+    const nextVal = Boolean(enabled);
+    try {
+        localStorage.setItem(getDndStorageKey(), nextVal ? 'true' : 'false');
+    } catch (e) { }
+
+    if (typeof syncHubDndUI === 'function') {
+        syncHubDndUI();
+    }
+
+    if (nextVal && currentIncomingInvite) {
+        if (matchInviteTimer) clearInterval(matchInviteTimer);
+        const modal = document.getElementById('modal-match-invite');
+        if (modal) modal.classList.remove('active');
+        markInviteHandled(currentIncomingInvite);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: currentIncomingInvite.from,
+                accepted: false,
+                isDnd: true,
+                isInvisible: true,
+                roomCode: currentIncomingInvite.roomCode
+            });
+        }
+        currentIncomingInvite = null;
+    }
+
+    if (typeof updateMyLobbyPresence === 'function') {
+        updateMyLobbyPresence(true);
+    }
+
+    if (!options.silent && typeof showToast === 'function') {
+        showToast(nextVal ? '已开启免打扰：不再显示在在线玩家中，且不接收邀请' : '已关闭免打扰：恢复在线状态');
+    }
+}
+window.setDoNotDisturbEnabled = setDoNotDisturbEnabled;
+
+function toggleDoNotDisturbMode(event) {
+    if (event) event.stopPropagation();
+    const nextVal = !isDoNotDisturbEnabled();
+    setDoNotDisturbEnabled(nextVal);
+}
+window.toggleDoNotDisturbMode = toggleDoNotDisturbMode;
+
+async function updateMyLobbyPresence(forceRestSync = false) {
+    if (!currentUser) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
 
     let myRank = 1;
     let myRating = 0;
@@ -33250,7 +34189,70 @@ function initGlobalPresence() {
         myRating = rd.rating;
     }
     const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-    const initialStatus = isPlayingMatch ? 'playing' : 'idle';
+    const status = computeMyPresenceStatus();
+    const isInvisible = (status === 'invisible');
+    const statusChanged = (lastTrackedPresenceStatus !== status);
+    lastTrackedPresenceStatus = status;
+
+    if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
+        try {
+            await globalLobbyChannel.track({
+                username: currentUser,
+                sessionId: CLIENT_SESSION_ID,
+                avatar: (typeof getUserAvatar === 'function' ? getUserAvatar(currentUser) : ''),
+                level: myRank,
+                rank: myRank,
+                rating: myRating,
+                isBili: isBili,
+                status: status,
+                invisible: isInvisible,
+                joinedAt: Date.now()
+            });
+        } catch (e) { }
+    } else if (!globalLobbyChannel && !isConnectingLobby) {
+        initGlobalPresence();
+    }
+
+    if (forceRestSync || statusChanged) {
+        pushRestOnlineBeacon(status, true);
+    }
+}
+window.updateMyLobbyPresence = updateMyLobbyPresence;
+
+function syncPresenceForCurrentView(viewId) {
+    if (!currentUser || !sbClient) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+    const nextStatus = computeMyPresenceStatus(viewId);
+    const statusChanged = (lastTrackedPresenceStatus !== nextStatus);
+
+    if (!globalLobbyChannel || (globalLobbyChannel.state !== 'joined' && globalLobbyChannel.state !== 'subscribing') || lobbyCurrentChannelUser !== currentUser) {
+        initGlobalPresence();
+        if (statusChanged || nextStatus === 'invisible') {
+            lastTrackedPresenceStatus = nextStatus;
+            pushRestOnlineBeacon(nextStatus, true);
+        }
+    } else if (statusChanged) {
+        updateMyLobbyPresence(true);
+    }
+}
+window.syncPresenceForCurrentView = syncPresenceForCurrentView;
+
+function initGlobalPresence() {
+    if (!currentUser || !sbClient) return;
+    if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+    let myRank = 1;
+    let myRating = 0;
+    if (typeof LevelManager !== 'undefined' && currentUser && !currentUser.startsWith('游客')) {
+        const rd = LevelManager.getUserRankData(currentUser);
+        myRank = rd.rank;
+        myRating = rd.rating;
+    }
+    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
+    const initialStatus = computeMyPresenceStatus();
+    const isInvisible = (initialStatus === 'invisible');
+    lastTrackedPresenceStatus = initialStatus;
 
     if (globalLobbyChannel) {
         if ((globalLobbyChannel.state === 'joined' || globalLobbyChannel.state === 'subscribing') && lobbyCurrentChannelUser === currentUser) {
@@ -33266,6 +34268,7 @@ function initGlobalPresence() {
                             rating: myRating,
                             isBili: isBili,
                             status: initialStatus,
+                            invisible: isInvisible,
                             joinedAt: Date.now()
                         }).catch(() => {});
                     }
@@ -33334,6 +34337,7 @@ function initGlobalPresence() {
                 rating: myRating,
                 isBili: isBili,
                 status: initialStatus,
+                invisible: isInvisible,
                 joinedAt: Date.now()
             }).catch(() => {});
         }
@@ -33405,6 +34409,9 @@ function initGlobalPresence() {
                     clearTimeout(lobbyReconnectTimer);
                     lobbyReconnectTimer = null;
                 }
+                const liveStatus = computeMyPresenceStatus();
+                const liveInvisible = (liveStatus === 'invisible');
+                lastTrackedPresenceStatus = liveStatus;
                 if (chan && typeof chan.track === 'function') {
                     try {
                         await chan.track({
@@ -33415,13 +34422,15 @@ function initGlobalPresence() {
                             rank: myRank,
                             rating: myRating,
                             isBili: isBili,
-                            status: initialStatus,
+                            status: liveStatus,
+                            invisible: liveInvisible,
                             joinedAt: Date.now()
                         });
                     } catch (e) {
                         console.warn('[Presence] track error:', e);
                     }
                 }
+                pushRestOnlineBeacon(liveStatus, true);
                 fetchOnlineRoomsList();
                 syncGlobalPresenceState();
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -33459,6 +34468,12 @@ function startPresenceHeartbeat() {
     if (presenceHeartbeatTimer) return;
     presenceHeartbeatTimer = setInterval(async () => {
         if (!currentUser) return;
+        if (typeof isOfflineMode === 'function' && isOfflineMode()) return;
+
+        const currentStatus = computeMyPresenceStatus();
+        const isInvisible = (currentStatus === 'invisible');
+        lastTrackedPresenceStatus = currentStatus;
+
         if (globalLobbyChannel && globalLobbyChannel.state === 'joined') {
             try {
                 let myRank = 1;
@@ -33469,7 +34484,6 @@ function startPresenceHeartbeat() {
                     myRating = rd.rating;
                 }
                 const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-                const initialStatus = isPlayingMatch ? 'playing' : 'idle';
                 globalLobbyChannel.track({
                     username: currentUser,
                     sessionId: CLIENT_SESSION_ID,
@@ -33478,7 +34492,8 @@ function startPresenceHeartbeat() {
                     rank: myRank,
                     rating: myRating,
                     isBili: isBili,
-                    status: initialStatus,
+                    status: currentStatus,
+                    invisible: isInvisible,
                     joinedAt: Date.now()
                 });
             } catch (e) { }
@@ -33496,48 +34511,17 @@ function startPresenceHeartbeat() {
         }
 
         // 2. REST 在线信标更新，保证跨网络环境下可被其他玩家检索到（节流控制：每 45 秒最多 1 次，对决中严格跳过）
-        const nowMs = Date.now();
-        if (!isPlayingMatch && (nowMs - lastRestOnlineFetchTime >= 45000)) {
-            try {
-                if (sbClient && currentUser) {
-                    const myRankData = (typeof LevelManager !== 'undefined') ? LevelManager.getUserRankData(currentUser) : { rank: 1, rating: 0 };
-                    const myAvatar = (typeof getUserAvatar === 'function') ? getUserAvatar(currentUser) : '';
-                    const statusVal = 'idle';
-                    const isBili = (typeof currentUserProfile !== 'undefined' && currentUserProfile && (currentUserProfile.type === 'bilibili' || currentUserProfile.isBili)) || false;
-
-                    // 2.1 全员写入 rooms 表中的 ONL 信标 (覆盖游客与已登录用户，跨网络直达)
-                    sbClient.from('rooms').upsert({
-                        code: `ONL_${getUserRoomCode(currentUser)}`,
-                        name: currentUser,
-                        host: currentUser,
-                        capacity: 2,
-                        player_count: 1,
-                        status: statusVal,
-                        is_temporary: true,
-                        config: {
-                            avatar: myAvatar,
-                            rank: myRankData.rank,
-                            rating: myRankData.rating,
-                            isBili: isBili,
-                            status: statusVal,
-                            clientSession: CLIENT_SESSION_ID
-                        },
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'code' }).then(() => { }).catch(() => { });
-
-                    // 2.2 登录用户额外更新 user_accounts 活跃时间戳 (节流到每 60 秒最多一次)
-                    if (currentUserProfile && currentUserProfile.isLoggedIn) {
-                        sbClient.from('user_accounts').update({
-                            updated_at: new Date().toISOString()
-                        }).eq('username', currentUser).then(() => { }).catch(() => { });
-                    }
-                }
-            } catch (e) { }
+        if (!isPlayingMatch) {
+            pushRestOnlineBeacon(currentStatus, false);
         }
 
-        // 3. 跨网络对战邀请监听兜底：若 WebSocket 广播被运营商防火墙丢弃，通过云端 rooms 表接收邀请
+        // 3. 跨网络对战邀请监听兜底：除学习页面、对局中、免打扰外的所有页面均可接收云端邀请
         try {
-            if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && (currentView === 'view-hub' || currentView === 'view-online')) {
+            const canReceiveInviteOnView = !isDoNotDisturbEnabled() &&
+                !isInLearningView() &&
+                currentView !== 'view-game' &&
+                currentView !== 'view-local-duel';
+            if (sbClient && currentUser && !currentIncomingInvite && !isPlayingMatch && canReceiveInviteOnView) {
                 const inRoomEl = document.getElementById('online-in-room');
                 const isInRoom = inRoomEl && inRoomEl.style.display !== 'none' && typeof roomCode !== 'undefined' && roomCode;
                 if (!isInRoom) {
@@ -33582,6 +34566,7 @@ function startPresenceHeartbeat() {
 
 let cachedRestOnlineUsers = [];
 let lastRestOnlineFetchTime = 0;
+let lastRestInvisibleUsers = new Set();
 
 async function fetchRestOnlineUsers() {
     if (!sbClient) return [];
@@ -33594,6 +34579,7 @@ async function fetchRestOnlineUsers() {
         const threshold = new Date(now - 300 * 1000).toISOString();
         const results = [];
         const seen = new Set();
+        const invisibleUsers = new Set();
 
         // 1. 获取 rooms 表中的在线信标 (覆盖游客与已登录用户)
         const { data: beaconRooms } = await sbClient
@@ -33608,7 +34594,13 @@ async function fetchRestOnlineUsers() {
             beaconRooms.forEach(br => {
                 const uName = br.host || br.name;
                 const cfg = br.config || {};
-                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) return;
+                if (br.status === 'invisible' || cfg.status === 'invisible' || cfg.invisible === true) {
+                    if (uName) {
+                        invisibleUsers.add(uName);
+                        seen.add(uName);
+                    }
+                    return;
+                }
                 if (uName && !seen.has(uName)) {
                     seen.add(uName);
                     results.push({
@@ -33637,14 +34629,18 @@ async function fetchRestOnlineUsers() {
         if (Array.isArray(accounts)) {
             accounts.forEach(acc => {
                 const uData = acc.user_data || {};
-                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) return;
-                if (acc.username && !seen.has(acc.username)) {
+                if (acc.status === 'invisible' || uData.status === 'invisible' || uData.invisible === true) {
+                    if (acc.username) invisibleUsers.add(acc.username);
+                    return;
+                }
+                if (acc.username && !seen.has(acc.username) && !invisibleUsers.has(acc.username)) {
                     seen.add(acc.username);
                     results.push(acc);
                 }
             });
         }
 
+        lastRestInvisibleUsers = invisibleUsers;
         cachedRestOnlineUsers = results;
         lastRestOnlineFetchTime = now;
         return results;
@@ -33652,10 +34648,11 @@ async function fetchRestOnlineUsers() {
     return cachedRestOnlineUsers;
 }
 
-// 在线玩家过滤掉自己、当前客户端会话、隐身用户，跨网络融合并展示等级与对局状态
+// 在线玩家过滤掉自己、当前客户端会话、隐身/免打扰/学习中用户，跨网络融合并展示等级与对局状态
 async function syncGlobalPresenceState() {
     const state = globalLobbyChannel ? globalLobbyChannel.presenceState() : {};
     const onlineUsersMap = new Map();
+    const invisibleUsers = new Set();
     const isLogged = isCurrentUserLoggedIn();
     const savedGuestName = (typeof SafeStorage !== 'undefined') ? SafeStorage.getItem('vocab_guest_name') : null;
 
@@ -33673,8 +34670,12 @@ async function syncGlobalPresenceState() {
         if (recentlySwitchedAccounts.has(k) || recentlySwitchedAccounts.has(pUsername)) return;
         // 4. 已登录用户：彻底过滤本地历史游客账号
         if (isLogged && savedGuestName && (k === savedGuestName || pUsername === savedGuestName)) return;
-        // 5. 隐身用户不展示在列表中
-        if (pres.status === 'invisible' || pres.invisible === true) return;
+        // 5. 隐身/免打扰/学习中用户不展示在列表中，并阻止被 REST 兜底重新加入
+        if (pres.status === 'invisible' || pres.invisible === true) {
+            invisibleUsers.add(pUsername);
+            invisibleUsers.add(k);
+            return;
+        }
 
         let avatar = pres.avatar || (typeof getUserAvatar === 'function' ? getUserAvatar(pUsername) : '');
         if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
@@ -33698,17 +34699,23 @@ async function syncGlobalPresenceState() {
     // 2. 跨网络兜底：融合 REST 活跃用户（即使不同网络环境 WebSocket 连接不畅也能互相发现）
     try {
         const restUsers = await fetchRestOnlineUsers();
+        if (lastRestInvisibleUsers && lastRestInvisibleUsers.size > 0) {
+            lastRestInvisibleUsers.forEach(u => invisibleUsers.add(u));
+        }
         restUsers.forEach(ru => {
             const uName = ru.username;
             if (!uName || uName === currentUser) return;
             if (recentlySwitchedAccounts.has(uName)) return;
             if (isLogged && savedGuestName && uName === savedGuestName) return;
+            if (invisibleUsers.has(uName)) return;
             const uData = ru.user_data || {};
-            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) return;
+            if (ru.status === 'invisible' || uData.status === 'invisible' || ru.invisible === true) {
+                invisibleUsers.add(uName);
+                return;
+            }
             if (!onlineUsersMap.has(uName)) {
                 let avatar = ru.avatar_url || (typeof getUserAvatar === 'function' ? getUserAvatar(uName) : '');
                 if (avatar && avatar.startsWith('//')) avatar = 'https:' + avatar;
-                const uData = ru.user_data || {};
                 const rankVal = uData.rank_data?.rank || ru.level || 1;
                 const ratingVal = uData.rank_data?.rating || 0;
                 const isBiliVal = (uData.account_type === 'bilibili' || uData.isBili === true);
@@ -33726,12 +34733,13 @@ async function syncGlobalPresenceState() {
         });
     } catch (e) { }
 
-    // 3. 融合活跃房间房主（房主处于在线等待对战状态）
+    // 3. 融合活跃房间房主（房主处于在线等待对战状态，且未开启免打扰/隐身）
     if (cachedDbRooms && cachedDbRooms.length > 0) {
         const now = Date.now();
         cachedDbRooms.forEach(r => {
             if (r.code && r.code.startsWith('ONL_')) return;
             if (r.host && r.host !== currentUser && r.status === 'waiting') {
+                if (invisibleUsers.has(r.host)) return;
                 if (isLogged && savedGuestName && r.host === savedGuestName) return;
                 const roomAge = now - new Date(r.updated_at || r.created_at || now).getTime();
                 if (roomAge < 120000 && !onlineUsersMap.has(r.host)) {
@@ -33895,12 +34903,16 @@ function openCreateMatchInviteModal(targetUser) {
     const isMeGuest = (typeof LevelManager !== 'undefined') ? LevelManager.isGuestUser(currentUser) : (!currentUser || currentUser.startsWith('游客'));
 
     if (isLogged) {
-        // 使用专属房间预设
+        // 使用专属房间预设，并移除不存在的词书
         const preset = getUserExclusivePreset();
         activeInviteRules = JSON.parse(JSON.stringify(preset));
         if (isTargetGuest || isMeGuest) {
             activeInviteRules.matchType = 'friendly';
         }
+        const sanitized = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, {
+            excludeLocal: activeInviteRules.matchType === 'ranked'
+        });
+        activeInviteRules.selectedBooks = sanitized.books;
 
         if (presetView) {
             presetView.style.display = 'block';
@@ -33917,10 +34929,12 @@ function openCreateMatchInviteModal(targetUser) {
         if (toggleBtnText) toggleBtnText.innerText = '修改规则';
         if (toggleBtnIcon) toggleBtnIcon.innerText = 'edit';
     } else {
-        // 游客模式：直接显示规则编辑
+        // 游客模式：直接显示规则编辑，并移除不存在的词书
         activeInviteRules = getDefaultRoomPreset(currentUser);
         activeInviteRules.name = `${currentUser}的挑战房`;
         activeInviteRules.matchType = 'friendly';
+        const sanitized = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, { excludeLocal: false });
+        activeInviteRules.selectedBooks = sanitized.books;
         if (presetView) presetView.style.display = 'none';
         if (rulesEditor) rulesEditor.style.display = 'flex';
         if (roomNameField) roomNameField.style.display = 'block';
@@ -34205,6 +35219,11 @@ async function confirmAndSendMatchInvite() {
         effectiveMatchType = 'friendly';
     }
 
+    const sanitizedBooks = sanitizeDuelPresetBooks(activeInviteRules.selectedBooks, {
+        excludeLocal: effectiveMatchType === 'ranked'
+    });
+    activeInviteRules.selectedBooks = sanitizedBooks.books;
+
     const matchConfig = {
         name: finalRoomName,
         capacity: 2,
@@ -34214,7 +35233,7 @@ async function confirmAndSendMatchInvite() {
         matchType: effectiveMatchType,
         meaningMode: activeInviteRules.meaningMode || 'all',
         targetUser: activeInviteTarget,
-        selectedBooks: activeInviteRules.selectedBooks || ['books/高中/高中考纲.json']
+        selectedBooks: activeInviteRules.selectedBooks
     };
 
     // 保存到 Supabase 房间表
@@ -34363,9 +35382,43 @@ function handleReceivedMatchInvite(payload) {
         });
     }
 
-    // 1. 如果当前玩家正处于对局中或已在房间内，自动回复正忙并防刷
-    const isInGameOrRoom = (typeof roomCode !== 'undefined' && roomCode) ||
-        (typeof currentView !== 'undefined' && (currentView === 'view-online' || currentView === 'view-duel'));
+    // 0. 免打扰模式下不接收任何邀请
+    if (isDoNotDisturbEnabled()) {
+        markInviteHandled(payload);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isDnd: true,
+                isInvisible: true,
+                roomCode: payload.roomCode
+            });
+        }
+        return;
+    }
+
+    // 1. 学习页面中不视为在线，不弹出邀请打扰学习
+    if (isInLearningView()) {
+        markInviteHandled(payload);
+        if (globalLobbyChannel) {
+            safeBroadcast(globalLobbyChannel, 'invite_response', {
+                from: currentUser,
+                to: payload.from,
+                accepted: false,
+                isLearning: true,
+                isInvisible: true,
+                roomCode: payload.roomCode
+            });
+        }
+        return;
+    }
+
+    // 2. 如果当前玩家正处于对局中或已在房间内，自动回复正忙并防刷
+    const inRoomEl = document.getElementById('online-in-room');
+    const isInRoomView = Boolean((typeof roomCode !== 'undefined' && roomCode) || (inRoomEl && inRoomEl.style.display !== 'none'));
+    const isInGameOrRoom = isInRoomView || isPlayingMatch ||
+        (typeof currentView !== 'undefined' && (currentView === 'view-game' || currentView === 'view-local-duel' || currentView === 'view-duel'));
     if (isInGameOrRoom) {
         markInviteHandled(payload);
         if (globalLobbyChannel) {
@@ -34727,9 +35780,13 @@ function handleMatchInviteResponse(payload) {
         connectSupabaseChannel(roomCode);
         switchView('view-online');
     } else {
-        const reason = payload.isInvisible
-            ? '当前处于隐身状态，已自动拒绝对决'
-            : (payload.isBusy ? '当前正在对局中，无法接受邀请' : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'));
+        const reason = payload.isDnd
+            ? '已开启免打扰，暂不接收对战邀请'
+            : (payload.isLearning
+                ? '正在学习中，暂不接收对战邀请'
+                : (payload.isInvisible
+                    ? '当前处于隐身状态，已自动拒绝对决'
+                    : (payload.isBusy ? '当前正在对局中，无法接受邀请' : (payload.isTimeout ? '超时未应答' : '谢绝了对战邀请'))));
         showToast(`玩家【${payload.from}】${reason}`);
         if (payload.roomCode && payload.roomCode !== getUserRoomCode(currentUser)) {
             sbClient.from('rooms').delete().eq('code', payload.roomCode).then(() => {}).catch(() => {});
@@ -34886,15 +35943,19 @@ async function fetchOnlineRoomsList(manual = false) {
         }
     });
 
-    // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，自动调出邀请弹窗
-    const myInviteRoom = (dbRooms || []).find(r => {
+    // 跨网络邀请兜底：如果云端发现以自己为目标的活跃等待房间，且当前未开启免打扰、未在学习中、未在对局或房间内，自动调出邀请弹窗
+    const canAcceptDbFallbackInvite = !isDoNotDisturbEnabled() &&
+        !isInLearningView() &&
+        !isPlayingMatch &&
+        !(typeof roomCode !== 'undefined' && roomCode);
+    const myInviteRoom = canAcceptDbFallbackInvite ? (dbRooms || []).find(r => {
         if (!r.code || r.code.startsWith('ONL_')) return false;
         if (r.status !== 'waiting' || r.host === currentUser) return false;
         const cfg = r.config || {};
         if (cfg.targetUser !== currentUser) return false;
         const age = now - new Date(r.updated_at || r.created_at || now).getTime();
         return age < 25000;
-    });
+    }) : null;
     if (myInviteRoom) {
         const inviteCandidate = {
             from: myInviteRoom.host,
@@ -39693,50 +40754,269 @@ function updateShiCiMasterBtn(isMastered) {
     }
 }
 
+let shiciSettingsDraft = null;
+
+function getActiveShiCiSessionContext() {
+    const inView = (typeof currentView !== 'undefined' && currentView === 'view-shici');
+    const hasState = Boolean(typeof shiciState !== 'undefined' && shiciState && Array.isArray(shiciState.pool) && shiciState.pool.length > 0);
+    const inSession = inView && hasState;
+    const isReview = inSession && Boolean(shiciState.isReview);
+    return { inSession, isReview };
+}
+
+function updateShiCiSettingsModalVisibility() {
+    const { inSession, isReview } = getActiveShiCiSessionContext();
+    const orderGroup = document.getElementById('shici-settings-group-order');
+    const learnGroup = document.getElementById('shici-settings-group-learn-batch');
+    const reviewGroup = document.getElementById('shici-settings-group-review-batch');
+    const retestGroup = document.getElementById('shici-settings-group-retest');
+    const clearGroup = document.getElementById('shici-settings-group-clear-progress');
+
+    // 在学习新词或复习时隐藏学习顺序与清空学习/复习进度；学习新词时隐藏复习节奏，复习时隐藏学习节奏
+    if (orderGroup) orderGroup.style.display = inSession ? 'none' : '';
+    if (clearGroup) clearGroup.style.display = inSession ? 'none' : '';
+    if (learnGroup) learnGroup.style.display = (inSession && isReview) ? 'none' : '';
+    if (reviewGroup) reviewGroup.style.display = (inSession && !isReview) ? 'none' : '';
+    if (retestGroup) retestGroup.style.marginBottom = inSession ? '0' : '';
+}
+
 function openShiCiSettings() {
     loadShiCiSettings();
-    updateShiCiSettingsModalUi();
+    shiciSettingsDraft = {
+        order: shiciConfig.order === 'random' ? 'random' : 'sequential',
+        batchSize: parseInt(shiciConfig.batchSize, 10) || 15,
+        reviewBatch: parseInt(shiciConfig.reviewBatch, 10) || 20,
+        immediateRetest: shiciConfig.immediateRetest !== false
+    };
+    updateShiCiSettingsModalVisibility();
+    updateShiCiSettingsModalUi(shiciSettingsDraft);
     const modal = document.getElementById('modal-shici-settings');
     if (modal) modal.classList.add('active');
 }
 
 function closeShiCiSettings() {
+    shiciSettingsDraft = null;
     const modal = document.getElementById('modal-shici-settings');
     if (modal) modal.classList.remove('active');
 }
 
-function saveShiCiSettings() {
+function recountShiCiPoolBaseTargetTotal(pool) {
+    const keys = new Set();
+    (pool || []).forEach(q => {
+        if (q && !q._isRetest && q.word) {
+            keys.add(q.word);
+        }
+    });
+    return keys.size || (pool ? pool.length : 0);
+}
+
+function shrinkActiveShiCiPoolToBatch(targetBatch) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const lockedIdx = Math.max(shiciState.currentIdx || 0, shiciState.maxReachedIdx || 0);
+    let currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (currentBaseCount <= targetBatch) return;
+
+    for (let i = shiciState.pool.length - 1; i > lockedIdx && currentBaseCount > targetBatch; i--) {
+        const item = shiciState.pool[i];
+        if (!item || item.answered || item._isRetest) continue;
+        shiciState.pool.splice(i, 1);
+        currentBaseCount--;
+    }
+    shiciState.total = shiciState.pool.length;
+    shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+}
+
+async function applyBatchSizeChangeToActiveShiCiLearnSession(newBatch) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (newBatch === currentBaseCount) return;
+
+    if (newBatch < currentBaseCount) {
+        shrinkActiveShiCiPoolToBatch(newBatch);
+        return;
+    }
+
+    const need = newBatch - currentBaseCount;
+    if (need <= 0) return;
+
+    try {
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
+        if (!allWords || allWords.length === 0) return;
+
+        const existingWords = new Set(shiciState.pool.map(q => q && q.word).filter(Boolean));
+        let targetWords = [];
+        if (shiciConfig.order === 'sequential') {
+            let startIdx = shiciProgress.currentIndex || 0;
+            if (startIdx >= allWords.length) startIdx = 0;
+            for (let i = 0; i < allWords.length && targetWords.length < need; i++) {
+                const candidate = allWords[(startIdx + i) % allWords.length];
+                if (candidate && candidate.word && !existingWords.has(candidate.word) && (!shiciProgress.masteredWords || !shiciProgress.masteredWords[candidate.word])) {
+                    existingWords.add(candidate.word);
+                    targetWords.push(candidate);
+                }
+            }
+        } else {
+            const unmastered = allWords.filter(w => w && w.word && !existingWords.has(w.word) && (!shiciProgress.masteredWords || !shiciProgress.masteredWords[w.word]));
+            const poolSource = unmastered.length > 0 ? unmastered : allWords.filter(w => w && w.word && !existingWords.has(w.word));
+            targetWords = [...poolSource].sort(() => 0.5 - Math.random()).slice(0, need);
+        }
+
+        const extraQuestions = targetWords.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        if (extraQuestions.length > 0) {
+            shiciState.pool.push(...extraQuestions);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+    } catch (e) {
+        console.warn('[ShiCiSettings] Expand learn batch failed:', e);
+    }
+}
+
+async function applyBatchSizeChangeToActiveShiCiReviewSession(newBatchSetting) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const isAll = newBatchSetting >= 45;
+    const currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (!isAll && newBatchSetting === currentBaseCount) return;
+
+    if (!isAll && newBatchSetting < currentBaseCount) {
+        shrinkActiveShiCiPoolToBatch(newBatchSetting);
+        return;
+    }
+
+    try {
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
+        if (!allWords || allWords.length === 0) return;
+
+        const existingWords = new Set(shiciState.pool.map(q => q && q.word).filter(Boolean));
+        const dueRecords = ShiCiEbbinghausEngine.getDueWords();
+        const dueKeys = new Set(dueRecords.map(r => r.word));
+        let reviewWords = allWords.filter(w => w && w.word && dueKeys.has(w.word) && !existingWords.has(w.word));
+
+        if (reviewWords.length === 0) {
+            const allLearned = ShiCiEbbinghausEngine.getAllLearnedWords().filter(r =>
+                r && r.word && r.stage < 5 && !ShiCiEbbinghausEngine.isWordMastered(r.word)
+            );
+            const learnedKeys = new Set(allLearned.map(r => r.word));
+            reviewWords = allWords.filter(w => w && w.word && learnedKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word) && !existingWords.has(w.word));
+        }
+
+        if (reviewWords.length === 0 && shiciProgress.learnedWords) {
+            const legacyKeys = new Set(Object.keys(shiciProgress.learnedWords));
+            reviewWords = allWords.filter(w => w && w.word && legacyKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word) && !existingWords.has(w.word));
+        }
+
+        if (reviewWords.length === 0) return;
+        const need = isAll ? reviewWords.length : Math.max(0, newBatchSetting - currentBaseCount);
+        const extraTargets = [...reviewWords].sort(() => 0.5 - Math.random()).slice(0, need);
+        const extraQuestions = extraTargets.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        if (extraQuestions.length > 0) {
+            shiciState.pool.push(...extraQuestions);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+    } catch (e) {
+        console.warn('[ShiCiSettings] Expand review batch failed:', e);
+    }
+}
+
+async function saveShiCiSettings() {
+    const prevConfig = {
+        order: shiciConfig.order,
+        batchSize: parseInt(shiciConfig.batchSize, 10) || 15,
+        reviewBatch: parseInt(shiciConfig.reviewBatch, 10) || 20,
+        immediateRetest: shiciConfig.immediateRetest !== false
+    };
+
+    if (shiciSettingsDraft) {
+        shiciConfig.order = shiciSettingsDraft.order === 'random' ? 'random' : 'sequential';
+        shiciConfig.batchSize = parseInt(shiciSettingsDraft.batchSize, 10) || 15;
+        shiciConfig.reviewBatch = parseInt(shiciSettingsDraft.reviewBatch, 10) || 20;
+        shiciConfig.immediateRetest = shiciSettingsDraft.immediateRetest !== false;
+    }
+
+    const learnSlider = document.getElementById('slider-shici-batch');
+    if (learnSlider) shiciConfig.batchSize = parseInt(learnSlider.value, 10) || shiciConfig.batchSize;
+    const reviewSlider = document.getElementById('slider-shici-review-batch');
+    if (reviewSlider) shiciConfig.reviewBatch = parseInt(reviewSlider.value, 10) || shiciConfig.reviewBatch;
+    const swEl = document.getElementById('switch-shici-retest');
+    if (swEl) shiciConfig.immediateRetest = !!swEl.checked;
+
+    const { inSession, isReview } = getActiveShiCiSessionContext();
     saveShiCiState();
-    updateHubShiCiBadge();
     closeShiCiSettings();
-    showToast('实词设置已保存');
+
+    if (inSession && shiciState && Array.isArray(shiciState.pool)) {
+        if (prevConfig.immediateRetest && !shiciConfig.immediateRetest) {
+            const curIdx = shiciState.currentIdx || 0;
+            shiciState.pool = shiciState.pool.filter((item, idx) => idx <= curIdx || !item || !item._isRetest || item.answered);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+
+        if (!isReview && prevConfig.batchSize !== shiciConfig.batchSize) {
+            await applyBatchSizeChangeToActiveShiCiLearnSession(shiciConfig.batchSize);
+        } else if (isReview && prevConfig.reviewBatch !== shiciConfig.reviewBatch) {
+            await applyBatchSizeChangeToActiveShiCiReviewSession(shiciConfig.reviewBatch);
+        }
+
+        saveShiCiSessionProgress();
+        updateShiCiProgressDisplay();
+
+        // 若当前题已作答或为预标熟题，同步刷新底部按钮文案（下一题 / 查看小结）
+        const q = shiciState.pool[shiciState.currentIdx];
+        const isPreMastered = Boolean(q && !shiciState.answered && shiciProgress && shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
+        if (shiciState.answered || isPreMastered) {
+            const actionText = document.getElementById('btn-shici-action-text');
+            const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        }
+    }
+
+    updateHubShiCiBadge();
+    if (typeof updateHubShiCiResumeButton === 'function') {
+        updateHubShiCiResumeButton();
+    }
+    showToast('实词设置已保存并生效');
 }
 
 function selectShiCiOrderMode(mode) {
-    shiciConfig.order = mode;
+    const val = (mode === 'random') ? 'random' : 'sequential';
     const seqEl = document.getElementById('chip-shici-seq');
     const randEl = document.getElementById('chip-shici-rand');
-    if (seqEl) seqEl.classList.toggle('selected', mode === 'sequential');
-    if (randEl) randEl.classList.toggle('selected', mode === 'random');
+    if (seqEl) seqEl.classList.toggle('selected', val === 'sequential');
+    if (randEl) randEl.classList.toggle('selected', val === 'random');
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.order = val;
+        return;
+    }
+    shiciConfig.order = val;
     saveShiCiState();
 }
 
 function handleShiCiBatchSlider(val) {
-    const num = parseInt(val) || 15;
-    shiciConfig.batchSize = num;
+    const num = parseInt(val, 10) || 15;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-shici-batch', v => `${v} 题`);
     }
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.batchSize = num;
+        return;
+    }
+    shiciConfig.batchSize = num;
     saveShiCiState();
 }
 window.handleShiCiBatchSlider = handleShiCiBatchSlider;
 
 function handleShiCiReviewBatchSlider(val) {
-    const num = parseInt(val) || 20;
-    shiciConfig.reviewBatch = num;
+    const num = parseInt(val, 10) || 20;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-shici-review-batch', v => v >= 45 ? '全部' : `${v} 题`);
     }
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.reviewBatch = num;
+        return;
+    }
+    shiciConfig.reviewBatch = num;
     saveShiCiState();
 }
 window.handleShiCiReviewBatchSlider = handleShiCiReviewBatchSlider;
@@ -39751,26 +41031,36 @@ function selectShiCiReviewBatch(batch) {
 window.selectShiCiReviewBatch = selectShiCiReviewBatch;
 
 function toggleShiCiRetestSwitch(checked) {
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.immediateRetest = !!checked;
+        return;
+    }
     shiciConfig.immediateRetest = !!checked;
     saveShiCiState();
 }
 
 function selectShiCiImmediateRetest(enabled) {
-    shiciConfig.immediateRetest = !!enabled;
+    const val = !!enabled;
     const swEl = document.getElementById('switch-shici-retest');
-    if (swEl) swEl.checked = shiciConfig.immediateRetest;
+    if (swEl) swEl.checked = val;
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.immediateRetest = val;
+        return;
+    }
+    shiciConfig.immediateRetest = val;
     saveShiCiState();
 }
 
-function updateShiCiSettingsModalUi() {
+function updateShiCiSettingsModalUi(cfg = null) {
+    const activeCfg = cfg || shiciSettingsDraft || shiciConfig;
     const seqEl = document.getElementById('chip-shici-seq');
     const randEl = document.getElementById('chip-shici-rand');
-    if (seqEl) seqEl.classList.toggle('selected', shiciConfig.order === 'sequential');
-    if (randEl) randEl.classList.toggle('selected', shiciConfig.order === 'random');
+    if (seqEl) seqEl.classList.toggle('selected', activeCfg.order === 'sequential');
+    if (randEl) randEl.classList.toggle('selected', activeCfg.order === 'random');
 
     const learnSlider = document.getElementById('slider-shici-batch');
     if (learnSlider) {
-        learnSlider.value = shiciConfig.batchSize || 15;
+        learnSlider.value = activeCfg.batchSize || 15;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(learnSlider, val => `${val} 题`);
         }
@@ -39778,14 +41068,14 @@ function updateShiCiSettingsModalUi() {
 
     const reviewSlider = document.getElementById('slider-shici-review-batch');
     if (reviewSlider) {
-        reviewSlider.value = shiciConfig.reviewBatch || 20;
+        reviewSlider.value = activeCfg.reviewBatch || 20;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 题`);
         }
     }
 
     const swEl = document.getElementById('switch-shici-retest');
-    if (swEl) swEl.checked = shiciConfig.immediateRetest !== false;
+    if (swEl) swEl.checked = activeCfg.immediateRetest !== false;
 
     updateShiCiProgressStatusUI();
 }
@@ -39896,6 +41186,9 @@ function openMeSubview(subviewKey, skipTransition = false) {
                 : document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (isActive && typeof suppressChildTransitionsForNextFrame === 'function') {
+                    suppressChildTransitionsForNextFrame(el);
+                }
                 if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
@@ -39933,7 +41226,7 @@ function openMeSubview(subviewKey, skipTransition = false) {
         }
         if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
             restoreScrollPositionForState('view-me', 'main');
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -40097,6 +41390,9 @@ function switchSettingsSubview(subviewKey, skipTransition = false, options = {})
             const el = document.getElementById(`settings-subview-${k}`);
             if (el) {
                 const isActive = (k === subviewKey);
+                if (isActive && typeof suppressChildTransitionsForNextFrame === 'function') {
+                    suppressChildTransitionsForNextFrame(el);
+                }
                 if (!isActive) el.classList.remove('no-enter-anim');
                 el.classList.toggle('active', isActive);
                 el.inert = !isActive;
@@ -40118,7 +41414,7 @@ function switchSettingsSubview(subviewKey, skipTransition = false, options = {})
         }
         if (isReturningToMain && typeof restoreScrollPositionForState === 'function') {
             restoreScrollPositionForState('view-settings', 'main');
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -41836,27 +43132,27 @@ const APP_CHANGELOG = [
         date: '2026-11-28',
         badge: '当前版本',
         items: [
-            '首次打开图标加载提速：为本地精简图标字体子集增加高优先级预加载并提前触发字体解码，全站业务脚本改为按序非阻塞 defer 加载，显著加快首次进入页面的图标渲染速度。',
-            '页面返回与手势惯性动画升级：修复直接点击返回按钮时退出层离屏幕右端差一截的问题；iOS 边缘滑动返回松手后改为临界阻尼惯性弹簧物理模型，自然承接手指滑动速度补全剩余动画；修复进入新页面途中左滑打断导致原页面连带右移的问题。',
-            '晒成绩海报与学习时长体验优化：恢复原版海报字体并统一四项学习指标的字号与字重，学习时长不足 1 分钟统一显示为“1分钟”；对战海报顶部改为随机抽取展示词（支持换词），将对战模式移至得分上方作为独立标题，并移除多余的天梯底行。',
-            '排行榜与对决界面细节修复：修复排行榜长昵称导致“B站”徽标与右侧段位分数紧贴重叠的问题；修复对战答错等待提示条与上方选项卡片宽度不一致的问题。',
-            'iOS PWA 与 B站 App Toy 安全区适配：接入新版 Toy JS SDK 容器能力（getContainerState / onContainerChange），在 B站 App 内直接读取 SDK 返回的 CSS px 安全区（top / right / bottom / left）动态适配屏幕旋转与沉浸态，并自动避让顶部胶囊按钮与底部互动条；增强 iOS 独立 PWA 顶部安全区避让；首页顶栏移除默认用户图标蓝色底色并统一图标尺寸，游客点击直接跳转登录页，单行放不下时自动收起为纯图标/头像。'
+            '优化首次打开速度，加快图标渲染。',
+            '优化页面返回与 iOS 左滑返回手势动画。',
+            '优化晒成绩海报与学习时长显示。',
+            '适配 iOS PWA 与 B站 App 安全区。',
+            '优化手机端发音与切页体验，不再打断后台音乐。',
+            '背单词与背实词设置改为点击保存后统一生效。',
+            '修复若干bug。'
         ]
     },
     {
         version: 'v2.14.0',
-        date: '2026-11-28',
+        date: '2026-11-27',
         badge: '历史版本',
         items: [
-            '熟词云端同步修复：修复熟词列表在云端同步合并时被误清空的严重 Bug，双端统一持久化与删除记录合并，确保同步后熟词完整保留；取消熟词标记时恢复原有掌握度并正常播放扣星动画。',
-            '页面返回滚动位置记忆与防抖优化：返回上一页面及个人中心/设置主页时自动恢复之前的滚动位置，不再强制回到顶部；使用稳定滚动条占位避免有/无滚动条页面切换时产生横向跳变；修复进入登录页时顶部过渡背景未完全遮挡的问题。',
-            '排行榜隐私与上榜引导升级：新注册账号默认不上榜，首次打开排行榜或排位等级分发生变化时弹窗询问是否显示在排行榜中，并支持随时在排行榜页面一键切换显示或隐藏自己。',
-            '对战小结全面优化：将统计摘要头移至顶部并移除“展开全部”按钮；修复对战中错题识别与记录异常；移除多余的“错题”标签，取消熟词时同步移除“已标熟”标签；补全展开词条卡片之间的分割线。',
-            '实词学习与小结修复：修复实词小结卡片展开后显示“暂无释义”的问题；修复背实词顶部进度计数（如 0 / 15）的排版与标熟同步问题。',
-            '复习计划精简：将“全部”选项卡调整为“其他”（展示今日/明日/后日以外的计划），并移除紧急状态标签（review-plan-time-badge urgent）。',
-            '晒成绩海报升级：新增“今日学习时长”与“累计学习时长”数据卡片；优化长词组与长释义的自适应缩放换行，避免超出海报宽度；移除海报预览弹窗多余的“取消”按钮。',
-            '词书选择与背词设置优化：选择词书页面将已选词书置顶排列；切换“词性及释义展示”方式后立即刷新并生效；人机模式无法选择排位赛时，在“对战模式”下方提供小字原因说明。',
-            '界面细节修复：确保查看词书页面展开搜索框时工具栏不换行；修复 MD3 浮动输入框标签（如修改用户名弹窗）背景色与容器背景不符的问题。'
+            '修复熟词云端同步后被误清空的bug。',
+            '支持返回上一页时恢复滚动位置。',
+            '新注册账号默认不上榜，支持一键显示或隐藏自己。',
+            '优化对战小结与实词小结。',
+            '晒成绩海报新增今日与累计学习时长。',
+            '优化词书选择与背词设置。',
+            '修复若干bug。'
         ]
     },
     {
@@ -41864,13 +43160,12 @@ const APP_CHANGELOG = [
         date: '2026-11-21',
         badge: '历史版本',
         items: [
-            '搜索聚焦稳定性全面修复：优化首页搜索框（避免只读占位输入框抢占焦点）、顶部折叠搜索按钮及展开式搜索按钮的聚焦时机，确保在页面进入与输入框展开过渡期间同步激活光标并在过渡结束后自动兜底校验。',
-            '搜索标签页一键清空：在搜索多标签栏右侧新增“清空”按钮，支持一键清除全部搜索标签页并返回搜索主页。',
-            '搜索设置释义来源归类：将搜索设置“释义来源”列表中的所有加密词书统一归类为独立的「Doris」来源选项，支持统一开关控制。',
-            '手机端导航栏自动隐藏：在手机端（<= 767px）进入所有新页面及个人中心/设置二级子页面时统一隐藏底部栏与左侧栏，仅在首页、个人中心主页和设置主页保留导航栏。',
-            '手机端页面滑入/返回与 iOS 手势体验优化：取消宽屏设备返回动画；修复手机端左滑返回过程中及返回上一页后的页面尺寸跳变问题（修正缩放系数、固定定位包含块与容器高度锁定，并调整状态提交顺序）；iOS 边缘左滑返回支持依据页面宽度、剩余距离与手势滑动力度动态调节过渡速度。',
-            '返回首页稳定性修复：优化首页布局刷新与卡片过渡属性，修复回到首页时重复重排刷新卡片及触发卡片位移动画的问题。',
-            '熟词永久免复习：优化单词与文言实词熟词机制，将词汇标为熟词后立即同步记为已掌握并清零复习计划，后续不再安排或抽取复习，也不受逾期惩罚或误答重置影响。'
+            '优化熟词机制，标为熟词后不再安排复习。',
+            '修复搜索框聚焦异常，支持一键清空搜索标签页。',
+            '搜索设置中加密词书统一归类为「Doris」。',
+            '优化手机端导航栏与页面切换动画。',
+            '优化 iOS 左滑返回手势。',
+            '修复若干bug。'
         ]
     },
     {
@@ -41878,16 +43173,12 @@ const APP_CHANGELOG = [
         date: '2026-11-15',
         badge: '历史版本',
         items: [
-            '跨设备云端数据同步修复：完善 Supabase 多设备登录、全量快照拉取与双向合并逻辑，解决同一账号在不同设备间进度与学习统计不一致的问题。',
-            '关闭自动同步与手动同步修复：修复关闭“自动同步”后顶部“同步数据”按钮在部分改动下不显示、记忆库与熟词变更未标记待同步，以及手动点击同步时被后台重试状态拦截或被预拉取覆盖本地配置导致云端未收到数据的问题。',
-            '词性及释义展示设置修复：修复全局词性筛选与词条释义展示设置失效或不同步的异常。',
-            '个人中心与移动端排版优化：缩小“最近学习词书”范围胶囊按钮尺寸、修复进度条统计数值异常，并重排词书元数据、内联进度条及“更多类型”下拉菜单定位，彻底解决菜单偏移至左上角的问题。',
-            '详细数据页面图表体验升级：选中图表中的某一天后自动平滑居中聚焦并实时展示当日详细数据；关闭“显示详细数据”开关时仍强制标注选中日期的数据，并在学习时长趋势折线图选中点下方保留至 X 轴的辅助虚线；移除多余虚线、选中外容器框及“点击任意柱条查看当日详细数据”提示；修复邻近日期在 X 轴的重叠问题，高亮强调底部日期胶囊并精简重复文字。',
-            '个人中心卡片与设置图标统一：优化“最近学习词书”封面与内联进度条的底部对齐效果；将“自定义首页”设置页中的各模式图标统一调整为圆形样式，与顶部搜索图标保持一致。',
-            '查词结果页交互与结构优化：将加入本地词书与修改释义操作按钮上移至词头右侧并统一为与发音按钮协调的胶囊/圆形样式；将“添加到本地词书”面板移至分割线与词典来源标签栏上方，改用 bc-section-select-trigger 下拉样式、去除词数冗余并重构自适应布局避免按钮与下拉框重叠；自动加粗例句与辨析例句中的查询关键词。',
-            '复习计划与交互精简：移除复习计划卡片上的阶段标签（review-plan-stage-tag）及页面滑动返回手势。',
-            '查看词书内容页面升级：优化窄屏/移动端工具栏双行网格结构（第一行左侧分类筛选 + 右侧可平滑展开搜索，第二行等宽排列类型与展示模式选项卡），同时保留并增强非实词词库的 A–Z 首字母分类筛选。',
-            '数据中心界面精简：移除个人中心列表中冗余的“数据同步”入口行，保持界面简洁。'
+            '修复跨设备云端同步与手动同步异常。',
+            '修复词性及释义展示设置失效的问题。',
+            '优化详细数据页面图表交互。',
+            '优化查词结果页与查看词书内容页面。',
+            '优化个人中心与移动端排版。',
+            '修复若干bug。'
         ]
     },
     {
@@ -41895,20 +43186,14 @@ const APP_CHANGELOG = [
         date: '2026-11-08',
         badge: '历史版本',
         items: [
-            '背词与对战全模式小结上线：为背单词、背实词、人机对战、同屏对决、远程联机模式全面配备轻量扁平化小结页，排版风格保持高度一致，支持查看答题词条、音标、释义、复习状态与即时标熟。',
-            '个人中心数据中心重构升级：顶部“晒成绩”按需替换为“同步数据”胶囊按钮（仅在存在未同步数据时灵动显示），支持一键云端对齐；数据统计卡片修复 undefined 异常并完善持久化；并将“晒成绩”、“下载学习数据”与“自动同步”开关整合至数据中心操作列表。',
-            '个人中心架构与词书卡片瘦身：彻底移除多余的“备份与管理”模块，将离线模式开关整合至设置“网络与离线”；最近学习词书卡片移除冗余嵌套容器与双重外边框，更多操作菜单更新为绝对定位优雅弹窗；若词书无需更新则自动禁用“更新词书”按钮。',
-            '“管理账号”全新子页面：顶部卡片精致展示用户头像、用户名、平台认证徽章与段位积分进度条；完整支持修改用户名、修改密码、切换账号、删除账号及退出登录，切换账号返回交互无缝回跳当前管理页，退出登录顺畅回到首页。',
-            '详细数据子页面视觉重构：将“每日新学与复习词数”堆叠柱状图调整至“学习时长趋势”折线图前方，删除冗余的“词汇掌握度阶段分布”图表，聚焦关键学习数据。',
-            '复习计划子页面全面优化：新增复习概览状态看板与快速日期筛选芯片（全部、待复习、今日、明日、未来7天），支持按具体日期精准筛选，优化紧急待复习呼吸灯徽章与音频试听。',
-            '熟词本与回收站（已删除词汇）改版：顶栏改用 MD3 风格词书选择下拉列表，搜索框升级为右上角图标展开框；移除“清空熟词”与“永久删除”冗余按钮；词条卡片样式与查看词书内容页面全面统一。',
-            '查看词书内容页面视觉与交互打磨：顶部工具栏统一为 32px 紧凑 MD3 胶囊风格；全部分类下拉框在仅有多分类时才展示；词条标题取消加粗，音标独立为分离圆角标签；典型例句关键词自动加粗高亮；修复反义词等拓展项解析为 [object Object] 的问题；彻底支持文言词组与短语点击展开与发音。',
-            '背单词与背实词答题界面增强：答题卡片右上角掌握度菱形（◇ ◇ ◇ ◇ ◇）随作答正确率与熟词标记实时动态演进；工具栏全面换用规范 MD3 图标 ↩（撤回/上一个）与 ↪（重做/返回），界面更简洁高级。',
-            '首页与布局优化：个人下拉菜单去除重复的用户名与段位信息；首页移除版权信息页脚；排行榜卡片右侧“查看”按钮位置与活动卡片统一右对齐。',
-            '设置“编辑首页”优化：各模式图标采用统一的色块图标容器，移除模式卡片冗余描述文本；美化卡片上移/下移按钮；修复切换卡片显示开关时动画被重绘打断的问题；删除活动与排行榜卡片选项（受保护始终常驻）。',
-            '道具系统优化：我的道具中为已过期的道具右上角增加删除按钮，支持本地与云端安全销毁已过期道具。',
-            '“减弱动画效果”开启时，精准恢复所有输入框（包括 Wordle、搜索框等）的光标与输入动效。',
-            '彻底清理错题本与状态设置遗留代码，系统轻量化运行更流畅。'
+            '背单词、背实词与对战全模式新增小结页。',
+            '新增「管理账号」页面。',
+            '重构个人中心数据中心与详细数据页面。',
+            '优化复习计划、熟词本与回收站页面。',
+            '优化查看词书内容页面与背词答题界面。',
+            '优化首页布局与自定义首页设置。',
+            '支持清理已过期道具。',
+            '修复若干bug。'
         ]
     },
     {
@@ -41916,30 +43201,14 @@ const APP_CHANGELOG = [
         date: '2026-11-01',
         badge: '历史版本',
         items: [
-            '统一词书卡片、筛选下拉菜单及数量统计字体，全面采用页面标准 UI 字体。',
-            '优化词书封面排版设计，封面文字标题在色块卡片中严格垂直与水平居中。',
-            '优化词书卡片结构，移除冗余分类标签与不支持Wordle标签，紧凑掌握度与进度条垂直间隙，确保与封面底部严丝合缝平齐。',
-            '在 Wordle 选词页面中对不支持 Wordle 模式的词书直接标灰并禁止点击选择。',
-            '词书筛选下拉菜单升级：标题重命名为“选择分类”，移除子项“板块”前缀并优化文字与容器结构，彻底避免文字过长截断。',
-            '晒成绩结果页分享按钮样式与交互动画升级，全面对齐 Wordle 挑战海报按钮的 MD3 Tonal 风格与按压缩放动画反馈。',
-            '搜索设置功能拓展：优化“显示相关词组”与“显示相关链接”文字描述，新增“显示例句”、“显示反义词”、“显示辨析”开关，支持对考纲拓展项自由定制展示并实时生效。',
-            '优化查词与词典页面视觉效果，去除相关词组外边框并统一相关链接样式。',
-            '在设置中添加“减弱动画效果”功能，确保在低性能设备上流畅运行。',
-            '修复减弱动态效果开启时切换至个人中心界面的画面抖动问题。',
-            '放缓页面切换淡入位移动画时长至 0.32s，大幅提升视效平滑度。',
-            '拆分词书学习范围为“板块”与“类型”两个独立的 MD3 下拉菜单，重做交互 UI 并修复弹出定位偏差。',
-            '统一词书卡片网格布局，信息紧凑上移并严格与封面高度齐平，管理词书模式下隐藏学习范围按钮。',
-            '修复词书操作更多菜单的右边缘定位偏移，彻底解决菜单被屏幕右边缘裁切的问题。',
-            '修复管理词书中点击“查看内容”误跳回设置页面的问题，支持在当前页面以弹窗形式快速查阅展开词条。',
-            '移除管理词书卡片操作菜单中冗余的“板块与类型设置”选项。',
-            '重构词书内容查看子页面（参考背词小结页面），采用统一列表容器展示，默认折叠释义并提供查词、发音与标熟词快捷按钮，点击词条可向下展开详情。',
-            '优化背单词小结页面，合并所有词条为统一容器并支持展开查词、发音与标为熟词。',
-            '优化背单词小结滚动条可见度，提升对比度。',
-            '优化搜索标签栏鼠标滚轮横向滚动支持。',
-            '修复主页在各端导航与切换时的页面结构突变与卡片间距问题。',
-            '修复 Electron 本地词书读取中不规范参数引发的 DeprecationWarning 告警。',
-            '全面适配《高中考纲》词书与专属例句、派生、辨析、反义拓展项。',
-            '修复若干已知 UI 与交互问题。'
+            '添加「减弱动画效果」设置。',
+            '搜索设置新增例句、反义词与辨析显示开关。',
+            '词书学习范围拆分为「板块」与「类型」两个下拉菜单。',
+            '重构词书内容查看与背词小结页面。',
+            '统一词书卡片、封面与筛选菜单样式。',
+            '全面适配《高中考纲》词书。',
+            'Wordle 选词页面禁用不支持的词书。',
+            '修复若干bug。'
         ]
     },
     {
@@ -42668,7 +43937,17 @@ function renderEditHomeSettings() {
 
     const chkOnlinePlayers = document.getElementById('switch-home-card-online-players');
     if (chkOnlinePlayers) {
-        chkOnlinePlayers.checked = !hiddenSet.has('hub-online-players-card');
+        chkOnlinePlayers.checked = hiddenSet.has('hub-online-players-card');
+    }
+
+    const chkCollapseActivity = document.getElementById('switch-home-collapse-activity');
+    if (chkCollapseActivity) {
+        chkCollapseActivity.checked = Boolean(cfg.collapseActivityCard);
+    }
+
+    const chkCollapseLeaderboard = document.getElementById('switch-home-collapse-leaderboard');
+    if (chkCollapseLeaderboard) {
+        chkCollapseLeaderboard.checked = Boolean(cfg.collapseLeaderboardCard);
     }
 
     const chkCalendar = document.getElementById('switch-home-card-calendar');
@@ -42726,9 +44005,38 @@ function toggleHomeSearchBarCollapse(checked) {
 }
 window.toggleHomeSearchBarCollapse = toggleHomeSearchBarCollapse;
 
+function toggleHomeActivityCardCollapse(checked) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    cfg.collapseActivityCard = Boolean(checked);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+    if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
+        ActivityManager.updateBadge();
+    }
+}
+window.toggleHomeActivityCardCollapse = toggleHomeActivityCardCollapse;
+
+function toggleHomeLeaderboardCardCollapse(checked) {
+    if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
+    const cfg = getHomeLayoutConfig();
+    cfg.collapseLeaderboardCard = Boolean(checked);
+    saveHomeLayoutConfig(cfg);
+    if (typeof applyHomeLayoutConfig === 'function') {
+        applyHomeLayoutConfig();
+    }
+}
+window.toggleHomeLeaderboardCardCollapse = toggleHomeLeaderboardCardCollapse;
+
 function toggleHomeCardVisibility(cardId, isVisible) {
-    if (cardId === 'hub-activity-entry-card' || cardId === 'hub-leaderboard-entry-card') {
-        showToast('活动与排行榜卡片禁止隐藏');
+    if (cardId === 'hub-activity-entry-card') {
+        toggleHomeActivityCardCollapse(!isVisible);
+        return;
+    }
+    if (cardId === 'hub-leaderboard-entry-card') {
+        toggleHomeLeaderboardCardCollapse(!isVisible);
         return;
     }
     if (typeof getHomeLayoutConfig !== 'function' || typeof saveHomeLayoutConfig !== 'function') return;
@@ -42768,9 +44076,14 @@ function resetHomeLayoutDefault() {
     if (typeof saveHomeLayoutConfig !== 'function') return;
     saveHomeLayoutConfig({
         collapseSearchBar: false,
+        collapseActivityCard: false,
+        collapseLeaderboardCard: false,
         hiddenCards: [],
         modeOrder: Object.keys(HOME_MODE_CARD_META)
     });
+    if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
+        ActivityManager.updateBadge();
+    }
     renderEditHomeSettings();
     showToast('已恢复默认首页布局');
 }
@@ -48802,7 +50115,7 @@ function showBiliPdfExportDialog(blob, filename, extra = {}) {
                 });
             }
             if (typeof showToast === 'function') {
-                showToast(`✅ 已成功保存 ${toSave.length} 页报告至手机相册！`, 3500);
+                showToast(`已成功保存 ${toSave.length} 页报告至手机相册！`, 3500);
             }
             closeModal();
         } catch (albumErr) {
@@ -48838,7 +50151,7 @@ function showBiliPdfExportDialog(blob, filename, extra = {}) {
         }
 
         if (typeof showToast === 'function') {
-            showToast('✅ 链接已复制！请打开手机自带浏览器（如 Safari / Chrome）粘贴访问，即可直接下载 PDF 文件！', 4500);
+            showToast('链接已复制！', 4500);
         }
         closeModal();
     });

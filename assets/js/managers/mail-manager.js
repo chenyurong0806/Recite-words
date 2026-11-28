@@ -778,10 +778,10 @@
             if (typeof showToast === 'function') showToast('离线模式下无法查看邮箱');
             return;
         }
+        MailManager.renderMailboxView();
         if (typeof switchView === 'function') {
             switchView('view-mailbox');
         }
-        MailManager.renderMailboxView();
         MailManager.fetchMails();
     };
 

@@ -2259,7 +2259,7 @@ function showBiliPdfExportDialog(blob, filename, extra = {}) {
                 });
             }
             if (typeof showToast === 'function') {
-                showToast(`✅ 已成功保存 ${toSave.length} 页报告至手机相册！`, 3500);
+                showToast(`已成功保存 ${toSave.length} 页报告至手机相册！`, 3500);
             }
             closeModal();
         } catch (albumErr) {
@@ -2295,7 +2295,7 @@ function showBiliPdfExportDialog(blob, filename, extra = {}) {
         }
 
         if (typeof showToast === 'function') {
-            showToast('✅ 链接已复制！请打开手机自带浏览器（如 Safari / Chrome）粘贴访问，即可直接下载 PDF 文件！', 4500);
+            showToast('链接已复制！', 4500);
         }
         closeModal();
     });

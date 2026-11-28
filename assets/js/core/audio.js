@@ -9,19 +9,48 @@
 const AudioCache = new Map(); // 缓存最近 60 个音频实例，实现 0 延迟二次秒播
 const MAX_CACHE_SIZE = 60;
 let currentActiveAudio = null;
-let isAudioUnlocked = false;
 
-// 移动端/Safari Web Audio 交互解锁
-function ensureAudioContextUnlocked() {
-    if (isAudioUnlocked) return;
+function isMobileAudioDevice() {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+    return false;
+}
+
+// 手机端配置环境混音音频会话（ambient），避免播放单词发音时直接打断后台音乐/播客等音频内容
+function ensureMobileAmbientAudioSession() {
+    if (!isMobileAudioDevice()) return;
     try {
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.resume();
+        if (typeof navigator !== 'undefined' && navigator.audioSession) {
+            if (navigator.audioSession.type !== 'ambient') {
+                navigator.audioSession.type = 'ambient';
+            }
         }
-        isAudioUnlocked = true;
     } catch (e) { }
 }
-document.addEventListener('pointerdown', ensureAudioContextUnlocked, { once: true });
+
+function createWordAudioElement(url) {
+    const audio = new Audio();
+    audio.playsInline = true;
+    try {
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
+        audio.setAttribute('x-webkit-airplay', 'deny');
+    } catch (e) { }
+    audio.preload = isMobileAudioDevice() ? 'metadata' : 'auto';
+    audio.src = url;
+    return audio;
+}
+
+ensureMobileAmbientAudioSession();
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            ensureMobileAmbientAudioSession();
+        }
+    });
+}
 
 // ==========================================================================
 // 2. 文本清洗与发音类型分类器
@@ -73,6 +102,10 @@ function detectAudioCategory(text) {
 function speakNative(text, lang = 'en-US', rate = 0.95) {
     if (typeof window === 'undefined' || !window.speechSynthesis) return false;
     try {
+        ensureMobileAmbientAudioSession();
+        if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        }
         window.speechSynthesis.cancel(); // 停止当前正在播放的声音，防止重叠
         const u = new SpeechSynthesisUtterance(text);
         u.lang = lang;
@@ -136,11 +169,14 @@ function playWordAudio(rawText, type = null) {
         type = Number(type);
     }
     if (!rawText) return;
-    ensureAudioContextUnlocked();
+    ensureMobileAmbientAudioSession();
 
     // 停止正在播放的实例
     if (currentActiveAudio) {
-        try { currentActiveAudio.pause(); } catch (e) { }
+        try {
+            currentActiveAudio.pause();
+            currentActiveAudio.currentTime = 0;
+        } catch (e) { }
         currentActiveAudio = null;
     }
 
@@ -160,6 +196,9 @@ function playWordAudio(rawText, type = null) {
             try {
                 cachedAudio.currentTime = 0;
                 currentActiveAudio = cachedAudio;
+                cachedAudio.onended = () => {
+                    if (currentActiveAudio === cachedAudio) currentActiveAudio = null;
+                };
                 cachedAudio.play().catch(() => {});
                 return;
             } catch (e) {
@@ -169,15 +208,23 @@ function playWordAudio(rawText, type = null) {
 
         const baiduUrl = `https://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(cleanText)}&spd=5&source=web`;
         const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanText)}&le=zh`;
-        const audio = new Audio(baiduUrl);
+        const audio = createWordAudioElement(baiduUrl);
         currentActiveAudio = audio;
+
+        audio.onended = () => {
+            if (currentActiveAudio === audio) currentActiveAudio = null;
+        };
 
         let hasFallenBack = false;
         audio.onerror = () => {
             if (!hasFallenBack) {
                 hasFallenBack = true;
-                const fallbackAudio = new Audio(youdaoUrl);
+                ensureMobileAmbientAudioSession();
+                const fallbackAudio = createWordAudioElement(youdaoUrl);
                 currentActiveAudio = fallbackAudio;
+                fallbackAudio.onended = () => {
+                    if (currentActiveAudio === fallbackAudio) currentActiveAudio = null;
+                };
                 fallbackAudio.play().then(() => {
                     AudioCache.set(cacheKey, fallbackAudio);
                 }).catch(() => {});
@@ -189,8 +236,12 @@ function playWordAudio(rawText, type = null) {
         }).catch(() => {
             if (!hasFallenBack) {
                 hasFallenBack = true;
-                const fallbackAudio = new Audio(youdaoUrl);
+                ensureMobileAmbientAudioSession();
+                const fallbackAudio = createWordAudioElement(youdaoUrl);
                 currentActiveAudio = fallbackAudio;
+                fallbackAudio.onended = () => {
+                    if (currentActiveAudio === fallbackAudio) currentActiveAudio = null;
+                };
                 fallbackAudio.play().then(() => {
                     AudioCache.set(cacheKey, fallbackAudio);
                 }).catch(() => {});
@@ -235,6 +286,9 @@ function playWordAudio(rawText, type = null) {
         try {
             cachedAudio.currentTime = 0;
             currentActiveAudio = cachedAudio;
+            cachedAudio.onended = () => {
+                if (currentActiveAudio === cachedAudio) currentActiveAudio = null;
+            };
             cachedAudio.play().catch(() => {
                 speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
             });
@@ -246,15 +300,15 @@ function playWordAudio(rawText, type = null) {
 
     // 未命中缓存：在线环境下播放有道语音，失败或被拦截时可靠回退到原生语音
     const netUrl = `https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`;
-    const audio = new Audio(netUrl);
+    const audio = createWordAudioElement(netUrl);
     currentActiveAudio = audio;
 
     audio.onended = () => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
     };
 
     audio.onerror = () => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
         speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     };
 
@@ -265,21 +319,25 @@ function playWordAudio(rawText, type = null) {
         }
         AudioCache.set(wordKey, audio);
     }).catch(() => {
-        currentActiveAudio = null;
+        if (currentActiveAudio === audio) currentActiveAudio = null;
         speakNative(cleanText, type === 1 ? 'en-GB' : 'en-US', 0.95);
     });
 }
 
 function playNetworkAudioFallback(url, fallbackText = null, lang = 'en-US') {
     try {
-        const audio = new Audio(url);
+        ensureMobileAmbientAudioSession();
+        const audio = createWordAudioElement(url);
         currentActiveAudio = audio;
+        audio.onended = () => {
+            if (currentActiveAudio === audio) currentActiveAudio = null;
+        };
         audio.onerror = () => {
-            currentActiveAudio = null;
+            if (currentActiveAudio === audio) currentActiveAudio = null;
             if (fallbackText) speakNative(fallbackText, lang, 0.95);
         };
         audio.play().catch(() => {
-            currentActiveAudio = null;
+            if (currentActiveAudio === audio) currentActiveAudio = null;
             if (fallbackText) speakNative(fallbackText, lang, 0.95);
         });
     } catch (e) {
@@ -295,14 +353,15 @@ function preloadWordAudio(rawText, type = null) {
         type = getDefaultPronunciationAccent();
     }
     if (!rawText || !navigator.onLine) return;
+    // 手机端跳过后台主动 preload=auto，避免提前抢占系统媒体会话打断后台音频
+    if (isMobileAudioDevice()) return;
     const cleanText = cleanAudioText(rawText);
     if (!cleanText || detectAudioCategory(cleanText) !== 'english_word') return;
 
     const wordKey = `${cleanText.toLowerCase()}_type${type}`;
     if (AudioCache.has(wordKey)) return;
 
-    const audio = new Audio(`https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`);
-    audio.preload = 'auto';
+    const audio = createWordAudioElement(`https://dict.youdao.com/dictvoice?type=${type}&audio=${encodeURIComponent(cleanText)}`);
     AudioCache.set(wordKey, audio);
 }
 

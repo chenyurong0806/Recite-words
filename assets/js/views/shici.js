@@ -1740,50 +1740,269 @@ function updateShiCiMasterBtn(isMastered) {
     }
 }
 
+let shiciSettingsDraft = null;
+
+function getActiveShiCiSessionContext() {
+    const inView = (typeof currentView !== 'undefined' && currentView === 'view-shici');
+    const hasState = Boolean(typeof shiciState !== 'undefined' && shiciState && Array.isArray(shiciState.pool) && shiciState.pool.length > 0);
+    const inSession = inView && hasState;
+    const isReview = inSession && Boolean(shiciState.isReview);
+    return { inSession, isReview };
+}
+
+function updateShiCiSettingsModalVisibility() {
+    const { inSession, isReview } = getActiveShiCiSessionContext();
+    const orderGroup = document.getElementById('shici-settings-group-order');
+    const learnGroup = document.getElementById('shici-settings-group-learn-batch');
+    const reviewGroup = document.getElementById('shici-settings-group-review-batch');
+    const retestGroup = document.getElementById('shici-settings-group-retest');
+    const clearGroup = document.getElementById('shici-settings-group-clear-progress');
+
+    // 在学习新词或复习时隐藏学习顺序与清空学习/复习进度；学习新词时隐藏复习节奏，复习时隐藏学习节奏
+    if (orderGroup) orderGroup.style.display = inSession ? 'none' : '';
+    if (clearGroup) clearGroup.style.display = inSession ? 'none' : '';
+    if (learnGroup) learnGroup.style.display = (inSession && isReview) ? 'none' : '';
+    if (reviewGroup) reviewGroup.style.display = (inSession && !isReview) ? 'none' : '';
+    if (retestGroup) retestGroup.style.marginBottom = inSession ? '0' : '';
+}
+
 function openShiCiSettings() {
     loadShiCiSettings();
-    updateShiCiSettingsModalUi();
+    shiciSettingsDraft = {
+        order: shiciConfig.order === 'random' ? 'random' : 'sequential',
+        batchSize: parseInt(shiciConfig.batchSize, 10) || 15,
+        reviewBatch: parseInt(shiciConfig.reviewBatch, 10) || 20,
+        immediateRetest: shiciConfig.immediateRetest !== false
+    };
+    updateShiCiSettingsModalVisibility();
+    updateShiCiSettingsModalUi(shiciSettingsDraft);
     const modal = document.getElementById('modal-shici-settings');
     if (modal) modal.classList.add('active');
 }
 
 function closeShiCiSettings() {
+    shiciSettingsDraft = null;
     const modal = document.getElementById('modal-shici-settings');
     if (modal) modal.classList.remove('active');
 }
 
-function saveShiCiSettings() {
+function recountShiCiPoolBaseTargetTotal(pool) {
+    const keys = new Set();
+    (pool || []).forEach(q => {
+        if (q && !q._isRetest && q.word) {
+            keys.add(q.word);
+        }
+    });
+    return keys.size || (pool ? pool.length : 0);
+}
+
+function shrinkActiveShiCiPoolToBatch(targetBatch) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const lockedIdx = Math.max(shiciState.currentIdx || 0, shiciState.maxReachedIdx || 0);
+    let currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (currentBaseCount <= targetBatch) return;
+
+    for (let i = shiciState.pool.length - 1; i > lockedIdx && currentBaseCount > targetBatch; i--) {
+        const item = shiciState.pool[i];
+        if (!item || item.answered || item._isRetest) continue;
+        shiciState.pool.splice(i, 1);
+        currentBaseCount--;
+    }
+    shiciState.total = shiciState.pool.length;
+    shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+}
+
+async function applyBatchSizeChangeToActiveShiCiLearnSession(newBatch) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (newBatch === currentBaseCount) return;
+
+    if (newBatch < currentBaseCount) {
+        shrinkActiveShiCiPoolToBatch(newBatch);
+        return;
+    }
+
+    const need = newBatch - currentBaseCount;
+    if (need <= 0) return;
+
+    try {
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
+        if (!allWords || allWords.length === 0) return;
+
+        const existingWords = new Set(shiciState.pool.map(q => q && q.word).filter(Boolean));
+        let targetWords = [];
+        if (shiciConfig.order === 'sequential') {
+            let startIdx = shiciProgress.currentIndex || 0;
+            if (startIdx >= allWords.length) startIdx = 0;
+            for (let i = 0; i < allWords.length && targetWords.length < need; i++) {
+                const candidate = allWords[(startIdx + i) % allWords.length];
+                if (candidate && candidate.word && !existingWords.has(candidate.word) && (!shiciProgress.masteredWords || !shiciProgress.masteredWords[candidate.word])) {
+                    existingWords.add(candidate.word);
+                    targetWords.push(candidate);
+                }
+            }
+        } else {
+            const unmastered = allWords.filter(w => w && w.word && !existingWords.has(w.word) && (!shiciProgress.masteredWords || !shiciProgress.masteredWords[w.word]));
+            const poolSource = unmastered.length > 0 ? unmastered : allWords.filter(w => w && w.word && !existingWords.has(w.word));
+            targetWords = [...poolSource].sort(() => 0.5 - Math.random()).slice(0, need);
+        }
+
+        const extraQuestions = targetWords.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        if (extraQuestions.length > 0) {
+            shiciState.pool.push(...extraQuestions);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+    } catch (e) {
+        console.warn('[ShiCiSettings] Expand learn batch failed:', e);
+    }
+}
+
+async function applyBatchSizeChangeToActiveShiCiReviewSession(newBatchSetting) {
+    if (!shiciState || !Array.isArray(shiciState.pool) || shiciState.pool.length === 0) return;
+    const isAll = newBatchSetting >= 45;
+    const currentBaseCount = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+    if (!isAll && newBatchSetting === currentBaseCount) return;
+
+    if (!isAll && newBatchSetting < currentBaseCount) {
+        shrinkActiveShiCiPoolToBatch(newBatchSetting);
+        return;
+    }
+
+    try {
+        const allWords = await ShiCiManager.loadBooks(shiciConfig.selectedBooks || ['books/实词/高中300实词.json']);
+        if (!allWords || allWords.length === 0) return;
+
+        const existingWords = new Set(shiciState.pool.map(q => q && q.word).filter(Boolean));
+        const dueRecords = ShiCiEbbinghausEngine.getDueWords();
+        const dueKeys = new Set(dueRecords.map(r => r.word));
+        let reviewWords = allWords.filter(w => w && w.word && dueKeys.has(w.word) && !existingWords.has(w.word));
+
+        if (reviewWords.length === 0) {
+            const allLearned = ShiCiEbbinghausEngine.getAllLearnedWords().filter(r =>
+                r && r.word && r.stage < 5 && !ShiCiEbbinghausEngine.isWordMastered(r.word)
+            );
+            const learnedKeys = new Set(allLearned.map(r => r.word));
+            reviewWords = allWords.filter(w => w && w.word && learnedKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word) && !existingWords.has(w.word));
+        }
+
+        if (reviewWords.length === 0 && shiciProgress.learnedWords) {
+            const legacyKeys = new Set(Object.keys(shiciProgress.learnedWords));
+            reviewWords = allWords.filter(w => w && w.word && legacyKeys.has(w.word) && !ShiCiEbbinghausEngine.isWordMastered(w.word) && !existingWords.has(w.word));
+        }
+
+        if (reviewWords.length === 0) return;
+        const need = isAll ? reviewWords.length : Math.max(0, newBatchSetting - currentBaseCount);
+        const extraTargets = [...reviewWords].sort(() => 0.5 - Math.random()).slice(0, need);
+        const extraQuestions = extraTargets.map(w => generateShiCiQuestion(w, allWords)).filter(Boolean);
+        if (extraQuestions.length > 0) {
+            shiciState.pool.push(...extraQuestions);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+    } catch (e) {
+        console.warn('[ShiCiSettings] Expand review batch failed:', e);
+    }
+}
+
+async function saveShiCiSettings() {
+    const prevConfig = {
+        order: shiciConfig.order,
+        batchSize: parseInt(shiciConfig.batchSize, 10) || 15,
+        reviewBatch: parseInt(shiciConfig.reviewBatch, 10) || 20,
+        immediateRetest: shiciConfig.immediateRetest !== false
+    };
+
+    if (shiciSettingsDraft) {
+        shiciConfig.order = shiciSettingsDraft.order === 'random' ? 'random' : 'sequential';
+        shiciConfig.batchSize = parseInt(shiciSettingsDraft.batchSize, 10) || 15;
+        shiciConfig.reviewBatch = parseInt(shiciSettingsDraft.reviewBatch, 10) || 20;
+        shiciConfig.immediateRetest = shiciSettingsDraft.immediateRetest !== false;
+    }
+
+    const learnSlider = document.getElementById('slider-shici-batch');
+    if (learnSlider) shiciConfig.batchSize = parseInt(learnSlider.value, 10) || shiciConfig.batchSize;
+    const reviewSlider = document.getElementById('slider-shici-review-batch');
+    if (reviewSlider) shiciConfig.reviewBatch = parseInt(reviewSlider.value, 10) || shiciConfig.reviewBatch;
+    const swEl = document.getElementById('switch-shici-retest');
+    if (swEl) shiciConfig.immediateRetest = !!swEl.checked;
+
+    const { inSession, isReview } = getActiveShiCiSessionContext();
     saveShiCiState();
-    updateHubShiCiBadge();
     closeShiCiSettings();
-    showToast('实词设置已保存');
+
+    if (inSession && shiciState && Array.isArray(shiciState.pool)) {
+        if (prevConfig.immediateRetest && !shiciConfig.immediateRetest) {
+            const curIdx = shiciState.currentIdx || 0;
+            shiciState.pool = shiciState.pool.filter((item, idx) => idx <= curIdx || !item || !item._isRetest || item.answered);
+            shiciState.total = shiciState.pool.length;
+            shiciState.targetTotal = recountShiCiPoolBaseTargetTotal(shiciState.pool);
+        }
+
+        if (!isReview && prevConfig.batchSize !== shiciConfig.batchSize) {
+            await applyBatchSizeChangeToActiveShiCiLearnSession(shiciConfig.batchSize);
+        } else if (isReview && prevConfig.reviewBatch !== shiciConfig.reviewBatch) {
+            await applyBatchSizeChangeToActiveShiCiReviewSession(shiciConfig.reviewBatch);
+        }
+
+        saveShiCiSessionProgress();
+        updateShiCiProgressDisplay();
+
+        // 若当前题已作答或为预标熟题，同步刷新底部按钮文案（下一题 / 查看小结）
+        const q = shiciState.pool[shiciState.currentIdx];
+        const isPreMastered = Boolean(q && !shiciState.answered && shiciProgress && shiciProgress.masteredWords && shiciProgress.masteredWords[q.word]);
+        if (shiciState.answered || isPreMastered) {
+            const actionText = document.getElementById('btn-shici-action-text');
+            const isLast = (shiciState.currentIdx === shiciState.pool.length - 1);
+            if (actionText) actionText.innerText = isLast ? '查看小结' : '下一题';
+        }
+    }
+
+    updateHubShiCiBadge();
+    if (typeof updateHubShiCiResumeButton === 'function') {
+        updateHubShiCiResumeButton();
+    }
+    showToast('实词设置已保存并生效');
 }
 
 function selectShiCiOrderMode(mode) {
-    shiciConfig.order = mode;
+    const val = (mode === 'random') ? 'random' : 'sequential';
     const seqEl = document.getElementById('chip-shici-seq');
     const randEl = document.getElementById('chip-shici-rand');
-    if (seqEl) seqEl.classList.toggle('selected', mode === 'sequential');
-    if (randEl) randEl.classList.toggle('selected', mode === 'random');
+    if (seqEl) seqEl.classList.toggle('selected', val === 'sequential');
+    if (randEl) randEl.classList.toggle('selected', val === 'random');
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.order = val;
+        return;
+    }
+    shiciConfig.order = val;
     saveShiCiState();
 }
 
 function handleShiCiBatchSlider(val) {
-    const num = parseInt(val) || 15;
-    shiciConfig.batchSize = num;
+    const num = parseInt(val, 10) || 15;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-shici-batch', v => `${v} 题`);
     }
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.batchSize = num;
+        return;
+    }
+    shiciConfig.batchSize = num;
     saveShiCiState();
 }
 window.handleShiCiBatchSlider = handleShiCiBatchSlider;
 
 function handleShiCiReviewBatchSlider(val) {
-    const num = parseInt(val) || 20;
-    shiciConfig.reviewBatch = num;
+    const num = parseInt(val, 10) || 20;
     if (typeof updateMd3SliderUI === 'function') {
         updateMd3SliderUI('slider-shici-review-batch', v => v >= 45 ? '全部' : `${v} 题`);
     }
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.reviewBatch = num;
+        return;
+    }
+    shiciConfig.reviewBatch = num;
     saveShiCiState();
 }
 window.handleShiCiReviewBatchSlider = handleShiCiReviewBatchSlider;
@@ -1798,26 +2017,36 @@ function selectShiCiReviewBatch(batch) {
 window.selectShiCiReviewBatch = selectShiCiReviewBatch;
 
 function toggleShiCiRetestSwitch(checked) {
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.immediateRetest = !!checked;
+        return;
+    }
     shiciConfig.immediateRetest = !!checked;
     saveShiCiState();
 }
 
 function selectShiCiImmediateRetest(enabled) {
-    shiciConfig.immediateRetest = !!enabled;
+    const val = !!enabled;
     const swEl = document.getElementById('switch-shici-retest');
-    if (swEl) swEl.checked = shiciConfig.immediateRetest;
+    if (swEl) swEl.checked = val;
+    if (shiciSettingsDraft) {
+        shiciSettingsDraft.immediateRetest = val;
+        return;
+    }
+    shiciConfig.immediateRetest = val;
     saveShiCiState();
 }
 
-function updateShiCiSettingsModalUi() {
+function updateShiCiSettingsModalUi(cfg = null) {
+    const activeCfg = cfg || shiciSettingsDraft || shiciConfig;
     const seqEl = document.getElementById('chip-shici-seq');
     const randEl = document.getElementById('chip-shici-rand');
-    if (seqEl) seqEl.classList.toggle('selected', shiciConfig.order === 'sequential');
-    if (randEl) randEl.classList.toggle('selected', shiciConfig.order === 'random');
+    if (seqEl) seqEl.classList.toggle('selected', activeCfg.order === 'sequential');
+    if (randEl) randEl.classList.toggle('selected', activeCfg.order === 'random');
 
     const learnSlider = document.getElementById('slider-shici-batch');
     if (learnSlider) {
-        learnSlider.value = shiciConfig.batchSize || 15;
+        learnSlider.value = activeCfg.batchSize || 15;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(learnSlider, val => `${val} 题`);
         }
@@ -1825,14 +2054,14 @@ function updateShiCiSettingsModalUi() {
 
     const reviewSlider = document.getElementById('slider-shici-review-batch');
     if (reviewSlider) {
-        reviewSlider.value = shiciConfig.reviewBatch || 20;
+        reviewSlider.value = activeCfg.reviewBatch || 20;
         if (typeof updateMd3SliderUI === 'function') {
             updateMd3SliderUI(reviewSlider, val => val >= 45 ? '全部' : `${val} 题`);
         }
     }
 
     const swEl = document.getElementById('switch-shici-retest');
-    if (swEl) swEl.checked = shiciConfig.immediateRetest !== false;
+    if (swEl) swEl.checked = activeCfg.immediateRetest !== false;
 
     updateShiCiProgressStatusUI();
 }

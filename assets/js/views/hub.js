@@ -44,21 +44,61 @@ function saveScrollPositionForState(viewId, subviewKey = null) {
 }
 window.saveScrollPositionForState = saveScrollPositionForState;
 
-function restoreScrollPositionForState(viewId, subviewKey = null) {
+function getSavedScrollPositionForState(viewId, subviewKey = null) {
     if (typeof window === 'undefined' || !viewId) return 0;
     const key = getScrollStateKey(viewId, subviewKey);
-    const savedY = (window.__viewScrollPositions && typeof window.__viewScrollPositions[key] === 'number')
+    return (window.__viewScrollPositions && typeof window.__viewScrollPositions[key] === 'number')
         ? Math.max(0, window.__viewScrollPositions[key])
         : 0;
+}
+window.getSavedScrollPositionForState = getSavedScrollPositionForState;
+
+function restoreScrollPositionForState(viewId, subviewKey = null) {
+    if (typeof window === 'undefined' || !viewId) return 0;
+    if (window.__deferScrollRestoreForSwipeBack) return 0;
+    const savedY = getSavedScrollPositionForState(viewId, subviewKey);
     window.scrollTo({ top: savedY, behavior: 'instant' });
+    try {
+        if (document.documentElement) document.documentElement.scrollTop = savedY;
+        if (document.body) document.body.scrollTop = savedY;
+    } catch (e) { }
     if (savedY > 0 && typeof requestAnimationFrame === 'function') {
         requestAnimationFrame(() => {
-            window.scrollTo({ top: savedY, behavior: 'instant' });
+            if (window.__deferScrollRestoreForSwipeBack) return;
+            const curY = window.scrollY || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop) || 0;
+            if (Math.abs(curY - savedY) > 2) {
+                window.scrollTo({ top: savedY, behavior: 'instant' });
+            }
         });
     }
     return savedY;
 }
 window.restoreScrollPositionForState = restoreScrollPositionForState;
+
+function suppressChildTransitionsForNextFrame(el) {
+    if (!el || !el.classList) return;
+    if (el._suppressTransitionsRaf1) {
+        cancelAnimationFrame(el._suppressTransitionsRaf1);
+        el._suppressTransitionsRaf1 = 0;
+    }
+    if (el._suppressTransitionsRaf2) {
+        cancelAnimationFrame(el._suppressTransitionsRaf2);
+        el._suppressTransitionsRaf2 = 0;
+    }
+    el.classList.add('view-suppress-transitions');
+    if (typeof requestAnimationFrame === 'function') {
+        el._suppressTransitionsRaf1 = requestAnimationFrame(() => {
+            el._suppressTransitionsRaf1 = 0;
+            el._suppressTransitionsRaf2 = requestAnimationFrame(() => {
+                el._suppressTransitionsRaf2 = 0;
+                el.classList.remove('view-suppress-transitions');
+            });
+        });
+    } else {
+        setTimeout(() => el.classList.remove('view-suppress-transitions'), 32);
+    }
+}
+window.suppressChildTransitionsForNextFrame = suppressChildTransitionsForNextFrame;
 
 function cancelActiveDomTransition() {
     if (typeof activeDomTransitionCleanup === 'function') {
@@ -305,10 +345,7 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const fullSlideDistance = Math.ceil((rawViewportW / zoomScale) + Math.max(80, Math.abs(metrics.left || 0) + 80));
     const unlockContainer = lockContainerHeightForLayering(fromEl, zoomScale);
     docEl.classList.add(docClass);
-    // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
-    toEl.classList.add('no-enter-anim');
-    updateDom();
-
+    // 先锁定退出层固定定位与过渡类，再执行 updateDom 移除 .active，防止退出层在切页瞬间掉入 :not(.active) 塌陷为 height:0 / content-visibility:hidden
     fromEl.style.top = `${metrics.top}px`;
     fromEl.style.left = `${metrics.left}px`;
     fromEl.style.width = `${metrics.width}px`;
@@ -316,6 +353,11 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     fromEl.style.minHeight = `${metrics.minHeight}px`;
     fromEl.style.setProperty('--page-slide-out-x', `${fullSlideDistance}px`);
     fromEl.classList.add(outClass);
+
+    // 提前给目标层加上 no-enter-anim 与过渡抑制类，避免子元素从隐藏态/旧尺寸过渡错位及过渡结束重放闪烁
+    toEl.classList.add('no-enter-anim');
+    suppressChildTransitionsForNextFrame(toEl);
+    updateDom();
 
     // 在页面滑入动画类使目标层离屏偏移前先执行同步回调（如聚焦搜索框），防止 Safari/移动端拒绝聚焦离屏元素
     invokeCallback(options && options.onAfterDomUpdate);
@@ -458,6 +500,7 @@ function switchView(viewId, options = {}) {
             const v = views[i];
             const isTarget = (v.id === viewId);
             if (isTarget) {
+                if (!isSameView) suppressChildTransitionsForNextFrame(v);
                 if (isTabSwitch) v.classList.remove('no-enter-anim');
                 if (!v.classList.contains('active')) v.classList.add('active');
                 v.inert = false;
@@ -478,13 +521,12 @@ function switchView(viewId, options = {}) {
             const hubSuggs = document.getElementById('hub-search-suggestions');
             if (hubSuggs) hubSuggs.style.display = 'none';
             updateHub();
-            requestAnimationFrame(() => {
-                if (currentUser && typeof initGlobalPresence === 'function') {
-                    initGlobalPresence();
-                }
-            });
         } else if (viewId === 'view-auth') {
             if (typeof renderAuthView === 'function') renderAuthView();
+        } else if (viewId === 'view-single') {
+            if (typeof checkCardToolbarOverflow === 'function') {
+                checkCardToolbarOverflow();
+            }
         } else if (viewId === 'view-me') {
             const activeKey = window.__targetMeSubview || 'main';
             window.__targetMeSubview = null;
@@ -495,9 +537,10 @@ function switchView(viewId, options = {}) {
                     : document.getElementById(`settings-subview-${k}`);
                 if (el) {
                     const isActiveSub = (k === activeKey);
-                    if (isActiveSub && (isBack || skipTransition || window.__skipNextBackAnimation)) {
+                    if (isActiveSub) {
+                        // 进入个人中心视图时由 #view-me 统一承担入场动画，避免子视图叠加双重位移动画导致瞬间错位
                         el.classList.add('no-enter-anim');
-                    } else if (!isActiveSub) {
+                    } else {
                         el.classList.remove('no-enter-anim');
                     }
                     el.classList.toggle('active', isActiveSub);
@@ -511,6 +554,8 @@ function switchView(viewId, options = {}) {
             }
         } else if (viewId === 'view-settings') {
             if (typeof switchSettingsSubview === 'function') {
+                const mainSub = document.getElementById('settings-subview-main');
+                if (mainSub) mainSub.classList.add('no-enter-anim');
                 switchSettingsSubview('main', true, { preserveScroll: isBackIntent });
             }
         } else if (viewId === 'view-online') {
@@ -520,7 +565,6 @@ function switchView(viewId, options = {}) {
                 requestAnimationFrame(() => {
                     if (typeof fetchOnlineRoomsList === 'function') {
                         fetchOnlineRoomsList();
-                        initGlobalPresence();
                     }
                 });
             }
@@ -537,9 +581,19 @@ function switchView(viewId, options = {}) {
             }
         }
 
+        // 在线状态同步：除学习页面外均视为在线（免打扰除外）；进入/离开学习页面时立即刷新状态
+        requestAnimationFrame(() => {
+            if (!currentUser) return;
+            if (typeof syncPresenceForCurrentView === 'function') {
+                syncPresenceForCurrentView(viewId);
+            } else if (typeof initGlobalPresence === 'function') {
+                initGlobalPresence();
+            }
+        });
+
         if (isBackIntent) {
             restoreScrollPositionForState(viewId, targetSubKey);
-        } else {
+        } else if (!window.__deferScrollRestoreForSwipeBack) {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
     };
@@ -645,6 +699,21 @@ function isHubGuestUser() {
     return !hasLoggedInProfile || !uname || uname.startsWith('游客');
 }
 
+function syncHubDndUI() {
+    const isDnd = (typeof isDoNotDisturbEnabled === 'function') ? isDoNotDisturbEnabled() : false;
+    const dndBtn = document.getElementById('hub-dd-dnd-btn');
+    const dndIcon = document.getElementById('hub-dd-dnd-icon');
+    if (dndBtn) {
+        dndBtn.setAttribute('aria-checked', isDnd ? 'true' : 'false');
+        dndBtn.classList.toggle('is-dnd-active', isDnd);
+        dndBtn.title = isDnd ? '免打扰已开启：点击恢复在线' : '开启免打扰：隐藏在线状态并拒收邀请';
+    }
+    if (dndIcon) {
+        dndIcon.innerText = isDnd ? 'do_not_disturb_on' : 'do_not_disturb_off';
+    }
+}
+window.syncHubDndUI = syncHubDndUI;
+
 function toggleHubUserDropdown(event) {
     if (event) event.stopPropagation();
     // 游客状态下不需要下拉菜单，点击直接跳转登录页
@@ -656,19 +725,27 @@ function toggleHubUserDropdown(event) {
         return;
     }
     const dd = document.getElementById('hub-user-dropdown');
+    const pill = document.getElementById('hub-user-pill');
     if (!dd) return;
     const isVisible = dd.style.display === 'block';
     if (isVisible) {
         closeHubUserDropdown();
     } else {
         updateHub();
+        syncHubDndUI();
         dd.style.display = 'block';
+        if (pill) pill.setAttribute('aria-expanded', 'true');
     }
 }
 
-function closeHubUserDropdown() {
+function closeHubUserDropdown(restoreFocus = false) {
     const dd = document.getElementById('hub-user-dropdown');
+    const pill = document.getElementById('hub-user-pill');
     if (dd) dd.style.display = 'none';
+    if (pill) {
+        pill.setAttribute('aria-expanded', 'false');
+        if (restoreFocus) pill.focus();
+    }
 }
 
 function syncHubAppBarCompactState() {
@@ -735,6 +812,8 @@ const DEFAULT_HOME_MODE_ORDER = [
 function getHomeLayoutConfig() {
     const def = {
         collapseSearchBar: false,
+        collapseActivityCard: false,
+        collapseLeaderboardCard: false,
         hiddenCards: [],
         modeOrder: [...DEFAULT_HOME_MODE_ORDER]
     };
@@ -752,6 +831,8 @@ function getHomeLayoutConfig() {
         });
         return {
             collapseSearchBar: Boolean(parsed.collapseSearchBar),
+            collapseActivityCard: Boolean(parsed.collapseActivityCard),
+            collapseLeaderboardCard: Boolean(parsed.collapseLeaderboardCard),
             hiddenCards: hidden,
             modeOrder: order
         };
@@ -764,6 +845,8 @@ window.getHomeLayoutConfig = getHomeLayoutConfig;
 function saveHomeLayoutConfig(cfg) {
     const clean = {
         collapseSearchBar: Boolean(cfg.collapseSearchBar),
+        collapseActivityCard: Boolean(cfg.collapseActivityCard),
+        collapseLeaderboardCard: Boolean(cfg.collapseLeaderboardCard),
         hiddenCards: Array.isArray(cfg.hiddenCards)
             ? cfg.hiddenCards.filter(id => id !== 'hub-activity-entry-card' && id !== 'hub-leaderboard-entry-card')
             : [],
@@ -788,14 +871,26 @@ function applyHomeLayoutConfig() {
     const appBarSearchBtn = document.getElementById('btn-hub-appbar-search');
     setDisplayIfChanged(searchWrapper, cfg.collapseSearchBar ? 'none' : '');
     setDisplayIfChanged(appBarSearchBtn, cfg.collapseSearchBar ? 'inline-flex' : 'none');
-    syncHubAppBarCompactState();
 
-    // 2. 活动和排行榜禁止隐藏，强制保持 flex 布局显示
+    // 2. 活动与排行榜卡片收起/展开控制（收起后在首页顶栏显示对应图标入口）
     const isOffline = (typeof isOfflineMode === 'function' && isOfflineMode());
+    const showActivityCard = !isOffline && !cfg.collapseActivityCard;
+    const showLeaderboardCard = !cfg.collapseLeaderboardCard;
+
     const actCard = document.getElementById('hub-activity-entry-card');
-    setDisplayIfChanged(actCard, isOffline ? 'none' : 'flex');
+    setDisplayIfChanged(actCard, showActivityCard ? 'flex' : 'none');
+    const appBarActBtn = document.getElementById('btn-hub-appbar-activity');
+    setDisplayIfChanged(appBarActBtn, (!isOffline && cfg.collapseActivityCard) ? 'inline-flex' : 'none');
+
     const lbCard = document.getElementById('hub-leaderboard-entry-card');
-    setDisplayIfChanged(lbCard, 'flex');
+    setDisplayIfChanged(lbCard, showLeaderboardCard ? 'flex' : 'none');
+    const appBarLbBtn = document.getElementById('btn-hub-appbar-leaderboard');
+    setDisplayIfChanged(appBarLbBtn, cfg.collapseLeaderboardCard ? 'inline-flex' : 'none');
+
+    const actLbRow = document.getElementById('hub-activity-leaderboard-row');
+    setDisplayIfChanged(actLbRow, (showActivityCard || showLeaderboardCard) ? 'grid' : 'none');
+
+    syncHubAppBarCompactState();
 
     // 3. 独立卡片隐藏控制（在线玩家卡片、学习日历卡片）
     const onlineCard = document.getElementById('hub-online-players-card');
@@ -820,15 +915,35 @@ function applyHomeLayoutConfig() {
         const orderChanged = currentOrder.length !== targetOrder.length ||
             targetOrder.some((cid, idx) => currentOrder[idx] !== cid);
 
+        const visibleCards = [];
         targetOrder.forEach(cid => {
             const el = cardMap.get(cid);
             if (el) {
-                setDisplayIfChanged(el, hiddenSet.has(cid) ? 'none' : '');
+                const isHidden = hiddenSet.has(cid);
+                setDisplayIfChanged(el, isHidden ? 'none' : '');
+                el.classList.remove('mode-card-span-full-2col', 'mode-card-span-3col-2', 'mode-card-span-3col-full');
+                if (!isHidden) {
+                    visibleCards.push(el);
+                }
                 if (orderChanged) {
                     modesGrid.appendChild(el);
                 }
             }
         });
+
+        const visibleCount = visibleCards.length;
+        modesGrid.dataset.visibleCount = String(visibleCount);
+        modesGrid.classList.toggle('modes-grid-6col', visibleCount >= 5 && visibleCount % 3 === 2);
+
+        if (visibleCount >= 3 && visibleCount % 2 === 1) {
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-full-2col');
+        }
+        if (visibleCount >= 5 && visibleCount % 3 === 2) {
+            visibleCards[visibleCount - 2].classList.add('mode-card-span-3col-2');
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-3col-2');
+        } else if (visibleCount >= 7 && visibleCount % 3 === 1) {
+            visibleCards[visibleCount - 1].classList.add('mode-card-span-3col-full');
+        }
     }
 }
 window.applyHomeLayoutConfig = applyHomeLayoutConfig;
@@ -836,6 +951,15 @@ window.applyHomeLayoutConfig = applyHomeLayoutConfig;
 document.addEventListener('pointerdown', (e) => {
     if (!e.target.closest('#hub-user-pill') && !e.target.closest('#hub-user-dropdown')) {
         closeHubUserDropdown();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const dd = document.getElementById('hub-user-dropdown');
+        if (dd && dd.style.display === 'block') {
+            closeHubUserDropdown(true);
+        }
     }
 });
 
@@ -930,6 +1054,7 @@ function updateHub() {
         ddLogged.style.display = isLogged ? 'block' : 'none';
         ddGuest.style.display = isLogged ? 'none' : 'block';
     }
+    syncHubDndUI();
 
     const statTotal = document.getElementById('stat-total');
     const statAcc = document.getElementById('stat-acc');
@@ -950,8 +1075,9 @@ function updateHub() {
         window.DailyStudyTracker.renderWeekCalendar(currentCalendarWeekOffset);
     }
 
-    requestAnimationFrame(() => {
-        if (window.EbbinghausEngine) {
+    // 同步刷新徽标与搜索标签，避免切换回首页后首帧显示旧计数或顶栏在次帧发生宽度跳变
+    try {
+        if (window.EbbinghausEngine && typeof window.EbbinghausEngine.updateDueBadge === 'function') {
             window.EbbinghausEngine.updateDueBadge();
         }
         if (typeof updateHubShiCiBadge === 'function') {
@@ -960,13 +1086,14 @@ function updateHub() {
         if (typeof initSearchTabs === 'function') {
             initSearchTabs();
         }
-        if (typeof ActivityManager !== 'undefined') {
+        if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.updateBadge === 'function') {
             ActivityManager.updateBadge();
         }
-        if (typeof MailManager !== 'undefined') {
+        if (typeof MailManager !== 'undefined' && typeof MailManager.updateBadge === 'function') {
             MailManager.updateBadge();
         }
-    });
+    } catch (e) { }
+    syncHubAppBarCompactState();
 }
 
 // 刷新主页中背单词与 Wordle 的按钮文本（有未完成进度时显示“继续学习” / “继续解谜”）
@@ -1255,6 +1382,8 @@ function isEnglishBook(b) {
             return {
                 fromEl: activeSub,
                 toEl: mainSub,
+                targetViewId: 'view-me',
+                targetSubKey: 'main',
                 commit: () => {
                     const backBtn = activeSub.querySelector('.nav-back-btn');
                     if (backBtn && typeof backBtn.click === 'function') {
@@ -1274,6 +1403,8 @@ function isEnglishBook(b) {
             return {
                 fromEl: activeSub,
                 toEl: mainSub,
+                targetViewId: 'view-settings',
+                targetSubKey: 'main',
                 commit: () => {
                     if (typeof switchSettingsSubview === 'function') {
                         switchSettingsSubview('main', true);
@@ -1310,9 +1441,15 @@ function isEnglishBook(b) {
         const toEl = document.getElementById(targetViewId);
         if (!fromEl || !toEl || fromEl === toEl) return null;
 
+        const targetSubKey = (targetViewId === 'view-me' && window.__authReturnMeSubview)
+            ? window.__authReturnMeSubview
+            : resolveCurrentSubviewKey(targetViewId);
+
         return {
             fromEl,
             toEl,
+            targetViewId,
+            targetSubKey,
             commit: () => {
                 const backBtn = fromEl.querySelector('.nav-back-btn:not(.search-page-settings-btn), .search-page-back-btn');
                 if (backBtn && typeof backBtn.click === 'function') {
@@ -1477,17 +1614,21 @@ function isEnglishBook(b) {
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
         const toCbRect = getFixedContainingBlockRect(ctx.toEl);
         const toTop = bodyPadTop - ((toCbRect.top || 0) / zoomScale);
+        const rawSavedY = getSavedScrollPositionForState(ctx.targetViewId, ctx.targetSubKey);
+        const viewportVisualH = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0;
 
         ctx.unlockContainer = lockContainerHeightForLayering(ctx.fromEl, zoomScale);
         document.documentElement.classList.add('swipe-back-active');
 
-        ctx.toEl.style.top = `${toTop}px`;
+        // 预先将目标层直接定位到其记忆滚动位置（top - savedY），避免左滑过程中先看到顶部、松手后再跳回原位置
+        ctx.targetSavedY = rawSavedY;
         ctx.toEl.style.left = `${stableLeft}px`;
         ctx.toEl.style.width = `${stableWidth}px`;
-        ctx.toEl.style.minHeight = `${metrics.minHeight}px`;
+        ctx.toEl.style.minHeight = `${Math.max(metrics.minHeight, (viewportVisualH + rawSavedY) / zoomScale)}px`;
         ctx.toEl.style.transition = 'none';
         ctx.toEl.style.animation = '';
         ctx.toEl.classList.add('swipe-back-incoming-layer');
+        ctx.toEl.style.top = `${toTop - (rawSavedY / zoomScale)}px`;
 
         ctx.fromEl.style.top = `${metrics.top}px`;
         ctx.fromEl.style.left = `${stableLeft}px`;
@@ -1603,15 +1744,31 @@ function isEnglishBook(b) {
             cancelSettleAnimation();
             state = null;
             if (shouldCommit) {
+                const targetViewId = current.ctx.targetViewId;
+                const targetSubKey = current.ctx.targetSubKey;
+                const targetSavedY = Math.max(0, Number(current.ctx.targetSavedY) || 0);
                 if (current.ctx.toEl) {
                     current.ctx.toEl.classList.add('no-enter-anim');
+                    suppressChildTransitionsForNextFrame(current.ctx.toEl);
                 }
                 window.__skipNextBackAnimation = true;
+                window.__deferScrollRestoreForSwipeBack = true;
                 try {
-                    // 先在保持双层定位（目标页已静止于 (0,0)）期间提交视图状态切换，再解除固定定位，彻底消除返回后的 1 帧尺寸/排版跳变
+                    // 先在保持双层定位期间提交视图状态切换，延后滚动恢复直至退出固定层，彻底消除先回到顶部再跳回原位置的闪烁
                     current.ctx.commit();
                 } finally {
                     resetSwipeLayers(current.ctx);
+                    window.__deferScrollRestoreForSwipeBack = false;
+                    // 解除固定定位的同一同步帧内立刻恢复到原滚动位置，视觉与拖拽终点像素级无缝衔接
+                    if (targetSavedY > 0) {
+                        window.scrollTo({ top: targetSavedY, behavior: 'instant' });
+                        try {
+                            if (document.documentElement) document.documentElement.scrollTop = targetSavedY;
+                            if (document.body) document.body.scrollTop = targetSavedY;
+                        } catch (e) { }
+                    } else if (targetViewId) {
+                        restoreScrollPositionForState(targetViewId, targetSubKey);
+                    }
                     setTimeout(() => { window.__skipNextBackAnimation = false; }, 0);
                 }
             } else {

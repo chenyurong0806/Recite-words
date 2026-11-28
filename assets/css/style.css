@@ -105,8 +105,12 @@ body {
 
 /* iOS 独立 PWA 模式顶部系统模糊过渡区避让，防止遮挡页面顶栏标题与按钮（仅非 B站 Toy App 容器时生效） */
 @media (display-mode: standalone) and (max-width: 767px) {
+    html:not(.toy-app-container) {
+        scroll-padding-top: calc(44px + var(--safe-top, 0px));
+    }
+
     html:not(.toy-app-container) body {
-        padding-top: calc(36px + var(--safe-top, 0px));
+        padding-top: calc(44px + var(--safe-top, 0px));
     }
 }
 
@@ -128,8 +132,12 @@ body {
     }
 }
 
+html.ios-pwa:not(.toy-app-container) {
+    scroll-padding-top: calc(46px + var(--safe-top, 0px));
+}
+
 html.ios-pwa:not(.toy-app-container) body {
-    padding-top: calc(38px + var(--safe-top, 0px));
+    padding-top: calc(46px + var(--safe-top, 0px));
 }
 
 /* B站 App Toy 沉浸态横屏：顶部栏右侧为胶囊按钮留白，避免遮挡操作按钮 */
@@ -220,9 +228,9 @@ html.toy-app-container.toy-app-immersive.toy-app-landscape .riddle-top-bar {
     box-sizing: border-box;
 }
 
-.view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+.view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer) {
     content-visibility: hidden;
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -236,15 +244,23 @@ html.toy-app-container.toy-app-immersive.toy-app-landscape .riddle-top-bar {
 }
 
 /* 搜索页保持渲染树就绪，避免移动端从首页点击搜索时因 content-visibility: hidden 延迟布局而无法自动拉起系统键盘 */
-#view-search:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+#view-search:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer) {
     content-visibility: visible;
     opacity: 0;
 }
 
 @supports not (content-visibility: hidden) {
-    .view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+    .view:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer) {
         display: none;
     }
+}
+
+/* 切换页面首帧抑制子元素 CSS 过渡，避免元素从隐藏态/旧尺寸过渡造成瞬间渲染错位 */
+.view-suppress-transitions,
+.view-suppress-transitions *,
+.view-suppress-transitions *::before,
+.view-suppress-transitions *::after {
+    transition: none !important;
 }
 
 .view.active {
@@ -313,6 +329,7 @@ html.toy-app-container.toy-app-immersive.toy-app-landscape .riddle-top-bar {
         content-visibility: visible !important;
         visibility: visible !important;
         display: block !important;
+        height: auto !important;
         overflow: visible !important;
         pointer-events: none !important;
         z-index: 1120 !important;
@@ -345,6 +362,7 @@ html.toy-app-container.toy-app-immersive.toy-app-landscape .riddle-top-bar {
         content-visibility: visible !important;
         visibility: visible !important;
         display: block !important;
+        height: auto !important;
         overflow: visible !important;
         pointer-events: none !important;
         z-index: 1090 !important;
@@ -3653,7 +3671,8 @@ body.hide-all-icons .material-symbols-rounded {
     line-height: 1;
 }
 
-#hub-mailbox-unread-badge {
+#hub-mailbox-unread-badge,
+.hub-appbar-unread-badge {
     position: absolute;
     top: -5px;
     right: -5px;
@@ -3673,6 +3692,13 @@ body.hide-all-icons .material-symbols-rounded {
     display: none;
     align-items: center;
     justify-content: center;
+    pointer-events: none;
+}
+
+@media (max-width: 420px) {
+    .hub-appbar-actions {
+        gap: 6px;
+    }
 }
 
 #btn-hub-login {
@@ -3806,11 +3832,68 @@ body.hide-all-icons .material-symbols-rounded {
     margin: 16px auto;
 }
 
+.modes-grid-container {
+    container: modes-grid / inline-size;
+    margin-block: 12px;
+}
+
 .modes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
-    margin: 12px 0;
+    margin: 0;
+}
+
+@container modes-grid (inline-size >= 580px) {
+    .modes-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .modes-grid[data-visible-count="1"] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .modes-grid > .mode-card.mode-card-span-full-2col {
+        grid-column: 1 / -1;
+    }
+}
+
+@container modes-grid (inline-size >= 870px) {
+    .modes-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .modes-grid[data-visible-count="1"] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .modes-grid[data-visible-count="2"],
+    .modes-grid[data-visible-count="4"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .modes-grid[data-visible-count="5"],
+    .modes-grid.modes-grid-6col {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .modes-grid > .mode-card.mode-card-span-full-2col {
+        grid-column: auto;
+    }
+
+    .modes-grid[data-visible-count="5"] > .mode-card,
+    .modes-grid.modes-grid-6col > .mode-card {
+        grid-column: span 2;
+    }
+
+    .modes-grid[data-visible-count="5"] > .mode-card.mode-card-span-3col-2,
+    .modes-grid.modes-grid-6col > .mode-card.mode-card-span-3col-2 {
+        grid-column: span 3;
+    }
+
+    .modes-grid > .mode-card.mode-card-span-3col-full {
+        grid-column: 1 / -1;
+    }
 }
 
 .mode-card,
@@ -3863,7 +3946,7 @@ body.hide-all-icons .material-symbols-rounded {
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: space-between;
     box-sizing: border-box;
     overflow: visible;
     position: relative;
@@ -4006,6 +4089,15 @@ body.hide-all-icons .material-symbols-rounded {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     width: 100%;
+}
+
+.mode-card-btn-row > .mode-card-btn-full {
+    grid-column: 1 / -1;
+}
+
+body.is-offline-mode .mode-card-btn-row > .mode-card-btn-full-online-only,
+.mode-card-btn-row:has(#btn-hub-daily-wordle[style*="display: none"]) > .mode-card-btn-full-online-only {
+    grid-column: auto;
 }
 
 .mode-card-btn-row-3 {
@@ -5823,6 +5915,24 @@ input.riddle-draft-tile {
     }
 }
 
+.rotating {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .rotating {
+        animation: spin 0.9s linear infinite;
+    }
+}
+
+#btn-lb-visibility-toggle.is-loading {
+    opacity: 0.78;
+    cursor: wait;
+    pointer-events: none;
+}
+
 .riddle-keyboard {
     display: flex;
     flex-direction: column;
@@ -6088,22 +6198,138 @@ input.riddle-draft-tile {
     box-shadow: 0 0 4px rgba(186, 26, 26, 0.5);
 }
 
-/* 下拉菜单项样式与微交互反馈 (Google MD3规范) */
+/* 下拉菜单容器与菜单项样式与微交互反馈 (Google MD3规范) */
+#hub-user-dropdown.hub-user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 999;
+    width: max-content;
+    min-width: 158px;
+    max-width: min(204px, calc(100vw - 24px));
+    background: var(--md-sys-color-surface-container, #ffffff);
+    border: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    padding: 6px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
 .hub-dd-item {
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 36px;
+    padding: 7px 10px;
+    margin: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface);
+    text-align: left;
+    white-space: nowrap;
+    box-sizing: border-box;
+    transition: background-color 0.15s ease, transform 0.1s ease, color 0.15s ease;
     user-select: none;
-    border-radius: 8px;
-    margin: 2px 6px;
-    width: calc(100% - 12px) !important;
+}
+
+@media (pointer: coarse) {
+    .hub-dd-item {
+        min-height: 44px;
+        padding: 9px 10px;
+    }
+}
+
+.hub-dd-item .material-symbols-rounded {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.hub-dd-item .hub-dd-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.hub-dd-item-danger {
+    color: #dc2626;
+}
+
+.hub-dd-item-primary {
+    color: var(--md-sys-color-primary);
+}
+
+.hub-dd-divider {
+    border: none;
+    border-top: 1px solid var(--md-sys-color-outline-variant, #e2e8f0);
+    margin: 4px 6px;
+    opacity: 0.75;
 }
 
 .hub-dd-item:hover {
-    background-color: var(--md-sys-color-surface-container-high, #f1f5f9) !important;
+    background-color: var(--md-sys-color-surface-container-high, #f1f5f9);
+}
+
+.hub-dd-item:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary, #0061a4);
+    outline-offset: -2px;
 }
 
 .hub-dd-item:active {
-    background-color: var(--md-sys-color-surface-container-highest, #e2e8f0) !important;
+    background-color: var(--md-sys-color-surface-container-highest, #e2e8f0);
     transform: scale(0.98);
+}
+
+.hub-dd-dnd-item {
+    gap: 8px;
+}
+
+.hub-dd-dnd-item.is-dnd-active,
+.hub-dd-dnd-item[aria-checked="true"] {
+    color: var(--md-sys-color-primary, #0061a4);
+    font-weight: 600;
+}
+
+.hub-dd-switch-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 32px;
+    height: 18px;
+    margin-left: 8px;
+    border-radius: 9999px;
+    background: var(--md-sys-color-surface-container-highest, #cbd5e1);
+    border: 1.5px solid var(--md-sys-color-outline, #94a3b8);
+    flex-shrink: 0;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.hub-dd-switch-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--md-sys-color-outline, #64748b);
+    transform: translateX(2px);
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease;
+}
+
+.hub-dd-dnd-item[aria-checked="true"] .hub-dd-switch-pill {
+    background: var(--md-sys-color-primary, #0061a4);
+    border-color: var(--md-sys-color-primary, #0061a4);
+}
+
+.hub-dd-dnd-item[aria-checked="true"] .hub-dd-switch-thumb {
+    background: var(--md-sys-color-on-primary, #ffffff);
+    transform: translateX(15px);
 }
 
 /* 希沃同屏作战专用样式 */
@@ -7147,10 +7373,10 @@ body.nav-hidden {
     box-sizing: border-box;
 }
 
-.me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer),
-.settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+.me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer),
+.settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer) {
     content-visibility: hidden;
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -7164,8 +7390,8 @@ body.nav-hidden {
 }
 
 @supports not (content-visibility: hidden) {
-    .me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer),
-    .settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.swipe-back-outgoing-layer) {
+    .me-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer),
+    .settings-subview:not(.active):not(.swipe-back-incoming-layer):not(.page-back-incoming-layer):not(.page-back-outgoing-layer):not(.page-forward-outgoing-layer):not(.page-forward-incoming-layer):not(.swipe-back-outgoing-layer) {
         display: none;
     }
 }

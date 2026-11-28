@@ -33,14 +33,12 @@
       "output": "dist"
     },
     "files": [
-      "**/*",
-      "!books/**",
-      "!dist/**",
-      "!.git/**",
-      "!.vscode/**",
-      "!*.md",
-      "!scripts/generate-doris-sql.js",
-      "!docs/**"
+      "main.js",
+      "preload.js",
+      "index.html",
+      "package.json",
+      "assets/**/*",
+      "!assets/js/index.bundle.js"
     ],
     "win": {
       "target": [

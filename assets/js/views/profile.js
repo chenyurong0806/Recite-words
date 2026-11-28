@@ -93,7 +93,7 @@ function toggleMasteredWord(word, phone = '', meaning = '', type = 'word') {
         });
         nowMastered = true;
         _updateMasteredRemovedMap(clean, false);
-        showToast(`已将“${cleanWord}”标为熟词，以后不再复习`);
+        showToast(`已标为熟词，以后将不再复习`);
     }
     saveMasteredWords(list);
     if (type !== 'shici' && window.EbbinghausEngine) {
@@ -173,7 +173,7 @@ function toggleCurrentWordMastered() {
         updateSingleProgressDisplay();
         saveSingleProgress();
         if (typeof showToast === 'function') {
-            showToast(`已将“${q.word}”标为熟词，以后将不再复习`);
+            showToast(`已标为熟词，以后将不再复习`);
         }
     } else {
         // 取消标注熟词：播放减星动画，回到刚才的星数
