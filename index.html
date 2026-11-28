@@ -37,7 +37,7 @@
     <meta name="referrer" content="no-referrer">
 
     <!-- 优先预加载精简图标字体子集（~98KB），显著加快首次打开图标显示速度 -->
-    <link rel="preload" href="./assets/fonts/material-symbols-rounded-subset.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="./assets/fonts/material-symbols-rounded-subset.woff2" as="font" type="font/woff2" crossorigin fetchpriority="high">
 
     <!-- 首帧前同步识别 iOS 独立 PWA 模式，避免顶部系统模糊区域遮挡页面标题 -->
     <script>
@@ -53,14 +53,6 @@
         })();
     </script>
 
-    <!-- Google Fonts 文本字体异步非阻塞加载（图标字体改由本地子集优先极速加载，避免被远程阻塞） -->
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap"
-        media="print" onload="this.media='all'">
-    <noscript>
-        <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap">
-    </noscript>
     <style>
         /* 本地精简子集图标字体（~98KB，涵盖全站所有图标，首次打开即刻显示） */
         @font-face {
@@ -105,6 +97,14 @@
             display: none !important;
         }
     </style>
+    <script>
+        /* 立即触发本地精简图标字体解码，无需等待 body 解析与业务脚本加载完毕 */
+        try {
+            if (document.fonts && typeof document.fonts.load === 'function') {
+                document.fonts.load('24px "Material Symbols Rounded"', 'home').catch(function () { });
+            }
+        } catch (e) { }
+    </script>
     <!-- 捕获本地/独立标签页测试时 ToySDK 找不到宿主父窗口导致的握手超时异常 -->
     <script>
         window.addEventListener('unhandledrejection', function (event) {
@@ -117,67 +117,76 @@
             }
         });
     </script>
-    <!-- Bilibili Toy JS SDK (非 file: 协议环境下动态加载，避免本地 file 找不到 ERR_FILE_NOT_FOUND) -->
+    <!-- 引入主样式表 -->
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <!-- Google Fonts 文本字体异步非阻塞加载（置于本地样式与图标字体之后，不抢占首屏连接） -->
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap"
+        media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap">
+    </noscript>
+    <!-- Bilibili Toy JS SDK (非 file: 协议环境下异步动态加载，避免阻塞首屏与图标加载) -->
     <script>
         if (window.location.protocol !== 'file:') {
             var toyScript = document.createElement('script');
+            toyScript.async = true;
             toyScript.src = 'https://s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js';
             document.head.appendChild(toyScript);
         }
     </script>
-    <!-- Supabase JS Client (本地直接加载，零延迟秒开且离线无网环境下不卡顿) -->
-    <script src="./assets/js/core/supabase.client.js"></script>
+    <!-- Supabase JS Client 与业务脚本全部使用 defer 按序加载，避免阻塞 HTML 解析与图标首屏渲染 -->
+    <script src="./assets/js/core/supabase.client.js" defer></script>
     <script src="./assets/lib/html2pdf.bundle.min.js" defer></script>
-    <!-- 引入主样式表 -->
-    <link rel="stylesheet" href="./assets/css/style.css">
     <!-- 核心基础设施 (Core Infrastructure) -->
-    <script src="./assets/js/core/env.js"></script>
-    <script src="./assets/js/core/supabase.js"></script>
-    <script src="./assets/js/core/storage.js"></script>
-    <script src="./assets/js/core/audio.js"></script>
-    <script src="./assets/js/core/state.js"></script>
+    <script src="./assets/js/core/env.js" defer></script>
+    <script src="./assets/js/core/supabase.js" defer></script>
+    <script src="./assets/js/core/storage.js" defer></script>
+    <script src="./assets/js/core/audio.js" defer></script>
+    <script src="./assets/js/core/state.js" defer></script>
 
     <!-- 数据管理器与记忆算法引擎 (Managers & Engines) -->
-    <script src="./assets/js/managers/sync-manager.js"></script>
-    <script src="./assets/js/managers/book-manager.js"></script>
-    <script src="./assets/js/managers/electron-manager.js"></script>
-    <script src="./assets/js/managers/tracker.js"></script>
-    <script src="./assets/js/managers/ebbinghaus.js"></script>
-    <script src="./assets/js/managers/level-manager.js"></script>
-    <script src="./assets/js/managers/item-manager.js"></script>
-    <script src="./assets/js/managers/activity-manager.js"></script>
-    <script src="./assets/js/managers/mail-manager.js"></script>
+    <script src="./assets/js/managers/sync-manager.js" defer></script>
+    <script src="./assets/js/managers/book-manager.js" defer></script>
+    <script src="./assets/js/managers/electron-manager.js" defer></script>
+    <script src="./assets/js/managers/tracker.js" defer></script>
+    <script src="./assets/js/managers/ebbinghaus.js" defer></script>
+    <script src="./assets/js/managers/level-manager.js" defer></script>
+    <script src="./assets/js/managers/item-manager.js" defer></script>
+    <script src="./assets/js/managers/activity-manager.js" defer></script>
+    <script src="./assets/js/managers/mail-manager.js" defer></script>
 
     <!-- 共享交互组件 (Shared Components) -->
-    <script src="./assets/js/components/virtual-keyboard.js"></script>
-    <script src="./assets/js/components/folder-tree.js"></script>
-    <script src="./assets/js/components/md3-select.js"></script>
-    <script src="./assets/js/components/md3-slider.js"></script>
-    <script src="./assets/js/components/version-card.js"></script>
-    <script src="./assets/js/components/avatar-cropper.js"></script>
-    <script src="./assets/js/components/poster-generator.js"></script>
+    <script src="./assets/js/components/virtual-keyboard.js" defer></script>
+    <script src="./assets/js/components/folder-tree.js" defer></script>
+    <script src="./assets/js/components/md3-select.js" defer></script>
+    <script src="./assets/js/components/md3-slider.js" defer></script>
+    <script src="./assets/js/components/version-card.js" defer></script>
+    <script src="./assets/js/components/avatar-cropper.js" defer></script>
+    <script src="./assets/js/components/poster-generator.js" defer></script>
 
     <!-- 业务视图与游戏模式控制器 (Feature Views) -->
-    <script src="./assets/js/views/auth.js"></script>
-    <script src="./assets/js/views/hub.js"></script>
-    <script src="./assets/js/views/book-selector.js"></script>
-    <script src="./assets/js/views/leaderboard.js"></script>
-    <script src="./assets/js/views/riddle.js"></script>
-    <script src="./assets/js/views/single.js"></script>
-    <script src="./assets/js/views/words-engine.js"></script>
-    <script src="./assets/js/views/profile.js"></script>
-    <script src="./assets/js/views/duel.js"></script>
-    <script src="./assets/js/views/ai-duel.js"></script>
-    <script src="./assets/js/views/mistakes.js"></script>
-    <script src="./assets/js/views/local-duel.js"></script>
-    <script src="./assets/js/views/dictation.js"></script>
-    <script src="./assets/js/views/shici.js"></script>
-    <script src="./assets/js/views/settings.js"></script>
-    <script src="./assets/js/views/search.js"></script>
-    <script src="./assets/js/views/export-data.js"></script>
+    <script src="./assets/js/views/auth.js" defer></script>
+    <script src="./assets/js/views/hub.js" defer></script>
+    <script src="./assets/js/views/book-selector.js" defer></script>
+    <script src="./assets/js/views/leaderboard.js" defer></script>
+    <script src="./assets/js/views/riddle.js" defer></script>
+    <script src="./assets/js/views/single.js" defer></script>
+    <script src="./assets/js/views/words-engine.js" defer></script>
+    <script src="./assets/js/views/profile.js" defer></script>
+    <script src="./assets/js/views/duel.js" defer></script>
+    <script src="./assets/js/views/ai-duel.js" defer></script>
+    <script src="./assets/js/views/mistakes.js" defer></script>
+    <script src="./assets/js/views/local-duel.js" defer></script>
+    <script src="./assets/js/views/dictation.js" defer></script>
+    <script src="./assets/js/views/shici.js" defer></script>
+    <script src="./assets/js/views/settings.js" defer></script>
+    <script src="./assets/js/views/search.js" defer></script>
+    <script src="./assets/js/views/export-data.js" defer></script>
 
     <!-- 应用主启动入口 (Bootstrap Entry) -->
-    <script src="./assets/js/app.js"></script>
+    <script src="./assets/js/app.js" defer></script>
 </head>
 
 <body class="has-nav">

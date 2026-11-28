@@ -300,8 +300,10 @@ function runTwoLayerPageTransition(direction, updateDom, fromEl = null, toEl = n
     const docEl = document.documentElement;
     const metrics = measureElementForFixedLayer(fromEl, window.innerHeight || 0);
     const rawViewportW = window.innerWidth || document.documentElement.clientWidth || 375;
-    const fullSlideDistance = Math.ceil((rawViewportW / (metrics.zoomScale || 1)) + 28);
-    const unlockContainer = lockContainerHeightForLayering(fromEl, metrics.zoomScale);
+    const zoomScale = metrics.zoomScale || 1;
+    // 确保退出层连同其左侧 ::before 背景延伸（-24px）与阴影（-36px）彻底移出屏幕右边缘
+    const fullSlideDistance = Math.ceil((rawViewportW / zoomScale) + Math.max(80, Math.abs(metrics.left || 0) + 80));
+    const unlockContainer = lockContainerHeightForLayering(fromEl, zoomScale);
     docEl.classList.add(docClass);
     // 提前给目标层加上 no-enter-anim，避免在过渡结束移除滑入类后触发默认 md3SlideDownFadeIn 导致返回后闪烁；该类将在视图下次离开激活态时清理
     toEl.classList.add('no-enter-anim');
@@ -696,15 +698,23 @@ if (typeof window !== 'undefined') {
     window.addEventListener('resize', () => {
         syncHubAppBarCompactState();
     }, { passive: true });
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+            syncHubAppBarCompactState();
+        }).catch(() => { });
+    }
     if (typeof ResizeObserver !== 'undefined') {
         const attachHubAppBarObserver = () => {
             const appBar = document.getElementById('hub-app-bar');
+            const actionsBox = document.getElementById('hub-appbar-actions');
             if (!appBar || appBar._compactObserverAttached) return;
             appBar._compactObserverAttached = true;
             const ro = new ResizeObserver(() => {
                 syncHubAppBarCompactState();
             });
             ro.observe(appBar);
+            if (actionsBox) ro.observe(actionsBox);
+            requestAnimationFrame(() => syncHubAppBarCompactState());
         };
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', attachHubAppBarObserver);
@@ -1387,22 +1397,81 @@ function isEnglishBook(b) {
         return rawPxPerSec * idleDecay;
     }
 
+    function readCurrentTranslateX(el) {
+        if (!el || typeof window.getComputedStyle !== 'function') return 0;
+        try {
+            const tr = window.getComputedStyle(el).transform;
+            if (!tr || tr === 'none') return 0;
+            if (typeof DOMMatrixReadOnly === 'function') {
+                const m = new DOMMatrixReadOnly(tr);
+                return Number.isFinite(m.m41) ? m.m41 : 0;
+            }
+            const m2d = tr.match(/^matrix\(([^)]+)\)$/);
+            if (m2d) {
+                const parts = m2d[1].split(',').map(Number);
+                return Number.isFinite(parts[4]) ? parts[4] : 0;
+            }
+            const m3d = tr.match(/^matrix3d\(([^)]+)\)$/);
+            if (m3d) {
+                const parts = m3d[1].split(',').map(Number);
+                return Number.isFinite(parts[12]) ? parts[12] : 0;
+            }
+        } catch (e) { }
+        return 0;
+    }
+
     function activateDragLayers(ctx, dragState) {
-        // 若正在播放进入新页面的定向动画，先立即收尾清除其位移与临时定位层，防止测量到偏移后的 left 导致原页面连带向右移动
+        const rawViewportWidth = dragState.viewportWidth;
+        const wasForwardTransition = Boolean(activeDomTransitionCleanup && activeDomTransitionDirection === 'forward');
+        let interruptedOutX = 0;
+
+        // 若正在播放进入新页面的定向动画，先读取当前新页水平偏移再彻底结束原过渡，防止测量到动画中的偏移 left 导致原页面连带向右移动
         if (activeDomTransitionCleanup) {
+            if (wasForwardTransition && ctx.fromEl) {
+                interruptedOutX = Math.max(0, readCurrentTranslateX(ctx.fromEl));
+            }
             cancelActiveDomTransition();
-            if (ctx.fromEl && typeof ctx.fromEl.offsetWidth === 'number') {
-                void ctx.fromEl.offsetWidth;
+        }
+
+        // 强制清理两层可能残留的动画与位移后重新排版测量，确保参考坐标系完全归零
+        if (ctx.fromEl) {
+            ctx.fromEl.style.animation = 'none';
+            ctx.fromEl.style.transform = 'none';
+        }
+        if (ctx.toEl) {
+            ctx.toEl.style.animation = 'none';
+            ctx.toEl.style.transform = 'none';
+        }
+        if (ctx.fromEl && typeof ctx.fromEl.offsetWidth === 'number') {
+            void ctx.fromEl.offsetWidth;
+        }
+
+        const metrics = measureElementForFixedLayer(ctx.fromEl, window.innerHeight || 0);
+        const zoomScale = metrics.zoomScale || 1;
+        const containerEl = (ctx.fromEl && typeof ctx.fromEl.closest === 'function' ? ctx.fromEl.closest('.container') : null)
+            || document.querySelector('.container');
+        let stableLeft = metrics.left;
+        let stableWidth = metrics.width;
+        if (containerEl && typeof containerEl.getBoundingClientRect === 'function') {
+            const cRect = containerEl.getBoundingClientRect();
+            const cbRect = metrics.cbRect || { left: 0, top: 0 };
+            if (Number.isFinite(cRect.left)) {
+                stableLeft = ((cRect.left || 0) - (cbRect.left || 0)) / zoomScale;
+            }
+            if (containerEl.offsetWidth > 0) {
+                stableWidth = containerEl.offsetWidth;
             }
         }
 
-        const rawViewportWidth = dragState.viewportWidth;
-        const metrics = measureElementForFixedLayer(ctx.fromEl, window.innerHeight || 0);
-        const zoomScale = metrics.zoomScale || 1;
         const dragWidth = rawViewportWidth / zoomScale;
+        const baseOutX = wasForwardTransition
+            ? Math.max(0, Math.min(dragWidth * 0.92, interruptedOutX / zoomScale))
+            : 0;
         dragState.zoomScale = zoomScale;
         dragState.dragWidth = dragWidth;
-        dragState.commitTargetX = dragWidth + 28;
+        dragState.baseOutX = baseOutX;
+        dragState.currentOutX = baseOutX;
+        dragState.commitTargetX = Math.ceil(dragWidth + Math.max(80, Math.abs(stableLeft || 0) + 80));
 
         const bodyStyle = window.getComputedStyle(document.body);
         const bodyPadTop = parseFloat(bodyStyle.paddingTop) || 12;
@@ -1413,20 +1482,22 @@ function isEnglishBook(b) {
         document.documentElement.classList.add('swipe-back-active');
 
         ctx.toEl.style.top = `${toTop}px`;
-        ctx.toEl.style.left = `${metrics.left}px`;
-        ctx.toEl.style.width = `${metrics.width}px`;
+        ctx.toEl.style.left = `${stableLeft}px`;
+        ctx.toEl.style.width = `${stableWidth}px`;
         ctx.toEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.toEl.style.transition = 'none';
+        ctx.toEl.style.animation = '';
         ctx.toEl.classList.add('swipe-back-incoming-layer');
 
         ctx.fromEl.style.top = `${metrics.top}px`;
-        ctx.fromEl.style.left = `${metrics.left}px`;
-        ctx.fromEl.style.width = `${metrics.width}px`;
+        ctx.fromEl.style.left = `${stableLeft}px`;
+        ctx.fromEl.style.width = `${stableWidth}px`;
         ctx.fromEl.style.minHeight = `${metrics.minHeight}px`;
         ctx.fromEl.style.transition = 'none';
+        ctx.fromEl.style.animation = '';
         ctx.fromEl.classList.add('swipe-back-outgoing-layer');
 
-        applyOffset(ctx, 0, dragWidth);
+        applyOffset(ctx, baseOutX, dragWidth);
     }
 
     window.addEventListener('touchstart', (e) => {
@@ -1444,20 +1515,21 @@ function isEnglishBook(b) {
         if (!ctx) return;
 
         const vw = window.innerWidth || document.documentElement.clientWidth || 375;
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
         state = {
             ctx,
             startX: touch.clientX,
             startY: touch.clientY,
             lastX: touch.clientX,
-            lastTime: Date.now(),
-            lastMoveTime: Date.now(),
-            velocityX: 0,
-            hasVelocitySample: false,
+            samples: [{ x: touch.clientX, t: now }],
             locked: false,
             aborted: false,
             settling: false,
             viewportWidth: vw,
             dragWidth: vw,
+            baseOutX: 0,
+            currentOutX: 0,
+            commitTargetX: vw + 80,
             zoomScale: 1
         };
     }, { passive: true });
@@ -1490,22 +1562,16 @@ function isEnglishBook(b) {
             e.preventDefault();
         }
 
-        const now = Date.now();
-        const deltaX = touch.clientX - state.lastX;
-        const dt = now - state.lastTime;
-        if (dt >= 8 || Math.abs(deltaX) >= 1) {
-            const instV = deltaX / Math.max(8, dt);
-            state.velocityX = state.hasVelocitySample ? (state.velocityX * 0.45 + instV * 0.55) : instV;
-            state.hasVelocitySample = true;
-            state.lastX = touch.clientX;
-            state.lastTime = now;
-            if (Math.abs(deltaX) >= 0.5) {
-                state.lastMoveTime = now;
-            }
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+        state.lastX = touch.clientX;
+        state.samples.push({ x: touch.clientX, t: now });
+        while (state.samples.length > 10 && (now - state.samples[0].t) > 140) {
+            state.samples.shift();
         }
 
-        const progress = Math.max(0, Math.min(1, dx / state.viewportWidth));
-        applyProgress(state.ctx, progress, state.dragWidth);
+        const outX = Math.max(0, (state.baseOutX || 0) + (dx / (state.zoomScale || 1)));
+        state.currentOutX = outX;
+        applyOffset(state.ctx, outX, state.dragWidth);
     }, { passive: false });
 
     function finishSwipe(isCancelled) {
@@ -1518,48 +1584,23 @@ function isEnglishBook(b) {
         }
 
         current.settling = true;
-        const now = Date.now();
-        const idleMs = Math.max(0, now - (current.lastMoveTime || current.lastTime));
-        const effectiveVelocity = idleMs > 90
-            ? Math.max(0, current.velocityX * Math.max(0, 1 - (idleMs - 90) / 120))
-            : Math.max(0, current.velocityX);
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+        const releaseVelPxPerSec = computeReleaseVelocityPxPerSec(current.samples, now, current.zoomScale || 1);
+        const dragWidth = current.dragWidth || current.viewportWidth || 375;
+        const startOutX = Math.max(0, Number(current.currentOutX) || 0);
+        const progress = Math.max(0, Math.min(1, startOutX / Math.max(1, dragWidth)));
+        const projectedX = startOutX + (releaseVelPxPerSec > 0 ? releaseVelPxPerSec * 0.16 : releaseVelPxPerSec * 0.08);
+        const shouldCommit = !isCancelled && (
+            (progress >= COMMIT_PROGRESS && releaseVelPxPerSec > -320) ||
+            (releaseVelPxPerSec >= COMMIT_VELOCITY * 1000 && startOutX > 24) ||
+            (projectedX >= dragWidth * 0.44 && releaseVelPxPerSec > 160)
+        );
 
-        const dx = Math.max(0, current.lastX - current.startX);
-        const progress = Math.max(0, Math.min(1, dx / current.viewportWidth));
-        const shouldCommit = !isCancelled && (progress >= COMMIT_PROGRESS || (effectiveVelocity > COMMIT_VELOCITY && dx > 36));
+        const targetX = shouldCommit ? (current.commitTargetX || (dragWidth + 80)) : 0;
         const reduced = isReducedMotionActive();
-        const settleDuration = computeSwipeBackSettleDuration({
-            viewportWidth: current.viewportWidth,
-            progress,
-            velocityX: effectiveVelocity,
-            shouldCommit,
-            reduced
-        });
-        const ease = 'cubic-bezier(0.2, 0.88, 0.32, 1)';
-        const dragWidth = current.dragWidth || current.viewportWidth;
 
-        if (settleDuration > 0) {
-            const tr = `transform ${settleDuration}ms ${ease}, opacity ${settleDuration}ms ${ease}`;
-            current.ctx.fromEl.style.transition = tr;
-            current.ctx.toEl.style.transition = tr;
-        } else {
-            current.ctx.fromEl.style.transition = 'none';
-            current.ctx.toEl.style.transition = 'none';
-        }
-
-        if (shouldCommit) {
-            current.ctx.fromEl.style.transform = `translate3d(${dragWidth}px, 0, 0)`;
-            current.ctx.fromEl.style.opacity = '0';
-            current.ctx.toEl.style.transform = 'translate3d(0, 0, 0)';
-            current.ctx.toEl.style.opacity = '1';
-        } else {
-            current.ctx.fromEl.style.transform = 'translate3d(0, 0, 0)';
-            current.ctx.fromEl.style.opacity = '1';
-            current.ctx.toEl.style.transform = `translate3d(${-INCOMING_OFFSET_RATIO * dragWidth}px, 0, 0)`;
-            current.ctx.toEl.style.opacity = '0.55';
-        }
-
-        setTimeout(() => {
+        const finalize = () => {
+            cancelSettleAnimation();
             state = null;
             if (shouldCommit) {
                 if (current.ctx.toEl) {
@@ -1576,7 +1617,55 @@ function isEnglishBook(b) {
             } else {
                 resetSwipeLayers(current.ctx);
             }
-        }, settleDuration + 16);
+        };
+
+        if (reduced || Math.abs(targetX - startOutX) < 1) {
+            applyOffset(current.ctx, targetX, dragWidth);
+            finalize();
+            return;
+        }
+
+        // 基于松手瞬间速度的临界阻尼惯性弹簧补全动画（保持速度连续，自然减速收尾，无回弹抖动）
+        current.ctx.fromEl.style.transition = 'none';
+        current.ctx.toEl.style.transition = 'none';
+        const d0 = startOutX - targetX;
+        const clampedVel = Math.max(-3600, Math.min(4800, releaseVelPxPerSec));
+        // 若用户慢速停住后松手，仍由临界阻尼自然平滑拉向目标；若用户快速甩手，则完整承接惯性初速度
+        const v0 = shouldCommit ? Math.max(-180, clampedVel) : Math.min(420, clampedVel);
+        const omega = shouldCommit ? 10.5 : 13.5;
+        const c1 = d0;
+        const c2 = v0 + omega * d0;
+        const animStart = now;
+        const maxDurationMs = shouldCommit ? 520 : 420;
+
+        const step = (ts) => {
+            const elapsedSec = Math.max(0, (ts - animStart) / 1000);
+            const decay = Math.exp(-omega * elapsedSec);
+            const disp = (c1 + c2 * elapsedSec) * decay;
+            let nextX = targetX + disp;
+            const curVel = (c2 - omega * (c1 + c2 * elapsedSec)) * decay;
+
+            if (shouldCommit) {
+                if (nextX >= targetX - 0.6 || (ts - animStart) >= maxDurationMs) {
+                    applyOffset(current.ctx, targetX, dragWidth);
+                    finalize();
+                    return;
+                }
+                nextX = Math.max(0, nextX);
+            } else {
+                if (nextX <= 0.6 || (Math.abs(nextX) <= 0.8 && Math.abs(curVel) < 15) || (ts - animStart) >= maxDurationMs) {
+                    applyOffset(current.ctx, 0, dragWidth);
+                    finalize();
+                    return;
+                }
+                nextX = Math.max(0, nextX);
+            }
+
+            applyOffset(current.ctx, nextX, dragWidth);
+            activeSettleRafId = requestAnimationFrame(step);
+        };
+
+        activeSettleRafId = requestAnimationFrame(step);
     }
 
     window.addEventListener('touchend', () => finishSwipe(false), { passive: true });

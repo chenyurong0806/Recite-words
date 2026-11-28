@@ -375,7 +375,7 @@ async function renderLevelLeaderboard() {
             }
 
             return `
-                <div class="lb-user-row ${u.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${u.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
+                <div class="lb-user-row ${u.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${u.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
                     <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
                         <div style="width:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                             ${rankBadge}
@@ -611,7 +611,7 @@ async function renderLevelLeaderboard() {
         if (avatarSrc && avatarSrc.startsWith('//')) avatarSrc = 'https:' + avatarSrc;
 
         return `
-            <div class="lb-user-row ${u.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${u.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
+            <div class="lb-user-row ${u.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${u.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
                 <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
                     <div style="width:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                         ${rankBadge}
@@ -1042,7 +1042,7 @@ async function renderWordleLeaderboard() {
         );
 
         return `
-            <div class="lb-user-row ${r.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${r.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
+            <div class="lb-user-row ${r.isMe ? 'is-me' : ''}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-radius:16px; margin-bottom:10px; background:#f8fafc; border:${r.isMe ? '1.5px solid #0284c7' : '1px solid #e2e8f0'}; transition:all 0.2s ease;">
                 <div style="display:flex; align-items:center; gap:14px; min-width:0; flex:1;">
                     <div style="width:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                         ${rankBadge}

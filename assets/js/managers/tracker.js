@@ -191,7 +191,7 @@ const DailyStudyTracker = {
         if (mins > 0) {
             return `${mins}分钟`;
         }
-        return '< 1分钟';
+        return '1分钟';
     },
     getSummaryStats() {
         this.flushSessionTimer(Boolean(this._sessionStartTime));

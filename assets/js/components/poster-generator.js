@@ -1400,52 +1400,88 @@
             ? summaryStats.totalDurationFormatted
             : '0分钟';
 
-        const dataY1 = bottomY + 88;
-        const dataY2 = dataY1 + 146;
+        const dataY1 = bottomY + 86;
+        const dataY2 = dataY1 + 148;
         const col1X = 48;
         const col2X = width / 2 + 20;
         const colMaxW = (width / 2) - 56;
 
+        // 统一计算四项核心指标的共同字号，确保上下行字体、粗细、字号与行距完全一致
+        const computeFitFontSize = (text, baseSize, minSize, weight) => {
+            const str = String(text || '');
+            ctx.save();
+            let sz = baseSize;
+            ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
+            while (sz > minSize && ctx.measureText(str).width > colMaxW) {
+                sz -= 2;
+                ctx.font = `${weight} ${sz}px ${FONT_FAMILY}`;
+            }
+            ctx.restore();
+            return sz;
+        };
+        const statWeight = '700';
+        const statFontSize = Math.min(
+            computeFitFontSize(`${todayLearned}`, 50, 34, statWeight),
+            computeFitFontSize(`${totalWords}`, 50, 34, statWeight),
+            computeFitFontSize(todayDurationText, 50, 34, statWeight),
+            computeFitFontSize(totalDurationText, 50, 34, statWeight)
+        );
+        const statFont = `${statWeight} ${statFontSize}px ${FONT_FAMILY}`;
+        const labelOffset = Math.round(statFontSize + 14);
+        const subOffset = labelOffset + 26;
+
         // 第 1 行左：今日已学词数
-        drawAutoFitText(ctx, `${todayLearned}`, col1X, dataY1, colMaxW, 56, 36, 'bold', '#1A1C1E');
-        drawText(ctx, '今日已学词数', col1X, dataY1 + 66, {
-            font: `bold 16px ${FONT_FAMILY}`,
+        drawText(ctx, `${todayLearned}`, col1X, dataY1, {
+            font: statFont,
             color: '#1A1C1E'
         });
-        drawText(ctx, 'TODAY I LEARNED', col1X, dataY1 + 92, {
+        drawText(ctx, '今日已学词数', col1X, dataY1 + labelOffset, {
+            font: `700 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, 'TODAY I LEARNED', col1X, dataY1 + subOffset, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });
 
         // 第 1 行右：累计学习词数
-        drawAutoFitText(ctx, `${totalWords}`, col2X, dataY1, colMaxW, 56, 36, 'bold', '#1A1C1E');
-        drawText(ctx, '累计学习词数', col2X, dataY1 + 66, {
-            font: `bold 16px ${FONT_FAMILY}`,
+        drawText(ctx, `${totalWords}`, col2X, dataY1, {
+            font: statFont,
             color: '#1A1C1E'
         });
-        drawText(ctx, 'WORDS LEARNED', col2X, dataY1 + 92, {
+        drawText(ctx, '累计学习词数', col2X, dataY1 + labelOffset, {
+            font: `700 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, 'WORDS LEARNED', col2X, dataY1 + subOffset, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });
 
         // 第 2 行左：今日学习时长
-        drawAutoFitText(ctx, todayDurationText, col1X, dataY2, colMaxW, 44, 28, 'bold', '#1A1C1E');
-        drawText(ctx, '今日学习时长', col1X, dataY2 + 56, {
-            font: `bold 16px ${FONT_FAMILY}`,
+        drawText(ctx, todayDurationText, col1X, dataY2, {
+            font: statFont,
             color: '#1A1C1E'
         });
-        drawText(ctx, "TODAY'S STUDY TIME", col1X, dataY2 + 82, {
+        drawText(ctx, '今日学习时长', col1X, dataY2 + labelOffset, {
+            font: `700 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, "TODAY'S STUDY TIME", col1X, dataY2 + subOffset, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });
 
         // 第 2 行右：累计学习时长
-        drawAutoFitText(ctx, totalDurationText, col2X, dataY2, colMaxW, 44, 28, 'bold', '#1A1C1E');
-        drawText(ctx, '累计学习时长', col2X, dataY2 + 56, {
-            font: `bold 16px ${FONT_FAMILY}`,
+        drawText(ctx, totalDurationText, col2X, dataY2, {
+            font: statFont,
             color: '#1A1C1E'
         });
-        drawText(ctx, 'TOTAL STUDY TIME', col2X, dataY2 + 82, {
+        drawText(ctx, '累计学习时长', col2X, dataY2 + labelOffset, {
+            font: `700 16px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+        drawText(ctx, 'TOTAL STUDY TIME', col2X, dataY2 + subOffset, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
         });
@@ -1494,35 +1530,11 @@
         const bottomY = topH;
         const bottomH = height - bottomY;
 
-        // 1. 上部风景图
+        // 1. 上部风景图 + 抽取展示一个词（与学习成绩海报保持一致）
         drawPosterTopScenery(ctx, width, topH, bgImg);
-
-        // 胜负状态以极简高级文字直接呈现在风景下边缘之上
-        ctx.save();
-        const isWin = options.playerWin;
-        const isDraw = options.isDraw;
-        const duelLum = getBackgroundBrightness(ctx, 48, topH - 120, 260, 100);
-        const isDuelLight = duelLum > 140;
-
-        let outcomeEn = isWin ? 'VICTORY' : (isDraw ? 'DRAW' : 'DEFEATED');
-        let outcomeZh = isWin ? '恭喜获胜' : (isDraw ? '势均力敌' : '遗憾战败');
-        let outcomeColor = isDuelLight
-            ? (isWin ? '#0061A4' : (isDraw ? '#475569' : '#BA1A1A'))
-            : (isWin ? '#FFFFFF' : (isDraw ? '#E2E8F0' : '#FFDAD6'));
-        let outcomeZhColor = isDuelLight ? '#334155' : 'rgba(255, 255, 255, 0.95)';
-        let outcomeShadow = isDuelLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)';
-
-        ctx.shadowColor = outcomeShadow;
-        ctx.shadowBlur = isDuelLight ? 4 : 16;
-        drawText(ctx, outcomeEn, 48, topH - 100, {
-            font: `bold 44px ${FONT_FAMILY}`,
-            color: outcomeColor
-        });
-        drawText(ctx, outcomeZh, 48, topH - 46, {
-            font: `600 20px ${FONT_FAMILY}`,
-            color: outcomeZhColor
-        });
-        ctx.restore();
+        const highlightWord = options.fixedHighlightWord || pickPosterHighlightWord(options);
+        _lastPosterHighlightWord = highlightWord;
+        drawPosterWordOverlay(ctx, width, highlightWord, topH);
 
         // 2. 下部纯净白底数据区
         ctx.fillStyle = '#FFFFFF';
@@ -1535,28 +1547,35 @@
         ctx.lineTo(width, bottomY);
         ctx.stroke();
 
-        // 用户与日期行
-        const userRowY = bottomY + 44;
+        // 用户头像与日期行（仅展示日期）
+        const userRowY = bottomY + 42;
         drawAvatarCircle(ctx, myAvatarImg, 48, userRowY - 18, 36, myName.slice(0, 1));
-        const modeDesc = options.isAi ? '人机对战' : '远程联机';
-        drawText(ctx, `${formatPosterDate()} · ${modeDesc}`, 96, userRowY, {
-            font: `bold 16px ${FONT_FAMILY}`,
+        drawText(ctx, formatPosterDate(), 96, userRowY, {
+            font: `700 16px ${FONT_FAMILY}`,
             color: '#1A1C1E',
             baseline: 'middle'
         });
 
+        // 对战模式标题放在得分上方
+        const modeDesc = options.modeLabel || (options.isAi ? '人机对战' : '远程联机');
+        const modeTitleY = bottomY + 86;
+        drawText(ctx, modeDesc, 48, modeTitleY, {
+            font: `700 24px ${FONT_FAMILY}`,
+            color: '#1A1C1E'
+        });
+
         // 3. 双方得分超大字体并列
-        const dataY = bottomY + 115;
+        const dataY = modeTitleY + 46;
         const col1X = 48;
         const col2X = width / 2 + 20;
 
         // 我方
         drawText(ctx, `${options.p1Score || 0}`, col1X, dataY, {
-            font: `bold 64px ${FONT_FAMILY}`,
+            font: `700 62px ${FONT_FAMILY}`,
             color: '#DC2626'
         });
         drawText(ctx, `我方得分 · ${myName}`, col1X, dataY + 76, {
-            font: `bold 16px ${FONT_FAMILY}`,
+            font: `700 16px ${FONT_FAMILY}`,
             color: '#1A1C1E'
         });
         drawText(ctx, 'MY SCORE', col1X, dataY + 104, {
@@ -1566,26 +1585,16 @@
 
         // 对方
         drawText(ctx, `${options.p2Score || 0}`, col2X, dataY, {
-            font: `bold 64px ${FONT_FAMILY}`,
+            font: `700 62px ${FONT_FAMILY}`,
             color: '#0284C7'
         });
         drawText(ctx, `对方得分 · ${oppoName}`, col2X, dataY + 76, {
-            font: `bold 16px ${FONT_FAMILY}`,
+            font: `700 16px ${FONT_FAMILY}`,
             color: '#1A1C1E'
         });
         drawText(ctx, 'OPPONENT SCORE', col2X, dataY + 104, {
             font: `600 11px ${FONT_FAMILY}`,
             color: '#74777F'
-        });
-
-        // 简练对决信息单行 (无嵌套卡片)
-        const mRes = options.matchResult;
-        let ratingText = mRes ? (mRes.ratingDelta >= 0 ? `+${mRes.ratingDelta} 分` : `${mRes.ratingDelta} 分`) : '---';
-        const leadDiff = (options.p1Score || 0) - (options.p2Score || 0);
-        const rankSummary = `天梯 ${ratingText}  ·  净胜 ${leadDiff >= 0 ? '+' + leadDiff : leadDiff} 题`;
-        drawText(ctx, rankSummary, 48, dataY + 140, {
-            font: `500 13px ${FONT_FAMILY}`,
-            color: '#535F70'
         });
 
         // 4. 最下方 App 信息底栏
@@ -1868,10 +1877,10 @@
             }
         }
 
-        // 换词按钮：学习/小结海报中展示
+        // 换词按钮：学习/小结及对战海报中展示
         const btnChangeWord = document.getElementById('btn-poster-change-word');
         if (btnChangeWord) {
-            btnChangeWord.style.display = (_currentPosterGenerator === generateStudyPoster) ? 'inline-flex' : 'none';
+            btnChangeWord.style.display = (_currentPosterGenerator === generateStudyPoster || _currentPosterGenerator === generateDuelPoster) ? 'inline-flex' : 'none';
         }
 
         if (modal) {
@@ -1908,6 +1917,7 @@
 
         try {
             const isAi = (typeof gameMode !== 'undefined' && gameMode === 'ai_duel') || (typeof gameResult !== 'undefined' && gameResult && gameResult.mode === 'ai_duel');
+            const isLocal = (typeof gameMode !== 'undefined' && gameMode === 'local_duel') || (typeof gameResult !== 'undefined' && gameResult && gameResult.mode === 'local_duel');
             const gRes = (typeof gameResult !== 'undefined' && gameResult) ? gameResult : {};
 
             let p1Score = gRes.p1Score !== undefined ? gRes.p1Score : ((typeof p1State !== 'undefined') ? p1State.score : 0);
@@ -1921,18 +1931,32 @@
             if (isAi) {
                 oppoRank = (typeof aiDuelConfig !== 'undefined' && aiDuelConfig.aiRank) ? aiDuelConfig.aiRank : 1;
                 oppoName = `系统AI (${oppoRank}段)`;
+            } else if (isLocal) {
+                oppoName = '玩家 2';
             } else {
                 oppoName = (typeof isHost !== 'undefined' && isHost)
                     ? ((typeof guestName !== 'undefined' && guestName) ? guestName : '对手')
                     : ((typeof hostName !== 'undefined' && hostName) ? hostName : '房主');
             }
 
+            const modeLabel = isAi ? '人机对战' : (isLocal ? '同屏对决' : '远程联机');
+            const duelPool = Array.isArray(gRes.pool) && gRes.pool.length > 0
+                ? gRes.pool
+                : ((typeof p1State !== 'undefined' && p1State && Array.isArray(p1State.pool))
+                    ? p1State.pool.filter(q => q && q.answered)
+                    : []);
+            const duelMistakes = Array.isArray(gRes.mistakes) && gRes.mistakes.length > 0
+                ? gRes.mistakes
+                : duelPool.filter(q => q && q.isCorrect === false);
+            const isShiCiDuel = duelPool.length > 0 && duelPool.every(q => q && (q.isShiCi || /[\u4e00-\u9fa5]/.test(String(q.word || ''))));
+
             const ruleSummary = (typeof arenaTugRuleSummary !== 'undefined' && arenaTugRuleSummary)
                 ? arenaTugRuleSummary
                 : (document.getElementById('arena-tug-rule-summary') ? document.getElementById('arena-tug-rule-summary').innerText : '领先 6 题胜出');
 
-            const posterDataUrl = await generateDuelPoster({
+            const duelPosterOpts = {
                 isAi,
+                modeLabel,
                 playerWin,
                 isDraw,
                 p1Score,
@@ -1940,11 +1964,17 @@
                 oppoName,
                 oppoRank,
                 matchResult: gRes.matchResult || null,
-                ruleSummary
-            });
+                ruleSummary,
+                isSession: true,
+                isShiCi: isShiCiDuel,
+                pool: duelPool,
+                sessionMistakesList: duelMistakes
+            };
+
+            const posterDataUrl = await generateDuelPoster(duelPosterOpts);
 
             _currentPosterGenerator = generateDuelPoster;
-            _currentPosterOptions = { isAi, playerWin, isDraw, p1Score, p2Score, oppoName, oppoRank, matchResult: gRes.matchResult || null, ruleSummary };
+            _currentPosterOptions = duelPosterOpts;
             _currentPosterTitle = '对决战果海报';
             await showPosterPreviewModal(posterDataUrl, '对决战果海报');
         } catch (e) {
