@@ -57,6 +57,14 @@
 
     --container-max-width: 960px;
     --app-zoom: 1;
+
+    /* 统一安全区变量：普通浏览器/PWA 默认读取 env(safe-area-inset-*)，B站 App Toy 容器内由 SDK safeArea 直接覆盖 */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --toy-top-capsule-gap: 0px;
+    --toy-top-right-capsule-gap: 0px;
 }
 
 * {
@@ -90,15 +98,15 @@ body {
     align-items: center;
     min-height: calc(100vh / var(--app-zoom, 1));
     min-height: calc(100dvh / var(--app-zoom, 1));
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 24px;
+    padding: calc(12px + var(--safe-top, 0px) + var(--toy-top-capsule-gap, 0px)) calc(16px + var(--safe-right, 0px)) calc(24px + var(--safe-bottom, 0px)) calc(16px + var(--safe-left, 0px));
     overflow-x: hidden;
     overflow-x: clip;
 }
 
-/* iOS 独立 PWA 模式顶部系统模糊过渡区避让，防止遮挡页面顶栏标题与按钮 */
+/* iOS 独立 PWA 模式顶部系统模糊过渡区避让，防止遮挡页面顶栏标题与按钮（仅非 B站 Toy App 容器时生效） */
 @media (display-mode: standalone) and (max-width: 767px) {
-    body {
-        padding-top: calc(36px + env(safe-area-inset-top, 0px));
+    html:not(.toy-app-container) body {
+        padding-top: calc(36px + var(--safe-top, 0px));
     }
 }
 
@@ -111,7 +119,7 @@ body {
 
 @media (min-width: 768px) {
     body {
-        padding: 12px 16px;
+        padding: calc(12px + var(--safe-top, 0px) + var(--toy-top-capsule-gap, 0px)) calc(16px + var(--safe-right, 0px)) calc(12px + var(--safe-bottom, 0px)) calc(16px + var(--safe-left, 0px));
     }
 
     .container {
@@ -120,8 +128,16 @@ body {
     }
 }
 
-html.ios-pwa body {
-    padding-top: calc(38px + env(safe-area-inset-top, 0px));
+html.ios-pwa:not(.toy-app-container) body {
+    padding-top: calc(38px + var(--safe-top, 0px));
+}
+
+/* B站 App Toy 沉浸态横屏：顶部栏右侧为胶囊按钮留白，避免遮挡操作按钮 */
+html.toy-app-container.toy-app-immersive.toy-app-landscape .hub-app-bar,
+html.toy-app-container.toy-app-immersive.toy-app-landscape .subview-header,
+html.toy-app-container.toy-app-immersive.toy-app-landscape .search-page-topbar,
+html.toy-app-container.toy-app-immersive.toy-app-landscape .riddle-top-bar {
+    padding-right: var(--toy-top-right-capsule-gap, 104px);
 }
 
 @keyframes md3SlideDownFadeIn {
@@ -309,7 +325,7 @@ html.ios-pwa body {
     .page-back-outgoing-layer::before {
         content: '';
         position: absolute;
-        inset: calc(-80px - env(safe-area-inset-top, 0px)) -24px -80px -24px;
+        inset: calc(-80px - var(--safe-top, 0px) - var(--toy-top-capsule-gap, 0px)) calc(-24px - var(--safe-right, 0px)) calc(-80px - var(--safe-bottom, 0px)) calc(-24px - var(--safe-left, 0px));
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -340,7 +356,7 @@ html.ios-pwa body {
     .page-forward-outgoing-layer::before {
         content: '';
         position: absolute;
-        inset: calc(-80px - env(safe-area-inset-top, 0px)) -24px -80px -24px;
+        inset: calc(-80px - var(--safe-top, 0px) - var(--toy-top-capsule-gap, 0px)) calc(-24px - var(--safe-right, 0px)) calc(-80px - var(--safe-bottom, 0px)) calc(-24px - var(--safe-left, 0px));
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -359,7 +375,7 @@ html.ios-pwa body {
     .page-forward-incoming-layer::before {
         content: '';
         position: absolute;
-        inset: calc(-80px - env(safe-area-inset-top, 0px)) -24px -80px -24px;
+        inset: calc(-80px - var(--safe-top, 0px) - var(--toy-top-capsule-gap, 0px)) calc(-24px - var(--safe-right, 0px)) calc(-80px - var(--safe-bottom, 0px)) calc(-24px - var(--safe-left, 0px));
         background: var(--md-sys-color-background);
         z-index: -1;
         pointer-events: none;
@@ -402,7 +418,7 @@ html.swipe-back-active body {
 .swipe-back-incoming-layer::before {
     content: '';
     position: absolute;
-    inset: calc(-80px - env(safe-area-inset-top, 0px)) -24px -80px -24px;
+    inset: calc(-80px - var(--safe-top, 0px) - var(--toy-top-capsule-gap, 0px)) calc(-24px - var(--safe-right, 0px)) calc(-80px - var(--safe-bottom, 0px)) calc(-24px - var(--safe-left, 0px));
     background: var(--md-sys-color-background);
     z-index: -1;
     pointer-events: none;
@@ -427,7 +443,7 @@ html.swipe-back-active body {
 .swipe-back-outgoing-layer::before {
     content: '';
     position: absolute;
-    inset: calc(-80px - env(safe-area-inset-top, 0px)) -24px -80px -24px;
+    inset: calc(-80px - var(--safe-top, 0px) - var(--toy-top-capsule-gap, 0px)) calc(-24px - var(--safe-right, 0px)) calc(-80px - var(--safe-bottom, 0px)) calc(-24px - var(--safe-left, 0px));
     background: var(--md-sys-color-background);
     z-index: -1;
     pointer-events: none;
@@ -4541,7 +4557,7 @@ input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:focus
 /* Toast / Snackbar */
 .snackbar {
     position: fixed;
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(76px + var(--safe-bottom, 0px));
     left: 0;
     right: 0;
     margin: 0 auto;
@@ -5215,7 +5231,7 @@ input[type="checkbox"][style*="accent-color: var(--md-sys-color-primary)"]:focus
     display: none;
     align-items: center;
     justify-content: center;
-    padding: max(24px, 4vh) 16px;
+    padding: calc(max(24px, 4vh) + var(--safe-top, 0px)) calc(16px + var(--safe-right, 0px)) calc(max(24px, 4vh) + var(--safe-bottom, 0px)) calc(16px + var(--safe-left, 0px));
     box-sizing: border-box;
     opacity: 0;
     pointer-events: none;
@@ -6886,7 +6902,7 @@ input.riddle-draft-tile {
 
 .md3-nav-rail {
     position: fixed;
-    left: 0;
+    left: var(--safe-left, 0px);
     top: 0;
     bottom: 0;
     width: 84px;
@@ -6895,7 +6911,7 @@ input.riddle-draft-tile {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 0 16px;
+    padding: calc(24px + var(--safe-top, 0px) + var(--toy-top-capsule-gap, 0px)) 0 calc(16px + var(--safe-bottom, 0px));
     z-index: 900;
     box-shadow: var(--md-elevation-1);
     /* 开启 GPU 3D 加速渲染，增加 visibility 延迟避免出场截断 */
@@ -6969,14 +6985,14 @@ input.riddle-draft-tile {
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(64px + var(--safe-bottom, 0px)) !important;
     background: var(--md-sys-color-surface-container, #eceef4);
     border-top: 1px solid var(--md-sys-color-outline-variant);
     z-index: 9999;
     justify-content: space-around;
     align-items: flex-start;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
-    padding: 6px 16px env(safe-area-inset-bottom, 0px) !important;
+    padding: 6px calc(16px + var(--safe-right, 0px)) var(--safe-bottom, 0px) calc(16px + var(--safe-left, 0px)) !important;
     box-sizing: border-box !important;
     transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.36s;
     will-change: transform, opacity;
@@ -6992,7 +7008,7 @@ input.riddle-draft-tile {
 
 @media (min-width: 768px) {
     body.has-nav {
-        padding-left: 96px;
+        padding-left: calc(96px + var(--safe-left, 0px));
     }
 
     .md3-bottom-nav {
@@ -7018,9 +7034,9 @@ input.riddle-draft-tile {
     }
 
     body.has-nav {
-        padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-bottom: calc(84px + var(--safe-bottom, 0px)) !important;
+        padding-left: calc(12px + var(--safe-left, 0px));
+        padding-right: calc(12px + var(--safe-right, 0px));
     }
 
     body.has-nav .md3-bottom-nav {
@@ -7042,9 +7058,9 @@ input.riddle-draft-tile {
 }
 
 body.nav-hidden {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    padding-bottom: 24px !important;
+    padding-left: calc(12px + var(--safe-left, 0px)) !important;
+    padding-right: calc(12px + var(--safe-right, 0px)) !important;
+    padding-bottom: calc(24px + var(--safe-bottom, 0px)) !important;
 }
 
 .dictation-keyboard {

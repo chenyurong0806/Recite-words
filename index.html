@@ -133,6 +133,9 @@
             var toyScript = document.createElement('script');
             toyScript.async = true;
             toyScript.src = 'https://s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js';
+            toyScript.onload = function () {
+                try { window.dispatchEvent(new Event('toy-sdk-ready')); } catch (e) { }
+            };
             document.head.appendChild(toyScript);
         }
     </script>

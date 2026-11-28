@@ -381,6 +381,200 @@ if (typeof window !== 'undefined') {
             desc.innerText = '开启后完全使用本地数据，不进行任何网络通信';
         }
     });
+
+    /* ==========================================================================
+       B 站 App Toy 容器安全区适配（safeArea）
+       - 仅在 B 站 App 内支持，Web 端自动忽略并维持普通浏览器布局
+       - 严格直接读取 SDK 返回的 CSS px 单位 safeArea，不再除 devicePixelRatio
+       - 通过 onContainerChange 持续响应方向/尺寸/沉浸态变更，并监听 resize/orientationchange 兜底
+       - 为沉浸态右上角胶囊按钮区域预留避让空间
+       ========================================================================== */
+    let _toyContainerAdapterInitialized = false;
+    let _toyContainerAdapterInitializing = false;
+    let _toyOffContainerChange = null;
+    let _toyOffPageClose = null;
+    let _toyResizeDebounceTimer = null;
+    let _toyResizeListener = null;
+
+    function applyToyContainerSafeArea(state) {
+        if (!state || typeof state !== 'object' || typeof document === 'undefined') return;
+        const sa = state.safeArea;
+        if (!sa || typeof sa !== 'object') return;
+
+        const root = document.documentElement;
+        const top = Math.max(0, Math.round(Number(sa.top) || 0));
+        const right = Math.max(0, Math.round(Number(sa.right) || 0));
+        const bottom = Math.max(0, Math.round(Number(sa.bottom) || 0));
+        const left = Math.max(0, Math.round(Number(sa.left) || 0));
+
+        const isImmersive = Boolean(state.immersive) || top > 0 || bottom > 0;
+        const vp = state.viewport || null;
+        const isLandscape = state.orientation === 'landscape' ||
+            Boolean(vp && Number(vp.width) > 0 && Number(vp.height) > 0 && Number(vp.width) > Number(vp.height));
+
+        root.classList.add('toy-app-container');
+        root.classList.toggle('toy-app-immersive', isImmersive);
+        root.classList.toggle('toy-app-landscape', isLandscape);
+
+        // safeArea 单位已是 CSS px，直接写入安全区 CSS 变量，不除 devicePixelRatio
+        root.style.setProperty('--safe-top', `${top}px`);
+        root.style.setProperty('--safe-right', `${right}px`);
+        root.style.setProperty('--safe-bottom', `${bottom}px`);
+        root.style.setProperty('--safe-left', `${left}px`);
+
+        // 容器右上角胶囊按钮不计入 safeArea：沉浸态竖屏在顶部避让，横屏在顶栏右侧避让；非沉浸态容器已让开则置 0
+        if (isImmersive) {
+            root.style.setProperty('--toy-top-capsule-gap', isLandscape ? '0px' : '44px');
+            root.style.setProperty('--toy-top-right-capsule-gap', isLandscape ? '104px' : '0px');
+        } else {
+            root.style.setProperty('--toy-top-capsule-gap', '0px');
+            root.style.setProperty('--toy-top-right-capsule-gap', '0px');
+        }
+
+        window.__toyContainerState = {
+            deviceType: state.deviceType || 'unknown',
+            orientation: state.orientation || (isLandscape ? 'landscape' : 'portrait'),
+            immersive: isImmersive,
+            viewport: vp ? { width: Number(vp.width) || 0, height: Number(vp.height) || 0 } : null,
+            safeArea: { top, right, bottom, left }
+        };
+
+        if (typeof window.syncHubAppBarCompactState === 'function') {
+            requestAnimationFrame(() => {
+                try { window.syncHubAppBarCompactState(); } catch (e) { }
+            });
+        }
+    }
+
+    async function refreshToySafeArea() {
+        if (!window.toy || typeof window.toy.getContainerState !== 'function') return null;
+        try {
+            const state = await window.toy.getContainerState();
+            if (state && state.safeArea) {
+                applyToyContainerSafeArea(state);
+                return state;
+            }
+        } catch (e) {
+            // Web 端或不支持容器能力时会抛出 unsupported，静默忽略并沿用普通浏览器布局
+        }
+        return null;
+    }
+
+    function cleanupToySafeAreaAdapter() {
+        if (_toyResizeDebounceTimer) {
+            clearTimeout(_toyResizeDebounceTimer);
+            _toyResizeDebounceTimer = null;
+        }
+        if (typeof _toyOffContainerChange === 'function') {
+            try { _toyOffContainerChange(); } catch (e) { }
+            _toyOffContainerChange = null;
+        }
+        if (typeof _toyOffPageClose === 'function') {
+            try { _toyOffPageClose(); } catch (e) { }
+            _toyOffPageClose = null;
+        }
+        if (_toyResizeListener) {
+            window.removeEventListener('resize', _toyResizeListener);
+            window.removeEventListener('orientationchange', _toyResizeListener);
+            _toyResizeListener = null;
+        }
+        _toyContainerAdapterInitialized = false;
+    }
+
+    async function initToySafeAreaAdapter() {
+        if (_toyContainerAdapterInitialized || _toyContainerAdapterInitializing) return;
+        if (typeof window === 'undefined' || !window.toy) return;
+        _toyContainerAdapterInitializing = true;
+
+        try {
+            let canGetState = typeof window.toy.getContainerState === 'function';
+            let canListen = typeof window.toy.onContainerChange === 'function';
+
+            if (typeof window.toy.isSupport === 'function') {
+                const [supGet, supOn] = await Promise.all([
+                    canGetState ? window.toy.isSupport('getContainerState').catch(() => false) : Promise.resolve(false),
+                    canListen ? window.toy.isSupport('onContainerChange').catch(() => false) : Promise.resolve(false)
+                ]);
+                canGetState = Boolean(supGet);
+                canListen = Boolean(supOn);
+            }
+
+            if (!canGetState && !canListen) {
+                // 非 B 站 App 环境（如 Web 端），保持普通浏览器布局
+                return;
+            }
+
+            // 1. 先订阅 onContainerChange（开始监听后会立即推送一次完整状态，并跟进后续旋转/尺寸/沉浸态变化）
+            if (canListen) {
+                try {
+                    const off = window.toy.onContainerChange((nextState) => {
+                        applyToyContainerSafeArea(nextState);
+                    });
+                    if (typeof off === 'function') {
+                        _toyOffContainerChange = off;
+                    }
+                } catch (e) {
+                    // 忽略不支持场景
+                }
+            }
+
+            // 2. 主动读取一次当前容器状态
+            if (canGetState) {
+                await refreshToySafeArea();
+            }
+
+            // 3. 方向旋转或视口尺寸变化时重新读取一次兜底
+            if (canGetState) {
+                _toyResizeListener = () => {
+                    if (_toyResizeDebounceTimer) clearTimeout(_toyResizeDebounceTimer);
+                    _toyResizeDebounceTimer = setTimeout(() => {
+                        _toyResizeDebounceTimer = null;
+                        refreshToySafeArea();
+                    }, 120);
+                };
+                window.addEventListener('resize', _toyResizeListener, { passive: true });
+                window.addEventListener('orientationchange', _toyResizeListener, { passive: true });
+            }
+
+            // 4. 页面卸载 / 关闭时调用 off() 取消监听
+            if (typeof window.toy.onPageClose === 'function' && typeof window.toy.isSupport === 'function') {
+                const supClose = await window.toy.isSupport('onPageClose').catch(() => false);
+                if (supClose) {
+                    try {
+                        const offClose = window.toy.onPageClose(() => {
+                            cleanupToySafeAreaAdapter();
+                        });
+                        if (typeof offClose === 'function') {
+                            _toyOffPageClose = offClose;
+                        }
+                    } catch (e) { }
+                }
+            }
+
+            _toyContainerAdapterInitialized = true;
+        } catch (e) {
+            // 静默兜底
+        } finally {
+            _toyContainerAdapterInitializing = false;
+        }
+    }
+
+    window.initToySafeAreaAdapter = initToySafeAreaAdapter;
+    window.refreshToySafeArea = refreshToySafeArea;
+    window.cleanupToySafeAreaAdapter = cleanupToySafeAreaAdapter;
+
+    window.addEventListener('toy-sdk-ready', () => {
+        initToySafeAreaAdapter();
+    });
+    window.addEventListener('DOMContentLoaded', () => {
+        initToySafeAreaAdapter();
+    });
+    window.addEventListener('pagehide', cleanupToySafeAreaAdapter);
+    window.addEventListener('beforeunload', cleanupToySafeAreaAdapter);
+
+    if (window.toy) {
+        initToySafeAreaAdapter();
+    }
 }
 
 

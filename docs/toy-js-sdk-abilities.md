@@ -1,6 +1,6 @@
 # Toy JS SDK 能力清单
 
-> 更新时间：2026-09-09
+> 更新时间：2026-11-17
 
 Toy JS SDK 为你的 Toy 页面提供与 B站 App / Web 环境交互的能力。
 
@@ -14,7 +14,7 @@ Toy JS SDK 为你的 Toy 页面提供与 B站 App / Web 环境交互的能力。
 <script src="//s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js"></script>
 ```
 
-加载后全局可用 `window.toy` 对象；除同步返回取消函数的 `onContainerChange` 外，其余方法返回 Promise。用户与作者数据、云存储和排行榜在 B站 App/Web 行为一致；保存图片、关闭页面、拉起分享和容器控制等能力仅在 B站 App 内可用，调用前建议先用 `isSupport` 判断。
+加载后全局可用 `window.toy` 对象；除同步返回取消函数的 `onContainerChange` / `onPlayerChange` / `onPageClose` 外，其余方法返回 Promise。用户与作者数据、云存储、共享存档、排行榜和玩家输入内容检测在 B站 App/Web 行为一致；保存图片、关闭页面、拉起分享、分享图片、容器控制、播放器控制和页面关闭通知等能力仅在 B站 App 内可用，调用前建议先用 `isSupport` 判断。
 
 ## 能力列表
 
@@ -23,7 +23,7 @@ Toy JS SDK 为你的 Toy 页面提供与 B站 App / Web 环境交互的能力。
 判断当前环境是否支持指定能力。
 
 参数：
-- `ability`: string（必填）- 能力名称：navigate | saveImageToAlbum | share | getQrCode | closeBrowser | getUserProfile | getCloudStorage | setCloudStorage | removeCloudStorage | getAuthorProfile | getAuthorVideos | getAuthorRelation | getVideoUserActions | submitScore | getRankList | getMyRank | requestCamera | requestMicrophone | stopMedia | onContainerChange | getContainerState | setContainerMode
+- `ability`: string（必填）- 能力名称：navigate | saveImageToAlbum | share | getQrCode | sharePicture | closeBrowser | getUserProfile | getCloudStorage | setCloudStorage | removeCloudStorage | getAuthorProfile | getAuthorVideos | getAuthorVideoRange | getAuthorRelation | getVideoUserActions | submitScore | getRankList | getMyRank | requestCamera | requestMicrophone | stopMedia | onContainerChange | getContainerState | setContainerMode | onPlayerChange | getPlayerState | setPlayerState | onPageClose | checkInputSafety | getSharedStorage | setSharedStorage | removeSharedStorage | getChargeUnlock | openChargePanel | getAnnualReport
 
 返回值：`Promise<boolean>`
 
@@ -39,8 +39,8 @@ if (ok) {
 跳转到指定页面（需用户手势触发）。
 
 参数：
-- `type`: string（必填）- 页面类型：video | space | search | opus | tribee | toy
-- `id`: string（必填）- 资源 ID，如视频 BV 号、用户 mid、动态 id
+- `type`: string（必填）- 页面类型：video | space | search | opus | tribee | toy | topic；非法值由 SDK 拦截并抛出 invalid_param
+- `id`: string（必填）- 资源 ID，如视频 BV 号、用户 mid、动态 id、话题 topic_id
 - `extra`: Record<string, string>（可选）- 额外参数，透传给目标页面
 
 返回值：`Promise<void>`
@@ -106,6 +106,25 @@ const result = await toy.getQrCode({ path: 'result.html?score=100' })
 // url 为二维码实际编码的链接：https://www.bilibili.com/toy/<当前slug>/result.html?score=100
 ```
 
+### toy.sharePicture(req)
+
+分享图片本身，拉起原生分享面板（仅 B站 App 内）。与 share 的区别：share 分享的是链接，图片只作卡片配图；sharePicture 分享的就是这张图，适合成绩海报、表情包等场景。字段形制与 saveImageToAlbum 一致，两个能力可共用同一份图片数据。
+
+参数：
+- `url`: string（可选）- 网络图片地址；与 base64Data 至少传一个，同时传时以 url 为准。图片较大时优先用 url
+- `base64Data`: string（可选）- base64 图片数据，最大 2M，超出由端侧拒绝；url 与 base64Data 都不传会抛 invalid_param
+
+返回值：`Promise<void>`
+
+```js
+// 分享网络图片
+await toy.sharePicture({ url: 'https://i0.hdslb.com/bfs/xxx.png' })
+
+// 分享 canvas 生成的图片
+const base64Data = canvas.toDataURL('image/png')
+await toy.sharePicture({ base64Data })
+```
+
 ### toy.closeBrowser()
 
 关闭当前 WebView 容器（仅 B站 App 内）。
@@ -151,8 +170,49 @@ if (result.status === 'ok') {
 
 ```js
 const result = await toy.getAuthorVideos({
-  videos: [{ aid: 170001 }, { bvid: 'BV1ieH96NERu' }]
+  videos: [{ aid: 170001 }, { bvid: 'BV17x411w7KC' }]
 })
+```
+
+### toy.getAuthorVideoRange(req?)
+
+按发布时间段获取当前 Toy 作者公开的视频，含作者以联合投稿身份参与的视频，按发布时间正序，每次最多 50 条；不传参数即最近一年。
+
+- 直接返回 { items, hasMore }，不带 status；失败时 Promise reject：参数不合法为 invalid_param，服务暂不可用为 http_error。
+- 时间段内没有视频时 items 为空数组，请准备无视频时的展示。
+- hasMore 为 true 表示时间段内还有后续视频，此时 items 可能少于 50 条；续取时下一次 start 填本批最后一条的 publishTime、end 沿用首次的值（不要省略，否则每次都按当前时间算），并按 bvid 去重（衔接处那一条会重复返回）。
+- 每项为精简结构，没有简介、分区、分 P 等信息；需要时再用 getAuthorVideos 按 bvid 查询。
+
+参数：
+- `start`: number（可选）- 开始时间，unix 秒，闭区间；默认 end 往前 365 天
+- `end`: number（可选）- 结束时间，unix 秒，闭区间；默认当前时间，可以是未来时间。end - start 不超过 366 天
+
+返回值：`Promise<AuthorVideoRange>`
+
+返回字段：
+- `items`: AuthorRangeVideo[] - 按发布时间正序，最多 50 条
+- `items[].aid`: number - 视频 aid
+- `items[].bvid`: string - 视频 bvid
+- `items[].title`: string - 标题
+- `items[].cover`: string - 封面地址
+- `items[].publishTime`: number - 发布时间，unix 秒
+- `items[].duration`: number - 总时长，秒
+- `items[].stat`: object - 播放、点赞、投币、收藏、分享、评论、弹幕数，与 getAuthorVideos 同口径
+- `items[].isCooperation`: boolean - 是否联合投稿
+- `hasMore`: boolean - 时间段内是否还有后续视频
+
+```js
+// 最近一年，翻完所有页
+// 首次固定 end，续取时沿用：省略 end 时每次都取「当前时间」，翻页期间新发布的视频会混进来
+const end = Math.floor(Date.now() / 1000)
+const seen = new Map()
+let start
+for (;;) {
+  const { items, hasMore } = await toy.getAuthorVideoRange(start ? { start, end } : { end })
+  items.forEach(v => seen.set(v.bvid, v))
+  if (!hasMore || items.length === 0) break
+  start = items[items.length - 1].publishTime
+}
 ```
 
 ### toy.getAuthorRelation()
@@ -183,12 +243,169 @@ if (result.status === 'ok') {
 const result = await toy.getVideoUserActions({ aids: [170001, 455017605] })
 // 或传 bvid（与 getAuthorVideos 同口径，可混传）
 const byBvid = await toy.getVideoUserActions({
-  videos: [{ bvid: 'BV1ieH96NERu' }, { aid: 455017605 }]
+  videos: [{ bvid: 'BV17x411w7KC' }, { aid: 455017605 }]
 })
 result.items.forEach(item => {
   // item.aid / item.bvid 恒有；传 videos 时 item.ref 回显你传的那一项
   if (item.status === 'ok') console.log(item.aid, item.bvid, item.liked, item.coinCount, item.favorited)
 })
+```
+
+### toy.getAnnualReport(req)
+
+读取当前登录用户对 UP 主（通常为当前 Toy 的作者，见返回值 target）的年度数据，UP 主可用于制作「粉丝和 UP 主的年度回忆」类 Toy。
+
+- 因平台存储和计算成本，当前仅提供「用户 - 年度挚爱 UP 主」之间的数据：若 UP 主并非某用户的年度挚爱 UP 主，通常无法返回数据。UP 主在制作 Toy 时，需考虑访问 Toy 的用户没有该数据的情况。
+- 接口内置了「当前登录用户 - 年度挚爱 UP 主」的关系查询，UP 主编写 Toy 时直接调用即可。
+- 首次调用时平台弹出《年度礼物授权协议》确认框，Toy 不能修改或绕过；用户同意后才返回数据；授权按 Toy 记录，当前 Toy 同意后不再弹，其他 Toy 首次调用仍各弹一次。用户拒绝时 reject 为 user_denied，平台随即关闭当前 Toy。在当前 Toy 同意后，当前 Toy 的 getUserProfile 不再弹资料确认框。
+- 直接返回年度数据，失败时 Promise reject：未登录为 not_logged_in，用户拒绝授权为 user_denied，当前用户已实名且未满 14 周岁为 age_restricted（平台不提供年报数据），预览态和外部手机浏览器为 unsupported，数据暂不可用为 http_error。
+- 年度数据条目较多，可能存在一个用户部分条目数据为空的情况，请提前准备兜底体验。
+- 2026 年年报预计于 2026 年 12 月下旬正式上线，在此之前本接口仅返回示例假数据，仅供制作调试。
+- ⚠️ 年报数据将于 2027 年 3 月 31 日下线，之后调用会 reject（http_error），请提前准备兜底内容。
+
+参数：
+- `edition`: string（必填）- 期数，四位年份字符串（如 '2026'）。传数字 2026 或其他格式会抛 invalid_param
+
+返回值：`Promise<AnnualReport>`
+
+返回字段：
+- `target`: object | null - 年报对象「TA」，一般是当前 Toy 的作者；暂时获取不到时为 null
+- `target.nickname`: string - 昵称；暂时获取不到时为空字符串
+- `target.avatar`: string - 头像；暂时获取不到时为空字符串
+- `first_watch_date`: number | null - 本期第一次看 TA 的日期，unix 秒
+- `first_watch_video`: AuthorVideo | null - 第一次看的视频
+- `watch_duration`: number - 观看 TA 的时长，单位分钟
+- `watch_percentile`: number - 观看时长排名百分位，0 ~ 99.99，越大越靠前
+- `watch_month_cnt`: number - 有观看记录的月数，1 ~ 12
+- `duration_ratio`: number - 看 TA 的时长占你在 B站总时长的比例，0 ~ 1
+- `old_arch_cnt`: number | null - 考古了 TA 多少条旧作（本期之前发布的视频）
+- `oldest_arch_date`: number | null - 看过的最早一条视频的发布日期，unix 秒
+- `oldest_arch_video`: AuthorVideo | null - 看过的最早一条视频
+- `chase_arch_cnt`: number | null - 追更了 TA 多少条本期新视频
+- `live_join_cnt`: number - 进入 TA 直播间的场次数
+- `up_arch_cnt`: number | null - TA 本期公开投稿数
+- `up_live_cnt`: number - TA 本期开播次数
+- `n_watch_video`: AuthorVideo | null - N 刷视频：看了 3 次及以上的视频中次数最多的那个
+- `n_watch_last_date`: number | null - 最近一次看 N 刷视频的日期，unix 秒
+- `n_watch_cnt`: number | null - N 刷次数，最小 3
+- `likes_cnt`: number | null - 本期为 TA 点赞次数
+- `elec_cnt`: number | null - 本期为 TA 充电次数
+- `coin_cnt`: number | null - 本期为 TA 投币枚数
+- `interact_cnt`: number | null - 直播间互动次数，仅年度挚爱主播有
+- `up_like_cnt`: number | null - 你的评论 / 弹幕被 TA 点赞的次数
+- `up_reply_cnt`: number | null - 你的评论 / 弹幕被 TA 回复的次数
+- `up_main_area`: string | null - 你和 TA 共同的兴趣领域名；没有共同领域时为空字符串
+- `resonance_video`: AuthorVideo | null - 共同领域里你看过的 TA 播放量最高的视频
+- `hot_arch_list`: Array - 见证时刻，按优先级升序、最多 5 条；没有时为空数组
+- `hot_arch_list[].type`: number - 1 最晚投稿 / 2 最长视频 / 3 人气最高直播 / 4 播放最高 / 5 最近一次每周必看收录 / 6 最近一次上过热门 / 7 点赞最高 / 8 投币最多
+- `hot_arch_list[].video`: AuthorVideo - 视频条目的视频信息；直播条目或视频已删除、不可见时缺省
+- `hot_arch_list[].watch_date`: number - 视频条目为观众第一次看这个视频的日期，直播条目为该场直播的开播日期；unix 秒，没有时缺省
+- `hot_arch_list[].live`: object - 直播条目（type 为 3）的场次信息；视频条目或场次不存在时缺省
+- `hot_arch_list[].live.live_key`: string - 场次 ID
+- `hot_arch_list[].live.room_id`: number - 直播间长号
+- `hot_arch_list[].live.title`: string - 直播间当前标题，不是该场次开播时的标题
+- `hot_arch_list[].live.cover`: string - 直播间当前封面，不是该场次开播时的封面
+- `hot_arch_list[].live.jump_url`: string - 直播间跳转地址
+- `hot_arch_list[].live.status`: number - 0 已关播无回放 / 1 直播中 / 2 已关播有回放
+- `hot_arch_list[].live.replay_bvid`: string - 回放视频 BV 号；没有回放时缺省
+- `fans`: object | null - 直播粉丝关系，实时数据；暂时获取不到时为 null
+- `fans.medal`: object | null - 粉丝勋章；未持有时为 null
+- `fans.medal.name`: string - 勋章名称
+- `fans.medal.level`: number - 勋章等级
+- `fans.medal.is_light`: boolean - 是否点亮
+- `fans.guard_level`: number - 大航海等级：0 无 / 1 总督 / 2 提督 / 3 舰长
+- `fans.accompany_days`: number - 大航海陪伴天数（累计值），0 表示从未陪伴
+
+```js
+try {
+  const report = await toy.getAnnualReport({ edition: '2026' })
+  // 字段为 snake_case。可空字段为 null、计数为 0 时跳过对应内容
+  console.log(report.watch_duration, '分钟')
+  if (report.first_watch_video) {
+    console.log('第一次看的视频：', report.first_watch_video.title, report.first_watch_video.cover)
+  }
+  report.hot_arch_list.forEach(item => {
+    if (item.video) console.log('见证时刻（视频）', item.type, item.video.title)
+    if (item.live) console.log('见证时刻（直播）', item.live.title)
+  })
+  if (report.fans?.medal) console.log('粉丝勋章', report.fans.medal.name, report.fans.medal.level)
+} catch (error) {
+  if (error.type === 'not_logged_in') {
+    // 未登录：引导登录后再看
+  } else if (error.type === 'age_restricted') {
+    // 已实名且未满 14 周岁：平台不提供年报数据，展示不含年报数据的内容
+  } else {
+    // unsupported / http_error（含该用户没有 TA 的年度数据）：展示兜底内容
+  }
+}
+```
+
+### toy.getChargeUnlock(req)
+
+判断当前访问用户对当前 Toy 作者的包月充电档位是否达到指定金额，用于决定是否展示付费内容。需平台侧白名单开通，预览态返回 unsupported。minPrice 单位是分（1200 = 12 元）。⚠️ 仅充电档位 ≥ 12 元可解锁 Toy 内容；6 元档暂不支持解锁任何内容权益，门槛传 1200 以下不会让 6 元用户拿到内容。
+
+参数：
+- `minPrice`: number（必填）- 档位金额，单位分的正整数（12 元传 1200）。不接受 0、负数和小数；上限由平台控制，超限返回 invalid_argument。**建议填 1200**：6 元档（600）不支持解锁任何内容权益
+
+返回值：`Promise<ChargeUnlockResp>`
+
+```js
+const result = await toy.getChargeUnlock({ minPrice: 1200 }) // 12 元档
+
+if (result.status === 'ok' && result.data.unlocked) {
+  showPaidContent()
+} else if (result.status === 'ok') {
+  // 已查到，但档位不够：引导去充电
+  showPaywall()
+} else {
+  // unavailable / unauthorized / denied 等都不是「未解锁」，而是「没查成」或「不能查」，
+  // 一律按未解锁展示，并提示稍后再试，不要放行内容
+  showRetry()
+}
+```
+
+### toy.openChargePanel(req)
+
+拉起当前 Toy 作者的包月充电收银台，默认选中指定档位。必须在用户手势事件中调用。收银台地址由平台生成，Toy 不能自带 URL；Promise 完成只代表「已拉起」，不代表用户已付款。
+
+参数：
+- `minPrice`: number（必填）- 默认选中的档位金额，单位分的正整数，与 getChargeUnlock 同口径
+
+返回值：`Promise<void>`
+
+```js
+// 支付结果不由 openChargePanel 返回。用 onChargeUnlockChange 接「付款回来」：
+// SDK 自己监听页面重新可见并按上次的 minPrice 重查，结果变了才回调。
+const off = toy.onChargeUnlockChange(result => {
+  if (result.status === 'ok' && result.data.unlocked) showPaidContent()
+})
+
+button.addEventListener('click', async () => {
+  await toy.openChargePanel({ minPrice: 1200 })
+})
+```
+
+### toy.onChargeUnlockChange(listener)
+
+订阅「充电档位鉴权结果发生变化」，返回取消订阅函数。页面重新可见（Web 从收银台标签页切回、App 从收银台页返回）时，SDK 自动按上次 getChargeUnlock 的 minPrice 重查一次，status 变化或 unlocked 翻转才回调。上游查询失败不回调（不把抖动当未解锁）。收到回调请只改 UI、**不要整页刷新**，否则作品内存态（读到第几页）会丢。
+
+参数：
+- `listener`: (result: ChargeUnlockResp) => void（必填）- 鉴权结果变化时的回调，参数与 getChargeUnlock 的返回值同构
+
+返回值：`() => void`
+
+```js
+// 先查一次（提供门槛金额，也是比较基线）
+await toy.getChargeUnlock({ minPrice: 1200 })
+
+const off = toy.onChargeUnlockChange(result => {
+  if (result.status === 'ok' && result.data.unlocked) {
+    revealPaidChapter() // 原地换 UI，不要 location.reload()
+  }
+})
+
+// 组件卸载时取消
+off()
 ```
 
 ### toy.setCloudStorage(items)
@@ -231,6 +448,51 @@ const all = await toy.getCloudStorage()
 
 ```js
 await toy.removeCloudStorage(['level'])
+```
+
+### toy.setSharedStorage(storageId, items)
+
+批量写入共享存档（upsert），同 key 覆盖旧值。与云存储的区别在隔离维度：云存储按「玩家 + 本 Toy」隔离，共享存档按「玩家 + 存档」隔离——被授权的多个作者名下全部 Toy 读写同一份数据。storageId 在创作中心「共享存档」页创建后复制。作者未被授权时报错 no_permission，存档被创建者删除后报错 not_found，这两类重试无用。
+
+参数：
+- `storageId`: string（必填）- 共享存档标识，形如 st_ 加 16 位小写字母数字，在创作中心「共享存档」页创建后复制
+- `items`: Record<string, string>（必填）- key/value 键值对，约束与云存储一致：key 只能含字母、数字、下划线和短横线，≤128 字节，且不能以 __ 开头；value 为字符串，≤1024 字节
+
+返回值：`Promise<void>`
+
+```js
+await toy.setSharedStorage('st_7f3a9c2e8b1d4g5h', { progress: '42' })
+```
+
+### toy.getSharedStorage(storageId, keys?)
+
+读取共享存档。不传 keys 读取当前玩家在该存档下的全部数据；未命中的 key 不出现在结果中。私有云存储的数据不会自动迁移到共享存档。
+
+参数：
+- `storageId`: string（必填）- 共享存档标识
+- `keys`: string[]（可选）- 要读取的 key 列表；不传或空数组表示读取全部
+
+返回值：`Promise<Record<string, string>>`
+
+```js
+// 读取指定 key
+const { progress } = await toy.getSharedStorage('st_7f3a9c2e8b1d4g5h', ['progress'])
+// 读取全部
+const all = await toy.getSharedStorage('st_7f3a9c2e8b1d4g5h')
+```
+
+### toy.removeSharedStorage(storageId, keys)
+
+批量删除共享存档中指定的 key。只删当前玩家自己的值，不影响其他玩家；创建者在创作中心删除整个存档才会让所有玩家都取不到。
+
+参数：
+- `storageId`: string（必填）- 共享存档标识
+- `keys`: string[]（必填）- 要删除的 key 列表
+
+返回值：`Promise<void>`
+
+```js
+await toy.removeSharedStorage('st_7f3a9c2e8b1d4g5h', ['progress'])
 ```
 
 ### toy.submitScore(req)
@@ -400,6 +662,128 @@ requestMode({ immersive: true }) // 沉浸模式
 // 页面卸载或不再需要时调用 off() 取消监听
 ```
 
+### toy.onPlayerChange(listener)
+
+监听宿主视频播放器状态（播放位置、总时长、是否播放中、是否静音、播放速率），仅 B站 App 内支持。在起播 / 暂停 / 恢复 / seek / 变速 / 卡顿 / 完播时推送，另有每 10 秒一次心跳；匀速播放期间不推送，不能靠回调频率驱动进度条。position、rate、timestamp 是同一时刻的采样值，实时进度需自行插值：position + (Date.now() - timestamp) * rate。
+
+参数：
+- `listener`: (state: ToyPlayerState) => void（必填）- 状态通知。开始监听后先收到一次当前完整状态；state.changedFields 标出本次变化的字段（不含 timestamp），首次推送包含全部字段。position / duration 单位为毫秒，duration 未知时为 0；rate 为实际播放速率，暂停 / 卡顿 / 未就绪时为 0
+
+返回值：`() => void`
+
+```js
+const off = toy.onPlayerChange((state) => {
+  // 只关心播放 / 静音切换时，按 changedFields 过滤
+  if (state.changedFields.includes('playing')) updatePlayButton(state.playing)
+  latest = state
+})
+
+// 实时进度 = position + (Date.now() - timestamp) * rate
+const now = latest.position + (Date.now() - latest.timestamp) * latest.rate
+
+// 页面卸载或不再需要时调用 off() 取消监听
+```
+
+### toy.getPlayerState()
+
+调用一次即可获取一次播放器当前完整状态，无需先订阅；如果希望在状态变化时自动收到通知，再使用 toy.onPlayerChange()。仅 B站 App 内支持。
+
+返回值：`Promise<ToyPlayerState>`
+
+```js
+const state = await toy.getPlayerState()
+console.log(state.position, state.duration, state.playing, state.muted)
+// 主动读取返回的 changedFields 恒为空数组
+```
+
+### toy.setPlayerState(req)
+
+原子更新播放位置、播放 / 暂停与静音，仅 B站 App 内支持。未传的项保持当前状态，三项都不传会本地抛 invalid_param。多项同时变更必须一次调用，分多次调用会出现可观测的中间状态。
+
+参数：
+- `position`: number（可选）- 目标播放位置，单位毫秒，须为非负整数，否则本地抛 invalid_param；超出总时长时由端侧处理
+- `playing`: boolean（可选）- true 播放，false 暂停；不传保持当前状态
+- `muted`: boolean（可选）- 是否静音；不传保持当前状态
+
+返回值：`Promise<void>`
+
+```js
+// 跳到 30 秒处并开始播放：一次下发
+await toy.setPlayerState({ position: 30000, playing: true })
+
+// 只切换静音
+await toy.setPlayerState({ muted: true })
+```
+
+### toy.onPageClose(listener)
+
+监听页面关闭，端侧在销毁 WebView 前发出通知，仅 B站 App 内支持。不保证送达：端侧不等待回执就销毁 WebView，回调可能来不及执行，不能作为唯一的存档时机，需要持久化的数据应在产生时就写入（如 setCloudStorage）。通知是一次性的，关闭后才注册的监听不会补收。
+
+参数：
+- `listener`: () => void（必填）- 关闭通知回调，无参数
+
+返回值：`() => void`
+
+```js
+const off = toy.onPageClose(() => {
+  // 尽力而为的收尾，不要依赖它保存关键数据
+  flushPendingLog()
+})
+```
+
+### toy.checkInputSafety(req)
+
+检测玩家输入的文本是否可以展示（昵称、留言、涂鸦标题等会被其他玩家看到的内容），需用户已登录。无需在平台侧申请权限点，所有 Toy 直接可用。只返回 ok / rejected / unavailable 三态，unavailable 表示检测没跑成，不等于通过。
+
+参数：
+- `text`: string（必填）- 待检测文本，非空且 ≤16384 字节（UTF-8，一个汉字算 3 字节），超限本地抛 invalid_param
+- `scene`: string（可选）- 业务标记，用于区分昵称 / 留言等入口，不参与判定；字符集仅 [A-Za-z0-9_.:-]、≤64 字节，不能用中文
+
+返回值：`Promise<CheckInputSafetyResp>`
+
+```js
+const { passed, status } = await toy.checkInputSafety({
+  text: nicknameInput.value,
+  scene: 'nickname', // 可选，自己的业务标记，不影响判定
+})
+
+if (passed) {
+  saveNickname(nicknameInput.value)
+} else if (status === 'rejected') {
+  tip('这个昵称不能用，换一个试试')
+} else {
+  // status === 'unavailable'：检测没跑成，不要当作通过
+  tip('暂时没法验证，稍后再试')
+}
+```
+
+## 安全区适配（safeArea）
+
+App 内 Toy 是全屏展示：顶部的系统状态栏、胶囊导航和底部的互动条都会压住页面边缘。不要用 window.innerHeight 或 CSS env(safe-area-inset-*) 自己估，直接读 SDK 返回的 safeArea，给正文留出安全区域。
+
+- safeArea 的单位是 CSS px，包含 top / right / bottom / left，可直接用于布局，不需要再除 devicePixelRatio。
+- safeArea 是沉浸态下顶部状态栏与底部系统导航栏占用的空间；非沉浸态下通常为 0（容器已经让开）。
+- 容器右上角的按钮区域被视为安全区域，不计入 safeArea：内容若会与它重叠，需要自行在右上角留白。
+- 方向和尺寸会变：首屏读一次不够，用 onContainerChange 跟进，或在 resize / 旋转后重新 getContainerState()。
+- 仅 B站 App 内支持；Web 端没有容器，调用容器能力会抛 unsupported，按普通浏览器布局即可。
+
+```js
+const stage = document.querySelector('#stage')
+
+// 先读一次当前容器状态
+const state = await toy.getContainerState()
+stage.style.paddingTop = state.safeArea.top + 'px'
+stage.style.paddingBottom = state.safeArea.bottom + 'px'
+
+// 方向或可用尺寸变化后重新取，不要只在首屏算一次
+const off = toy.onContainerChange((next) => {
+  stage.style.paddingTop = next.safeArea.top + 'px'
+  stage.style.paddingBottom = next.safeArea.bottom + 'px'
+})
+
+// 页面卸载或不再需要时调用 off() 取消监听
+```
+
 ## 环境支持
 
 | 方法 | B站 App | Web 端 |
@@ -409,15 +793,24 @@ requestMode({ immersive: true }) // 沉浸模式
 | saveImageToAlbum | ✅ | ❌ |
 | share | ✅ | ❌ |
 | getQrCode | ✅ | ✅ |
+| sharePicture | ✅ | ❌ |
 | closeBrowser | ✅ | ❌ |
 | getUserProfile | ✅ | ✅ |
 | getAuthorProfile | ✅ | ✅ |
 | getAuthorVideos | ✅ | ✅ |
+| getAuthorVideoRange | ✅ | ✅ |
 | getAuthorRelation | ✅ | ✅ |
 | getVideoUserActions | ✅ | ✅ |
+| getAnnualReport | ✅ | ✅ |
+| getChargeUnlock | ✅ | ✅ |
+| openChargePanel | ✅ | ✅ |
+| onChargeUnlockChange | ✅ | ✅ |
 | setCloudStorage | ✅ | ✅ |
 | getCloudStorage | ✅ | ✅ |
 | removeCloudStorage | ✅ | ✅ |
+| setSharedStorage | ✅ | ✅ |
+| getSharedStorage | ✅ | ✅ |
+| removeSharedStorage | ✅ | ✅ |
 | submitScore | ✅ | ✅ |
 | getRankList | ✅ | ✅ |
 | getMyRank | ✅ | ✅ |
@@ -427,12 +820,18 @@ requestMode({ immersive: true }) // 沉浸模式
 | onContainerChange | ✅ | ❌ |
 | getContainerState | ✅ | ❌ |
 | setContainerMode | ✅ | ❌ |
+| onPlayerChange | ✅ | ❌ |
+| getPlayerState | ✅ | ❌ |
+| setPlayerState | ✅ | ❌ |
+| onPageClose | ✅ | ❌ |
+| checkInputSafety | ✅ | ✅ |
 
 ## 注意事项
 
 - Web 端不支持的方法调用后会抛出错误，建议先用 `isSupport` 判断当前环境是否支持再调用。
 - 所有错误都带 `[ToySDK]` 前缀，便于排查。
 - `navigate` 必须在用户手势事件（如 click）中调用，否则会被拦截。
+- `openChargePanel` 同样必须在用户手势事件（如 click）中调用：它要打开新页面，脱离手势上下文会被浏览器拦成弹窗。不要在定时器、网络回调或页面加载时自动调用。
 - OpenID 模式启用后，`getUserProfile` 会直接复用未过期的 profile v1/v2 授权；没有有效授权时，首次调用由平台展示“获取你的昵称、头像和当前 Toy 内用户标识”固定数据确认弹窗，Toy 不能自定义弹窗内容，接受后写入 v2 授权并一次返回头像、昵称和 `toyOpenId`。用户资料确认不区分 v1/v2 文案配置；模式关闭时省略 `toyOpenId`。
 - `toyOpenId` 是当前登录用户在当前 Toy 内的稳定假名标识，调用方不能指定 UID/MID 或 Toy ID；它不是鉴权凭证，不得写入埋点和公开日志。
 - 作者互动关系和视频互动数据只校验登录态，不触发用户数据确认弹窗；只返回业务字段与稳定状态，不返回 UID、MID、登录令牌或用户数据确认挑战值。外部手机浏览器返回 `unsupported` 并引导打开 B站 App。
@@ -450,10 +849,19 @@ requestMode({ immersive: true }) // 沉浸模式
 - 使用摄像头或麦克风结束后必须调用 `stopMedia`，确认媒体轨道停止并释放设备。
 - 容器状态（`onContainerChange` / `getContainerState` / `setContainerMode`）仅 B站 App 内支持。`onContainerChange` 同步返回取消函数，调用后先收到一次完整状态；`getContainerState` 调用一次即可获取一次当前容器状态，`changedFields` 为空数组。状态包含 `deviceType`（phone / tablet / desktop / unknown）、CSS px 单位的 `viewport` 与 `safeArea`、`orientation`（portrait / landscape）和 `immersive`。
 - `setContainerMode` 是方向与沉浸状态的原子更新：未传字段保持当前状态，两个字段都不传会抛 `invalid_param`。`Promise<void>` 不是成功回执，不能据此判断已生效。想确认是否切换成功：先用 `onContainerChange()` 监听状态，再调用 `setContainerMode()`。如果之后收到的状态与你设置的一致，说明切换成功；没有收到变化时，无法确认是否成功（旧客户端可能不会通知状态变化）。`orientation: 'auto'` 表示跟随系统；手机不支持横屏且非沉浸组合。Web 端调用容器能力会抛 `unsupported`。
+- 玩家输入内容检测（`checkInputSafety`）：**无需在平台侧申请权限点，所有 Toy 直接可用**，`isSupport('checkInputSafety')` 为 `true` 即可直接调用。只返回 `ok` / `rejected` / `unavailable` 三态，**`unavailable` 表示检测没跑成，不等于通过**，请提示玩家稍后再试，不要放行内容。不返回命中的词、位置、规则与供应商信息，因此无法在 Toy 内标出「哪几个字有问题」。`text` ≤16384 字节（UTF-8，一个汉字 3 字节），`scene` 只是你自己的业务标记、不参与判定且不能用中文（字符集仅 `[A-Za-z0-9_.:-]`）。有调用配额：请在玩家提交内容时检测，不要每次按键都调用，命中限流会抛 `307044` 而不是返回 `unavailable`。App 与 Web 行为一致，只校验登录态，不触发用户数据确认弹窗。
+- 按时间取作者视频（`getAuthorVideoRange`）：`start` / `end` 为 unix 秒、闭区间，都可省略（默认最近一年），跨度不超过 366 天。直接返回 `{ items, hasMore }`，不带 `status`，失败时 Promise reject。每次最多 50 条、按发布时间正序；`hasMore` 为 `true` 时下一次 `start` 填本批最后一条的 `publishTime`、`end` 沿用首次的值续取，并按 `bvid` 去重。时间段内没有视频时 `items` 为空数组。
+- 年报数据（`getAnnualReport`）：每个观众看到的都是自己的那一份。字段名为 snake_case，与其他能力的驼峰命名不同；`*_video` 与 `hot_arch_list[].video` 的结构与 `getAuthorVideos` 的 `data` 一致，`hot_arch_list[].live` 是直播场次（`title` / `cover` 是直播间**当前**的标题与封面，不是该场开播时的）。值为 `null` 表示该项对当前观众不适用（如年度挚爱 UP 没有直播间互动类指标，年度挚爱主播没有视频类指标），或对应视频已删除、不可见，请按缺省展示。`fans`（粉丝勋章、大航海等级、陪伴天数）是实时数据，不是年度统计值。
+- `getAnnualReport` 直接返回年报数据，不带 `status`：部分视频、直播或粉丝关系暂时获取不到时，对应字段为 `null`，其余字段照常可用。失败时 Promise reject，请用 `try/catch` 处理：`error.type` 为 `not_logged_in` 是未登录，`user_denied` 是用户拒绝了《年度礼物授权协议》（平台会随即关闭当前 Toy，不必再做处理），`age_restricted` 是当前用户已实名且未满 14 周岁（平台不提供年报数据，重试无用），`unsupported` 是预览态或外部手机浏览器，`http_error` 是数据暂不可用——**不等于「这个观众没有年报」**，请展示兜底页并提示稍后再来。年报正式上线前返回的是示例数据，只用于制作调试，不要据此对外宣传具体数字。**年报数据将于 2027 年 3 月 31 日下线**，之后调用会 reject（`http_error`），年报类 Toy 需要提前准备下线后的兜底内容（例如「本期年报已结束」），不要让页面空白或报错。
+- 充电档位（`getChargeUnlock` / `openChargePanel`）：**需平台侧白名单开通**，未开通时 `getChargeUnlock` 返回 `unsupported`；预览态两个能力都不可用（`isSupport` 返回 `false`）。`minPrice` 单位是**分**，12 元要传 `1200`——按元传会把 12 元档当成 0.12 元档，是最容易出的错。
+- `getChargeUnlock` 只有 `status === 'ok'` 时才能读 `data.unlocked`。`unavailable` 表示没查成、`unauthorized` 表示未登录、`denied` 表示用户未授权读取互动关系，**三者都不等于「未解锁」也不等于「已解锁」**，请一律按未解锁展示并提示稍后再试，不要放行付费内容。
+- `openChargePanel` 的 Promise 完成只代表收银台已拉起，**不是支付成功回执**，也不返回订单信息。支付结果要靠回到 Toy 后重新调 `getChargeUnlock` 确认：端内收银台整页打开、关闭后 Toy 页面重新可见，Web 端在新标签页打开、用户切回本页，两种情况都可以用 `visibilitychange` 触发重新鉴权。
+- 鉴权结果不缓存，但也**不要轮询**：在首次展示付费内容前、以及页面重新可见时各查一次即可。接口有调用配额，高频轮询会命中限流。
+- Web 端的「App 内限制」：作者可以在发布页勾选「仅允许在哔哩哔哩 App 内打开」。该设置依据浏览器 UA 判定，**是降低绕过风险的措施，不是鉴权边界**，付费内容的真正保护仍在服务端鉴权上。
 
 ## 频率限制与最佳实践
 
-云存储与排行榜接口按 Toy 限制调用频率：同一个 Toy 的全部玩家共享一份额度，玩家越多越要压低单人请求数。超限后请求会被拒绝并报错 307044「请求过于频繁，请稍后再试」。具体阈值不对外公开且可能调整，按下面几条控制调用节奏即可，正常游玩不会触发。
+云存储、共享存档与排行榜接口按 Toy 限制调用频率：同一个 Toy 的全部玩家共享一份额度，玩家越多越要压低单人请求数。超限后请求会被拒绝并报错 307044「请求过于频繁，请稍后再试」。具体阈值不对外公开且可能调整，按下面几条控制调用节奏即可，正常游玩不会触发。
 
 1. **云存储当作存档，不要当作内存**：游玩中先读写页面内存变量，只在结算、过关、页面隐藏这类关键节点落盘；不要每次得分、每次点击都写。
 2. **批量代替循环**：一次 setCloudStorage 带多个键值对、一次 getCloudStorage 带多个 key，不要 for 循环逐 key 调用。
